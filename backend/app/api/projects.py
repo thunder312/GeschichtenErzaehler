@@ -93,6 +93,47 @@ def geruest_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
     return {"gespeichert": str(ziel_pfad), "gesichert_als": gesichert_als}
 
 
+@router.put("/{ordner}/verbotsliste")
+def verbotsliste_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
+                            settings: Settings = Depends(get_settings)):
+    pfad = projekt_pfad(settings, ordner) / "projekt"
+    ziel_pfad, gesichert_als = pd.schreib(pd.verbotsliste_datei(pfad), anfrage.inhalt)
+    return {"gespeichert": str(ziel_pfad), "gesichert_als": gesichert_als}
+
+
+PERSONA_NAMEN = (
+    "architekt", "autor", "pruefer_anachronismus",
+    "chronist", "pruefer_kontinuitaet", "lektor", "anachronismen_korrektur",
+)
+
+
+@router.get("/{ordner}/personas", response_model=list[str])
+def personas_auflisten(ordner: str, settings: Settings = Depends(get_settings)):
+    pfad = projekt_pfad(settings, ordner) / "personas"
+    return [name for name in PERSONA_NAMEN if (pfad / f"{name}.txt").exists()]
+
+
+@router.get("/{ordner}/personas/{name}", response_class=PlainTextResponse)
+def persona_lesen(ordner: str, name: str, settings: Settings = Depends(get_settings)):
+    if name not in PERSONA_NAMEN:
+        raise HTTPException(404, f"Unbekannte Persona '{name}'.")
+    projekt_root = projekt_pfad(settings, ordner)
+    try:
+        return pd.persona_lesen(projekt_root, name)
+    except pd.DateiFehlt as e:
+        raise HTTPException(404, str(e)) from e
+
+
+@router.put("/{ordner}/personas/{name}")
+def persona_schreiben(ordner: str, name: str, anfrage: GeruestSchreibenAnfrage,
+                       settings: Settings = Depends(get_settings)):
+    if name not in PERSONA_NAMEN:
+        raise HTTPException(404, f"Unbekannte Persona '{name}'.")
+    projekt_root = projekt_pfad(settings, ordner)
+    _, gesichert_als = pd.schreib(projekt_root / "personas" / f"{name}.txt", anfrage.inhalt)
+    return {"gesichert_als": gesichert_als}
+
+
 @router.get("/{ordner}/kapitel/{n}", response_class=PlainTextResponse)
 def kapitel_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings)):
     pfad = projekt_pfad(settings, ordner) / "projekt"

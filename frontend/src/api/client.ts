@@ -75,6 +75,23 @@ export const api = {
 
   gesamt: (ordner: string) => anfrage<string>(`/api/projects/${ordner}/gesamt`),
 
+  verbotslisteSchreiben: (ordner: string, inhalt: string) =>
+    anfrage<{ gesichert_als: string | null }>(
+      `/api/projects/${ordner}/verbotsliste`,
+      { method: "PUT", body: JSON.stringify({ inhalt }) },
+    ),
+
+  personasAuflisten: (ordner: string) => anfrage<string[]>(`/api/projects/${ordner}/personas`),
+
+  personaLesen: (ordner: string, name: string) =>
+    anfrage<string>(`/api/projects/${ordner}/personas/${name}`),
+
+  personaSchreiben: (ordner: string, name: string, inhalt: string) =>
+    anfrage<{ gesichert_als: string | null }>(
+      `/api/projects/${ordner}/personas/${name}`,
+      { method: "PUT", body: JSON.stringify({ inhalt }) },
+    ),
+
   pruefen: (ordner: string, n: number, sshZielId?: string | null) =>
     anfrage<BefundeAntwort>(
       `/api/projects/${ordner}/pruefen/${n}${sshQuery(sshZielId)}`,

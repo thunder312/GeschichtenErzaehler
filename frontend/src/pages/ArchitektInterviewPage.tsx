@@ -14,6 +14,25 @@ interface ChatEintrag {
   text: string;
 }
 
+interface Antwortoption {
+  buchstabe: string;
+  zeile: string;
+}
+
+/** Erkennt feste Mehrfachauswahl-Optionen ("a) ...", "b) ...", ...) in einer
+ * Architekten-Frage, damit sie als Knoepfe statt nur als Freitext bedienbar
+ * sind - der Architekt formuliert Fragen fast immer in diesem Schema. */
+function optionenErkennen(text: string): Antwortoption[] {
+  const treffer: Antwortoption[] = [];
+  for (const zeile of text.split("\n")) {
+    const match = zeile.match(/^\s*([a-f])\)\s*(.+)$/i);
+    if (match) {
+      treffer.push({ buchstabe: match[1].toLowerCase(), zeile: zeile.trim() });
+    }
+  }
+  return treffer;
+}
+
 /** Geführtes Architekten-Interview - ersetzt den frueheren Rohtext-Editor
  * fuer ein noch leeres Gerüst. Portiert aus pre-GUI/novelle.py's
  * cmd_architekt(): ein echtes Mehrschritt-Gespraech ueber WebSocket, bei
@@ -99,6 +118,11 @@ export function ArchitektInterviewPage({ ordner, sshZiele, onAbgeschlossen }: Ar
     socketRef.current?.send(JSON.stringify({ eingabe: "ende" }));
   }
 
+  const kannAntworten = !wartetAufAntwort && !abgeschlossen && !beendetOhneSpeichern;
+  const letzteNachricht = nachrichten.at(-1);
+  const optionen =
+    kannAntworten && letzteNachricht?.rolle === "architekt" ? optionenErkennen(letzteNachricht.text) : [];
+
   if (!gestartet) {
     return (
       <div className="p-6">
@@ -166,6 +190,20 @@ export function ArchitektInterviewPage({ ordner, sshZiele, onAbgeschlossen }: Ar
           <div ref={chatEndeRef} />
         </div>
       </Card>
+
+      {optionen.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {optionen.map((option) => (
+            <button
+              key={option.buchstabe}
+              onClick={() => setEingabe(option.zeile)}
+              className="rounded-full border border-border bg-surface-hover px-3.5 py-1.5 text-sm text-text transition-colors hover:border-accent hover:text-accent-light"
+            >
+              {option.zeile}
+            </button>
+          ))}
+        </div>
+      )}
 
       {!abgeschlossen && !beendetOhneSpeichern && (
         <div className="flex gap-2">

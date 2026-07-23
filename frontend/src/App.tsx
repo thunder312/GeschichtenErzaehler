@@ -6,6 +6,7 @@ import { ArchitektInterviewPage } from "./pages/ArchitektInterviewPage";
 import { GeruestPage } from "./pages/GeruestPage";
 import { LektorierenPage } from "./pages/LektorierenPage";
 import { ProjektePage } from "./pages/ProjektePage";
+import { PersonasPage } from "./pages/PersonasPage";
 import { PruefenAnwendenPage } from "./pages/PruefenAnwendenPage";
 import { SchreibenPage } from "./pages/SchreibenPage";
 import { SshZielePage } from "./pages/SshZielePage";
@@ -61,6 +62,7 @@ function App() {
           { id: "pruefen", label: "Prüfen & Anwenden", icon: "🔍" },
           { id: "lektorieren", label: "Lektorieren", icon: "🪄" },
           { id: "stand", label: "Stand & Export", icon: "📦" },
+          { id: "personas", label: "Personas", icon: "🎭" },
         ]
       : []),
     { id: "ssh", label: "SSH-Ziele", icon: "🔌" },
@@ -144,6 +146,8 @@ function App() {
             }}
           />
         )}
+
+        {activeTab === "personas" && aktuellesProjekt && <PersonasPage ordner={aktuellesProjekt} />}
 
         {activeTab === "ssh" && <SshZielePage sshZiele={sshZiele} onGeaendert={sshZieleLaden} />}
       </main>

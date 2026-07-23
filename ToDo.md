@@ -2,11 +2,12 @@
 - [ ] komplett mit Docker-compose-files die im installer modifiziert werden können,.
 - 
 # Features
-- [ ] Architekten Interview
+- [x] Architekten Interview
+  - [x] feste Antworten (a, b, c) sollen per Butten gewählt werden können.
 - [ ] Epochen-Erstellung (Interview)
 - [ ] Nicht-Netzwerk KI-Ziele (lokal und/oder Windows)
-- [ ] Persona bearbeiten
-- [ ] Verbotsliste bearbeiten
+- [x] Persona bearbeiten
+- [x] Verbotsliste bearbeiten
 - [ ] Hilfe-System für Anwender
 - [ ] KI-Fehler-Logging
 - [ ] Zeit-Überbrückung mit Benutzer-Unterhaltung (docs/unnützesWissen.csv in DB anlegen und anzeigen, während die KI arbeitet)
