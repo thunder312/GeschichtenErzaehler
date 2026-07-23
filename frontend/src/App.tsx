@@ -3,6 +3,7 @@ import { api } from "./api/client";
 import type { ProjektDetail, ProjektKurz, SSHZiel } from "./api/types";
 import { TabBar } from "./components/TabBar";
 import { ArchitektInterviewPage } from "./pages/ArchitektInterviewPage";
+import { EpocheErstellenPage } from "./pages/EpocheErstellenPage";
 import { GeruestPage } from "./pages/GeruestPage";
 import { LektorierenPage } from "./pages/LektorierenPage";
 import { ProjektePage } from "./pages/ProjektePage";
@@ -65,6 +66,7 @@ function App() {
           { id: "personas", label: "Personas", icon: "🎭" },
         ]
       : []),
+    { id: "epoche", label: "Epoche erstellen", icon: "🏛️" },
     { id: "ssh", label: "KI-Ziele", icon: "🔌" },
   ];
 
@@ -148,6 +150,8 @@ function App() {
         )}
 
         {activeTab === "personas" && aktuellesProjekt && <PersonasPage ordner={aktuellesProjekt} />}
+
+        {activeTab === "epoche" && <EpocheErstellenPage />}
 
         {activeTab === "ssh" && <SshZielePage sshZiele={sshZiele} onGeaendert={sshZieleLaden} />}
       </main>

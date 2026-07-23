@@ -1,11 +1,10 @@
 # Installer
-- [ ] komplett mit Docker-compose-files die im installer modifiziert werden können,.
-- 
+- [ ] komplett mit Docker-compose-files die im installer modifiziert werden können.
 # Features
 - [x] Architekten Interview
   - [x] feste Antworten (a, b, c) sollen per Butten gewählt werden können.
   - [x] das Architekten-Interview für spätere Referenz im Projekt ablegen.
-- [ ] Epochen-Erstellung (Interview)
+- [x] Epochen-Erstellung (Interview)
 - [x] Nicht-Netzwerk KI-Ziele (lokal und/oder Windows)
 - [x] Persona bearbeiten
 - [x] Verbotsliste bearbeiten

@@ -10,6 +10,27 @@ class EpocheKurz(BaseModel):
     name: str
 
 
+class EpocheErstellenAnfrage(BaseModel):
+    name: str = Field(min_length=1)
+    erfunden: bool
+    beschreibung: str = Field(min_length=1)
+    zeitraum: str = Field(min_length=1)
+    orte: str = Field(min_length=1)
+    gesellschaft: str = Field(min_length=1)
+    statusregel: str = Field(min_length=1)
+    rang_wort: str = ""
+    anreden: str = ""
+    nebenstrang_typen: str = ""
+    vorbild_franchise: str = ""
+    verbote_start: str = ""
+
+
+class EpocheErstellenAntwort(BaseModel):
+    name: str
+    ordner: str
+    dateien: dict[str, str]
+
+
 class ProjektKurz(BaseModel):
     ordner: str
     titel: str | None = None
