@@ -34,8 +34,18 @@ body,
 
 body {
   margin: 0;
-  background-color: var(--color-bg);
   color: var(--color-text);
+  background-color: var(--color-bg);
+  /* Zwei sehr weiche, ambient wirkende Glow-Flecken in Gruentoenen, oben
+     im Viewport, die ins Anthrazit ausblenden - reine Lichtstimmung hinter
+     Header/Tabs, keine Bewegung, keine Ablenkung vom Lesen. Karten liegen
+     auf einer eigenen deckenden Oberflaeche (bg-surface) und werden davon
+     nicht beeinflusst. */
+  background-image:
+    radial-gradient(1100px 620px at 12% -10%, color-mix(in srgb, var(--color-accent) 32%, transparent), transparent 70%),
+    radial-gradient(850px 560px at 90% -5%, color-mix(in srgb, var(--color-accent-light) 22%, transparent), transparent 70%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 ::selection {
