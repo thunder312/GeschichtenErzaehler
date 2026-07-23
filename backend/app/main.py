@@ -14,7 +14,7 @@ gemountet werden.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import pipeline, projects, ssh_targets
+from app.api import architekt, pipeline, projects, ssh_targets
 from app.config import get_settings
 from app.db import init_db
 
@@ -34,6 +34,7 @@ app.add_middleware(
 app.include_router(projects.router)
 app.include_router(pipeline.router)
 app.include_router(ssh_targets.router)
+app.include_router(architekt.router)
 
 
 @app.get("/api/health")

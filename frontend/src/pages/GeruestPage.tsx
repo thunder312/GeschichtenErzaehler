@@ -8,16 +8,16 @@ interface GeruestPageProps {
   ordner: string;
   projekt: ProjektDetail | null;
   onGeaendert: () => void;
+  onInterviewStarten: () => void;
 }
 
-/** "Architekt"-Tab. Das volle interaktive Interview aus novelle.py
- * (13 Fragen per input()) ist hier bewusst noch nicht als gefuehrter Dialog
- * nachgebaut - fuer den ersten Ausbauschritt kann das Gerüst direkt als
- * Markdown editiert werden. Die Feldererkennung (Jahr, Jugendschutz-Stufe,
- * Autor-Modell, Kapitelplan, ...) laeuft serverseitig exakt wie im CLI
- * (siehe backend/app/core/geruest.py) und wird hier zur Kontrolle
- * angezeigt. */
-export function GeruestPage({ ordner, projekt, onGeaendert }: GeruestPageProps) {
+/** Rohtext-Ansicht von geruest.md, fuer die manuelle Nachjustierung NACH dem
+ * Architekten-Interview (siehe ArchitektInterviewPage - das ist der
+ * eigentliche Weg, ein Gerüst zu erzeugen). Die Feldererkennung (Jahr,
+ * Jugendschutz-Stufe, Autor-Modell, Kapitelplan, ...) laeuft serverseitig
+ * exakt wie im CLI (siehe backend/app/core/geruest.py) und wird hier zur
+ * Kontrolle angezeigt. */
+export function GeruestPage({ ordner, projekt, onGeaendert, onInterviewStarten }: GeruestPageProps) {
   const [inhalt, setInhalt] = useState(projekt?.geruest ?? "");
   const [wirdGespeichert, setWirdGespeichert] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
@@ -45,6 +45,9 @@ export function GeruestPage({ ordner, projekt, onGeaendert }: GeruestPageProps) 
           <h2 className="font-heading text-lg font-semibold tracking-wide text-text">🗺️ geruest.md</h2>
           <div className="flex items-center gap-3">
             {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
+            <Button variant="secondary" onClick={onInterviewStarten}>
+              Interview neu führen
+            </Button>
             <Button onClick={speichern} disabled={wirdGespeichert}>
               {wirdGespeichert ? "Speichert..." : "Speichern"}
             </Button>

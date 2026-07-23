@@ -17,6 +17,7 @@ import shutil
 import time
 from pathlib import Path
 
+from app.core import geruest as _geruest
 from app.core.textutil import woerter
 
 EPOCHE_PERSONA_DATEIEN = ("architekt.txt", "autor.txt", "pruefer_anachronismus.txt")
@@ -117,3 +118,32 @@ def epoche_von_projekt(ziel: Path) -> str | None:
 def woerter_im_kapitel(projekt: Path, n: int) -> int:
     text = lies(kapitel_datei(projekt, n), pflicht=False, ersatz="")
     return woerter(text)
+
+
+def projektordner_umbenennen(projekt_root: Path, geruest_text: str) -> str | None:
+    """Versucht, den Projektordner nach dem im Geruest gewaehlten Titel
+    umzubenennen - portiert aus novelle.py's
+    _projektordner_nach_titel_umbenennen(). Nur direkt nach dem
+    Architekten-Gespraech sinnvoll, solange noch kein Kapitel existiert.
+    Gibt den neuen Ordnernamen zurueck, falls umbenannt wurde, sonst None
+    (kein Fehler - best effort, wie im Original)."""
+    if vorhandene_kapitel(projekt_root / "projekt"):
+        return None
+
+    titel = _geruest.titel_erkennen(geruest_text)
+    if not titel:
+        return None
+
+    neuer_name = _geruest.ordnername_aus_titel(titel)
+    if projekt_root.name == neuer_name:
+        return None
+
+    neuer_pfad = projekt_root.parent / neuer_name
+    if neuer_pfad.exists():
+        return None
+
+    try:
+        projekt_root.rename(neuer_pfad)
+    except OSError:
+        return None
+    return neuer_name

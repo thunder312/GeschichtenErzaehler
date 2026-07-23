@@ -158,3 +158,11 @@ export function schreibenWebSocketUrl(
   const query = params.toString() ? `?${params.toString()}` : "";
   return `${protokoll}://${window.location.host}/api/projects/${ordner}/ws/schreiben/${n}${query}`;
 }
+
+export function architektWebSocketUrl(ordner: string, sshZielId?: string | null): string {
+  const protokoll = window.location.protocol === "https:" ? "wss" : "ws";
+  const params = new URLSearchParams();
+  if (sshZielId) params.set("ssh_ziel_id", sshZielId);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return `${protokoll}://${window.location.host}/api/projects/${ordner}/ws/architekt${query}`;
+}

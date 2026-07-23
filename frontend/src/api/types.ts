@@ -102,3 +102,18 @@ export type SchreibenNachricht =
   | { phase: "pruefen"; typ: "done"; text: string }
   | { phase: "abgeschlossen"; kapitel_text: string }
   | { phase: "fehler"; typ: "error"; text: string };
+
+// WebSocket-Nachrichten von /api/projects/{ordner}/ws/architekt
+export type ArchitektNachricht =
+  | { phase: "frage"; typ: "start" }
+  | { phase: "frage"; typ: "denkt_nach" }
+  | { phase: "frage"; typ: "fertig"; text: string }
+  | {
+      phase: "abgeschlossen";
+      geruest: string;
+      ausgangslage_gespeichert: boolean;
+      gesichert_als: string | null;
+      neuer_ordner: string;
+    }
+  | { phase: "beendet_ohne_speichern" }
+  | { phase: "fehler"; typ: "error"; text: string };

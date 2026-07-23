@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "./api/client";
 import type { ProjektDetail, ProjektKurz, SSHZiel } from "./api/types";
 import { TabBar } from "./components/TabBar";
+import { ArchitektInterviewPage } from "./pages/ArchitektInterviewPage";
 import { GeruestPage } from "./pages/GeruestPage";
 import { LektorierenPage } from "./pages/LektorierenPage";
 import { ProjektePage } from "./pages/ProjektePage";
@@ -16,6 +17,7 @@ function App() {
   const [aktuellesProjekt, setAktuellesProjekt] = useState<string | null>(null);
   const [projektDetail, setProjektDetail] = useState<ProjektDetail | null>(null);
   const [activeTab, setActiveTab] = useState("projekte");
+  const [interviewErzwungen, setInterviewErzwungen] = useState(false);
 
   const projekteLaden = useCallback(() => {
     api.projekte().then(setProjekte);
@@ -40,7 +42,14 @@ function App() {
 
   function projektAuswaehlen(ordner: string) {
     setAktuellesProjekt(ordner);
+    setInterviewErzwungen(false);
     setActiveTab("geruest");
+  }
+
+  function architektAbgeschlossen(neuerOrdner: string) {
+    setInterviewErzwungen(false);
+    setAktuellesProjekt(neuerOrdner);
+    projekteLaden();
   }
 
   const tabs = [
@@ -88,7 +97,20 @@ function App() {
         )}
 
         {activeTab === "geruest" && aktuellesProjekt && (
-          <GeruestPage ordner={aktuellesProjekt} projekt={projektDetail} onGeaendert={projektDetailLaden} />
+          interviewErzwungen || !projektDetail?.geruest ? (
+            <ArchitektInterviewPage
+              ordner={aktuellesProjekt}
+              sshZiele={sshZiele}
+              onAbgeschlossen={architektAbgeschlossen}
+            />
+          ) : (
+            <GeruestPage
+              ordner={aktuellesProjekt}
+              projekt={projektDetail}
+              onGeaendert={projektDetailLaden}
+              onInterviewStarten={() => setInterviewErzwungen(true)}
+            />
+          )
         )}
 
         {activeTab === "schreiben" && aktuellesProjekt && (
