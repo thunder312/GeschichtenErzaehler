@@ -1,25 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { api, schreibenWebSocketUrl } from "../api/client";
-import type { Finding, ProjektDetail, SSHZiel, SchreibenNachricht } from "../api/types";
+import type { Finding, ProjektDetail, SchreibenNachricht } from "../api/types";
 import { FindingsList } from "../components/FindingsList";
-import { Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
+import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { alsDateiHerunterladen } from "../utils/download";
 
 interface SchreibenPageProps {
   ordner: string;
   projekt: ProjektDetail | null;
-  sshZiele: SSHZiel[];
   sshZielId: string;
-  onSshZielIdChange: (id: string) => void;
   onKapitelGeschrieben: () => void;
 }
 
 export function SchreibenPage({
   ordner,
   projekt,
-  sshZiele,
   sshZielId,
-  onSshZielIdChange,
   onKapitelGeschrieben,
 }: SchreibenPageProps) {
   const [n, setN] = useState(1);
@@ -173,17 +169,6 @@ export function SchreibenPage({
             disabled={laeuft}
             placeholder="z.B. bei starken Kontinuitaets-Bruechen im letzten Versuch..."
           />
-        </div>
-        <div>
-          <Label>KI-Ziel (optional)</Label>
-          <Select value={sshZielId} onChange={(e) => onSshZielIdChange(e.target.value)} disabled={laeuft}>
-            <option value="">Lokal / Standard-Ollama</option>
-            {sshZiele.map((z) => (
-              <option key={z.id} value={z.id}>
-                {z.name} ({z.host})
-              </option>
-            ))}
-          </Select>
         </div>
         {!laeuft ? (
           <Button onClick={starten} className="w-full">

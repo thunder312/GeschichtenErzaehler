@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { architektWebSocketUrl } from "../api/client";
-import type { ArchitektNachricht, SSHZiel } from "../api/types";
-import { Button, Card, Select } from "../components/ui";
+import type { ArchitektNachricht } from "../api/types";
+import { Button, Card } from "../components/ui";
 
 interface ArchitektInterviewPageProps {
   ordner: string;
-  sshZiele: SSHZiel[];
   sshZielId: string;
-  onSshZielIdChange: (id: string) => void;
   onAbgeschlossen: (neuerOrdner: string) => void;
 }
 
@@ -45,9 +43,7 @@ function optionenErkennen(text: string): Antwortoption[] {
  * benennt den Projektordner passend zum gewaehlten Titel um. */
 export function ArchitektInterviewPage({
   ordner,
-  sshZiele,
   sshZielId,
-  onSshZielIdChange,
   onAbgeschlossen,
 }: ArchitektInterviewPageProps) {
   const [gestartet, setGestartet] = useState(false);
@@ -140,16 +136,6 @@ export function ArchitektInterviewPage({
             Der Architekt stellt dir Schritt für Schritt Fragen zu Setting, Figuren, Konflikt und
             Kapitelplan und erstellt daraus automatisch das Story-Gerüst dieses Projekts.
           </p>
-          <div className="mx-auto mb-4 max-w-xs text-left">
-            <Select value={sshZielId} onChange={(e) => onSshZielIdChange(e.target.value)}>
-              <option value="">Lokal / Standard-Ollama</option>
-              {sshZiele.map((z) => (
-                <option key={z.id} value={z.id}>
-                  {z.name} ({z.host})
-                </option>
-              ))}
-            </Select>
-          </div>
           <Button onClick={starten}>Interview starten</Button>
         </Card>
       </div>

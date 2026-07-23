@@ -1,23 +1,19 @@
 import { useState } from "react";
 import { api } from "../api/client";
-import type { AnwendenAntwort, ProjektDetail, RechtschreibWort, SSHZiel } from "../api/types";
+import type { AnwendenAntwort, ProjektDetail, RechtschreibWort } from "../api/types";
 import { MergeEditor } from "../components/MergeEditor";
-import { Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
+import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 
 interface LektorierenPageProps {
   ordner: string;
   projekt: ProjektDetail | null;
-  sshZiele: SSHZiel[];
   sshZielId: string;
-  onSshZielIdChange: (id: string) => void;
 }
 
 export function LektorierenPage({
   ordner,
   projekt,
-  sshZiele,
   sshZielId,
-  onSshZielIdChange,
 }: LektorierenPageProps) {
   const [n, setN] = useState(projekt?.kapitel.at(-1) ?? 1);
   const [ergebnis, setErgebnis] = useState<AnwendenAntwort | null>(null);
@@ -84,17 +80,6 @@ export function LektorierenPage({
           <div>
             <Label>Kapitelnummer</Label>
             <Input type="number" min={1} value={n} onChange={(e) => setN(Number(e.target.value))} className="w-28" />
-          </div>
-          <div>
-            <Label>KI-Ziel (optional)</Label>
-            <Select value={sshZielId} onChange={(e) => onSshZielIdChange(e.target.value)} className="w-56">
-              <option value="">Lokal / Standard-Ollama</option>
-              {sshZiele.map((z) => (
-                <option key={z.id} value={z.id}>
-                  {z.name} ({z.host})
-                </option>
-              ))}
-            </Select>
           </div>
           <Button onClick={lektorieren} disabled={laedt}>
             {laedt ? "Lektoriert..." : "Grammatik/Rechtschreibung lektorieren"}

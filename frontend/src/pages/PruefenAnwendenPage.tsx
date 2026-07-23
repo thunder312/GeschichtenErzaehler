@@ -1,23 +1,19 @@
 import { useState } from "react";
 import { api } from "../api/client";
-import type { AnwendenAntwort, ProjektDetail, SSHZiel } from "../api/types";
+import type { AnwendenAntwort, ProjektDetail } from "../api/types";
 import { MergeEditor } from "../components/MergeEditor";
-import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
+import { Badge, Button, Card, CardTitle, Input, Label } from "../components/ui";
 
 interface PruefenAnwendenPageProps {
   ordner: string;
   projekt: ProjektDetail | null;
-  sshZiele: SSHZiel[];
   sshZielId: string;
-  onSshZielIdChange: (id: string) => void;
 }
 
 export function PruefenAnwendenPage({
   ordner,
   projekt,
-  sshZiele,
   sshZielId,
-  onSshZielIdChange,
 }: PruefenAnwendenPageProps) {
   const [n, setN] = useState(projekt?.kapitel.at(-1) ?? 1);
   const [befunde, setBefunde] = useState<string | null>(null);
@@ -68,17 +64,6 @@ export function PruefenAnwendenPage({
           <div>
             <Label>Kapitelnummer</Label>
             <Input type="number" min={1} value={n} onChange={(e) => setN(Number(e.target.value))} className="w-28" />
-          </div>
-          <div>
-            <Label>KI-Ziel (optional)</Label>
-            <Select value={sshZielId} onChange={(e) => onSshZielIdChange(e.target.value)} className="w-56">
-              <option value="">Lokal / Standard-Ollama</option>
-              {sshZiele.map((z) => (
-                <option key={z.id} value={z.id}>
-                  {z.name} ({z.host})
-                </option>
-              ))}
-            </Select>
           </div>
           <Button onClick={pruefen} disabled={ladenPruefen} variant="secondary">
             {ladenPruefen ? "Prüft..." : "Prüfen"}

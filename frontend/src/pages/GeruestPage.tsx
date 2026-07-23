@@ -4,6 +4,16 @@ import { api } from "../api/client";
 import type { ProjektDetail } from "../api/types";
 import { Badge, Button, Card, CardTitle } from "../components/ui";
 
+// Anzeige-Mapping der intern aus dem Gerüst erkannten Content-Stufe (siehe
+// backend/app/core/rollen.py: STUFE_DIREKTIVEN) auf die aus Filmen bekannten
+// FSK-Alterskennzeichen - "voll" klang vorher wie "Jugendschutz voll aktiv",
+// war aber genau das Gegenteil (voll explizit, keine Einschraenkung).
+const JUGENDSCHUTZ_ANZEIGE: Record<string, { label: string; tone: "green" | "amber" }> = {
+  jugendfrei: { label: "FSK 0 · jugendfrei", tone: "green" },
+  angedeutet: { label: "FSK 12 · angedeutet", tone: "green" },
+  voll: { label: "FSK 18 · voll explizit", tone: "amber" },
+};
+
 interface GeruestPageProps {
   ordner: string;
   projekt: ProjektDetail | null;
@@ -99,11 +109,15 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onInterviewStarten }
               <dd>{projekt?.jahr ?? "–"}</dd>
             </div>
             <div className="flex items-center justify-between">
-              <dt className="text-text-muted">Jugendschutz-Stufe</dt>
+              <dt className="text-text-muted">Content-Stufe</dt>
               <dd>
-                <Badge tone={projekt?.jugendschutz_stufe === "voll" ? "amber" : "green"}>
-                  {projekt?.jugendschutz_stufe ?? "–"}
-                </Badge>
+                {projekt?.jugendschutz_stufe && JUGENDSCHUTZ_ANZEIGE[projekt.jugendschutz_stufe] ? (
+                  <Badge tone={JUGENDSCHUTZ_ANZEIGE[projekt.jugendschutz_stufe].tone}>
+                    {JUGENDSCHUTZ_ANZEIGE[projekt.jugendschutz_stufe].label}
+                  </Badge>
+                ) : (
+                  <Badge>–</Badge>
+                )}
               </dd>
             </div>
             <div className="flex items-center justify-between">

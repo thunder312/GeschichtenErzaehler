@@ -13,6 +13,7 @@ import { PruefenAnwendenPage } from "./pages/PruefenAnwendenPage";
 import { SchreibenPage } from "./pages/SchreibenPage";
 import { SshZielePage } from "./pages/SshZielePage";
 import { StandExportPage } from "./pages/StandExportPage";
+import { Select } from "./components/ui";
 
 function App() {
   const [projekte, setProjekte] = useState<ProjektKurz[]>([]);
@@ -91,9 +92,27 @@ function App() {
           </span>
         </h1>
         {aktuellesProjekt && (
-          <span className="text-sm text-text-muted">
-            Projekt: <span className="font-medium text-text">{projektDetail?.ordner ?? aktuellesProjekt}</span>
-          </span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-text-muted">
+              Projekt: <span className="font-medium text-text">{projektDetail?.ordner ?? aktuellesProjekt}</span>
+            </span>
+            {/* Ein einziges KI-Ziel pro Projekt-Sitzung statt einer eigenen
+                Auswahl in jedem Pipeline-Schritt - innerhalb derselben
+                Geschichte wechselt man das praktisch nie zwischen den
+                Schritten. */}
+            <Select
+              value={sshZielId}
+              onChange={(e) => setSshZielId(e.target.value)}
+              className="w-56"
+            >
+              <option value="">Lokal / Standard-Ollama</option>
+              {sshZiele.map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.name} ({z.host})
+                </option>
+              ))}
+            </Select>
+          </div>
         )}
       </header>
 
@@ -125,9 +144,7 @@ function App() {
               {interviewErzwungen || !projektDetail?.geruest ? (
                 <ArchitektInterviewPage
                   ordner={aktuellesProjekt}
-                  sshZiele={sshZiele}
                   sshZielId={sshZielId}
-                  onSshZielIdChange={setSshZielId}
                   onAbgeschlossen={architektAbgeschlossen}
                 />
               ) : (
@@ -144,9 +161,7 @@ function App() {
               <SchreibenPage
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
-                sshZiele={sshZiele}
                 sshZielId={sshZielId}
-                onSshZielIdChange={setSshZielId}
                 onKapitelGeschrieben={() => {
                   projektDetailLaden();
                   projekteLaden();
@@ -158,9 +173,7 @@ function App() {
               <PruefenAnwendenPage
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
-                sshZiele={sshZiele}
                 sshZielId={sshZielId}
-                onSshZielIdChange={setSshZielId}
               />
             </div>
 
@@ -168,9 +181,7 @@ function App() {
               <LektorierenPage
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
-                sshZiele={sshZiele}
                 sshZielId={sshZielId}
-                onSshZielIdChange={setSshZielId}
               />
             </div>
 
@@ -178,9 +189,7 @@ function App() {
               <StandExportPage
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
-                sshZiele={sshZiele}
                 sshZielId={sshZielId}
-                onSshZielIdChange={setSshZielId}
                 onGeaendert={() => {
                   projektDetailLaden();
                   projekteLaden();
