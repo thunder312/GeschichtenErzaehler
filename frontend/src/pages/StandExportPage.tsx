@@ -75,7 +75,7 @@ export function StandExportPage({ ordner, projekt, sshZiele, onGeaendert }: Stan
             <Input type="number" min={1} value={n} onChange={(e) => setN(Number(e.target.value))} className="w-28" />
           </div>
           <div>
-            <Label>KI über SSH-Ziel (optional)</Label>
+            <Label>KI-Ziel (optional)</Label>
             <Select value={sshZielId} onChange={(e) => setSshZielId(e.target.value)} className="w-56">
               <option value="">Lokal / Standard-Ollama</option>
               {sshZiele.map((z) => (

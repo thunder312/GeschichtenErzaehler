@@ -26,7 +26,7 @@ export interface ProjektDetail {
   kapitelplan: Record<number, number>;
 }
 
-export type AuthMethod = "password" | "private_key" | "agent";
+export type AuthMethod = "password" | "private_key" | "agent" | "direct";
 
 export interface SSHZiel {
   id: string;

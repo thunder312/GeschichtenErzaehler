@@ -65,7 +65,7 @@ function App() {
           { id: "personas", label: "Personas", icon: "🎭" },
         ]
       : []),
-    { id: "ssh", label: "SSH-Ziele", icon: "🔌" },
+    { id: "ssh", label: "KI-Ziele", icon: "🔌" },
   ];
 
   return (

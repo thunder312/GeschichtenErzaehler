@@ -113,7 +113,7 @@ export function SchreibenPage({ ordner, projekt, sshZiele, onKapitelGeschrieben 
           />
         </div>
         <div>
-          <Label>KI über SSH-Ziel ansprechen (optional)</Label>
+          <Label>KI-Ziel (optional)</Label>
           <Select value={sshZielId} onChange={(e) => setSshZielId(e.target.value)} disabled={laeuft}>
             <option value="">Lokal / Standard-Ollama</option>
             {sshZiele.map((z) => (

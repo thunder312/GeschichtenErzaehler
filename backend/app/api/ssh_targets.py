@@ -1,11 +1,25 @@
-"""CRUD fuer gespeicherte SSH-Ziele + Verbindungstest."""
+"""CRUD fuer gespeicherte KI-Ziele + Verbindungstest.
+
+Zwei grundsaetzlich verschiedene Verbindungsarten teilen sich hier bewusst
+dieselbe Tabelle/dasselbe Formular statt eigener Endpunkte:
+- SSH-Ziele (auth_method 'password'/'private_key'/'agent'): Ollama laeuft
+  auf einem entfernten Host/Container, erreichbar nur per SSH-Tunnel
+  (siehe app/core/ssh_manager.py).
+- Direkte Ziele (auth_method 'direct'): kein SSH noetig, z.B. Ollama laeuft
+  bereits direkt erreichbar im lokalen Netz oder auf einer anderen
+  Windows-Maschine. 'host' enthaelt hier die komplette Basis-URL
+  (z.B. 'http://192.168.1.50:11434') statt eines SSH-Hostnamens;
+  username/port/remote_ollama_port bleiben unbenutzt.
+Beide erscheinen in der GUI als eine gemeinsame Liste "KI-Ziele" und werden
+in den Pipeline-Schritten ueber denselben ssh_ziel_id-Parameter ausgewaehlt
+(siehe app/services.py:ollama_basis_url)."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from app import db
 from app.config import Settings, get_settings
-from app.core import ssh_manager
+from app.core import ollama_client, ssh_manager
 from app.schemas import (
     SSHTestAnfrage,
     SSHTestAntwort,
@@ -25,10 +39,21 @@ def _geheimnis_aus_anfrage(a: SSHZielAnlegenAnfrage) -> dict:
     return {}
 
 
+def _grundstruktur_pruefen(a: SSHZielAnlegenAnfrage) -> None:
+    """Strukturelle Validierung, die sowohl bei Neuanlage als auch bei
+    jedem Update gilt (unabhaengig davon, ob gerade neue Zugangsdaten
+    mitgeschickt wurden)."""
+    if a.auth_method != "direct" and not a.username.strip():
+        raise HTTPException(400, "Für SSH-Ziele muss ein Benutzername angegeben werden.")
+    if a.auth_method == "direct" and not a.host.startswith(("http://", "https://")):
+        raise HTTPException(400, "Für ein direktes Ziel muss die Basis-URL mit http:// oder https:// beginnen.")
+
+
 def _geheimnis_fuer_neuanlage_pruefen(a: SSHZielAnlegenAnfrage) -> None:
-    """Serverseitiges Gegenstueck zur Frontend-Validierung: bei einer
-    Neuanlage (anders als beim Update) gibt es keinen bestehenden Datensatz,
-    auf den ohne Angabe zurueckgefallen werden koennte."""
+    """Nur bei Neuanlage relevant: es gibt keinen bestehenden Datensatz, auf
+    dessen Geheimnis ohne Angabe zurueckgefallen werden koennte (bei einem
+    Update ist ein leeres Passwort/Schluesselfeld dagegen legitim - siehe
+    aktualisieren())."""
     if a.auth_method == "password" and not a.password:
         raise HTTPException(400, "Für Authentifizierung per Passwort muss ein Passwort angegeben werden.")
     if a.auth_method == "private_key" and not a.private_key_pem:
@@ -44,6 +69,7 @@ def liste(settings: Settings = Depends(get_settings)):
 
 @router.post("", response_model=SSHZielAntwort, status_code=201)
 def anlegen(anfrage: SSHZielAnlegenAnfrage, settings: Settings = Depends(get_settings)):
+    _grundstruktur_pruefen(anfrage)
     _geheimnis_fuer_neuanlage_pruefen(anfrage)
     db.init_db(settings.database_path)
     ziel_id = db.ssh_ziel_anlegen(
@@ -62,12 +88,14 @@ def aktualisieren(ziel_id: str, anfrage: SSHZielAnlegenAnfrage,
                    settings: Settings = Depends(get_settings)):
     bestehend = db.ssh_ziel_lesen(settings.database_path, ziel_id)
     if bestehend is None:
-        raise HTTPException(404, "SSH-Ziel nicht gefunden.")
+        raise HTTPException(404, "KI-Ziel nicht gefunden.")
+    _grundstruktur_pruefen(anfrage)
 
     hat_neues_geheimnis = bool(anfrage.password or anfrage.private_key_pem)
     auth_method_geaendert = anfrage.auth_method != bestehend["auth_method"]
+    kein_geheimnis_noetig = anfrage.auth_method in ("agent", "direct")
 
-    if hat_neues_geheimnis or anfrage.auth_method == "agent":
+    if hat_neues_geheimnis or kein_geheimnis_noetig:
         geheimnis = _geheimnis_aus_anfrage(anfrage)
     elif auth_method_geaendert:
         # Ohne neue Zugangsdaten bliebe das alte, zur neuen Auth-Methode nicht
@@ -98,6 +126,16 @@ def loeschen(ziel_id: str, settings: Settings = Depends(get_settings)):
 
 @router.post("/{ziel_id}/test", response_model=SSHTestAntwort)
 def verbindung_testen(ziel_id: str, settings: Settings = Depends(get_settings)):
+    row = db.ssh_ziel_lesen(settings.database_path, ziel_id)
+    if row is None:
+        raise HTTPException(404, "KI-Ziel nicht gefunden.")
+    if row["auth_method"] == "direct":
+        try:
+            ollama_client.tags_sync(row["host"])
+            return SSHTestAntwort(erfolgreich=True, meldung="Ollama unter dieser Adresse erreichbar.")
+        except Exception as e:
+            return SSHTestAntwort(erfolgreich=False, meldung=f"Nicht erreichbar: {e}")
+
     ziel = ssh_ziel_aus_db(settings, ziel_id)
     erfolgreich, meldung = ssh_manager.verbindung_testen(ziel)
     return SSHTestAntwort(erfolgreich=erfolgreich, meldung=meldung)
@@ -107,6 +145,13 @@ def verbindung_testen(ziel_id: str, settings: Settings = Depends(get_settings)):
 def verbindung_testen_ungespeichert(anfrage: SSHTestAnfrage):
     """Testet Zugangsdaten, BEVOR sie gespeichert werden - fuer den 'Testen'-
     Knopf im Anlegen-Dialog."""
+    if anfrage.auth_method == "direct":
+        try:
+            ollama_client.tags_sync(anfrage.host)
+            return SSHTestAntwort(erfolgreich=True, meldung="Ollama unter dieser Adresse erreichbar.")
+        except Exception as e:
+            return SSHTestAntwort(erfolgreich=False, meldung=f"Nicht erreichbar: {e}")
+
     ziel = ssh_manager.SSHZiel(
         host=anfrage.host, port=anfrage.port, username=anfrage.username,
         auth_method=anfrage.auth_method, password=anfrage.password,

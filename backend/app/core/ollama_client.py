@@ -131,3 +131,14 @@ async def tags(base_url: str) -> dict:
         r = await client.get(f"{base_url}/api/tags")
         r.raise_for_status()
         return r.json()
+
+
+def tags_sync(base_url: str, timeout: float = 10.0) -> dict:
+    """Synchrone Variante fuer den Verbindungstest eines 'direct'-KI-Ziels
+    (siehe app/api/ssh_targets.py) - die Test-Endpunkte sind bewusst
+    synchron, analog zum blockierenden paramiko-Verbindungstest fuer
+    SSH-Ziele."""
+    with httpx.Client(timeout=timeout) as client:
+        r = client.get(f"{base_url}/api/tags")
+        r.raise_for_status()
+        return r.json()

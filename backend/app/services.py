@@ -56,10 +56,21 @@ def ssh_ziel_aus_db(settings: Settings, ziel_id: str) -> ssh_manager.SSHZiel:
 @contextmanager
 def ollama_basis_url(settings: Settings, ssh_ziel_id: str | None):
     """Liefert eine base_url fuer app/core/ollama_client.py. Ohne ssh_ziel_id
-    das lokal/per Umgebungsvariable konfigurierte Standard-Ollama, sonst ein
-    frisch aufgebauter SSH-Tunnel zum hinterlegten Ziel."""
+    das lokal/per Umgebungsvariable konfigurierte Standard-Ollama. Ist ein
+    gespeichertes Ziel vom Typ 'direct' (kein SSH noetig, z.B. Ollama
+    direkt im LAN oder auf einer anderen Windows-Maschine erreichbar), wird
+    dessen hinterlegte Basis-URL direkt verwendet. Sonst ein frisch
+    aufgebauter SSH-Tunnel zum hinterlegten Ziel."""
     if not ssh_ziel_id:
         yield settings.ollama_url
+        return
+
+    row = db.ssh_ziel_lesen(settings.database_path, ssh_ziel_id)
+    if row is None:
+        raise HTTPException(404, "KI-Ziel nicht gefunden.")
+
+    if row["auth_method"] == "direct":
+        yield row["host"]
         return
 
     ziel = ssh_ziel_aus_db(settings, ssh_ziel_id)

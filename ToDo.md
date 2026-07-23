@@ -4,8 +4,9 @@
 # Features
 - [x] Architekten Interview
   - [x] feste Antworten (a, b, c) sollen per Butten gewählt werden können.
+  - [ ] das Architekten-Interview für spätere Referenz im Projekt ablegen.
 - [ ] Epochen-Erstellung (Interview)
-- [ ] Nicht-Netzwerk KI-Ziele (lokal und/oder Windows)
+- [x] Nicht-Netzwerk KI-Ziele (lokal und/oder Windows)
 - [x] Persona bearbeiten
 - [x] Verbotsliste bearbeiten
 - [ ] Hilfe-System für Anwender

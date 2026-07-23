@@ -48,10 +48,13 @@ class SchreibenAnfrage(BaseModel):
 
 class SSHZielAnlegenAnfrage(BaseModel):
     name: str = Field(min_length=1)
+    # Fuer auth_method='direct' enthaelt 'host' die komplette Basis-URL
+    # (z.B. 'http://192.168.1.50:11434') statt eines SSH-Hostnamens -
+    # username/port/remote_ollama_port bleiben dann unbenutzt.
     host: str = Field(min_length=1)
     port: int = Field(default=22, ge=1, le=65535)
-    username: str = Field(min_length=1)
-    auth_method: Literal["password", "private_key", "agent"]
+    username: str = ""
+    auth_method: Literal["password", "private_key", "agent", "direct"]
     password: str | None = None
     private_key_pem: str | None = None
     private_key_passphrase: str | None = None
@@ -73,8 +76,8 @@ class SSHZielAntwort(BaseModel):
 class SSHTestAnfrage(BaseModel):
     host: str = Field(min_length=1)
     port: int = Field(default=22, ge=1, le=65535)
-    username: str = Field(min_length=1)
-    auth_method: Literal["password", "private_key", "agent"]
+    username: str = ""
+    auth_method: Literal["password", "private_key", "agent", "direct"]
     password: str | None = None
     private_key_pem: str | None = None
     private_key_passphrase: str | None = None

@@ -135,3 +135,45 @@ def test_verbindungstest_gegen_nicht_erreichbaren_host_liefert_fehlermeldung(cli
     body = r.json()
     assert body["erfolgreich"] is False
     assert body["meldung"]
+
+
+def _direct_ziel(**overrides):
+    daten = {
+        "name": "Lokales Ollama",
+        "host": "http://192.168.1.50:11434",
+        "auth_method": "direct",
+    }
+    daten.update(overrides)
+    return daten
+
+
+def test_anlegen_direct_ziel_braucht_keinen_benutzernamen(client):
+    r = client.post("/api/ssh-targets", json=_direct_ziel())
+    assert r.status_code == 201
+    assert r.json()["auth_method"] == "direct"
+
+
+def test_anlegen_direct_ziel_ohne_http_praefix_wird_abgelehnt(client):
+    r = client.post("/api/ssh-targets", json=_direct_ziel(host="192.168.1.50:11434"))
+    assert r.status_code == 400
+
+
+def test_anlegen_ssh_ziel_ohne_benutzernamen_wird_abgelehnt(client):
+    r = client.post("/api/ssh-targets", json=_passwort_ziel(username=""))
+    assert r.status_code == 400
+
+
+def test_verbindungstest_direct_ziel_gegen_nicht_erreichbare_adresse(client):
+    r = client.post("/api/ssh-targets/test", json=_direct_ziel(host="http://127.0.0.1:1"))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["erfolgreich"] is False
+    assert body["meldung"]
+
+
+def test_aktualisieren_wechsel_zu_direct_braucht_kein_geheimnis(client):
+    ziel_id = client.post("/api/ssh-targets", json=_passwort_ziel()).json()["id"]
+
+    r = client.put(f"/api/ssh-targets/{ziel_id}", json=_direct_ziel())
+    assert r.status_code == 200
+    assert r.json()["auth_method"] == "direct"

@@ -30,6 +30,8 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
   const [fehler, setFehler] = useState<string | null>(null);
   const dateiEingabeRef = useRef<HTMLInputElement>(null);
 
+  const istDirekt = formular.auth_method === "direct";
+
   function feld<K extends keyof SSHZielEingabe>(name: K, wert: SSHZielEingabe[K]) {
     setFormular((bisher) => ({ ...bisher, [name]: wert }));
   }
@@ -74,12 +76,14 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
 
   const formularGueltig =
     formular.name.trim() !== "" &&
-    formular.host.trim() !== "" &&
-    formular.username.trim() !== "" &&
-    (formular.auth_method === "agent" ||
-      geheimnisUnveraendert ||
-      (formular.auth_method === "password" && !!formular.password) ||
-      (formular.auth_method === "private_key" && !!formular.private_key_pem));
+    (istDirekt
+      ? /^https?:\/\/.+/.test(formular.host.trim())
+      : formular.host.trim() !== "" &&
+        formular.username.trim() !== "" &&
+        (formular.auth_method === "agent" ||
+          geheimnisUnveraendert ||
+          (formular.auth_method === "password" && !!formular.password) ||
+          (formular.auth_method === "private_key" && !!formular.private_key_pem)));
 
   async function testen() {
     setLadenTest(true);
@@ -115,7 +119,7 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
   }
 
   async function loeschen(z: SSHZiel) {
-    if (!window.confirm(`SSH-Ziel "${z.name}" wirklich löschen?`)) return;
+    if (!window.confirm(`KI-Ziel "${z.name}" wirklich löschen?`)) return;
     await api.sshZielLoeschen(z.id);
     if (bearbeiteId === z.id) neuesFormular();
     onGeaendert();
@@ -131,10 +135,10 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
   return (
     <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[1.3fr_1fr]">
       <Card>
-        <CardTitle>🔌 Gespeicherte SSH-Ziele</CardTitle>
+        <CardTitle>🔌 Gespeicherte KI-Ziele</CardTitle>
         {sshZiele.length === 0 ? (
           <p className="text-sm text-text-muted">
-            Noch kein SSH-Ziel angelegt. Ohne SSH-Ziel wird das lokal/per Umgebungsvariable konfigurierte
+            Noch kein KI-Ziel angelegt. Ohne Auswahl wird das lokal/per Umgebungsvariable konfigurierte
             Standard-Ollama angesprochen.
           </p>
         ) : (
@@ -144,8 +148,14 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
                 <div>
                   <div className="text-sm font-medium text-text">{z.name}</div>
                   <div className="text-xs text-text-muted">
-                    {z.username}@{z.host}:{z.port} · Ollama-Port {z.remote_ollama_port} ·{" "}
-                    <Badge>{z.auth_method}</Badge>
+                    {z.auth_method === "direct" ? (
+                      <>{z.host}</>
+                    ) : (
+                      <>
+                        {z.username}@{z.host}:{z.port} · Ollama-Port {z.remote_ollama_port}{" "}
+                      </>
+                    )}{" "}
+                    · <Badge>{z.auth_method === "direct" ? "direkt, kein SSH" : z.auth_method}</Badge>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -165,7 +175,7 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
       <Card>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-heading text-lg font-semibold tracking-wide text-text">
-            {bearbeiteId ? "SSH-Ziel bearbeiten" : "Neues SSH-Ziel"}
+            {bearbeiteId ? "KI-Ziel bearbeiten" : "Neues KI-Ziel"}
           </h2>
           {bearbeiteId && (
             <button onClick={neuesFormular} className="text-xs text-accent-light hover:underline">
@@ -178,28 +188,9 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
             <Label>Name</Label>
             <Input value={formular.name} onChange={(e) => feld("name", e.target.value)} placeholder="Mein Docker-Server" />
           </div>
-          <div className="grid grid-cols-[2fr_1fr] gap-3">
-            <div>
-              <Label>Host</Label>
-              <Input value={formular.host} onChange={(e) => feld("host", e.target.value)} placeholder="192.168.1.50" />
-            </div>
-            <div>
-              <Label>SSH-Port</Label>
-              <Input
-                type="number"
-                min={1}
-                max={65535}
-                value={formular.port}
-                onChange={(e) => feld("port", Number(e.target.value))}
-              />
-            </div>
-          </div>
+
           <div>
-            <Label>Benutzername</Label>
-            <Input value={formular.username} onChange={(e) => feld("username", e.target.value)} />
-          </div>
-          <div>
-            <Label>Authentifizierung</Label>
+            <Label>Verbindungsart</Label>
             <Select
               value={formular.auth_method}
               onChange={(e) => {
@@ -209,11 +200,51 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
                 feld("private_key_passphrase", "");
               }}
             >
-              <option value="password">Passwort</option>
-              <option value="private_key">Privater Schlüssel</option>
-              <option value="agent">SSH-Agent</option>
+              <option value="password">SSH mit Passwort</option>
+              <option value="private_key">SSH mit privatem Schlüssel</option>
+              <option value="agent">SSH mit SSH-Agent</option>
+              <option value="direct">Direkt, kein SSH (lokal oder im LAN erreichbar)</option>
             </Select>
           </div>
+
+          {istDirekt ? (
+            <div>
+              <Label>Basis-URL von Ollama</Label>
+              <Input
+                value={formular.host}
+                onChange={(e) => feld("host", e.target.value)}
+                placeholder="http://192.168.1.50:11434"
+              />
+              <p className="mt-1 text-xs text-text-muted">
+                Vollstaendige Adresse inkl. Port, z.B. für ein zweites Ollama im lokalen Netz oder auf einer
+                anderen Windows-Maschine - ohne SSH-Tunnel.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-[2fr_1fr] gap-3">
+                <div>
+                  <Label>Host</Label>
+                  <Input value={formular.host} onChange={(e) => feld("host", e.target.value)} placeholder="192.168.1.50" />
+                </div>
+                <div>
+                  <Label>SSH-Port</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={65535}
+                    value={formular.port}
+                    onChange={(e) => feld("port", Number(e.target.value))}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>Benutzername</Label>
+                <Input value={formular.username} onChange={(e) => feld("username", e.target.value)} />
+              </div>
+            </>
+          )}
+
           {formular.auth_method === "password" && (
             <div>
               <Label>Passwort</Label>
@@ -264,16 +295,18 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
               </div>
             </>
           )}
-          <div>
-            <Label>Ollama-Port auf dem Zielhost/-container</Label>
-            <Input
-              type="number"
-              min={1}
-              max={65535}
-              value={formular.remote_ollama_port}
-              onChange={(e) => feld("remote_ollama_port", Number(e.target.value))}
-            />
-          </div>
+          {!istDirekt && (
+            <div>
+              <Label>Ollama-Port auf dem Zielhost/-container</Label>
+              <Input
+                type="number"
+                min={1}
+                max={65535}
+                value={formular.remote_ollama_port}
+                onChange={(e) => feld("remote_ollama_port", Number(e.target.value))}
+              />
+            </div>
+          )}
 
           {geheimnisUnveraendert && (
             <p className="text-xs text-text-muted">
