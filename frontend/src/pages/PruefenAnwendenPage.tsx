@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { AnwendenAntwort, ProjektDetail, SSHZiel } from "../api/types";
 import { MergeEditor } from "../components/MergeEditor";
-import { Badge, Button, Card, Input, Label, Select } from "../components/ui";
+import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 
 interface PruefenAnwendenPageProps {
   ordner: string;
@@ -80,13 +80,13 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZiele }: PruefenAnwend
             {ladenAnwenden ? "Wendet an..." : "Sichere Anachronismus-Funde anwenden"}
           </Button>
         </div>
-        {fehler && <p className="mt-2 text-sm text-red-600">{fehler}</p>}
+        {fehler && <p className="mt-2 text-sm text-red-400">{fehler}</p>}
       </Card>
 
       {befunde && (
         <Card>
-          <h2 className="mb-2 text-sm font-semibold text-neutral-700 dark:text-neutral-200">Befunde</h2>
-          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md bg-neutral-50 p-3 text-sm dark:bg-neutral-950">
+          <CardTitle>🔍 Befunde</CardTitle>
+          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-text">
             {befunde}
           </pre>
         </Card>
@@ -95,7 +95,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZiele }: PruefenAnwend
       {ergebnis && (
         <Card>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+            <h2 className="font-heading text-sm font-semibold tracking-wide text-text">
               Merge-Ansicht: alt (links) vs. korrigiert (rechts, editierbar)
             </h2>
             <div className="flex items-center gap-3">
@@ -104,7 +104,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZiele }: PruefenAnwend
               ) : (
                 <Badge tone="green">Automatisch übernommen, Original gesichert als {ergebnis.gesichert_als}</Badge>
               )}
-              {gespeichertHinweis && <span className="text-xs text-emerald-600">{gespeichertHinweis}</span>}
+              {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
               <Button onClick={speichern}>Aktuellen Stand speichern</Button>
             </div>
           </div>

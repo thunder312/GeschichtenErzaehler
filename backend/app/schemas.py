@@ -1,6 +1,8 @@
 """Pydantic-Schemas fuer die REST-/WebSocket-API."""
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -45,15 +47,15 @@ class SchreibenAnfrage(BaseModel):
 
 
 class SSHZielAnlegenAnfrage(BaseModel):
-    name: str
-    host: str
-    port: int = 22
-    username: str
-    auth_method: str  # "password" | "private_key" | "agent"
+    name: str = Field(min_length=1)
+    host: str = Field(min_length=1)
+    port: int = Field(default=22, ge=1, le=65535)
+    username: str = Field(min_length=1)
+    auth_method: Literal["password", "private_key", "agent"]
     password: str | None = None
     private_key_pem: str | None = None
     private_key_passphrase: str | None = None
-    remote_ollama_port: int = 11434
+    remote_ollama_port: int = Field(default=11434, ge=1, le=65535)
 
 
 class SSHZielAntwort(BaseModel):
@@ -69,14 +71,14 @@ class SSHZielAntwort(BaseModel):
 
 
 class SSHTestAnfrage(BaseModel):
-    host: str
-    port: int = 22
-    username: str
-    auth_method: str
+    host: str = Field(min_length=1)
+    port: int = Field(default=22, ge=1, le=65535)
+    username: str = Field(min_length=1)
+    auth_method: Literal["password", "private_key", "agent"]
     password: str | None = None
     private_key_pem: str | None = None
     private_key_passphrase: str | None = None
-    remote_ollama_port: int = 11434
+    remote_ollama_port: int = Field(default=11434, ge=1, le=65535)
 
 
 class SSHTestAntwort(BaseModel):

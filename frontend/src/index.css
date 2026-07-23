@@ -1,9 +1,29 @@
 @import "tailwindcss";
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-  }
+/*
+ * Geschichten Erzähler - festes dunkles Theme (kein Light-Mode-Umschalter).
+ * Anthrazit-Grau mit Smaragdgrün als Akzent, dazu eine literarische
+ * Akzent-Schrift (Fraunces) für Überschriften - der Fließtext bleibt bei
+ * der Systemschrift für Lesbarkeit.
+ */
+@theme {
+  --color-bg: #15181a;
+  --color-surface: #1b1f20;
+  --color-surface-hover: #22282a;
+  --color-surface-active: #262d2c;
+  --color-border: #2b3234;
+  --color-text: #e6e8e6;
+  --color-text-muted: #8b958f;
+  --color-accent: #3ecf8e;
+  --color-accent-hover: #34b87d;
+  --color-accent-soft: #1d3b2c;
+  --color-accent-light: #7fe3b4;
+
+  --font-heading: "Fraunces", ui-serif, Georgia, serif;
+}
+
+html {
+  color-scheme: dark;
 }
 
 html,
@@ -14,4 +34,26 @@ body,
 
 body {
   margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+::selection {
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent-light);
+}
+
+/* Dezente, einheitliche Scrollbars im dunklen Theme (Firefox + WebKit) */
+* {
+  scrollbar-color: var(--color-surface-hover) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-surface-hover);
+  border-radius: 999px;
 }

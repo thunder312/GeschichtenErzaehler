@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { EpocheKurz, ProjektKurz } from "../api/types";
-import { Button, Card, Input, Label, Select } from "../components/ui";
+import { Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 
 interface ProjektePageProps {
   projekte: ProjektKurz[];
@@ -48,25 +48,21 @@ export function ProjektePage({
   return (
     <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-[2fr_1fr]">
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-          Vorhandene Projekte
-        </h2>
+        <CardTitle>📚 Vorhandene Projekte</CardTitle>
         {projekte.length === 0 ? (
-          <p className="text-sm text-neutral-500">Noch kein Projekt angelegt.</p>
+          <p className="text-sm text-text-muted">Noch kein Projekt angelegt.</p>
         ) : (
-          <ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
+          <ul className="divide-y divide-border">
             {projekte.map((p) => (
               <li
                 key={p.ordner}
                 onClick={() => onProjektAuswaehlen(p.ordner)}
-                className={`cursor-pointer rounded-md px-2 py-2.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/60 ${
-                  aktuellesProjekt === p.ordner ? "bg-purple-50 dark:bg-purple-950/30" : ""
+                className={`cursor-pointer rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-surface-hover ${
+                  aktuellesProjekt === p.ordner ? "bg-accent-soft" : ""
                 }`}
               >
-                <div className="font-medium text-neutral-900 dark:text-neutral-100">
-                  {p.titel ?? p.ordner}
-                </div>
-                <div className="text-xs text-neutral-500">
+                <div className="font-medium text-text">{p.titel ?? p.ordner}</div>
+                <div className="text-xs text-text-muted">
                   {p.epoche ?? "unbekannte Epoche"} · {p.anzahl_kapitel} Kapitel
                   {p.letztes_geplantes_kapitel ? ` von ${p.letztes_geplantes_kapitel} geplant` : ""}
                 </div>
@@ -77,9 +73,7 @@ export function ProjektePage({
       </Card>
 
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-          Neues Projekt anlegen
-        </h2>
+        <CardTitle>✨ Neues Projekt anlegen</CardTitle>
         <div className="space-y-3">
           <div>
             <Label>Titel</Label>
@@ -95,7 +89,7 @@ export function ProjektePage({
               ))}
             </Select>
           </div>
-          {fehler && <p className="text-sm text-red-600">{fehler}</p>}
+          {fehler && <p className="text-sm text-red-400">{fehler}</p>}
           <Button onClick={anlegen} disabled={wirdAngelegt || !titel.trim()}>
             {wirdAngelegt ? "Wird angelegt..." : "Anlegen"}
           </Button>

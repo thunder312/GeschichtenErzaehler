@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { schreibenWebSocketUrl } from "../api/client";
 import type { Finding, ProjektDetail, SSHZiel, SchreibenNachricht } from "../api/types";
 import { FindingsList } from "../components/FindingsList";
-import { Button, Card, Input, Label, Select } from "../components/ui";
+import { Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 
 interface SchreibenPageProps {
   ordner: string;
@@ -95,16 +95,16 @@ export function SchreibenPage({ ordner, projekt, sshZiele, onKapitelGeschrieben 
   return (
     <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[1fr_2fr]">
       <Card className="h-fit space-y-3">
-        <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Kapitel schreiben</h2>
+        <CardTitle>✍️ Kapitel schreiben</CardTitle>
         <div>
           <Label>Kapitelnummer</Label>
           <Input type="number" min={1} value={n} onChange={(e) => setN(Number(e.target.value))} disabled={laeuft} />
-          {zielWoerter && <p className="mt-1 text-xs text-neutral-500">Zielumfang laut Gerüst: ~{zielWoerter} Wörter</p>}
+          {zielWoerter && <p className="mt-1 text-xs text-text-muted">Zielumfang laut Gerüst: ~{zielWoerter} Wörter</p>}
         </div>
         <div>
           <Label>Zusätzlicher Hinweis (nur für diesen Versuch)</Label>
           <textarea
-            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-purple-500 dark:border-neutral-700 dark:bg-neutral-950"
+            className="w-full rounded-lg border border-border bg-bg px-3 py-1.5 text-sm text-text outline-none transition-colors focus:border-accent"
             rows={4}
             value={zusatzhinweis}
             onChange={(e) => setZusatzhinweis(e.target.value)}
@@ -132,40 +132,36 @@ export function SchreibenPage({ ordner, projekt, sshZiele, onKapitelGeschrieben 
             Abbrechen
           </Button>
         )}
-        {fehler && <p className="text-sm text-red-600">{fehler}</p>}
+        {fehler && <p className="text-sm text-red-400">{fehler}</p>}
       </Card>
 
       <div className="space-y-4">
         <Card>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-              Autor {modell && <span className="font-normal text-neutral-500">({modell})</span>}
+            <h2 className="font-heading text-sm font-semibold tracking-wide text-text">
+              Autor {modell && <span className="font-sans font-normal text-text-muted">({modell})</span>}
             </h2>
-            {denktNach && <span className="text-xs italic text-neutral-500">denkt nach...</span>}
+            {denktNach && <span className="text-xs italic text-accent-light">denkt nach...</span>}
             {phase && phase !== "autor" && (
-              <span className="text-xs text-neutral-500">Phase: {phase}</span>
+              <span className="text-xs text-text-muted">Phase: {phase}</span>
             )}
           </div>
-          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md bg-neutral-50 p-3 text-sm leading-relaxed dark:bg-neutral-950">
+          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm leading-relaxed text-text">
             {autorText || "Noch kein Text erzeugt."}
           </pre>
         </Card>
 
         {findings.length > 0 && (
           <Card>
-            <h2 className="mb-2 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-              Automatische Sicherheitsnetze
-            </h2>
+            <CardTitle>Automatische Sicherheitsnetze</CardTitle>
             <FindingsList findings={findings} />
           </Card>
         )}
 
         {befunde && (
           <Card>
-            <h2 className="mb-2 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-              Befunde der Prüfer (Anachronismen &amp; Kontinuität)
-            </h2>
-            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md bg-neutral-50 p-3 text-sm dark:bg-neutral-950">
+            <CardTitle>Befunde der Prüfer (Anachronismen &amp; Kontinuität)</CardTitle>
+            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-text">
               {befunde}
             </pre>
           </Card>

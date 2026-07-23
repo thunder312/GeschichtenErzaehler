@@ -1,4 +1,4 @@
-# Novellen-GUI
+# Geschichten Erzähler
 
 Browserbasierte GUI für die KI-Pipeline, die historische Novellen schreibt
 (ursprünglich `novelle.py`, CLI-basiert). Führt den Nutzer schrittweise

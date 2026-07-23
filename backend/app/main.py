@@ -21,7 +21,7 @@ from app.db import init_db
 settings = get_settings()
 init_db(settings.database_path)
 
-app = FastAPI(title="Novellen-GUI Backend", version="0.1.0")
+app = FastAPI(title="Geschichten Erzähler Backend", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,

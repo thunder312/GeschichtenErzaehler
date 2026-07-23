@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { AnwendenAntwort, ProjektDetail, RechtschreibWort, SSHZiel } from "../api/types";
 import { MergeEditor } from "../components/MergeEditor";
-import { Button, Card, Input, Label, Select } from "../components/ui";
+import { Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 
 interface LektorierenPageProps {
   ordner: string;
@@ -96,17 +96,17 @@ export function LektorierenPage({ ordner, projekt, sshZiele }: LektorierenPagePr
             {ladenRechtschreibung ? "Prüft..." : "Wörterbuch-Prüfung (hunspell)"}
           </Button>
         </div>
-        {fehler && <p className="mt-2 text-sm text-red-600">{fehler}</p>}
+        {fehler && <p className="mt-2 text-sm text-red-400">{fehler}</p>}
       </Card>
 
       {ergebnis && (
         <Card>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+            <h2 className="font-heading text-sm font-semibold tracking-wide text-text">
               Merge-Ansicht: alt (links) vs. lektoriert (rechts, editierbar)
             </h2>
             <div className="flex items-center gap-3">
-              {gespeichertHinweis && <span className="text-xs text-emerald-600">{gespeichertHinweis}</span>}
+              {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
               <Button onClick={speichern}>Aktuellen Stand speichern</Button>
             </div>
           </div>
@@ -116,23 +116,21 @@ export function LektorierenPage({ ordner, projekt, sshZiele }: LektorierenPagePr
 
       {woerter && (
         <Card>
-          <h2 className="mb-2 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-            Unbekannte Wörter
-          </h2>
+          <CardTitle>📖 Unbekannte Wörter</CardTitle>
           {!hunspellVerfuegbar && (
-            <p className="mb-2 text-sm text-amber-600">
+            <p className="mb-2 text-sm text-amber-300">
               hunspell ist auf dem angesprochenen Ziel nicht verfügbar - für lokale Windows-Entwicklung ein
               SSH-Ziel mit installiertem hunspell auswählen.
             </p>
           )}
           {woerter.length === 0 ? (
-            <p className="text-sm text-neutral-500">Keine unbekannten Wörter gefunden.</p>
+            <p className="text-sm text-text-muted">Keine unbekannten Wörter gefunden.</p>
           ) : (
             <div className="space-y-2">
               {woerter.map((w) => (
-                <div key={w.wort} className="flex items-center gap-3 border-b border-neutral-100 pb-2 last:border-0 dark:border-neutral-800">
+                <div key={w.wort} className="flex items-center gap-3 border-b border-border pb-2 last:border-0">
                   <div className="w-40 shrink-0 font-mono text-sm">{w.wort}</div>
-                  <div className="flex-1 text-xs text-neutral-500">{w.satz ?? "(kein Satzkontext gefunden)"}</div>
+                  <div className="flex-1 text-xs text-text-muted">{w.satz ?? "(kein Satzkontext gefunden)"}</div>
                   <Input
                     placeholder="Ersatzwort (leer = behalten)"
                     className="w-56"

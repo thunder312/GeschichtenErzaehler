@@ -2,10 +2,16 @@ import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAt
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900 ${className}`}>
+    <div
+      className={`rounded-2xl border border-border bg-surface p-4 shadow-sm shadow-black/20 transition-colors ${className}`}
+    >
       {children}
     </div>
   );
+}
+
+export function CardTitle({ children }: { children: ReactNode }) {
+  return <h2 className="font-heading mb-3 text-base font-semibold tracking-wide text-text">{children}</h2>;
 }
 
 export function Button({
@@ -13,11 +19,12 @@ export function Button({
   className = "",
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" }) {
-  const basis = "rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+  const basis =
+    "rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]";
   const varianten = {
-    primary: "bg-purple-600 text-white hover:bg-purple-700",
-    secondary: "border border-neutral-300 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800",
-    danger: "bg-red-600 text-white hover:bg-red-700",
+    primary: "bg-accent text-[#0c1712] hover:bg-accent-hover hover:shadow-md hover:shadow-accent/20",
+    secondary: "border border-border text-text hover:bg-surface-hover",
+    danger: "bg-red-500/90 text-[#1a0505] hover:bg-red-500",
   };
   return <button className={`${basis} ${varianten[variant]} ${className}`} {...props} />;
 }
@@ -26,7 +33,7 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-900 outline-none focus:border-purple-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 ${props.className ?? ""}`}
+      className={`w-full rounded-lg border border-border bg-bg px-3 py-1.5 text-sm text-text outline-none transition-colors placeholder:text-text-muted/70 focus:border-accent ${props.className ?? ""}`}
     />
   );
 }
@@ -35,20 +42,20 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className={`w-full rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-900 outline-none focus:border-purple-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 ${props.className ?? ""}`}
+      className={`w-full rounded-lg border border-border bg-bg px-3 py-1.5 text-sm text-text outline-none transition-colors focus:border-accent ${props.className ?? ""}`}
     />
   );
 }
 
 export function Label({ children }: { children: ReactNode }) {
-  return <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">{children}</label>;
+  return <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-text-muted">{children}</label>;
 }
 
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "green" | "amber" }) {
   const toene = {
-    neutral: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
-    green: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300",
-    amber: "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
+    neutral: "bg-surface-hover text-text-muted",
+    green: "bg-accent-soft text-accent-light",
+    amber: "bg-amber-400/15 text-amber-300",
   };
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${toene[tone]}`}>{children}</span>;
+  return <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${toene[tone]}`}>{children}</span>;
 }

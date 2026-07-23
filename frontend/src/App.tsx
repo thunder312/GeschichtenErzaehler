@@ -44,26 +44,28 @@ function App() {
   }
 
   const tabs = [
-    { id: "projekte", label: "Projekte" },
+    { id: "projekte", label: "Projekte", icon: "📚" },
     ...(aktuellesProjekt
       ? [
-          { id: "geruest", label: "Architekt / Gerüst" },
-          { id: "schreiben", label: "Schreiben" },
-          { id: "pruefen", label: "Prüfen & Anwenden" },
-          { id: "lektorieren", label: "Lektorieren" },
-          { id: "stand", label: "Stand & Export" },
+          { id: "geruest", label: "Architekt / Gerüst", icon: "🗺️" },
+          { id: "schreiben", label: "Schreiben", icon: "✍️" },
+          { id: "pruefen", label: "Prüfen & Anwenden", icon: "🔍" },
+          { id: "lektorieren", label: "Lektorieren", icon: "🪄" },
+          { id: "stand", label: "Stand & Export", icon: "📦" },
         ]
       : []),
-    { id: "ssh", label: "SSH-Ziele" },
+    { id: "ssh", label: "SSH-Ziele", icon: "🔌" },
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
-      <header className="flex items-center justify-between border-b border-neutral-200 px-6 py-3 dark:border-neutral-800">
-        <h1 className="text-base font-semibold">Novellen-GUI</h1>
+    <div className="flex min-h-screen flex-col bg-bg text-text">
+      <header className="flex items-center justify-between border-b border-border px-6 py-3.5">
+        <h1 className="font-heading flex items-center gap-2 text-lg font-semibold tracking-wide text-text">
+          <span aria-hidden="true">📖</span> Geschichten Erzähler
+        </h1>
         {aktuellesProjekt && (
-          <span className="text-sm text-neutral-500">
-            Projekt: <span className="font-medium text-neutral-800 dark:text-neutral-200">{projektDetail?.ordner ?? aktuellesProjekt}</span>
+          <span className="text-sm text-text-muted">
+            Projekt: <span className="font-medium text-text">{projektDetail?.ordner ?? aktuellesProjekt}</span>
           </span>
         )}
       </header>

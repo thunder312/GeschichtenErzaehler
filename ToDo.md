@@ -13,4 +13,4 @@
 # Bugs
 
 # Deployment
-- [] Layout und Sicherheitskonzept für Frontend auf meiner Domain und KIs lokal auf meinem Server. Homepage->Router(Ports...)->lokaler Server(sowas wie ein API-Key?)
+- [ ] Layout und Sicherheitskonzept für Frontend auf meiner Domain und KIs lokal auf meinem Server. Homepage->Router(Ports...)->lokaler Server(sowas wie ein API-Key?)

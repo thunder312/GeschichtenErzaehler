@@ -25,6 +25,16 @@ def _geheimnis_aus_anfrage(a: SSHZielAnlegenAnfrage) -> dict:
     return {}
 
 
+def _geheimnis_fuer_neuanlage_pruefen(a: SSHZielAnlegenAnfrage) -> None:
+    """Serverseitiges Gegenstueck zur Frontend-Validierung: bei einer
+    Neuanlage (anders als beim Update) gibt es keinen bestehenden Datensatz,
+    auf den ohne Angabe zurueckgefallen werden koennte."""
+    if a.auth_method == "password" and not a.password:
+        raise HTTPException(400, "Für Authentifizierung per Passwort muss ein Passwort angegeben werden.")
+    if a.auth_method == "private_key" and not a.private_key_pem:
+        raise HTTPException(400, "Für Authentifizierung per privatem Schlüssel muss dieser angegeben werden.")
+
+
 @router.get("", response_model=list[SSHZielAntwort])
 def liste(settings: Settings = Depends(get_settings)):
     db.init_db(settings.database_path)
@@ -34,6 +44,7 @@ def liste(settings: Settings = Depends(get_settings)):
 
 @router.post("", response_model=SSHZielAntwort, status_code=201)
 def anlegen(anfrage: SSHZielAnlegenAnfrage, settings: Settings = Depends(get_settings)):
+    _geheimnis_fuer_neuanlage_pruefen(anfrage)
     db.init_db(settings.database_path)
     ziel_id = db.ssh_ziel_anlegen(
         settings.database_path, settings.secret_key_path,
@@ -49,11 +60,27 @@ def anlegen(anfrage: SSHZielAnlegenAnfrage, settings: Settings = Depends(get_set
 @router.put("/{ziel_id}", response_model=SSHZielAntwort)
 def aktualisieren(ziel_id: str, anfrage: SSHZielAnlegenAnfrage,
                    settings: Settings = Depends(get_settings)):
-    if db.ssh_ziel_lesen(settings.database_path, ziel_id) is None:
+    bestehend = db.ssh_ziel_lesen(settings.database_path, ziel_id)
+    if bestehend is None:
         raise HTTPException(404, "SSH-Ziel nicht gefunden.")
-    geheimnis = _geheimnis_aus_anfrage(anfrage) if any([
-        anfrage.password, anfrage.private_key_pem, anfrage.auth_method == "agent",
-    ]) else None
+
+    hat_neues_geheimnis = bool(anfrage.password or anfrage.private_key_pem)
+    auth_method_geaendert = anfrage.auth_method != bestehend["auth_method"]
+
+    if hat_neues_geheimnis or anfrage.auth_method == "agent":
+        geheimnis = _geheimnis_aus_anfrage(anfrage)
+    elif auth_method_geaendert:
+        # Ohne neue Zugangsdaten bliebe das alte, zur neuen Auth-Methode nicht
+        # mehr passende Geheimnis gespeichert (z.B. Passwort in der DB, aber
+        # auth_method jetzt 'private_key') - das wuerde bei der naechsten
+        # Verbindung mit einer irrefuehrenden Fehlermeldung fehlschlagen.
+        raise HTTPException(
+            400, "Beim Wechsel der Authentifizierungsart bitte die neuen "
+                 "Zugangsdaten (Passwort bzw. privater Schluessel) angeben."
+        )
+    else:
+        geheimnis = None
+
     db.ssh_ziel_aktualisieren(
         settings.database_path, settings.secret_key_path, ziel_id,
         name=anfrage.name, host=anfrage.host, port=anfrage.port,

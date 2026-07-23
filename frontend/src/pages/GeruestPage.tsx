@@ -2,7 +2,7 @@ import Editor from "@monaco-editor/react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { ProjektDetail } from "../api/types";
-import { Badge, Button, Card } from "../components/ui";
+import { Badge, Button, Card, CardTitle } from "../components/ui";
 
 interface GeruestPageProps {
   ordner: string;
@@ -41,10 +41,10 @@ export function GeruestPage({ ordner, projekt, onGeaendert }: GeruestPageProps) 
   return (
     <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[2fr_1fr]">
       <Card className="p-0">
-        <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2 dark:border-neutral-800">
-          <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">geruest.md</h2>
+        <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+          <h2 className="font-heading text-sm font-semibold tracking-wide text-text">🗺️ geruest.md</h2>
           <div className="flex items-center gap-3">
-            {gespeichertHinweis && <span className="text-xs text-emerald-600">{gespeichertHinweis}</span>}
+            {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
             <Button onClick={speichern} disabled={wirdGespeichert}>
               {wirdGespeichert ? "Speichert..." : "Speichern"}
             </Button>
@@ -55,22 +55,20 @@ export function GeruestPage({ ordner, projekt, onGeaendert }: GeruestPageProps) 
           defaultLanguage="markdown"
           value={inhalt}
           onChange={(v) => setInhalt(v ?? "")}
-          theme={window.matchMedia("(prefers-color-scheme: dark)").matches ? "vs-dark" : "light"}
+          theme="vs-dark"
           options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
         />
       </Card>
 
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-          Erkannte Felder
-        </h2>
+        <CardTitle>Erkannte Felder</CardTitle>
         <dl className="space-y-2.5 text-sm">
           <div className="flex items-center justify-between">
-            <dt className="text-neutral-500">Jahr</dt>
+            <dt className="text-text-muted">Jahr</dt>
             <dd>{projekt?.jahr ?? "–"}</dd>
           </div>
           <div className="flex items-center justify-between">
-            <dt className="text-neutral-500">Jugendschutz-Stufe</dt>
+            <dt className="text-text-muted">Jugendschutz-Stufe</dt>
             <dd>
               <Badge tone={projekt?.jugendschutz_stufe === "voll" ? "amber" : "green"}>
                 {projekt?.jugendschutz_stufe ?? "–"}
@@ -78,11 +76,11 @@ export function GeruestPage({ ordner, projekt, onGeaendert }: GeruestPageProps) 
             </dd>
           </div>
           <div className="flex items-center justify-between">
-            <dt className="text-neutral-500">Autor-Modell</dt>
+            <dt className="text-text-muted">Autor-Modell</dt>
             <dd>{projekt?.autor_modell ?? "–"}</dd>
           </div>
           <div className="flex items-center justify-between">
-            <dt className="text-neutral-500">Automatische Fortsetzung</dt>
+            <dt className="text-text-muted">Automatische Fortsetzung</dt>
             <dd>
               <Badge tone={projekt?.automatische_fortsetzung ? "amber" : "green"}>
                 {projekt?.automatische_fortsetzung ? "Ein" : "Aus"}
@@ -90,14 +88,14 @@ export function GeruestPage({ ordner, projekt, onGeaendert }: GeruestPageProps) 
             </dd>
           </div>
           <div className="flex items-center justify-between">
-            <dt className="text-neutral-500">Letztes geplantes Kapitel</dt>
+            <dt className="text-text-muted">Letztes geplantes Kapitel</dt>
             <dd>{projekt?.letztes_geplantes_kapitel ?? "–"}</dd>
           </div>
         </dl>
 
         {projekt && Object.keys(projekt.kapitelplan).length > 0 && (
           <>
-            <h3 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            <h3 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">
               Kapitelplan (Zielwortzahl)
             </h3>
             <ul className="space-y-1 text-sm">
@@ -106,7 +104,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert }: GeruestPageProps) 
                 .map(([n, ziel]) => (
                   <li key={n} className="flex justify-between">
                     <span>Kapitel {n}</span>
-                    <span className="text-neutral-500">{ziel} Woerter</span>
+                    <span className="text-text-muted">{ziel} Woerter</span>
                   </li>
                 ))}
             </ul>

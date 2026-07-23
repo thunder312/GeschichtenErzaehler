@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../api/client";
 import type { ProjektDetail, SSHZiel } from "../api/types";
-import { Badge, Button, Card, Input, Label, Select } from "../components/ui";
+import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 
 interface StandExportPageProps {
   ordner: string;
@@ -68,9 +68,7 @@ export function StandExportPage({ ordner, projekt, sshZiele, onGeaendert }: Stan
   return (
     <div className="space-y-6 p-6">
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-          Zustand nach Kapitel festhalten (Chronist)
-        </h2>
+        <CardTitle>📦 Zustand nach Kapitel festhalten (Chronist)</CardTitle>
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <Label>Kapitelnummer</Label>
@@ -91,7 +89,7 @@ export function StandExportPage({ ordner, projekt, sshZiele, onGeaendert }: Stan
             {ladenStand ? "Erzeugt..." : "Stand erzeugen"}
           </Button>
         </div>
-        {fehler && <p className="mt-2 text-sm text-red-600">{fehler}</p>}
+        {fehler && <p className="mt-2 text-sm text-red-400">{fehler}</p>}
         {standText && (
           <div className="mt-4">
             {autoExport && (
@@ -102,7 +100,7 @@ export function StandExportPage({ ordner, projekt, sshZiele, onGeaendert }: Stan
                 </Badge>
               </div>
             )}
-            <pre className="max-h-[360px] overflow-auto whitespace-pre-wrap rounded-md bg-neutral-50 p-3 text-sm dark:bg-neutral-950">
+            <pre className="max-h-[360px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-text">
               {standText}
             </pre>
           </div>
@@ -110,9 +108,7 @@ export function StandExportPage({ ordner, projekt, sshZiele, onGeaendert }: Stan
       </Card>
 
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-          Export / Zwischenstand
-        </h2>
+        <CardTitle>🗂️ Export / Zwischenstand</CardTitle>
         <div className="flex flex-wrap items-end gap-4">
           <Button onClick={exportieren} variant="secondary" disabled={ladenExport}>
             Alle Kapitel -&gt; gesamt.md
@@ -130,7 +126,7 @@ export function StandExportPage({ ordner, projekt, sshZiele, onGeaendert }: Stan
           </Button>
         </div>
         {gesamtText && (
-          <pre className="mt-4 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md bg-neutral-50 p-3 text-sm dark:bg-neutral-950">
+          <pre className="mt-4 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-text">
             {gesamtText}
           </pre>
         )}
