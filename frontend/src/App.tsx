@@ -99,90 +99,112 @@ function App() {
 
       <TabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} />
 
+      {/* Jeder Tab-Inhalt bleibt dauerhaft gemountet und wird nur per CSS
+          ein-/ausgeblendet (statt bedingt gerendert), solange dasselbe
+          Projekt offen ist. Vorher wurde beim Tab-Wechsel die komplette
+          Seite unmounted - dabei ging jeder lokale Zustand verloren
+          (laufende Pruefung/Lektorat wirkte "abgebrochen", ein gerade
+          geschriebenes Kapitel "verschwand"), obwohl der zugehoerige
+          Server-Request oft noch lief oder laengst fertig war. Der
+          key={aktuellesProjekt} sorgt weiterhin dafuer, dass beim
+          Wechsel zu einem ANDEREN Projekt alles frisch neu gemountet
+          wird (kein Ueberbleibsel des vorherigen Projekts). */}
       <main className="flex-1">
-        {activeTab === "projekte" && (
+        <div className={activeTab === "projekte" ? "" : "hidden"}>
           <ProjektePage
             projekte={projekte}
             aktuellesProjekt={aktuellesProjekt}
             onProjekteGeaendert={projekteLaden}
             onProjektAuswaehlen={projektAuswaehlen}
           />
+        </div>
+
+        {aktuellesProjekt && (
+          <div key={aktuellesProjekt}>
+            <div className={activeTab === "geruest" ? "" : "hidden"}>
+              {interviewErzwungen || !projektDetail?.geruest ? (
+                <ArchitektInterviewPage
+                  ordner={aktuellesProjekt}
+                  sshZiele={sshZiele}
+                  sshZielId={sshZielId}
+                  onSshZielIdChange={setSshZielId}
+                  onAbgeschlossen={architektAbgeschlossen}
+                />
+              ) : (
+                <GeruestPage
+                  ordner={aktuellesProjekt}
+                  projekt={projektDetail}
+                  onGeaendert={projektDetailLaden}
+                  onInterviewStarten={() => setInterviewErzwungen(true)}
+                />
+              )}
+            </div>
+
+            <div className={activeTab === "schreiben" ? "" : "hidden"}>
+              <SchreibenPage
+                ordner={aktuellesProjekt}
+                projekt={projektDetail}
+                sshZiele={sshZiele}
+                sshZielId={sshZielId}
+                onSshZielIdChange={setSshZielId}
+                onKapitelGeschrieben={() => {
+                  projektDetailLaden();
+                  projekteLaden();
+                }}
+              />
+            </div>
+
+            <div className={activeTab === "pruefen" ? "" : "hidden"}>
+              <PruefenAnwendenPage
+                ordner={aktuellesProjekt}
+                projekt={projektDetail}
+                sshZiele={sshZiele}
+                sshZielId={sshZielId}
+                onSshZielIdChange={setSshZielId}
+              />
+            </div>
+
+            <div className={activeTab === "lektorieren" ? "" : "hidden"}>
+              <LektorierenPage
+                ordner={aktuellesProjekt}
+                projekt={projektDetail}
+                sshZiele={sshZiele}
+                sshZielId={sshZielId}
+                onSshZielIdChange={setSshZielId}
+              />
+            </div>
+
+            <div className={activeTab === "stand" ? "" : "hidden"}>
+              <StandExportPage
+                ordner={aktuellesProjekt}
+                projekt={projektDetail}
+                sshZiele={sshZiele}
+                sshZielId={sshZielId}
+                onSshZielIdChange={setSshZielId}
+                onGeaendert={() => {
+                  projektDetailLaden();
+                  projekteLaden();
+                }}
+              />
+            </div>
+
+            <div className={activeTab === "personas" ? "" : "hidden"}>
+              <PersonasPage ordner={aktuellesProjekt} />
+            </div>
+          </div>
         )}
 
-        {activeTab === "geruest" && aktuellesProjekt && (
-          interviewErzwungen || !projektDetail?.geruest ? (
-            <ArchitektInterviewPage
-              ordner={aktuellesProjekt}
-              sshZiele={sshZiele}
-              sshZielId={sshZielId}
-              onSshZielIdChange={setSshZielId}
-              onAbgeschlossen={architektAbgeschlossen}
-            />
-          ) : (
-            <GeruestPage
-              ordner={aktuellesProjekt}
-              projekt={projektDetail}
-              onGeaendert={projektDetailLaden}
-              onInterviewStarten={() => setInterviewErzwungen(true)}
-            />
-          )
-        )}
+        <div className={activeTab === "epoche" ? "" : "hidden"}>
+          <EpocheErstellenPage />
+        </div>
 
-        {activeTab === "schreiben" && aktuellesProjekt && (
-          <SchreibenPage
-            ordner={aktuellesProjekt}
-            projekt={projektDetail}
-            sshZiele={sshZiele}
-            sshZielId={sshZielId}
-            onSshZielIdChange={setSshZielId}
-            onKapitelGeschrieben={() => {
-              projektDetailLaden();
-              projekteLaden();
-            }}
-          />
-        )}
+        <div className={activeTab === "ssh" ? "" : "hidden"}>
+          <SshZielePage sshZiele={sshZiele} onGeaendert={sshZieleLaden} />
+        </div>
 
-        {activeTab === "pruefen" && aktuellesProjekt && (
-          <PruefenAnwendenPage
-            ordner={aktuellesProjekt}
-            projekt={projektDetail}
-            sshZiele={sshZiele}
-            sshZielId={sshZielId}
-            onSshZielIdChange={setSshZielId}
-          />
-        )}
-
-        {activeTab === "lektorieren" && aktuellesProjekt && (
-          <LektorierenPage
-            ordner={aktuellesProjekt}
-            projekt={projektDetail}
-            sshZiele={sshZiele}
-            sshZielId={sshZielId}
-            onSshZielIdChange={setSshZielId}
-          />
-        )}
-
-        {activeTab === "stand" && aktuellesProjekt && (
-          <StandExportPage
-            ordner={aktuellesProjekt}
-            projekt={projektDetail}
-            sshZiele={sshZiele}
-            sshZielId={sshZielId}
-            onSshZielIdChange={setSshZielId}
-            onGeaendert={() => {
-              projektDetailLaden();
-              projekteLaden();
-            }}
-          />
-        )}
-
-        {activeTab === "personas" && aktuellesProjekt && <PersonasPage ordner={aktuellesProjekt} />}
-
-        {activeTab === "epoche" && <EpocheErstellenPage />}
-
-        {activeTab === "ssh" && <SshZielePage sshZiele={sshZiele} onGeaendert={sshZieleLaden} />}
-
-        {activeTab === "einstellungen" && <EinstellungenPage />}
+        <div className={activeTab === "einstellungen" ? "" : "hidden"}>
+          <EinstellungenPage />
+        </div>
       </main>
     </div>
   );
