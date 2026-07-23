@@ -81,6 +81,12 @@ async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | Non
                         )
                         ausgangslage_gespeichert = True
 
+                    pd.schreib(
+                        projekt_root / "projekt" / "architekten_gespraech.md",
+                        arch.transkript_erzeugen(verlauf),
+                        force=True,
+                    )
+
                     neuer_ordner = pd.projektordner_umbenennen(projekt_root, antwort)
 
                     await websocket.send_json({

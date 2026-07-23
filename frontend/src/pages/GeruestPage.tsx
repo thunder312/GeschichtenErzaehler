@@ -27,9 +27,18 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onInterviewStarten }
   const [verbotslisteWirdGespeichert, setVerbotslisteWirdGespeichert] = useState(false);
   const [verbotslisteHinweis, setVerbotslisteHinweis] = useState<string | null>(null);
 
+  const [architektenGespraech, setArchitektenGespraech] = useState<string | null>(null);
+  const [architektenGespraechOffen, setArchitektenGespraechOffen] = useState(false);
+
   useEffect(() => {
     setInhalt(projekt?.geruest ?? "");
     setVerbotslisteInhalt(projekt?.verbotsliste ?? "");
+    setArchitektenGespraech(null);
+    setArchitektenGespraechOffen(false);
+    api
+      .architektenGespraech(ordner)
+      .then(setArchitektenGespraech)
+      .catch(() => setArchitektenGespraech(null));
   }, [projekt?.geruest, projekt?.verbotsliste, ordner]);
 
   async function speichern() {
@@ -153,6 +162,25 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onInterviewStarten }
             options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 13 }}
           />
         </Card>
+
+        {architektenGespraech && (
+          <Card>
+            <div className="flex items-center justify-between">
+              <CardTitle className="mb-0">📜 Architekten-Gespräch</CardTitle>
+              <button
+                onClick={() => setArchitektenGespraechOffen((bisher) => !bisher)}
+                className="text-xs text-accent-light hover:underline"
+              >
+                {architektenGespraechOffen ? "Ausblenden" : "Anzeigen"}
+              </button>
+            </div>
+            {architektenGespraechOffen && (
+              <pre className="mt-3 max-h-[400px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-text">
+                {architektenGespraech}
+              </pre>
+            )}
+          </Card>
+        )}
       </div>
     </div>
   );

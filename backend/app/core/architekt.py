@@ -10,6 +10,7 @@ sie mit ihrer Ein-Frage-pro-Antwort-Regel trainiert/instruiert ist.
 from __future__ import annotations
 
 import re
+import time
 
 _ERSTE_FRAGE_MUSTER = re.compile(r"^\s*\d+\.\s+", re.MULTILINE)
 
@@ -56,3 +57,28 @@ def ausgangslage_erkennen(geruest: str) -> str | None:
         return None
     inhalt = treffer.group(1).strip()
     return inhalt or None
+
+
+def transkript_erzeugen(verlauf: list[str]) -> str:
+    """Baut aus dem internen Verlauf ("Ich: ..."/"Du: ..." - die Perspektive,
+    aus der die Persona angesprochen wird) ein lesbares Markdown-Protokoll
+    des gesamten Architekten-Gespraechs, fuer spaetere Referenz im Projekt
+    (siehe app/api/architekt.py - wird bei erfolgreichem Abschluss als
+    projekt/architekten_gespraech.md gespeichert)."""
+    zeilen = [
+        "# Architekten-Gespräch",
+        "",
+        f"Erzeugt: {time.strftime('%Y-%m-%d %H:%M')}",
+        "",
+        "---",
+        "",
+    ]
+    for eintrag in verlauf:
+        if eintrag.startswith("Ich: "):
+            zeilen.append(f"**Nutzer:** {eintrag[len('Ich: '):]}")
+        elif eintrag.startswith("Du: "):
+            zeilen.append(f"**Architekt:** {eintrag[len('Du: '):]}")
+        else:
+            zeilen.append(eintrag)
+        zeilen.append("")
+    return "\n".join(zeilen).rstrip() + "\n"

@@ -75,6 +75,9 @@ export const api = {
 
   gesamt: (ordner: string) => anfrage<string>(`/api/projects/${ordner}/gesamt`),
 
+  architektenGespraech: (ordner: string) =>
+    anfrage<string>(`/api/projects/${ordner}/architekten-gespraech`),
+
   verbotslisteSchreiben: (ordner: string, inhalt: string) =>
     anfrage<{ gesichert_als: string | null }>(
       `/api/projects/${ordner}/verbotsliste`,

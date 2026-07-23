@@ -134,6 +134,14 @@ def persona_schreiben(ordner: str, name: str, anfrage: GeruestSchreibenAnfrage,
     return {"gesichert_als": gesichert_als}
 
 
+@router.get("/{ordner}/architekten-gespraech", response_class=PlainTextResponse)
+def architekten_gespraech_lesen(ordner: str, settings: Settings = Depends(get_settings)):
+    pfad = projekt_pfad(settings, ordner) / "projekt" / "architekten_gespraech.md"
+    if not pfad.exists():
+        raise HTTPException(404, "Noch kein abgeschlossenes Architekten-Gespräch für dieses Projekt gespeichert.")
+    return pd.lies(pfad)
+
+
 @router.get("/{ordner}/kapitel/{n}", response_class=PlainTextResponse)
 def kapitel_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings)):
     pfad = projekt_pfad(settings, ordner) / "projekt"

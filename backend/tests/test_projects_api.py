@@ -67,3 +67,8 @@ def test_persona_unbekannter_name_wird_abgelehnt(client, projekt):
 
     r2 = client.put(f"/api/projects/{projekt}/personas/nicht_vorhanden", json={"inhalt": "x"})
     assert r2.status_code == 404
+
+
+def test_architekten_gespraech_ohne_abgeschlossenes_interview_404(client, projekt):
+    r = client.get(f"/api/projects/{projekt}/architekten-gespraech")
+    assert r.status_code == 404

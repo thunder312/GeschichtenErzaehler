@@ -52,3 +52,16 @@ def test_ausgangslage_erkennen_extrahiert_abschnitt():
 
 def test_ausgangslage_erkennen_liefert_none_ohne_abschnitt():
     assert arch.ausgangslage_erkennen("# STORY-GERUEST\n\n## Rahmen\nJahr: 1815") is None
+
+
+def test_transkript_erzeugen_beschriftet_nutzer_und_architekt():
+    verlauf = [
+        "Ich: Lass uns anfangen. Stelle mir die ersten Fragen.",
+        "Du: 1. In welcher Epoche soll die Geschichte spielen?",
+        "Ich: Regency, 1815",
+    ]
+    transkript = arch.transkript_erzeugen(verlauf)
+    assert "# Architekten-Gespräch" in transkript
+    assert "**Nutzer:** Lass uns anfangen." in transkript
+    assert "**Architekt:** 1. In welcher Epoche" in transkript
+    assert "**Nutzer:** Regency, 1815" in transkript
