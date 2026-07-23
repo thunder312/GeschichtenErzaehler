@@ -58,7 +58,7 @@ function App() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg text-text">
+    <div className="flex min-h-screen flex-col text-text">
       <header className="flex items-center justify-between border-b border-border px-6 py-4">
         <h1 className="flex items-center gap-2">
           <span aria-hidden="true" className="text-2xl">
