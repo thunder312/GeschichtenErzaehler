@@ -3,6 +3,7 @@ import { api, schreibenWebSocketUrl } from "../api/client";
 import type { Finding, ProjektDetail, SSHZiel, SchreibenNachricht } from "../api/types";
 import { FindingsList } from "../components/FindingsList";
 import { Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
+import { alsDateiHerunterladen } from "../utils/download";
 
 interface SchreibenPageProps {
   ordner: string;
@@ -208,6 +209,14 @@ export function SchreibenPage({
             )}
             {phase && phase !== "autor" && laeuft && (
               <span className="text-xs text-text-muted">Phase: {phase}</span>
+            )}
+            {!laeuft && autorText && (
+              <button
+                onClick={() => alsDateiHerunterladen(`kapitel_${String(n).padStart(2, "0")}.md`, autorText)}
+                className="text-xs text-accent-light hover:underline"
+              >
+                ⬇️ Herunterladen
+              </button>
             )}
           </div>
           <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm leading-relaxed text-text">

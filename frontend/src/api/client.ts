@@ -1,6 +1,7 @@
 import type {
   AnwendenAntwort,
   BefundeAntwort,
+  Einstellungen,
   EpocheKurz,
   ProjektDetail,
   ProjektKurz,
@@ -162,6 +163,14 @@ export const api = {
     anfrage<SSHTestErgebnis>("/api/ssh-targets/test", {
       method: "POST",
       body: JSON.stringify(daten),
+    }),
+
+  einstellungen: () => anfrage<Einstellungen>("/api/einstellungen"),
+
+  einstellungenSchreiben: (projectsDir: string) =>
+    anfrage<Einstellungen>("/api/einstellungen", {
+      method: "PUT",
+      body: JSON.stringify({ projects_dir: projectsDir }),
     }),
 };
 

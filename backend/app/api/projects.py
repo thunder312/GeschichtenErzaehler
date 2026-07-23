@@ -18,7 +18,7 @@ from app.schemas import (
     ProjektDetail,
     ProjektKurz,
 )
-from app.services import neuer_projekt_pfad, projekt_pfad
+from app.services import neuer_projekt_pfad, projekt_pfad, projekte_wurzel
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -51,10 +51,11 @@ def _projekt_kurz(pfad, settings: Settings) -> ProjektKurz:
 
 @router.get("", response_model=list[ProjektKurz])
 def projekte_auflisten(settings: Settings = Depends(get_settings)):
-    if not settings.projects_dir.is_dir():
+    wurzel = projekte_wurzel(settings)
+    if not wurzel.is_dir():
         return []
     ergebnis = []
-    for eintrag in sorted(settings.projects_dir.iterdir()):
+    for eintrag in sorted(wurzel.iterdir()):
         if eintrag.is_dir() and (eintrag / "projekt").is_dir():
             ergebnis.append(_projekt_kurz(eintrag, settings))
     return ergebnis

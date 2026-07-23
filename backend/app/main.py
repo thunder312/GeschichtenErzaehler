@@ -15,7 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import architekt, epochen, pipeline, projects, ssh_targets
+from app.api import architekt, einstellungen, epochen, pipeline, projects, ssh_targets
 from app.config import get_settings
 from app.core.ollama_client import OllamaFehler
 from app.core.projekt_dateien import DateiFehlt
@@ -64,6 +64,7 @@ app.include_router(pipeline.router)
 app.include_router(ssh_targets.router)
 app.include_router(architekt.router)
 app.include_router(epochen.router)
+app.include_router(einstellungen.router)
 
 
 @app.get("/api/health")

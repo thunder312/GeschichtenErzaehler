@@ -30,6 +30,11 @@ CREATE TABLE IF NOT EXISTS ssh_targets (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS einstellungen (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    projects_dir TEXT
+);
 """
 
 
@@ -119,3 +124,20 @@ def ssh_ziel_geheimnis(row: sqlite3.Row, secret_key_path: Path) -> dict:
     if not row["secret_encrypted"]:
         return {}
     return json.loads(entschluesseln(row["secret_encrypted"], secret_key_path))
+
+
+def einstellung_projects_dir_lesen(db_path: Path) -> str | None:
+    """None bedeutet: kein Override gesetzt, es gilt der Standardpfad aus
+    app/config.py (Settings.projects_dir)."""
+    with _verbindung(db_path) as conn:
+        zeile = conn.execute("SELECT projects_dir FROM einstellungen WHERE id=1").fetchone()
+    return zeile["projects_dir"] if zeile else None
+
+
+def einstellung_projects_dir_schreiben(db_path: Path, projects_dir: str | None) -> None:
+    with _verbindung(db_path) as conn:
+        conn.execute(
+            "INSERT INTO einstellungen (id, projects_dir) VALUES (1, ?) "
+            "ON CONFLICT(id) DO UPDATE SET projects_dir=excluded.projects_dir",
+            (projects_dir,),
+        )

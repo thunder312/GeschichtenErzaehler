@@ -135,3 +135,14 @@ class RechtschreibWort(BaseModel):
 class RechtschreibAntwort(BaseModel):
     unbekannte_woerter: list[RechtschreibWort]
     hunspell_verfuegbar: bool
+
+
+class EinstellungenAntwort(BaseModel):
+    projects_dir: str
+    ist_standard: bool
+    standard_projects_dir: str
+
+
+class EinstellungenAnfrage(BaseModel):
+    # Leer/None setzt den Override zurueck auf standard_projects_dir.
+    projects_dir: str | None = None

@@ -15,11 +15,25 @@ from app.core import ssh_manager
 from app.core.geruest import ordnername_aus_titel
 
 
+def projekte_wurzel(settings: Settings) -> Path:
+    """Wurzelverzeichnis aller Story-Projekte. Ohne in der DB gesetzten
+    Override (siehe app/api/einstellungen.py) gilt Settings.projects_dir
+    (Umgebungsvariable/Default) - mit Override der dort hinterlegte Pfad,
+    damit der Speicherort ueber die GUI aenderbar ist, ohne das Backend neu
+    zu starten."""
+    override = db.einstellung_projects_dir_lesen(settings.database_path)
+    pfad = Path(override) if override else settings.projects_dir
+    pfad.mkdir(parents=True, exist_ok=True)
+    return pfad
+
+
 def projekt_pfad(settings: Settings, ordner: str) -> Path:
     """Verhindert Path-Traversal (z.B. '../../etc') - der Ordnername muss
-    ein direkter Unterordner von projects_dir sein und dort auch existieren."""
-    kandidat = (settings.projects_dir / ordner).resolve()
-    if settings.projects_dir.resolve() not in kandidat.parents and kandidat != settings.projects_dir.resolve():
+    ein direkter Unterordner der Projekte-Wurzel sein und dort auch
+    existieren."""
+    wurzel = projekte_wurzel(settings).resolve()
+    kandidat = (wurzel / ordner).resolve()
+    if wurzel not in kandidat.parents and kandidat != wurzel:
         raise HTTPException(400, "Ungueltiger Projektordner.")
     if not kandidat.is_dir():
         raise HTTPException(404, f"Projekt '{ordner}' nicht gefunden.")
@@ -27,11 +41,12 @@ def projekt_pfad(settings: Settings, ordner: str) -> Path:
 
 
 def neuer_projekt_pfad(settings: Settings, titel: str) -> Path:
+    wurzel = projekte_wurzel(settings)
     name = ordnername_aus_titel(titel)
-    ziel = settings.projects_dir / name
+    ziel = wurzel / name
     zaehler = 2
     while ziel.exists():
-        ziel = settings.projects_dir / f"{name}-{zaehler}"
+        ziel = wurzel / f"{name}-{zaehler}"
         zaehler += 1
     return ziel
 

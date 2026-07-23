@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { ProjektDetail, SSHZiel } from "../api/types";
 import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
+import { alsDateiHerunterladen } from "../utils/download";
 
 interface StandExportPageProps {
   ordner: string;
@@ -28,6 +29,7 @@ export function StandExportPage({
   const [von, setVon] = useState<number | undefined>(undefined);
   const [bis, setBis] = useState<number | undefined>(undefined);
   const [gesamtText, setGesamtText] = useState<string | null>(null);
+  const [gesamtDateiname, setGesamtDateiname] = useState("gesamt.md");
   const [ladenExport, setLadenExport] = useState(false);
 
   const [fehler, setFehler] = useState<string | null>(null);
@@ -53,6 +55,7 @@ export function StandExportPage({
     try {
       const antwort = await api.exportieren(ordner);
       setGesamtText(antwort.gesamt);
+      setGesamtDateiname("gesamt.md");
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
@@ -66,6 +69,7 @@ export function StandExportPage({
     try {
       const antwort = await api.zusammenfassen(ordner, von, bis);
       setGesamtText(antwort.inhalt ?? antwort.gesamt ?? null);
+      setGesamtDateiname(`zwischenstand_${von ?? "start"}-${bis ?? "ende"}.md`);
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
@@ -108,6 +112,14 @@ export function StandExportPage({
                 </Badge>
               </div>
             )}
+            <div className="mb-1 flex justify-end">
+              <button
+                onClick={() => alsDateiHerunterladen(`stand_${String(n).padStart(2, "0")}.md`, standText)}
+                className="text-xs text-accent-light hover:underline"
+              >
+                ⬇️ Herunterladen
+              </button>
+            </div>
             <pre className="max-h-[360px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-text">
               {standText}
             </pre>
@@ -134,9 +146,19 @@ export function StandExportPage({
           </Button>
         </div>
         {gesamtText && (
-          <pre className="mt-4 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-text">
-            {gesamtText}
-          </pre>
+          <div className="mt-4">
+            <div className="mb-1 flex justify-end">
+              <button
+                onClick={() => alsDateiHerunterladen(gesamtDateiname, gesamtText)}
+                className="text-xs text-accent-light hover:underline"
+              >
+                ⬇️ Herunterladen
+              </button>
+            </div>
+            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-text">
+              {gesamtText}
+            </pre>
+          </div>
         )}
       </Card>
     </div>

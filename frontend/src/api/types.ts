@@ -84,6 +84,12 @@ export interface RechtschreibAntwort {
   hunspell_verfuegbar: boolean;
 }
 
+export interface Einstellungen {
+  projects_dir: string;
+  ist_standard: boolean;
+  standard_projects_dir: string;
+}
+
 // WebSocket-Nachrichten von /api/projects/{ordner}/ws/schreiben/{n}
 export type SchreibenNachricht =
   | { phase: "stand_nachholen"; typ: "start" | "done"; kapitel: number }
