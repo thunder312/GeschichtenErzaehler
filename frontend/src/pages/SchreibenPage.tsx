@@ -152,6 +152,13 @@ export function SchreibenPage({
           <Label>Kapitelnummer</Label>
           <Input type="number" min={1} value={n} onChange={(e) => setN(Number(e.target.value))} disabled={laeuft} />
           {zielWoerter && <p className="mt-1 text-xs text-text-muted">Zielumfang laut Gerüst: ~{zielWoerter} Wörter</p>}
+          {!zielWoerter && !!projekt?.letztes_geplantes_kapitel && n > projekt.letztes_geplantes_kapitel && (
+            <p className="mt-1 text-xs text-text-muted">
+              Kapitel {n} ist im Kapitelplan nicht vorgesehen (geplant bis Kapitel{" "}
+              {projekt.letztes_geplantes_kapitel}) - es wird ohne festen Zielumfang geschrieben. Nutze bei
+              Bedarf den Hinweis unten, um vorzugeben, was in diesem Kapitel passieren soll.
+            </p>
+          )}
           {projekt?.kapitel.includes(n) && (
             <p className="mt-1 text-xs text-amber-300">
               Kapitel {n} wurde bereits geschrieben - "Schreiben starten" überschreibt es (alte Fassung wird
