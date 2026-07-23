@@ -8,11 +8,18 @@ interface LektorierenPageProps {
   ordner: string;
   projekt: ProjektDetail | null;
   sshZiele: SSHZiel[];
+  sshZielId: string;
+  onSshZielIdChange: (id: string) => void;
 }
 
-export function LektorierenPage({ ordner, projekt, sshZiele }: LektorierenPageProps) {
+export function LektorierenPage({
+  ordner,
+  projekt,
+  sshZiele,
+  sshZielId,
+  onSshZielIdChange,
+}: LektorierenPageProps) {
   const [n, setN] = useState(projekt?.kapitel.at(-1) ?? 1);
-  const [sshZielId, setSshZielId] = useState("");
   const [ergebnis, setErgebnis] = useState<AnwendenAntwort | null>(null);
   const [bearbeitet, setBearbeitet] = useState("");
   const [laedt, setLaedt] = useState(false);
@@ -80,7 +87,7 @@ export function LektorierenPage({ ordner, projekt, sshZiele }: LektorierenPagePr
           </div>
           <div>
             <Label>KI-Ziel (optional)</Label>
-            <Select value={sshZielId} onChange={(e) => setSshZielId(e.target.value)} className="w-56">
+            <Select value={sshZielId} onChange={(e) => onSshZielIdChange(e.target.value)} className="w-56">
               <option value="">Lokal / Standard-Ollama</option>
               {sshZiele.map((z) => (
                 <option key={z.id} value={z.id}>

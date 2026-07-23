@@ -7,12 +7,20 @@ interface StandExportPageProps {
   ordner: string;
   projekt: ProjektDetail | null;
   sshZiele: SSHZiel[];
+  sshZielId: string;
+  onSshZielIdChange: (id: string) => void;
   onGeaendert: () => void;
 }
 
-export function StandExportPage({ ordner, projekt, sshZiele, onGeaendert }: StandExportPageProps) {
+export function StandExportPage({
+  ordner,
+  projekt,
+  sshZiele,
+  sshZielId,
+  onSshZielIdChange,
+  onGeaendert,
+}: StandExportPageProps) {
   const [n, setN] = useState(projekt?.kapitel.at(-1) ?? 1);
-  const [sshZielId, setSshZielId] = useState("");
   const [standText, setStandText] = useState<string | null>(null);
   const [autoExport, setAutoExport] = useState(false);
   const [ladenStand, setLadenStand] = useState(false);
@@ -76,7 +84,7 @@ export function StandExportPage({ ordner, projekt, sshZiele, onGeaendert }: Stan
           </div>
           <div>
             <Label>KI-Ziel (optional)</Label>
-            <Select value={sshZielId} onChange={(e) => setSshZielId(e.target.value)} className="w-56">
+            <Select value={sshZielId} onChange={(e) => onSshZielIdChange(e.target.value)} className="w-56">
               <option value="">Lokal / Standard-Ollama</option>
               {sshZiele.map((z) => (
                 <option key={z.id} value={z.id}>

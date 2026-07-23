@@ -31,13 +31,20 @@ def epochen_auflisten(settings: Settings = Depends(get_settings)):
 
 
 def _projekt_kurz(pfad, settings: Settings) -> ProjektKurz:
-    geruest_text = pd.lies(pd.geruest_datei(pfad), pflicht=False, ersatz="")
+    # pfad ist der AEUSSERE Projektordner (mit personas/ und projekt/) -
+    # geruest.md und kapitel_*.md liegen im projekt/-Unterordner, siehe
+    # projekt_lesen() unten. Ohne dieses Unterverzeichnis waren Titel,
+    # Kapitelanzahl und geplante Kapitelzahl in der Projektliste immer
+    # leer/0, obwohl die Projekt-Detailansicht (die korrekt in projekt/
+    # nachschaut) sie richtig anzeigte.
+    projekt_unterordner = pfad / "projekt"
+    geruest_text = pd.lies(pd.geruest_datei(projekt_unterordner), pflicht=False, ersatz="")
     titel = g.titel_erkennen(geruest_text) if geruest_text else None
     return ProjektKurz(
         ordner=pfad.name,
         titel=titel,
         epoche=pd.epoche_von_projekt(pfad),
-        anzahl_kapitel=len(pd.vorhandene_kapitel(pfad)),
+        anzahl_kapitel=len(pd.vorhandene_kapitel(projekt_unterordner)),
         letztes_geplantes_kapitel=g.letztes_geplantes_kapitel(geruest_text) if geruest_text else None,
     )
 

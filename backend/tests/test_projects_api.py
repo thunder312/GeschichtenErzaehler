@@ -28,6 +28,28 @@ def projekt(client):
     return r.json()["ordner"]
 
 
+def test_projektliste_zeigt_titel_und_kapitelanzahl_aus_projekt_unterordner(client, projekt, tmp_path):
+    # Regression: die Listenansicht (GET /api/projects) suchte geruest.md
+    # und kapitel_*.md faelschlich im AEUSSEREN Projektordner statt im
+    # projekt/-Unterordner und zeigte deshalb immer Titel=None und
+    # anzahl_kapitel=0, obwohl die Detailansicht (GET /api/projects/{ordner})
+    # dieselben Dateien korrekt fand.
+    client.put(f"/api/projects/{projekt}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nDer Turm im Nebel\n\n## Kapitelplan\n"
+                   "Kapitel 1: Start. Zielwortzahl: 1000 Woerter.\n",
+    })
+    from app.core import projekt_dateien as pd
+    projekt_pfad = tmp_path / "projects" / projekt / "projekt"
+    pd.schreib(pd.kapitel_datei(projekt_pfad, 1), "Ein Kapiteltext.")
+
+    r = client.get("/api/projects")
+    assert r.status_code == 200
+    eintrag = next(p for p in r.json() if p["ordner"] == projekt)
+    assert eintrag["titel"] == "Der Turm im Nebel"
+    assert eintrag["anzahl_kapitel"] == 1
+    assert eintrag["letztes_geplantes_kapitel"] == 1
+
+
 def test_verbotsliste_lesen_und_schreiben(client, projekt):
     r = client.get(f"/api/projects/{projekt}")
     assert r.status_code == 200

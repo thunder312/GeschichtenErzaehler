@@ -8,6 +8,7 @@
 - [x] Nicht-Netzwerk KI-Ziele (lokal und/oder Windows)
 - [x] Persona bearbeiten
 - [x] Verbotsliste bearbeiten
+- [ ] lokaler Speicherort für Geschichte definierbar
 - [ ] Hilfe-System für Anwender
 - [ ] KI-Fehler-Logging
 - [ ] Zeit-Überbrückung mit Benutzer-Unterhaltung (docs/unnützesWissen.csv in DB anlegen und anzeigen, während die KI arbeitet)

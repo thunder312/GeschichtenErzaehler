@@ -20,6 +20,13 @@ function App() {
   const [projektDetail, setProjektDetail] = useState<ProjektDetail | null>(null);
   const [activeTab, setActiveTab] = useState("projekte");
   const [interviewErzwungen, setInterviewErzwungen] = useState(false);
+  // Geteilt ueber alle Pipeline-Schritte hinweg (Architekt, Schreiben,
+  // Pruefen, Lektorieren, Stand): das gewaehlte KI-Ziel soll beim
+  // Tab-Wechsel erhalten bleiben, statt bei jedem neu gemounteten Tab auf
+  // "Lokal" zurueckzufallen - das fuehrte sonst dazu, dass z.B. "Pruefen"
+  // versehentlich gegen ein nicht erreichbares lokales Ollama lief, obwohl
+  // im Schreiben-Tab zuvor ein SSH-Ziel gewaehlt war.
+  const [sshZielId, setSshZielId] = useState("");
 
   const projekteLaden = useCallback(() => {
     api.projekte().then(setProjekte);
@@ -105,6 +112,8 @@ function App() {
             <ArchitektInterviewPage
               ordner={aktuellesProjekt}
               sshZiele={sshZiele}
+              sshZielId={sshZielId}
+              onSshZielIdChange={setSshZielId}
               onAbgeschlossen={architektAbgeschlossen}
             />
           ) : (
@@ -122,6 +131,8 @@ function App() {
             ordner={aktuellesProjekt}
             projekt={projektDetail}
             sshZiele={sshZiele}
+            sshZielId={sshZielId}
+            onSshZielIdChange={setSshZielId}
             onKapitelGeschrieben={() => {
               projektDetailLaden();
               projekteLaden();
@@ -130,11 +141,23 @@ function App() {
         )}
 
         {activeTab === "pruefen" && aktuellesProjekt && (
-          <PruefenAnwendenPage ordner={aktuellesProjekt} projekt={projektDetail} sshZiele={sshZiele} />
+          <PruefenAnwendenPage
+            ordner={aktuellesProjekt}
+            projekt={projektDetail}
+            sshZiele={sshZiele}
+            sshZielId={sshZielId}
+            onSshZielIdChange={setSshZielId}
+          />
         )}
 
         {activeTab === "lektorieren" && aktuellesProjekt && (
-          <LektorierenPage ordner={aktuellesProjekt} projekt={projektDetail} sshZiele={sshZiele} />
+          <LektorierenPage
+            ordner={aktuellesProjekt}
+            projekt={projektDetail}
+            sshZiele={sshZiele}
+            sshZielId={sshZielId}
+            onSshZielIdChange={setSshZielId}
+          />
         )}
 
         {activeTab === "stand" && aktuellesProjekt && (
@@ -142,6 +165,8 @@ function App() {
             ordner={aktuellesProjekt}
             projekt={projektDetail}
             sshZiele={sshZiele}
+            sshZielId={sshZielId}
+            onSshZielIdChange={setSshZielId}
             onGeaendert={() => {
               projektDetailLaden();
               projekteLaden();

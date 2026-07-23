@@ -11,11 +11,15 @@ Das Frontend (siehe /frontend) laeuft im Dev-Betrieb separat unter Vite
 Produktions-Build kann das Vite-dist/-Verzeichnis spaeter zusaetzlich hier
 gemountet werden.
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api import architekt, epochen, pipeline, projects, ssh_targets
 from app.config import get_settings
+from app.core.ollama_client import OllamaFehler
+from app.core.projekt_dateien import DateiFehlt
+from app.core.ssh_manager import SSHVerbindungsFehler
 from app.db import init_db
 
 settings = get_settings()
@@ -30,6 +34,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Zentrale Fehlerbehandlung: ohne diese Handler wuerden OllamaFehler/
+# DateiFehlt/SSHVerbindungsFehler, die aus tiefer verschachtelten
+# Funktionen (core/*) aufsteigen, als nackte "Internal Server Error" (500,
+# ohne verwertbare Meldung) beim Frontend ankommen - z.B. wenn ein
+# REST-Endpunkt wie /pruefen ohne SSH-Ziel aufgerufen wird und das lokale
+# Ollama nicht erreichbar ist. Die WebSocket-Endpunkte (schreiben,
+# architekt) fangen dieselben Fehler bereits selbst ab, da sie eigene
+# Nachrichten ueber den Socket schicken muessen statt einer HTTP-Antwort.
+@app.exception_handler(OllamaFehler)
+async def ollama_fehler_handler(_request: Request, exc: OllamaFehler) -> JSONResponse:
+    return JSONResponse(status_code=502, content={"detail": str(exc)})
+
+
+@app.exception_handler(SSHVerbindungsFehler)
+async def ssh_fehler_handler(_request: Request, exc: SSHVerbindungsFehler) -> JSONResponse:
+    return JSONResponse(status_code=502, content={"detail": f"SSH-Verbindung fehlgeschlagen: {exc}"})
+
+
+@app.exception_handler(DateiFehlt)
+async def datei_fehlt_handler(_request: Request, exc: DateiFehlt) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
 
 app.include_router(projects.router)
 app.include_router(pipeline.router)

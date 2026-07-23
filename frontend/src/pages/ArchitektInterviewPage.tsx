@@ -6,6 +6,8 @@ import { Button, Card, Select } from "../components/ui";
 interface ArchitektInterviewPageProps {
   ordner: string;
   sshZiele: SSHZiel[];
+  sshZielId: string;
+  onSshZielIdChange: (id: string) => void;
   onAbgeschlossen: (neuerOrdner: string) => void;
 }
 
@@ -41,8 +43,13 @@ function optionenErkennen(text: string): Antwortoption[] {
  * automatisch, sobald die Persona ein vollstaendiges '# STORY-GERUEST'
  * liefert - das Backend speichert dann geruest.md (+ ggf. stand_00.md) und
  * benennt den Projektordner passend zum gewaehlten Titel um. */
-export function ArchitektInterviewPage({ ordner, sshZiele, onAbgeschlossen }: ArchitektInterviewPageProps) {
-  const [sshZielId, setSshZielId] = useState("");
+export function ArchitektInterviewPage({
+  ordner,
+  sshZiele,
+  sshZielId,
+  onSshZielIdChange,
+  onAbgeschlossen,
+}: ArchitektInterviewPageProps) {
   const [gestartet, setGestartet] = useState(false);
   const [nachrichten, setNachrichten] = useState<ChatEintrag[]>([]);
   const [eingabe, setEingabe] = useState("");
@@ -134,7 +141,7 @@ export function ArchitektInterviewPage({ ordner, sshZiele, onAbgeschlossen }: Ar
             Kapitelplan und erstellt daraus automatisch das Story-Gerüst dieses Projekts.
           </p>
           <div className="mx-auto mb-4 max-w-xs text-left">
-            <Select value={sshZielId} onChange={(e) => setSshZielId(e.target.value)}>
+            <Select value={sshZielId} onChange={(e) => onSshZielIdChange(e.target.value)}>
               <option value="">Lokal / Standard-Ollama</option>
               {sshZiele.map((z) => (
                 <option key={z.id} value={z.id}>

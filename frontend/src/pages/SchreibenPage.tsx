@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { schreibenWebSocketUrl } from "../api/client";
+import { api, schreibenWebSocketUrl } from "../api/client";
 import type { Finding, ProjektDetail, SSHZiel, SchreibenNachricht } from "../api/types";
 import { FindingsList } from "../components/FindingsList";
 import { Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
@@ -8,16 +8,25 @@ interface SchreibenPageProps {
   ordner: string;
   projekt: ProjektDetail | null;
   sshZiele: SSHZiel[];
+  sshZielId: string;
+  onSshZielIdChange: (id: string) => void;
   onKapitelGeschrieben: () => void;
 }
 
-export function SchreibenPage({ ordner, projekt, sshZiele, onKapitelGeschrieben }: SchreibenPageProps) {
+export function SchreibenPage({
+  ordner,
+  projekt,
+  sshZiele,
+  sshZielId,
+  onSshZielIdChange,
+  onKapitelGeschrieben,
+}: SchreibenPageProps) {
   const [n, setN] = useState(1);
   const [zusatzhinweis, setZusatzhinweis] = useState("");
-  const [sshZielId, setSshZielId] = useState("");
   const [laeuft, setLaeuft] = useState(false);
   const [denktNach, setDenktNach] = useState(false);
   const [autorText, setAutorText] = useState("");
+  const [geladenAusDatei, setGeladenAusDatei] = useState(false);
   const [modell, setModell] = useState<string | null>(null);
   const [befunde, setBefunde] = useState<string | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -38,9 +47,55 @@ export function SchreibenPage({ ordner, projekt, sshZiele, onKapitelGeschrieben 
 
   useEffect(() => () => socketRef.current?.close(), []);
 
+  // Zeigt beim (erneuten) Betreten dieses Tabs bzw. bei einer anderen
+  // Kapitelnummer den bereits gespeicherten Kapiteltext an, statt immer
+  // leer zu starten - vorher wirkte ein schon geschriebenes Kapitel nach
+  // einem Tab-Wechsel "verschwunden", obwohl kapitel_NN.md unveraendert auf
+  // der Platte lag (die Anzeige war reiner, nicht persistenter React-State).
+  useEffect(() => {
+    if (laeuft) return;
+    let abgebrochen = false;
+    setFehler(null);
+    if (!projekt?.kapitel.includes(n)) {
+      setAutorText("");
+      setBefunde(null);
+      setGeladenAusDatei(false);
+      return;
+    }
+    api
+      .kapitel(ordner, n)
+      .then((text) => {
+        // Ohne diese Absicherung konnte eine noch laufende, aber
+        // ueberholte Anfrage (z.B. fuer die vorherige Kapitelnummer) nach
+        // dem Wechsel auf eine neue Nummer verspaetet zurueckkommen und
+        // den korrekt zurueckgesetzten Zustand wieder mit dem falschen
+        // Kapiteltext ueberschreiben.
+        if (abgebrochen) return;
+        setAutorText(text);
+        setGeladenAusDatei(true);
+      })
+      .catch(() => {
+        if (abgebrochen) return;
+        setAutorText("");
+        setGeladenAusDatei(false);
+      });
+    api
+      .befunde(ordner, n)
+      .then((text) => {
+        if (!abgebrochen) setBefunde(text);
+      })
+      .catch(() => {
+        if (!abgebrochen) setBefunde(null);
+      });
+    return () => {
+      abgebrochen = true;
+    };
+  }, [ordner, n, projekt, laeuft]);
+
   function starten() {
     setLaeuft(true);
     setAutorText("");
+    setGeladenAusDatei(false);
     setBefunde(null);
     setFindings([]);
     setFehler(null);
@@ -100,6 +155,12 @@ export function SchreibenPage({ ordner, projekt, sshZiele, onKapitelGeschrieben 
           <Label>Kapitelnummer</Label>
           <Input type="number" min={1} value={n} onChange={(e) => setN(Number(e.target.value))} disabled={laeuft} />
           {zielWoerter && <p className="mt-1 text-xs text-text-muted">Zielumfang laut Gerüst: ~{zielWoerter} Wörter</p>}
+          {projekt?.kapitel.includes(n) && (
+            <p className="mt-1 text-xs text-amber-300">
+              Kapitel {n} wurde bereits geschrieben - "Schreiben starten" überschreibt es (alte Fassung wird
+              als .bak gesichert).
+            </p>
+          )}
         </div>
         <div>
           <Label>Zusätzlicher Hinweis (nur für diesen Versuch)</Label>
@@ -114,7 +175,7 @@ export function SchreibenPage({ ordner, projekt, sshZiele, onKapitelGeschrieben 
         </div>
         <div>
           <Label>KI-Ziel (optional)</Label>
-          <Select value={sshZielId} onChange={(e) => setSshZielId(e.target.value)} disabled={laeuft}>
+          <Select value={sshZielId} onChange={(e) => onSshZielIdChange(e.target.value)} disabled={laeuft}>
             <option value="">Lokal / Standard-Ollama</option>
             {sshZiele.map((z) => (
               <option key={z.id} value={z.id}>
@@ -142,7 +203,10 @@ export function SchreibenPage({ ordner, projekt, sshZiele, onKapitelGeschrieben 
               Autor {modell && <span className="font-sans font-normal text-text-muted">({modell})</span>}
             </h2>
             {denktNach && <span className="text-xs italic text-accent-light">denkt nach...</span>}
-            {phase && phase !== "autor" && (
+            {!laeuft && geladenAusDatei && (
+              <span className="text-xs text-text-muted">📄 gespeicherter Stand von kapitel_{String(n).padStart(2, "0")}.md</span>
+            )}
+            {phase && phase !== "autor" && laeuft && (
               <span className="text-xs text-text-muted">Phase: {phase}</span>
             )}
           </div>
