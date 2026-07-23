@@ -76,26 +76,30 @@ function App() {
         ]
       : []),
     { id: "epoche", label: "Epoche erstellen", icon: "🏛️" },
-    { id: "ssh", label: "KI-Ziele", icon: "🔌" },
-    { id: "einstellungen", label: "Einstellungen", icon: "⚙️" },
+    { id: "ssh", label: "KI-Ziele", icon: "🔌", align: "end" as const },
+    { id: "einstellungen", label: "Einstellungen", icon: "⚙️", align: "end" as const },
   ];
 
   return (
     <div className="flex min-h-screen flex-col text-text">
-      <header className="flex items-center justify-between border-b border-border px-6 py-4">
-        <h1 className="flex items-center gap-2">
-          <span aria-hidden="true" className="text-2xl">
-            📖
-          </span>
-          <span className="heading-flourish inline-block bg-gradient-to-r from-accent-light to-accent bg-clip-text text-3xl font-bold tracking-tight text-transparent transition-transform duration-300 hover:-rotate-1 hover:scale-105">
-            Geschichten Erzähler
-          </span>
-        </h1>
-        {aktuellesProjekt && (
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-text-muted">
+      <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <h1 className="flex shrink-0 items-center gap-2">
+            <span aria-hidden="true" className="text-2xl">
+              📖
+            </span>
+            <span className="heading-flourish inline-block bg-gradient-to-r from-accent-light to-accent bg-clip-text text-3xl font-bold tracking-tight text-transparent transition-transform duration-300 hover:-rotate-1 hover:scale-105">
+              Geschichten Erzähler
+            </span>
+          </h1>
+          {aktuellesProjekt && (
+            <span className="truncate whitespace-nowrap text-sm text-text-muted">
               Projekt: <span className="font-medium text-text">{projektDetail?.ordner ?? aktuellesProjekt}</span>
             </span>
+          )}
+        </div>
+        {aktuellesProjekt && (
+          <div className="shrink-0">
             {/* Ein einziges KI-Ziel pro Projekt-Sitzung statt einer eigenen
                 Auswahl in jedem Pipeline-Schritt - innerhalb derselben
                 Geschichte wechselt man das praktisch nie zwischen den
