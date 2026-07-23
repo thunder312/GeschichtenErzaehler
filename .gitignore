@@ -1,0 +1,33 @@
+# --- Python / Backend ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Node / Frontend ---
+node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+
+# --- Laufzeitdaten (lokal, nicht versioniert) ---
+backend/instance/
+backend/*.db
+backend/*.sqlite3
+backend/.secret_key
+projects/
+*.bak
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# --- Env ---
+.env
+.env.local

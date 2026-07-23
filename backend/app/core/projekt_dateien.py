@@ -1,0 +1,119 @@
+"""Dateizugriff auf Projektordner - portiert aus pre-GUI/novelle.py.
+
+Haelt den Ordnervertrag aus doc/Schnittstellen-Uebersicht.md Abschnitt 1
+exakt ein, damit ein mit der GUI erzeugter Projektordner unveraendert mit
+der bestehenden novelle.py weiterbearbeitet werden koennte (und umgekehrt).
+
+Unterschied zum CLI: Dort ist der Projektordner das aktuelle Arbeits-
+verzeichnis (PROJEKT = Path(cwd)/"projekt"). Die GUI verwaltet mehrere
+Projekte parallel, deshalb nehmen alle Funktionen hier den Projektordner
+explizit als Parameter entgegen statt ihn aus einer globalen Konstante zu
+lesen.
+"""
+from __future__ import annotations
+
+import re
+import shutil
+import time
+from pathlib import Path
+
+from app.core.textutil import woerter
+
+EPOCHE_PERSONA_DATEIEN = ("architekt.txt", "autor.txt", "pruefer_anachronismus.txt")
+GEMEINSAME_PERSONA_DATEIEN = (
+    "chronist.txt", "pruefer_kontinuitaet.txt",
+    "lektor.txt", "anachronismen_korrektur.txt",
+)
+
+
+class DateiFehlt(Exception):
+    pass
+
+
+def kapitel_datei(projekt: Path, n: int) -> Path:
+    return projekt / f"kapitel_{n:02d}.md"
+
+
+def stand_datei(projekt: Path, n: int) -> Path:
+    return projekt / f"stand_{n:02d}.md"
+
+
+def befunde_datei(projekt: Path, n: int) -> Path:
+    return projekt / f"befunde_{n:02d}.md"
+
+
+def geruest_datei(projekt: Path) -> Path:
+    return projekt / "geruest.md"
+
+
+def verbotsliste_datei(projekt: Path) -> Path:
+    return projekt / "verbotsliste.md"
+
+
+def lies(pfad: Path, pflicht: bool = True, ersatz: str = "") -> str:
+    if not pfad.exists():
+        if pflicht:
+            raise DateiFehlt(f"Datei fehlt: {pfad}")
+        return ersatz
+    return pfad.read_text(encoding="utf-8").strip()
+
+
+def schreib(pfad: Path, text: str, force: bool = False) -> tuple[Path, str | None]:
+    """Schreibt die Datei, sichert eine vorhandene Fassung als .bak (ausser
+    force=True). Gibt (Pfad, Name_der_Sicherung_oder_None) zurueck."""
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    sicherung_name = None
+    if pfad.exists() and not force:
+        sicherung = pfad.with_suffix(pfad.suffix + f".{int(time.time())}.bak")
+        pfad.rename(sicherung)
+        sicherung_name = sicherung.name
+    pfad.write_text(text + "\n", encoding="utf-8")
+    return pfad, sicherung_name
+
+
+def kapitelnummer_aus_dateiname(pfad: Path) -> int:
+    treffer = re.search(r"kapitel_(\d+)\.md$", pfad.name)
+    return int(treffer.group(1)) if treffer else -1
+
+
+def vorhandene_kapitel(projekt: Path) -> list[Path]:
+    return sorted(projekt.glob("kapitel_*.md"), key=kapitelnummer_aus_dateiname)
+
+
+def persona_lesen(projekt: Path, name: str) -> str:
+    return lies(projekt / "personas" / f"{name}.txt")
+
+
+def projekt_anlegen(ziel: Path, epoche_ordner: Path, gemeinsame_personas_ordner: Path,
+                     epoche_name: str) -> None:
+    """Legt personas/ + projekt/ in ziel an, analog zu novelle.py's
+    _projekt_befuellen(). ziel muss bereits existieren oder wird erzeugt."""
+    ziel.mkdir(parents=True, exist_ok=True)
+    personas_ziel = ziel / "personas"
+    personas_ziel.mkdir(exist_ok=True)
+    (ziel / "projekt").mkdir(exist_ok=True)
+
+    for datei in EPOCHE_PERSONA_DATEIEN:
+        quelle = epoche_ordner / datei
+        if quelle.exists():
+            shutil.copy(quelle, personas_ziel / datei)
+    for datei in GEMEINSAME_PERSONA_DATEIEN:
+        quelle = gemeinsame_personas_ordner / datei
+        if quelle.exists():
+            shutil.copy(quelle, personas_ziel / datei)
+
+    verbotsliste_quelle = epoche_ordner / "verbotsliste.md"
+    if verbotsliste_quelle.exists():
+        shutil.copy(verbotsliste_quelle, ziel / "projekt" / "verbotsliste.md")
+
+    (ziel / ".epoche").write_text(epoche_name, encoding="utf-8")
+
+
+def epoche_von_projekt(ziel: Path) -> str | None:
+    marker = ziel / ".epoche"
+    return marker.read_text(encoding="utf-8").strip() if marker.exists() else None
+
+
+def woerter_im_kapitel(projekt: Path, n: int) -> int:
+    text = lies(kapitel_datei(projekt, n), pflicht=False, ersatz="")
+    return woerter(text)
