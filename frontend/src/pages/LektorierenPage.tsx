@@ -102,7 +102,7 @@ export function LektorierenPage({ ordner, projekt, sshZiele }: LektorierenPagePr
       {ergebnis && (
         <Card>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-heading text-sm font-semibold tracking-wide text-text">
+            <h2 className="font-heading text-lg font-semibold tracking-wide text-text">
               Merge-Ansicht: alt (links) vs. lektoriert (rechts, editierbar)
             </h2>
             <div className="flex items-center gap-3">

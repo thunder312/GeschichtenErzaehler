@@ -164,7 +164,7 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
 
       <Card>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-heading text-base font-semibold tracking-wide text-text">
+          <h2 className="font-heading text-lg font-semibold tracking-wide text-text">
             {bearbeiteId ? "SSH-Ziel bearbeiten" : "Neues SSH-Ziel"}
           </h2>
           {bearbeiteId && (

@@ -138,7 +138,7 @@ export function SchreibenPage({ ordner, projekt, sshZiele, onKapitelGeschrieben 
       <div className="space-y-4">
         <Card>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-heading text-sm font-semibold tracking-wide text-text">
+            <h2 className="font-heading text-lg font-semibold tracking-wide text-text">
               Autor {modell && <span className="font-sans font-normal text-text-muted">({modell})</span>}
             </h2>
             {denktNach && <span className="text-xs italic text-accent-light">denkt nach...</span>}

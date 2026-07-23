@@ -42,7 +42,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert }: GeruestPageProps) 
     <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[2fr_1fr]">
       <Card className="p-0">
         <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-          <h2 className="font-heading text-sm font-semibold tracking-wide text-text">🗺️ geruest.md</h2>
+          <h2 className="font-heading text-lg font-semibold tracking-wide text-text">🗺️ geruest.md</h2>
           <div className="flex items-center gap-3">
             {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
             <Button onClick={speichern} disabled={wirdGespeichert}>

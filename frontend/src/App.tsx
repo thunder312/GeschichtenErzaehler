@@ -59,9 +59,14 @@ function App() {
 
   return (
     <div className="flex min-h-screen flex-col bg-bg text-text">
-      <header className="flex items-center justify-between border-b border-border px-6 py-3.5">
-        <h1 className="font-heading flex items-center gap-2 text-lg font-semibold tracking-wide text-text">
-          <span aria-hidden="true">📖</span> Geschichten Erzähler
+      <header className="flex items-center justify-between border-b border-border px-6 py-4">
+        <h1 className="flex items-center gap-2">
+          <span aria-hidden="true" className="text-2xl">
+            📖
+          </span>
+          <span className="heading-flourish inline-block bg-gradient-to-r from-accent-light to-accent bg-clip-text text-3xl font-bold tracking-tight text-transparent transition-transform duration-300 hover:-rotate-1 hover:scale-105">
+            Geschichten Erzähler
+          </span>
         </h1>
         {aktuellesProjekt && (
           <span className="text-sm text-text-muted">

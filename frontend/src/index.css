@@ -57,3 +57,20 @@ body {
   background-color: var(--color-surface-hover);
   border-radius: 999px;
 }
+
+/*
+ * Sehr verspielte Ausprägung von Fraunces, nur für das App-Wortmarke/Logo
+ * ("Geschichten Erzähler" im Header) gedacht. Fraunces ist eine Variable
+ * Font mit einer "opsz"-Achse (9-144): bei der kleinen Größe normaler
+ * Überschriften (siehe .font-heading auf CardTitle) wählt der Browser via
+ * font-optical-sizing:auto automatisch einen zurückhaltenden, eher
+ * klassischen Schnitt. Hier wird die Achse bewusst auf ihr Maximum
+ * gezwungen und mit Kursivschnitt kombiniert - dort zeigt Fraunces ihre
+ * verspielten, leicht wonky Schwünge, die bei kleiner Optical Size
+ * praktisch unsichtbar sind.
+ */
+.heading-flourish {
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-variation-settings: "opsz" 144;
+}
