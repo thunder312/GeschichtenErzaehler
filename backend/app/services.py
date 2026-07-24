@@ -40,8 +40,17 @@ def projekt_pfad(settings: Settings, ordner: str) -> Path:
     return kandidat
 
 
-def neuer_projekt_pfad(settings: Settings, titel: str) -> Path:
+def neuer_projekt_pfad(settings: Settings, titel: str, epoche: str | None = None) -> Path:
+    """Ort fuer ein neu anzulegendes Projekt. Ist die Einstellung
+    "Unterordner je Epoche" aktiv (siehe app/api/einstellungen.py), landet
+    das Projekt in einem nach der Epoche benannten Unterordner der
+    Speicherort-Wurzel statt direkt darin - erspart das manuelle Umstellen
+    des Speicherorts beim Wechsel zwischen Epochen."""
     wurzel = projekte_wurzel(settings)
+    if epoche and db.einstellung_unterordner_je_epoche_lesen(settings.database_path):
+        wurzel = wurzel / ordnername_aus_titel(epoche)
+        wurzel.mkdir(parents=True, exist_ok=True)
+
     name = ordnername_aus_titel(titel)
     ziel = wurzel / name
     zaehler = 2

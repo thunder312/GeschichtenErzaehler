@@ -65,6 +65,11 @@ app.include_router(ssh_targets.router)
 app.include_router(architekt.router)
 app.include_router(epochen.router)
 app.include_router(einstellungen.router)
+# Catch-All-Route fuer die Projekt-Detailansicht ("/{ordner:path}", matcht
+# jeden Rest-Pfad) - muss als LETZTES eingebunden werden, sonst verdeckt sie
+# spezifischere Routen aus pipeline/architekt (siehe Kommentar in
+# app/api/projects.py bei fallback_router).
+app.include_router(projects.fallback_router)
 
 
 @app.get("/api/health")

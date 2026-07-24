@@ -108,3 +108,37 @@ def test_projekt_anlegen_ohne_titel_zaehlt_bei_kollision_hoch(client):
     r2 = client.post("/api/projects", json={"titel": "", "epoche": "Regency"})
     assert r1.json()["ordner"] == "neu"
     assert r2.json()["ordner"] == "neu-2"
+
+
+def test_projekt_anlegen_mit_epoche_unterordner(client, tmp_path):
+    client.put("/api/einstellungen", json={"unterordner_je_epoche": True})
+    r = client.post("/api/projects", json={"titel": "Der Sturm", "epoche": "Regency"})
+    assert r.status_code == 201
+    daten = r.json()
+    assert daten["ordner"] == "Regency/Der-Sturm"
+    assert (tmp_path / "projects" / "Regency" / "Der-Sturm" / "projekt").is_dir()
+
+    r2 = client.get(f"/api/projects/{daten['ordner']}")
+    assert r2.status_code == 200
+
+    r3 = client.get("/api/projects")
+    assert any(p["ordner"] == "Regency/Der-Sturm" for p in r3.json())
+
+
+def test_projekt_mit_epoche_unterordner_geruest_lesen_und_schreiben(client):
+    client.put("/api/einstellungen", json={"unterordner_je_epoche": True})
+    ordner = client.post("/api/projects", json={"titel": "Der Sturm", "epoche": "Regency"}).json()["ordner"]
+
+    r = client.put(f"/api/projects/{ordner}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nDer Sturm\n",
+    })
+    assert r.status_code == 200
+
+    r2 = client.get(f"/api/projects/{ordner}")
+    assert "Der Sturm" in r2.json()["geruest"]
+
+
+def test_projekt_ohne_epoche_unterordner_bleibt_flach(client, tmp_path):
+    r = client.post("/api/projects", json={"titel": "Der Sturm", "epoche": "Regency"})
+    assert r.json()["ordner"] == "Der-Sturm"
+    assert (tmp_path / "projects" / "Der-Sturm" / "projekt").is_dir()

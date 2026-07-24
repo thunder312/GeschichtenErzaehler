@@ -149,8 +149,10 @@ class EinstellungenAntwort(BaseModel):
     projects_dir: str
     ist_standard: bool
     standard_projects_dir: str
+    unterordner_je_epoche: bool
 
 
 class EinstellungenAnfrage(BaseModel):
     # Leer/None setzt den Override zurueck auf standard_projects_dir.
     projects_dir: str | None = None
+    unterordner_je_epoche: bool = False

@@ -22,6 +22,18 @@ from app.services import neuer_projekt_pfad, projekt_pfad, projekte_wurzel
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
+# Die "/{ordner:path}"-Route fuer die Projekt-Detailansicht ist ein
+# Catch-All (matcht dank ":path" JEDEN Rest-Pfad, auch mit "/" darin - noetig
+# fuer Epoche-Unterordner, siehe app/services.py:neuer_projekt_pfad). In
+# EINEM Router wuerde sie spezifischere Routen wie ".../personas" oder
+# ".../geruest" verdecken, egal in welcher Reihenfolge sie hier definiert
+# sind, da FastAPI Router-uebergreifend in Einbindungsreihenfolge matcht
+# (siehe app/main.py) - andere Router (pipeline, architekt) mit eigenen
+# "/{ordner:path}/..."-Routen wuerden sonst nie erreicht. Deshalb ein
+# eigener Router, der in main.py bewusst ALS LETZTER unter allen
+# projekt-bezogenen Routern eingebunden wird.
+fallback_router = APIRouter(prefix="/api/projects", tags=["projects"])
+
 
 @router.get("/epochen", response_model=list[EpocheKurz])
 def epochen_auflisten(settings: Settings = Depends(get_settings)):
@@ -30,23 +42,31 @@ def epochen_auflisten(settings: Settings = Depends(get_settings)):
     return [EpocheKurz(name=p.name) for p in sorted(settings.epochen_dir.iterdir()) if p.is_dir()]
 
 
-def _projekt_kurz(pfad, settings: Settings) -> ProjektKurz:
+def _projekt_kurz(pfad, wurzel, settings: Settings) -> ProjektKurz:
     # pfad ist der AEUSSERE Projektordner (mit personas/ und projekt/) -
     # geruest.md und kapitel_*.md liegen im projekt/-Unterordner, siehe
     # projekt_lesen() unten. Ohne dieses Unterverzeichnis waren Titel,
     # Kapitelanzahl und geplante Kapitelzahl in der Projektliste immer
     # leer/0, obwohl die Projekt-Detailansicht (die korrekt in projekt/
     # nachschaut) sie richtig anzeigte.
+    # ordner ist der Pfad relativ zur Speicherort-Wurzel (mit "/" als
+    # Trenner) statt nur pfad.name - bei aktivierten Epoche-Unterordnern
+    # (siehe app/services.py:neuer_projekt_pfad) liegt ein Projekt eine
+    # Ebene tiefer, z.B. "Mittelalter/Im-Feuer-gestaehlt".
     projekt_unterordner = pfad / "projekt"
     geruest_text = pd.lies(pd.geruest_datei(projekt_unterordner), pflicht=False, ersatz="")
     titel = g.titel_erkennen(geruest_text) if geruest_text else None
     return ProjektKurz(
-        ordner=pfad.name,
+        ordner=pfad.relative_to(wurzel).as_posix(),
         titel=titel,
         epoche=pd.epoche_von_projekt(pfad),
         anzahl_kapitel=len(pd.vorhandene_kapitel(projekt_unterordner)),
         letztes_geplantes_kapitel=g.letztes_geplantes_kapitel(geruest_text) if geruest_text else None,
     )
+
+
+def _ist_projekt_ordner(pfad) -> bool:
+    return pfad.is_dir() and (pfad / "projekt").is_dir()
 
 
 @router.get("", response_model=list[ProjektKurz])
@@ -56,8 +76,17 @@ def projekte_auflisten(settings: Settings = Depends(get_settings)):
         return []
     ergebnis = []
     for eintrag in sorted(wurzel.iterdir()):
-        if eintrag.is_dir() and (eintrag / "projekt").is_dir():
-            ergebnis.append(_projekt_kurz(eintrag, settings))
+        if not eintrag.is_dir():
+            continue
+        if _ist_projekt_ordner(eintrag):
+            ergebnis.append(_projekt_kurz(eintrag, wurzel, settings))
+            continue
+        # Kein direktes Projekt - koennte ein Epoche-Unterordner sein
+        # (siehe "Unterordner je Epoche"-Einstellung), eine Ebene tiefer
+        # nachsehen.
+        for unter_eintrag in sorted(eintrag.iterdir()):
+            if _ist_projekt_ordner(unter_eintrag):
+                ergebnis.append(_projekt_kurz(unter_eintrag, wurzel, settings))
     return ergebnis
 
 
@@ -70,12 +99,12 @@ def projekt_anlegen(anfrage: ProjektAnlegenAnfrage, settings: Settings = Depends
     # Platzhalter-Ordner "neu" anlegen - projektordner_umbenennen() benennt
     # ihn automatisch um, sobald das Interview einen Titel liefert.
     basis_titel = anfrage.titel.strip() or "neu"
-    ziel = neuer_projekt_pfad(settings, basis_titel)
+    ziel = neuer_projekt_pfad(settings, basis_titel, anfrage.epoche)
     pd.projekt_anlegen(ziel, epoche_ordner, settings.shared_personas_dir, anfrage.epoche)
-    return _projekt_kurz(ziel, settings)
+    return _projekt_kurz(ziel, projekte_wurzel(settings), settings)
 
 
-@router.get("/{ordner}", response_model=ProjektDetail)
+@fallback_router.get("/{ordner:path}", response_model=ProjektDetail)
 def projekt_lesen(ordner: str, settings: Settings = Depends(get_settings)):
     pfad = projekt_pfad(settings, ordner)
     projekt_unterordner = pfad / "projekt"
@@ -97,7 +126,7 @@ def projekt_lesen(ordner: str, settings: Settings = Depends(get_settings)):
     )
 
 
-@router.put("/{ordner}/geruest")
+@router.put("/{ordner:path}/geruest")
 def geruest_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
                        settings: Settings = Depends(get_settings)):
     pfad = projekt_pfad(settings, ordner) / "projekt"
@@ -105,7 +134,7 @@ def geruest_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
     return {"gespeichert": str(ziel_pfad), "gesichert_als": gesichert_als}
 
 
-@router.put("/{ordner}/verbotsliste")
+@router.put("/{ordner:path}/verbotsliste")
 def verbotsliste_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
                             settings: Settings = Depends(get_settings)):
     pfad = projekt_pfad(settings, ordner) / "projekt"
@@ -119,13 +148,13 @@ PERSONA_NAMEN = (
 )
 
 
-@router.get("/{ordner}/personas", response_model=list[str])
+@router.get("/{ordner:path}/personas", response_model=list[str])
 def personas_auflisten(ordner: str, settings: Settings = Depends(get_settings)):
     pfad = projekt_pfad(settings, ordner) / "personas"
     return [name for name in PERSONA_NAMEN if (pfad / f"{name}.txt").exists()]
 
 
-@router.get("/{ordner}/personas/{name}", response_class=PlainTextResponse)
+@router.get("/{ordner:path}/personas/{name}", response_class=PlainTextResponse)
 def persona_lesen(ordner: str, name: str, settings: Settings = Depends(get_settings)):
     if name not in PERSONA_NAMEN:
         raise HTTPException(404, f"Unbekannte Persona '{name}'.")
@@ -136,7 +165,7 @@ def persona_lesen(ordner: str, name: str, settings: Settings = Depends(get_setti
         raise HTTPException(404, str(e)) from e
 
 
-@router.put("/{ordner}/personas/{name}")
+@router.put("/{ordner:path}/personas/{name}")
 def persona_schreiben(ordner: str, name: str, anfrage: GeruestSchreibenAnfrage,
                        settings: Settings = Depends(get_settings)):
     if name not in PERSONA_NAMEN:
@@ -146,7 +175,7 @@ def persona_schreiben(ordner: str, name: str, anfrage: GeruestSchreibenAnfrage,
     return {"gesichert_als": gesichert_als}
 
 
-@router.get("/{ordner}/architekten-gespraech", response_class=PlainTextResponse)
+@router.get("/{ordner:path}/architekten-gespraech", response_class=PlainTextResponse)
 def architekten_gespraech_lesen(ordner: str, settings: Settings = Depends(get_settings)):
     pfad = projekt_pfad(settings, ordner) / "projekt" / "architekten_gespraech.md"
     if not pfad.exists():
@@ -154,7 +183,7 @@ def architekten_gespraech_lesen(ordner: str, settings: Settings = Depends(get_se
     return pd.lies(pfad)
 
 
-@router.get("/{ordner}/kapitel/{n}", response_class=PlainTextResponse)
+@router.get("/{ordner:path}/kapitel/{n}", response_class=PlainTextResponse)
 def kapitel_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings)):
     pfad = projekt_pfad(settings, ordner) / "projekt"
     datei = pd.kapitel_datei(pfad, n)
@@ -163,7 +192,7 @@ def kapitel_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings
     return pd.lies(datei)
 
 
-@router.put("/{ordner}/kapitel/{n}")
+@router.put("/{ordner:path}/kapitel/{n}")
 def kapitel_schreiben(ordner: str, n: int, anfrage: GeruestSchreibenAnfrage,
                        settings: Settings = Depends(get_settings)):
     """Speichert einen (ggf. im Merge-Editor von Hand nachbearbeiteten)
@@ -174,7 +203,7 @@ def kapitel_schreiben(ordner: str, n: int, anfrage: GeruestSchreibenAnfrage,
     return {"gesichert_als": gesichert_als}
 
 
-@router.get("/{ordner}/stand/{n}", response_class=PlainTextResponse)
+@router.get("/{ordner:path}/stand/{n}", response_class=PlainTextResponse)
 def stand_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings)):
     pfad = projekt_pfad(settings, ordner) / "projekt"
     datei = pd.stand_datei(pfad, n)
@@ -183,7 +212,7 @@ def stand_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings))
     return pd.lies(datei)
 
 
-@router.get("/{ordner}/befunde/{n}", response_class=PlainTextResponse)
+@router.get("/{ordner:path}/befunde/{n}", response_class=PlainTextResponse)
 def befunde_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings)):
     pfad = projekt_pfad(settings, ordner) / "projekt"
     datei = pd.befunde_datei(pfad, n)
@@ -192,7 +221,7 @@ def befunde_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings
     return pd.lies(datei)
 
 
-@router.get("/{ordner}/gesamt", response_class=PlainTextResponse)
+@router.get("/{ordner:path}/gesamt", response_class=PlainTextResponse)
 def gesamt_lesen(ordner: str, settings: Settings = Depends(get_settings)):
     pfad = projekt_pfad(settings, ordner) / "projekt" / "gesamt.md"
     if not pfad.exists():

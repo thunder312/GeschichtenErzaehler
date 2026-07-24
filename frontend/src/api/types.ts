@@ -89,6 +89,7 @@ export interface Einstellungen {
   projects_dir: string;
   ist_standard: boolean;
   standard_projects_dir: string;
+  unterordner_je_epoche: boolean;
 }
 
 // WebSocket-Nachrichten von /api/projects/{ordner}/ws/schreiben/{n}

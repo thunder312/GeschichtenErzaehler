@@ -24,6 +24,7 @@ def _antwort(settings: Settings) -> EinstellungenAntwort:
         projects_dir=str(aktuell.resolve()),
         ist_standard=override is None,
         standard_projects_dir=str(settings.projects_dir.resolve()),
+        unterordner_je_epoche=db.einstellung_unterordner_je_epoche_lesen(settings.database_path),
     )
 
 
@@ -34,6 +35,8 @@ def einstellungen_lesen(settings: Settings = Depends(get_settings)):
 
 @router.put("", response_model=EinstellungenAntwort)
 def einstellungen_schreiben(anfrage: EinstellungenAnfrage, settings: Settings = Depends(get_settings)):
+    db.einstellung_unterordner_je_epoche_schreiben(settings.database_path, anfrage.unterordner_je_epoche)
+
     neuer_pfad = (anfrage.projects_dir or "").strip()
     if not neuer_pfad:
         # Leerer Wert setzt den Override zurueck auf den Standardpfad.

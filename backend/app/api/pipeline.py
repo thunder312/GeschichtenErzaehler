@@ -108,7 +108,7 @@ def _export_ausfuehren(projekt: Path) -> str:
     return ganz
 
 
-@router.websocket("/{ordner}/ws/schreiben/{n}")
+@router.websocket("/{ordner:path}/ws/schreiben/{n}")
 async def ws_schreiben(websocket: WebSocket, ordner: str, n: int,
                         zusatzhinweis: str = "", ssh_ziel_id: str | None = None):
     settings = get_settings()
@@ -265,7 +265,7 @@ def _hunspell_exec_fn(settings: Settings, ssh_ziel_id: str | None):
     return functools.partial(ssh_manager.exec_command, ziel)
 
 
-@router.post("/{ordner}/pruefen/{n}", response_model=BefundeAntwort)
+@router.post("/{ordner:path}/pruefen/{n}", response_model=BefundeAntwort)
 async def pruefen(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
                    settings: Settings = Depends(get_settings)):
     projekt_root = projekt_pfad(settings, ordner)
@@ -276,7 +276,7 @@ async def pruefen(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
     return BefundeAntwort(kapitel=n, inhalt=bericht)
 
 
-@router.post("/{ordner}/anwenden/{n}", response_model=AnwendenAntwort)
+@router.post("/{ordner:path}/anwenden/{n}", response_model=AnwendenAntwort)
 async def anwenden(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
                     settings: Settings = Depends(get_settings)):
     projekt_root = projekt_pfad(settings, ordner)
@@ -298,7 +298,7 @@ async def anwenden(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
     return AnwendenAntwort(alt=text_alt, neu=text_neu, gesichert_als=gesichert_als)
 
 
-@router.post("/{ordner}/lektorieren/{n}", response_model=AnwendenAntwort)
+@router.post("/{ordner:path}/lektorieren/{n}", response_model=AnwendenAntwort)
 async def lektorieren(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
                        settings: Settings = Depends(get_settings)):
     projekt_root = projekt_pfad(settings, ordner)
@@ -320,7 +320,7 @@ async def lektorieren(ordner: str, n: int, ssh_ziel_id: str | None = Query(None)
     return AnwendenAntwort(alt=text_alt, neu=text_neu, gesichert_als=gesichert_als)
 
 
-@router.post("/{ordner}/stand/{n}")
+@router.post("/{ordner:path}/stand/{n}")
 async def stand(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
                  settings: Settings = Depends(get_settings)):
     projekt_root = projekt_pfad(settings, ordner)
@@ -329,14 +329,14 @@ async def stand(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
     return {"stand": text, "auto_export": auto_export}
 
 
-@router.post("/{ordner}/export")
+@router.post("/{ordner:path}/export")
 def export(ordner: str, settings: Settings = Depends(get_settings)):
     projekt_root = projekt_pfad(settings, ordner)
     ganz = _export_ausfuehren(projekt_root / "projekt")
     return {"gesamt": ganz}
 
 
-@router.get("/{ordner}/export/pdf")
+@router.get("/{ordner:path}/export/pdf")
 def export_pdf(ordner: str, settings: Settings = Depends(get_settings)):
     projekt_root = projekt_pfad(settings, ordner)
     projekt = projekt_root / "projekt"
@@ -347,14 +347,18 @@ def export_pdf(ordner: str, settings: Settings = Depends(get_settings)):
     epoche = pd.epoche_von_projekt(projekt_root)
     kapitel = [(pd.kapitelnummer_aus_dateiname(p), pd.lies(p)) for p in kapitel_dateien]
     pdf_bytes = buch_pdf_erzeugen(geruest_text, epoche, kapitel)
+    # ordner kann bei aktivierten Epoche-Unterordnern einen "/" enthalten
+    # (z.B. "Mittelalter/Im-Feuer-gestaehlt") - als Dateiname nur den
+    # eigentlichen Projektnamen verwenden, kein "/" im Dateinamen.
+    dateiname = projekt_root.name
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{ordner}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{dateiname}.pdf"'},
     )
 
 
-@router.post("/{ordner}/zusammenfassen")
+@router.post("/{ordner:path}/zusammenfassen")
 def zusammenfassen(ordner: str, von: int | None = None, bis: int | None = None,
                     settings: Settings = Depends(get_settings)):
     projekt = projekt_pfad(settings, ordner) / "projekt"
@@ -372,7 +376,7 @@ def zusammenfassen(ordner: str, von: int | None = None, bis: int | None = None,
     return {"datei": ziel_name, "inhalt": ganz}
 
 
-@router.get("/{ordner}/rechtschreibung/{n}", response_model=RechtschreibAntwort)
+@router.get("/{ordner:path}/rechtschreibung/{n}", response_model=RechtschreibAntwort)
 def rechtschreibung(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
                      settings: Settings = Depends(get_settings)):
     projekt = projekt_pfad(settings, ordner) / "projekt"

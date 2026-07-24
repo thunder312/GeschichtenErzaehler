@@ -64,3 +64,17 @@ def test_ungueltiger_pfad_liefert_400(client):
     # NUL ist unter Windows in Pfaden nie erlaubt und laesst mkdir scheitern.
     r = client.put("/api/einstellungen", json={"projects_dir": "C:\\ung\x00ueltig"})
     assert r.status_code == 400
+
+
+def test_unterordner_je_epoche_default_false(client):
+    r = client.get("/api/einstellungen")
+    assert r.json()["unterordner_je_epoche"] is False
+
+
+def test_unterordner_je_epoche_laesst_sich_setzen_und_bleibt_gespeichert(client):
+    r = client.put("/api/einstellungen", json={"unterordner_je_epoche": True})
+    assert r.status_code == 200
+    assert r.json()["unterordner_je_epoche"] is True
+
+    r2 = client.get("/api/einstellungen")
+    assert r2.json()["unterordner_je_epoche"] is True

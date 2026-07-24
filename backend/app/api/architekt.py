@@ -56,7 +56,7 @@ async def _zug(websocket: WebSocket, base_url: str, persona_text: str,
     return antwort, ist_geruest
 
 
-@router.websocket("/{ordner}/ws/architekt")
+@router.websocket("/{ordner:path}/ws/architekt")
 async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | None = None):
     settings = get_settings()
     await websocket.accept()

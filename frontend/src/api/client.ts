@@ -178,10 +178,10 @@ export const api = {
 
   einstellungen: () => anfrage<Einstellungen>("/api/einstellungen"),
 
-  einstellungenSchreiben: (projectsDir: string) =>
+  einstellungenSchreiben: (projectsDir: string, unterordnerJeEpoche: boolean) =>
     anfrage<Einstellungen>("/api/einstellungen", {
       method: "PUT",
-      body: JSON.stringify({ projects_dir: projectsDir }),
+      body: JSON.stringify({ projects_dir: projectsDir, unterordner_je_epoche: unterordnerJeEpoche }),
     }),
 };
 

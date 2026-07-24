@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS ssh_targets (
 
 CREATE TABLE IF NOT EXISTS einstellungen (
     id INTEGER PRIMARY KEY CHECK (id = 1),
-    projects_dir TEXT
+    projects_dir TEXT,
+    unterordner_je_epoche INTEGER NOT NULL DEFAULT 0
 );
 """
 
@@ -59,6 +60,12 @@ def init_db(db_path: Path) -> None:
         spalten = {r["name"] for r in conn.execute("PRAGMA table_info(ssh_targets)").fetchall()}
         if "favorit" not in spalten:
             conn.execute("ALTER TABLE ssh_targets ADD COLUMN favorit INTEGER NOT NULL DEFAULT 0")
+
+        einstellungen_spalten = {r["name"] for r in conn.execute("PRAGMA table_info(einstellungen)").fetchall()}
+        if "unterordner_je_epoche" not in einstellungen_spalten:
+            conn.execute(
+                "ALTER TABLE einstellungen ADD COLUMN unterordner_je_epoche INTEGER NOT NULL DEFAULT 0"
+            )
 
 
 def _jetzt() -> str:
@@ -159,4 +166,19 @@ def einstellung_projects_dir_schreiben(db_path: Path, projects_dir: str | None) 
             "INSERT INTO einstellungen (id, projects_dir) VALUES (1, ?) "
             "ON CONFLICT(id) DO UPDATE SET projects_dir=excluded.projects_dir",
             (projects_dir,),
+        )
+
+
+def einstellung_unterordner_je_epoche_lesen(db_path: Path) -> bool:
+    with _verbindung(db_path) as conn:
+        zeile = conn.execute("SELECT unterordner_je_epoche FROM einstellungen WHERE id=1").fetchone()
+    return bool(zeile["unterordner_je_epoche"]) if zeile else False
+
+
+def einstellung_unterordner_je_epoche_schreiben(db_path: Path, aktiv: bool) -> None:
+    with _verbindung(db_path) as conn:
+        conn.execute(
+            "INSERT INTO einstellungen (id, unterordner_je_epoche) VALUES (1, ?) "
+            "ON CONFLICT(id) DO UPDATE SET unterordner_je_epoche=excluded.unterordner_je_epoche",
+            (1 if aktiv else 0,),
         )
