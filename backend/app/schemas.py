@@ -40,7 +40,10 @@ class ProjektKurz(BaseModel):
 
 
 class ProjektAnlegenAnfrage(BaseModel):
-    titel: str = Field(min_length=1)
+    # Leer erlaubt: der Titel ergibt sich haeufig erst aus dem Architekten-
+    # Interview - siehe projekt_anlegen() in app/api/projects.py, das dann
+    # ersatzweise den Platzhalter-Ordnernamen "neu" verwendet.
+    titel: str = ""
     epoche: str
 
 

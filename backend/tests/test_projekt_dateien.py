@@ -35,7 +35,7 @@ def test_projektordner_umbenennen_ueberspringt_wenn_kapitel_existieren(tmp_path)
     assert projekt_root.exists()
 
 
-def test_projektordner_umbenennen_ueberspringt_wenn_zielname_existiert(tmp_path):
+def test_projektordner_umbenennen_haengt_zaehler_an_wenn_zielname_existiert(tmp_path):
     projekt_root = tmp_path / "Rohtitel"
     (projekt_root / "projekt").mkdir(parents=True)
     (tmp_path / "Der-Markt-von-Rothenfeld").mkdir()
@@ -43,5 +43,6 @@ def test_projektordner_umbenennen_ueberspringt_wenn_zielname_existiert(tmp_path)
 
     neuer_name = pd.projektordner_umbenennen(projekt_root, geruest)
 
-    assert neuer_name is None
-    assert projekt_root.exists()
+    assert neuer_name == "Der-Markt-von-Rothenfeld-2"
+    assert not projekt_root.exists()
+    assert (tmp_path / "Der-Markt-von-Rothenfeld-2" / "projekt").is_dir()

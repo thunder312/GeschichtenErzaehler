@@ -120,6 +120,18 @@ def woerter_im_kapitel(projekt: Path, n: int) -> int:
     return woerter(text)
 
 
+def _freier_pfad(wurzel: Path, name: str) -> Path:
+    """Findet einen im Ordner `wurzel` noch freien Namen, ausgehend von
+    `name` - haengt bei Kollision -2, -3, ... an (z.B. wenn bereits ein
+    Projekt mit demselben aus dem Titel abgeleiteten Namen existiert)."""
+    ziel = wurzel / name
+    zaehler = 2
+    while ziel.exists():
+        ziel = wurzel / f"{name}-{zaehler}"
+        zaehler += 1
+    return ziel
+
+
 def projektordner_umbenennen(projekt_root: Path, geruest_text: str) -> str | None:
     """Versucht, den Projektordner nach dem im Geruest gewaehlten Titel
     umzubenennen - portiert aus novelle.py's
@@ -138,12 +150,10 @@ def projektordner_umbenennen(projekt_root: Path, geruest_text: str) -> str | Non
     if projekt_root.name == neuer_name:
         return None
 
-    neuer_pfad = projekt_root.parent / neuer_name
-    if neuer_pfad.exists():
-        return None
+    neuer_pfad = _freier_pfad(projekt_root.parent, neuer_name)
 
     try:
         projekt_root.rename(neuer_pfad)
     except OSError:
         return None
-    return neuer_name
+    return neuer_pfad.name

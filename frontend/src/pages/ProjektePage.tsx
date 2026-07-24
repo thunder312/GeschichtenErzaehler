@@ -30,7 +30,7 @@ export function ProjektePage({
   }, []);
 
   async function anlegen() {
-    if (!titel.trim() || !epoche) return;
+    if (!epoche) return;
     setWirdAngelegt(true);
     setFehler(null);
     try {
@@ -76,8 +76,8 @@ export function ProjektePage({
         <CardTitle>✨ Neues Projekt anlegen</CardTitle>
         <div className="space-y-3">
           <div>
-            <Label>Titel</Label>
-            <Input value={titel} onChange={(e) => setTitel(e.target.value)} placeholder="Der Markt von Rothenfeld" />
+            <Label>Titel (optional)</Label>
+            <Input value={titel} onChange={(e) => setTitel(e.target.value)} placeholder="ergibt sich oft erst im Architekten-Interview" />
           </div>
           <div>
             <Label>Epoche</Label>
@@ -90,7 +90,7 @@ export function ProjektePage({
             </Select>
           </div>
           {fehler && <p className="text-sm text-red-400">{fehler}</p>}
-          <Button onClick={anlegen} disabled={wirdAngelegt || !titel.trim()}>
+          <Button onClick={anlegen} disabled={wirdAngelegt || !epoche}>
             {wirdAngelegt ? "Wird angelegt..." : "Anlegen"}
           </Button>
         </div>

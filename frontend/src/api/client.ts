@@ -48,6 +48,9 @@ export const api = {
   projektAnlegen: (titel: string, epoche: string) =>
     anfrage<ProjektKurz>("/api/projects", {
       method: "POST",
+      // Leerer Titel ist erlaubt - das Backend legt dann einen Platzhalter-
+      // Ordner "neu" an, der benannt wird, sobald das Architekten-Interview
+      // einen Titel liefert.
       body: JSON.stringify({ titel, epoche }),
     }),
 

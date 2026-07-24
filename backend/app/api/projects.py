@@ -66,7 +66,11 @@ def projekt_anlegen(anfrage: ProjektAnlegenAnfrage, settings: Settings = Depends
     epoche_ordner = settings.epochen_dir / anfrage.epoche
     if not epoche_ordner.is_dir():
         raise HTTPException(404, f"Epoche '{anfrage.epoche}' nicht gefunden.")
-    ziel = neuer_projekt_pfad(settings, anfrage.titel)
+    # Ohne Titel (ergibt sich oft erst aus dem Architekten-Interview) einen
+    # Platzhalter-Ordner "neu" anlegen - projektordner_umbenennen() benennt
+    # ihn automatisch um, sobald das Interview einen Titel liefert.
+    basis_titel = anfrage.titel.strip() or "neu"
+    ziel = neuer_projekt_pfad(settings, basis_titel)
     pd.projekt_anlegen(ziel, epoche_ordner, settings.shared_personas_dir, anfrage.epoche)
     return _projekt_kurz(ziel, settings)
 

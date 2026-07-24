@@ -94,3 +94,17 @@ def test_persona_unbekannter_name_wird_abgelehnt(client, projekt):
 def test_architekten_gespraech_ohne_abgeschlossenes_interview_404(client, projekt):
     r = client.get(f"/api/projects/{projekt}/architekten-gespraech")
     assert r.status_code == 404
+
+
+def test_projekt_anlegen_ohne_titel_verwendet_platzhalter_neu(client):
+    r = client.post("/api/projects", json={"titel": "", "epoche": "Regency"})
+    assert r.status_code == 201
+    assert r.json()["ordner"] == "neu"
+    assert r.json()["titel"] is None
+
+
+def test_projekt_anlegen_ohne_titel_zaehlt_bei_kollision_hoch(client):
+    r1 = client.post("/api/projects", json={"titel": "", "epoche": "Regency"})
+    r2 = client.post("/api/projects", json={"titel": "", "epoche": "Regency"})
+    assert r1.json()["ordner"] == "neu"
+    assert r2.json()["ordner"] == "neu-2"
