@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import type { ProjektDetail, RechtschreibWort } from "../api/types";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
+import { useLetztesKapitelSync } from "../utils/useLetztesKapitelSync";
 
 interface RechtschreibungPageProps {
   ordner: string;
@@ -41,6 +42,7 @@ export function RechtschreibungPage({
   const [laedt, setLaedt] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const { starten, beenden } = useAktivitaet();
+  useLetztesKapitelSync(projekt, setN);
 
   async function rechtschreibungPruefen() {
     setLaedt(true);

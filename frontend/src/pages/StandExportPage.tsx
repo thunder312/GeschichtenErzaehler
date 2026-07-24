@@ -4,6 +4,7 @@ import type { ProjektDetail } from "../api/types";
 import { Badge, Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { alsDateiHerunterladen } from "../utils/download";
+import { useLetztesKapitelSync } from "../utils/useLetztesKapitelSync";
 
 interface StandExportPageProps {
   ordner: string;
@@ -31,6 +32,7 @@ export function StandExportPage({
 
   const [fehler, setFehler] = useState<string | null>(null);
   const { starten, beenden } = useAktivitaet();
+  useLetztesKapitelSync(projekt, setN);
 
   async function standErzeugen() {
     setLadenStand(true);

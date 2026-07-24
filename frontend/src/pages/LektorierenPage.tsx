@@ -4,6 +4,7 @@ import type { AnwendenAntwort, ProjektDetail } from "../api/types";
 import { MergeEditor } from "../components/MergeEditor";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
+import { useLetztesKapitelSync } from "../utils/useLetztesKapitelSync";
 
 interface LektorierenPageProps {
   ordner: string;
@@ -22,7 +23,9 @@ export function LektorierenPage({
   const [laedt, setLaedt] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
+  const [offeneAenderungen, setOffeneAenderungen] = useState(0);
   const { starten, beenden } = useAktivitaet();
+  useLetztesKapitelSync(projekt, setN);
 
   async function lektorieren() {
     setLaedt(true);
@@ -33,6 +36,7 @@ export function LektorierenPage({
       const antwort = await api.lektorieren(ordner, n, sshZielId || null);
       setErgebnis(antwort);
       setBearbeitet(antwort.neu);
+      setOffeneAenderungen(0);
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
@@ -50,21 +54,6 @@ export function LektorierenPage({
     <div className="space-y-6 p-6">
       <Card>
         <CardTitle>🪄 Lektorieren</CardTitle>
-        <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-text-muted">
-          <span className="font-medium uppercase tracking-wider">Legende:</span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
-            Grammatik & Stil (hier)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-violet-400" aria-hidden="true" />
-            Rechtschreibung (Tab "Rechtschreibung")
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-400" aria-hidden="true" />
-            Anachronismen (Tab "Prüfen & Anwenden")
-          </span>
-        </div>
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <Label>Kapitelnummer</Label>
@@ -85,15 +74,34 @@ export function LektorierenPage({
       {ergebnis && (
         <Card>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-heading text-lg font-semibold tracking-wide text-text">
-              Merge-Ansicht: alt (links) vs. lektoriert (rechts, editierbar)
-            </h2>
+            <div className="flex items-center gap-3">
+              <h2 className="font-heading text-lg font-semibold tracking-wide text-text">
+                Merge-Ansicht: alt (links) vs. lektoriert (rechts, editierbar)
+              </h2>
+              {offeneAenderungen > 0 ? (
+                <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent-light">
+                  {offeneAenderungen} offene {offeneAenderungen === 1 ? "Änderung" : "Änderungen"}
+                </span>
+              ) : (
+                <span className="text-xs text-text-muted">Alle Änderungen durchgesehen</span>
+              )}
+            </div>
             <div className="flex items-center gap-3">
               {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
               <Button onClick={speichern}>Aktuellen Stand speichern</Button>
             </div>
           </div>
-          <MergeEditor original={ergebnis.alt} modified={bearbeitet} onModifiedChange={setBearbeitet} />
+          <p className="mb-2 text-xs text-text-muted">
+            Jede Änderung hat am Ende ihrer ersten Zeile ein ✓/✗-Symbol: ✓ übernimmt die Korrektur des Lektors,
+            ✗ verwirft sie und stellt die Original-Stelle wieder her.
+          </p>
+          <MergeEditor
+            original={ergebnis.alt}
+            modified={bearbeitet}
+            onModifiedChange={setBearbeitet}
+            hunkweiseBestaetigen
+            onOffeneAenderungen={setOffeneAenderungen}
+          />
         </Card>
       )}
     </div>

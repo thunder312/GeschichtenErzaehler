@@ -5,6 +5,7 @@ import { BefundeView } from "../components/BefundeView";
 import { MergeEditor } from "../components/MergeEditor";
 import { Badge, Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
+import { useLetztesKapitelSync } from "../utils/useLetztesKapitelSync";
 
 interface PruefenAnwendenPageProps {
   ordner: string;
@@ -26,6 +27,7 @@ export function PruefenAnwendenPage({
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const { starten, beenden } = useAktivitaet();
+  useLetztesKapitelSync(projekt, setN);
 
   async function pruefen() {
     setLadenPruefen(true);
