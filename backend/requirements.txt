@@ -6,3 +6,4 @@ cryptography==44.0.0
 pydantic==2.10.4
 pydantic-settings==2.7.0
 websockets==14.1
+reportlab==5.0.0

@@ -19,7 +19,7 @@ import functools
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocket, WebSocketDisconnect
 
 from app.config import Settings, get_settings
 from app.core import geruest as g
@@ -27,6 +27,7 @@ from app.core import heuristik as h
 from app.core import projekt_dateien as pd
 from app.core import ssh_manager
 from app.core.ollama_client import OllamaFehler, chat_stream
+from app.core.pdf_export import buch_pdf_erzeugen
 from app.core.rollen import ROLLEN, STUFE_DIREKTIVEN
 from app.core.textutil import woerter
 from app.schemas import AnwendenAntwort, BefundeAntwort, RechtschreibAntwort, RechtschreibWort
@@ -333,6 +334,24 @@ def export(ordner: str, settings: Settings = Depends(get_settings)):
     projekt_root = projekt_pfad(settings, ordner)
     ganz = _export_ausfuehren(projekt_root / "projekt")
     return {"gesamt": ganz}
+
+
+@router.get("/{ordner}/export/pdf")
+def export_pdf(ordner: str, settings: Settings = Depends(get_settings)):
+    projekt_root = projekt_pfad(settings, ordner)
+    projekt = projekt_root / "projekt"
+    kapitel_dateien = pd.vorhandene_kapitel(projekt)
+    if not kapitel_dateien:
+        raise HTTPException(404, "Keine Kapitel gefunden.")
+    geruest_text = pd.lies(pd.geruest_datei(projekt), pflicht=False, ersatz="")
+    epoche = pd.epoche_von_projekt(projekt_root)
+    kapitel = [(pd.kapitelnummer_aus_dateiname(p), pd.lies(p)) for p in kapitel_dateien]
+    pdf_bytes = buch_pdf_erzeugen(geruest_text, epoche, kapitel)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{ordner}.pdf"'},
+    )
 
 
 @router.post("/{ordner}/zusammenfassen")

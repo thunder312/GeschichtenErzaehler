@@ -124,6 +124,13 @@ export function StandExportPage({
           <Button onClick={exportieren} variant="secondary" disabled={ladenExport}>
             Alle Kapitel -&gt; gesamt.md
           </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => window.open(api.exportPdfUrl(ordner), "_blank")}
+          >
+            📖 Als PDF-Buch herunterladen
+          </Button>
           <div>
             <Label>von Kapitel</Label>
             <Input type="number" min={1} className="w-24" value={von ?? ""} onChange={(e) => setVon(e.target.value ? Number(e.target.value) : undefined)} />

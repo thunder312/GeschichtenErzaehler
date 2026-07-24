@@ -126,6 +126,8 @@ export const api = {
   exportieren: (ordner: string) =>
     anfrage<{ gesamt: string }>(`/api/projects/${ordner}/export`, { method: "POST" }),
 
+  exportPdfUrl: (ordner: string) => `/api/projects/${ordner}/export/pdf`,
+
   zusammenfassen: (ordner: string, von?: number, bis?: number) => {
     const params = new URLSearchParams();
     if (von !== undefined) params.set("von", String(von));
