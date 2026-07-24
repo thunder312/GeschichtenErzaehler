@@ -4,6 +4,7 @@ import type { AnwendenAntwort, ProjektDetail } from "../api/types";
 import { BefundeView } from "../components/BefundeView";
 import { MergeEditor } from "../components/MergeEditor";
 import { Badge, Button, Card, CardTitle, Input, Label } from "../components/ui";
+import { useAktivitaet } from "../context/AktivitaetContext";
 
 interface PruefenAnwendenPageProps {
   ordner: string;
@@ -24,10 +25,12 @@ export function PruefenAnwendenPage({
   const [ladenAnwenden, setLadenAnwenden] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
+  const { starten, beenden } = useAktivitaet();
 
   async function pruefen() {
     setLadenPruefen(true);
     setFehler(null);
+    starten(`Prüft Kapitel ${n} auf Anachronismen & Kontinuität...`);
     try {
       const antwort = await api.pruefen(ordner, n, sshZielId || null);
       setBefunde(antwort.inhalt);
@@ -35,6 +38,7 @@ export function PruefenAnwendenPage({
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
       setLadenPruefen(false);
+      beenden();
     }
   }
 
@@ -42,6 +46,7 @@ export function PruefenAnwendenPage({
     setLadenAnwenden(true);
     setFehler(null);
     setGespeichertHinweis(null);
+    starten(`Wendet Anachronismus-Korrekturen auf Kapitel ${n} an...`);
     try {
       const antwort = await api.anwenden(ordner, n, sshZielId || null);
       setErgebnis(antwort);
@@ -50,6 +55,7 @@ export function PruefenAnwendenPage({
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
       setLadenAnwenden(false);
+      beenden();
     }
   }
 

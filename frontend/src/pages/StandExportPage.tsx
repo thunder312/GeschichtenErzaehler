@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { ProjektDetail } from "../api/types";
 import { Badge, Button, Card, CardTitle, Input, Label } from "../components/ui";
+import { useAktivitaet } from "../context/AktivitaetContext";
 import { alsDateiHerunterladen } from "../utils/download";
 
 interface StandExportPageProps {
@@ -29,10 +30,12 @@ export function StandExportPage({
   const [ladenExport, setLadenExport] = useState(false);
 
   const [fehler, setFehler] = useState<string | null>(null);
+  const { starten, beenden } = useAktivitaet();
 
   async function standErzeugen() {
     setLadenStand(true);
     setFehler(null);
+    starten(`Erzeugt Stand nach Kapitel ${n} (Chronist)...`);
     try {
       const antwort = await api.standErzeugen(ordner, n, sshZielId || null);
       setStandText(antwort.stand);
@@ -42,6 +45,7 @@ export function StandExportPage({
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
       setLadenStand(false);
+      beenden();
     }
   }
 

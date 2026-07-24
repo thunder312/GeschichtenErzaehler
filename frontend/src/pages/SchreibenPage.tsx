@@ -4,6 +4,7 @@ import type { Finding, ProjektDetail, SchreibenNachricht } from "../api/types";
 import { BefundeView } from "../components/BefundeView";
 import { FindingsList } from "../components/FindingsList";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
+import { useAktivitaet } from "../context/AktivitaetContext";
 import { alsDateiHerunterladen } from "../utils/download";
 
 interface SchreibenPageProps {
@@ -32,6 +33,7 @@ export function SchreibenPage({
   const [fehler, setFehler] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const letztesProjekt = useRef<string | null>(null);
+  const { starten: aktivitaetStarten, beenden: aktivitaetBeenden } = useAktivitaet();
 
   useEffect(() => {
     // Kapitelnummer nur beim WECHSEL des Projekts neu vorschlagen, nicht bei
@@ -103,6 +105,8 @@ export function SchreibenPage({
     const socket = new WebSocket(schreibenWebSocketUrl(ordner, n, zusatzhinweis, sshZielId || null));
     socketRef.current = socket;
 
+    aktivitaetStarten(`Schreibt Kapitel ${n}...`);
+
     socket.onmessage = (ereignis) => {
       const nachricht: SchreibenNachricht = JSON.parse(ereignis.data);
       setPhase(nachricht.phase);
@@ -119,28 +123,38 @@ export function SchreibenPage({
       if (nachricht.phase === "nachbearbeitung" && nachricht.typ === "done") {
         setFindings(nachricht.findings);
       }
+      if (nachricht.phase === "pruefen" && nachricht.typ === "start") {
+        aktivitaetStarten(`Prüft Kapitel ${n} auf Anachronismen & Kontinuität...`);
+      }
       if (nachricht.phase === "pruefen" && nachricht.typ === "done") {
         setBefunde(nachricht.text);
       }
       if (nachricht.phase === "abgeschlossen") {
         setLaeuft(false);
+        aktivitaetBeenden();
         onKapitelGeschrieben();
       }
       if (nachricht.phase === "fehler") {
         setFehler(nachricht.text);
         setLaeuft(false);
+        aktivitaetBeenden();
       }
     };
     socket.onerror = () => {
       setFehler("WebSocket-Verbindung fehlgeschlagen.");
       setLaeuft(false);
+      aktivitaetBeenden();
     };
-    socket.onclose = () => setLaeuft(false);
+    socket.onclose = () => {
+      setLaeuft(false);
+      aktivitaetBeenden();
+    };
   }
 
   function abbrechen() {
     socketRef.current?.close();
     setLaeuft(false);
+    aktivitaetBeenden();
   }
 
   const zielWoerter = projekt?.kapitelplan[n];

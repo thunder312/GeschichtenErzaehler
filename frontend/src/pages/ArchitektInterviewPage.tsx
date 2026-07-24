@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { architektWebSocketUrl } from "../api/client";
 import type { ArchitektNachricht } from "../api/types";
 import { Button, Card } from "../components/ui";
+import { useAktivitaet } from "../context/AktivitaetContext";
 
 interface ArchitektInterviewPageProps {
   ordner: string;
@@ -56,6 +57,7 @@ export function ArchitektInterviewPage({
   const [fehler, setFehler] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const chatEndeRef = useRef<HTMLDivElement>(null);
+  const { starten: aktivitaetStarten, beenden: aktivitaetBeenden } = useAktivitaet();
 
   useEffect(() => {
     chatEndeRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -74,11 +76,14 @@ export function ArchitektInterviewPage({
     const socket = new WebSocket(architektWebSocketUrl(ordner, sshZielId || null));
     socketRef.current = socket;
 
+    aktivitaetStarten("Architekt denkt nach...");
+
     socket.onmessage = (ereignis) => {
       const nachricht: ArchitektNachricht = JSON.parse(ereignis.data);
       if (nachricht.phase === "frage" && nachricht.typ === "start") {
         setWartetAufAntwort(true);
         setDenktNach(false);
+        aktivitaetStarten("Architekt denkt nach...");
       }
       if (nachricht.phase === "frage" && nachricht.typ === "denkt_nach") {
         setDenktNach(true);
@@ -87,24 +92,29 @@ export function ArchitektInterviewPage({
         setDenktNach(false);
         setWartetAufAntwort(false);
         setNachrichten((bisher) => [...bisher, { rolle: "architekt", text: nachricht.text }]);
+        aktivitaetBeenden();
       }
       if (nachricht.phase === "abgeschlossen") {
         setAbgeschlossen(true);
         setWartetAufAntwort(false);
+        aktivitaetBeenden();
         onAbgeschlossen(nachricht.neuer_ordner);
       }
       if (nachricht.phase === "beendet_ohne_speichern") {
         setBeendetOhneSpeichern(true);
         setWartetAufAntwort(false);
+        aktivitaetBeenden();
       }
       if (nachricht.phase === "fehler") {
         setFehler(nachricht.text);
         setWartetAufAntwort(false);
+        aktivitaetBeenden();
       }
     };
     socket.onerror = () => {
       setFehler("WebSocket-Verbindung fehlgeschlagen.");
       setWartetAufAntwort(false);
+      aktivitaetBeenden();
     };
   }
 
@@ -115,6 +125,7 @@ export function ArchitektInterviewPage({
     socketRef.current.send(JSON.stringify({ eingabe: text }));
     setEingabe("");
     setWartetAufAntwort(true);
+    aktivitaetStarten("Architekt denkt nach...");
   }
 
   function beenden() {

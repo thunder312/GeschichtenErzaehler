@@ -6,6 +6,8 @@ import { ArchitektInterviewPage } from "./pages/ArchitektInterviewPage";
 import { EinstellungenPage } from "./pages/EinstellungenPage";
 import { EpocheErstellenPage } from "./pages/EpocheErstellenPage";
 import { GeruestPage } from "./pages/GeruestPage";
+import { StatusFooter } from "./components/StatusFooter";
+import { AktivitaetProvider } from "./context/AktivitaetContext";
 import { LektorierenPage } from "./pages/LektorierenPage";
 import { ProjektePage } from "./pages/ProjektePage";
 import { PersonasPage } from "./pages/PersonasPage";
@@ -94,6 +96,7 @@ function App() {
   ];
 
   return (
+    <AktivitaetProvider>
     <div className="flex min-h-screen flex-col text-text">
       <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
         <div className="flex min-w-0 items-center gap-4">
@@ -145,7 +148,7 @@ function App() {
           key={aktuellesProjekt} sorgt weiterhin dafuer, dass beim
           Wechsel zu einem ANDEREN Projekt alles frisch neu gemountet
           wird (kein Ueberbleibsel des vorherigen Projekts). */}
-      <main className="flex-1">
+      <main className="flex-1 pb-10">
         <div className={activeTab === "projekte" ? "" : "hidden"}>
           <ProjektePage
             projekte={projekte}
@@ -240,7 +243,9 @@ function App() {
           <EinstellungenPage />
         </div>
       </main>
+      <StatusFooter />
     </div>
+    </AktivitaetProvider>
   );
 }
 

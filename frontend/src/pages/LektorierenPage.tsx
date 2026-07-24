@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import type { AnwendenAntwort, ProjektDetail } from "../api/types";
 import { MergeEditor } from "../components/MergeEditor";
 import { Button, Card, Input, Label } from "../components/ui";
+import { useAktivitaet } from "../context/AktivitaetContext";
 
 interface LektorierenPageProps {
   ordner: string;
@@ -21,11 +22,13 @@ export function LektorierenPage({
   const [laedt, setLaedt] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
+  const { starten, beenden } = useAktivitaet();
 
   async function lektorieren() {
     setLaedt(true);
     setFehler(null);
     setGespeichertHinweis(null);
+    starten(`Lektoriert Kapitel ${n} (Grammatik/Rechtschreibung)...`);
     try {
       const antwort = await api.lektorieren(ordner, n, sshZielId || null);
       setErgebnis(antwort);
@@ -34,6 +37,7 @@ export function LektorierenPage({
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
       setLaedt(false);
+      beenden();
     }
   }
 

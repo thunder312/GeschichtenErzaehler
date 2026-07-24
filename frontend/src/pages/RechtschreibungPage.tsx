@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { ProjektDetail, RechtschreibWort } from "../api/types";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
+import { useAktivitaet } from "../context/AktivitaetContext";
 
 interface RechtschreibungPageProps {
   ordner: string;
@@ -39,10 +40,12 @@ export function RechtschreibungPage({
   const [ersatzWerte, setErsatzWerte] = useState<Record<string, string>>({});
   const [laedt, setLaedt] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
+  const { starten, beenden } = useAktivitaet();
 
   async function rechtschreibungPruefen() {
     setLaedt(true);
     setFehler(null);
+    starten(`Prüft Kapitel ${n} per hunspell auf unbekannte Wörter...`);
     try {
       const antwort = await api.rechtschreibung(ordner, n, sshZielId || null);
       setWoerter(antwort.unbekannte_woerter);
@@ -51,6 +54,7 @@ export function RechtschreibungPage({
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
       setLaedt(false);
+      beenden();
     }
   }
 
