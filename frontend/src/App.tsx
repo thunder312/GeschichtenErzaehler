@@ -10,6 +10,7 @@ import { LektorierenPage } from "./pages/LektorierenPage";
 import { ProjektePage } from "./pages/ProjektePage";
 import { PersonasPage } from "./pages/PersonasPage";
 import { PruefenAnwendenPage } from "./pages/PruefenAnwendenPage";
+import { RechtschreibungPage } from "./pages/RechtschreibungPage";
 import { SchreibenPage } from "./pages/SchreibenPage";
 import { SshZielePage } from "./pages/SshZielePage";
 import { StandExportPage } from "./pages/StandExportPage";
@@ -71,6 +72,7 @@ function App() {
           { id: "schreiben", label: "Schreiben", icon: "✍️" },
           { id: "pruefen", label: "Prüfen & Anwenden", icon: "🔍" },
           { id: "lektorieren", label: "Lektorieren", icon: "🪄" },
+          { id: "rechtschreibung", label: "Rechtschreibung", icon: "📖" },
           { id: "stand", label: "Stand & Export", icon: "📦" },
           { id: "personas", label: "Personas", icon: "🎭" },
         ]
@@ -183,6 +185,14 @@ function App() {
 
             <div className={activeTab === "lektorieren" ? "" : "hidden"}>
               <LektorierenPage
+                ordner={aktuellesProjekt}
+                projekt={projektDetail}
+                sshZielId={sshZielId}
+              />
+            </div>
+
+            <div className={activeTab === "rechtschreibung" ? "" : "hidden"}>
+              <RechtschreibungPage
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
                 sshZielId={sshZielId}

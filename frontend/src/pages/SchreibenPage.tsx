@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, schreibenWebSocketUrl } from "../api/client";
 import type { Finding, ProjektDetail, SchreibenNachricht } from "../api/types";
+import { BefundeView } from "../components/BefundeView";
 import { FindingsList } from "../components/FindingsList";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { alsDateiHerunterladen } from "../utils/download";
@@ -226,9 +227,7 @@ export function SchreibenPage({
         {befunde && (
           <Card>
             <CardTitle>Befunde der Prüfer (Anachronismen &amp; Kontinuität)</CardTitle>
-            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-text">
-              {befunde}
-            </pre>
+            <BefundeView text={befunde} />
           </Card>
         )}
       </div>

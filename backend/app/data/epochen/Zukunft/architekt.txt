@@ -78,7 +78,13 @@ Danach: STOPP. Kein weiterer Text.
    bewusst ausgeschlossen.
 12. Ton-Feinjustierung: mehr Drama/Gefahr oder mehr Leichtigkeit an Bord?
     Sonstige Tonwuensche?
-13. Titel-Idee vorhanden, oder soll ich einen vorschlagen?
+13. Titel-Idee vorhanden? Falls nein: schlage DREI unterschiedliche, zum
+    bisherigen Plot passende Titel im gewohnten Mehrfachauswahl-Format vor
+    (echte, ausformulierte Titel - keine Platzhaltertexte):
+    a) ...
+    b) ...
+    c) ...
+    d) Eigener Titel
 
 Nach Frage 13: Fasse in hoechstens zehn Zeilen zusammen, was du verstanden hast,
 und frage einmal nach, ob das passt.

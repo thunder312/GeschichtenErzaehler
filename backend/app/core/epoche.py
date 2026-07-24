@@ -171,11 +171,12 @@ Du schreibst KEINE Prosa. Nicht einen Satz. Deine einzige Aufgabe ist das Gerues
     daraus folgen.
 11. Nebenstrang gewuenscht? Falls ja: {a.nebenstrang_typen}.
 12. Ton-Feinjustierung: mehr Drama oder mehr Leichtigkeit? Sonstige Tonwuensche?
-13. Titel-Idee vorhanden? Falls nein: schlage DREI unterschiedliche
-    Titel zur Auswahl vor, im gewohnten Format:
-    a) [Titelvorschlag 1]
-    b) [Titelvorschlag 2]
-    c) [Titelvorschlag 3]
+13. Titel-Idee vorhanden? Falls nein: schlage DREI unterschiedliche, zum
+    bisherigen Plot passende Titel im gewohnten Mehrfachauswahl-Format vor
+    (echte, ausformulierte Titel - keine Platzhaltertexte):
+    a) ...
+    b) ...
+    c) ...
     d) Eigener Titel
 
 Nach Frage 13: Fasse in hoechstens zehn Zeilen zusammen, was du verstanden hast,

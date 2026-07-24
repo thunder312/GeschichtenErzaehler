@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api/client";
 import type { AnwendenAntwort, ProjektDetail } from "../api/types";
+import { BefundeView } from "../components/BefundeView";
 import { MergeEditor } from "../components/MergeEditor";
 import { Badge, Button, Card, CardTitle, Input, Label } from "../components/ui";
 
@@ -78,9 +79,7 @@ export function PruefenAnwendenPage({
       {befunde && (
         <Card>
           <CardTitle>🔍 Befunde</CardTitle>
-          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-text">
-            {befunde}
-          </pre>
+          <BefundeView text={befunde} />
         </Card>
       )}
 

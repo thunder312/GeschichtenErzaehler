@@ -60,7 +60,13 @@ Danach: STOPP. Kein weiterer Text.
    Geheimnis, kompromittierende Situation, Fluchtheirat nach Gretna Green?
 10. Ton-Feinjustierung: mehr Drama oder mehr Leichtigkeit (Screwball-Ton der
     Season)? Sonstige Tonwuensche?
-11. Titel-Idee vorhanden, oder soll ich einen vorschlagen?
+11. Titel-Idee vorhanden? Falls nein: schlage DREI unterschiedliche, zum
+    bisherigen Plot passende Titel im gewohnten Mehrfachauswahl-Format vor
+    (echte, ausformulierte Titel - keine Platzhaltertexte):
+    a) ...
+    b) ...
+    c) ...
+    d) Eigener Titel
 
 Nach Frage 11: Fasse in hoechstens zehn Zeilen zusammen, was du verstanden hast,
 und frage einmal nach, ob das passt.
