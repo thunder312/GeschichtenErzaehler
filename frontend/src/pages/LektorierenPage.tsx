@@ -28,7 +28,7 @@ export function LektorierenPage({
     setLaedt(true);
     setFehler(null);
     setGespeichertHinweis(null);
-    starten(`Lektoriert Kapitel ${n} (Grammatik/Rechtschreibung)...`);
+    starten(`Lektoriert Kapitel ${n} (Grammatik & Stil)...`);
     try {
       const antwort = await api.lektorieren(ordner, n, sshZielId || null);
       setErgebnis(antwort);
@@ -55,9 +55,14 @@ export function LektorierenPage({
             <Input type="number" min={1} value={n} onChange={(e) => setN(Number(e.target.value))} className="w-28" />
           </div>
           <Button onClick={lektorieren} disabled={laedt}>
-            {laedt ? "Lektoriert..." : "Grammatik/Rechtschreibung lektorieren"}
+            {laedt ? "Lektoriert..." : "Grammatik & Stil lektorieren"}
           </Button>
         </div>
+        <p className="mt-2 text-xs text-text-muted">
+          Die Wörterbuch-Prüfung auf unbekannte Wörter findest du im Tab "Rechtschreibung". Kontinuitätsprobleme
+          aus dem Tab "Prüfen & Anwenden" werden nicht automatisch korrigiert - in der editierbaren
+          Merge-Ansicht unten kannst du sie nach dem Lektorieren von Hand einarbeiten.
+        </p>
         {fehler && <p className="mt-2 text-sm text-red-400">{fehler}</p>}
       </Card>
 

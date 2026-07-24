@@ -16,8 +16,8 @@
 - [x] Gebe im Fussbereich Auskunft, was die KI gerade macht, um dem Anwender sicherheit zu geben, dass nichts abgestürzt ist. Besonders beim prüfen des Kapitels ist da warten ohne Rückmeldung unangenehm aufgefallen.
 - [ ] Zeit-Überbrückung mit Benutzer-Unterhaltung (docs/unnützesWissen.csv in DB anlegen und anzeigen, während die KI arbeitet).
 - [ ] Implementiere im Export-Tab auch einen PDF Export. Entwerfe hierfür auch ein entsprechendes PDF-Template, das etwas verspielt ist, wie ein hochwertiges Buch.
-- [ ] Füge im Speicherort (der Geschichten) die Möglichkeit ein (Checkbox), dass automatisch Unterordner für die Epoche und/oder [Name der Geschichte] angelegt werden.
-- [ ] Lektorieren: Beide Seiten sollen dasselbe Text-Layout haben. Mit Zeilenwechseln, damit man weniger scrollen muss, aktuell wird das nur rechts umgesetzt.
+- [ ] Füge im Speicherort (der Geschichten) die Möglichkeit ein (Checkbox), dass automatisch Unterordner für die Epoche und/oder [Name der Geschichte] angelegt und benutzt werden.
+- [ ] Lektorieren: Beide Seiten sollen dasselbe Text-Layout haben. Mit Zeilenwechseln, damit man weniger horizontal scrollen muss, aktuell wird das nur rechts umgesetzt.
   - [ ] Füge eine Legende in die Kopfzeile ein mit den Farben für Grammatik, Rechtschreibung und Anachronismen.
 # Bugs
 
