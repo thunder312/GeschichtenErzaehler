@@ -20,6 +20,14 @@ export function MergeEditor({ original, modified, onModifiedChange, height = "48
         modified={modified}
         theme="vs-dark"
         onMount={(editor) => {
+          // Monaco wendet "wordWrap" aus den Top-Level-Optionen im
+          // Side-by-Side-Diff zuverlaessig nur auf den rechten (modified)
+          // Editor an - der linke (original) braucht denselben Zeilenumbruch
+          // explizit ueber updateOptions(), sonst hat nur die rechte Seite
+          // umgebrochene Zeilen und die linke scrollt horizontal.
+          const originalEditor = editor.getOriginalEditor();
+          originalEditor.updateOptions({ wordWrap: "on" });
+
           const modifiedEditor = editor.getModifiedEditor();
           modifiedEditor.onDidChangeModelContent(() => {
             onModifiedChange?.(modifiedEditor.getValue());
@@ -31,6 +39,7 @@ export function MergeEditor({ original, modified, onModifiedChange, height = "48
           minimap: { enabled: false },
           fontSize: 14,
           renderSideBySide: true,
+          renderOverviewRuler: false,
         }}
       />
     </div>

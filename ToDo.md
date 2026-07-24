@@ -17,8 +17,8 @@
 - [ ] Zeit-Überbrückung mit Benutzer-Unterhaltung (docs/unnützesWissen.csv in DB anlegen und anzeigen, während die KI arbeitet).
 - [ ] Implementiere im Export-Tab auch einen PDF Export. Entwerfe hierfür auch ein entsprechendes PDF-Template, das etwas verspielt ist, wie ein hochwertiges Buch.
 - [ ] Füge im Speicherort (der Geschichten) die Möglichkeit ein (Checkbox), dass automatisch Unterordner für die Epoche und/oder [Name der Geschichte] angelegt und benutzt werden.
-- [ ] Lektorieren: Beide Seiten sollen dasselbe Text-Layout haben. Mit Zeilenwechseln, damit man weniger horizontal scrollen muss, aktuell wird das nur rechts umgesetzt.
-  - [ ] Füge eine Legende in die Kopfzeile ein mit den Farben für Grammatik, Rechtschreibung und Anachronismen.
+- [x] Lektorieren: Beide Seiten sollen dasselbe Text-Layout haben. Mit Zeilenwechseln, damit man weniger horizontal scrollen muss, aktuell wird das nur rechts umgesetzt.
+  - [x] Füge eine Legende in die Kopfzeile ein mit den Farben für Grammatik, Rechtschreibung und Anachronismen. Und warum ist der scrollbar rechts viel breiter?
 # Bugs
 
 # Deployment

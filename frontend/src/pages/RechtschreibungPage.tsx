@@ -20,7 +20,7 @@ function satzMitHervorhebung(satz: string, wort: string) {
   const teile = satz.split(new RegExp(`(\\b${escapeRegExp(wort)}\\b)`, "gi"));
   return teile.map((teil, i) =>
     teil.toLowerCase() === wort.toLowerCase() ? (
-      <mark key={i} className="rounded bg-amber-400/30 px-0.5 text-amber-100">
+      <mark key={i} className="rounded bg-violet-400/30 px-0.5 text-violet-100">
         {teil}
       </mark>
     ) : (

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { AnwendenAntwort, ProjektDetail } from "../api/types";
 import { MergeEditor } from "../components/MergeEditor";
-import { Button, Card, Input, Label } from "../components/ui";
+import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 
 interface LektorierenPageProps {
@@ -49,6 +49,22 @@ export function LektorierenPage({
   return (
     <div className="space-y-6 p-6">
       <Card>
+        <CardTitle>🪄 Lektorieren</CardTitle>
+        <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-text-muted">
+          <span className="font-medium uppercase tracking-wider">Legende:</span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
+            Grammatik & Stil (hier)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-violet-400" aria-hidden="true" />
+            Rechtschreibung (Tab "Rechtschreibung")
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-400" aria-hidden="true" />
+            Anachronismen (Tab "Prüfen & Anwenden")
+          </span>
+        </div>
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <Label>Kapitelnummer</Label>
