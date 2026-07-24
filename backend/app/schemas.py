@@ -90,8 +90,13 @@ class SSHZielAntwort(BaseModel):
     username: str
     auth_method: str
     remote_ollama_port: int
+    favorit: bool
     created_at: str
     updated_at: str
+
+
+class SSHZielFavoritAnfrage(BaseModel):
+    favorit: bool
 
 
 class SSHTestAnfrage(BaseModel):

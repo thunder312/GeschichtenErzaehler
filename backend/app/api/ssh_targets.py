@@ -25,6 +25,7 @@ from app.schemas import (
     SSHTestAntwort,
     SSHZielAnlegenAnfrage,
     SSHZielAntwort,
+    SSHZielFavoritAnfrage,
 )
 from app.services import ssh_ziel_aus_db
 
@@ -122,6 +123,16 @@ def aktualisieren(ziel_id: str, anfrage: SSHZielAnlegenAnfrage,
 @router.delete("/{ziel_id}", status_code=204)
 def loeschen(ziel_id: str, settings: Settings = Depends(get_settings)):
     db.ssh_ziel_loeschen(settings.database_path, ziel_id)
+
+
+@router.put("/{ziel_id}/favorit", response_model=SSHZielAntwort)
+def favorit_setzen(ziel_id: str, anfrage: SSHZielFavoritAnfrage,
+                    settings: Settings = Depends(get_settings)):
+    if db.ssh_ziel_lesen(settings.database_path, ziel_id) is None:
+        raise HTTPException(404, "KI-Ziel nicht gefunden.")
+    db.ssh_ziel_favorit_setzen(settings.database_path, ziel_id, anfrage.favorit)
+    row = db.ssh_ziel_lesen(settings.database_path, ziel_id)
+    return SSHZielAntwort(**{k: row[k] for k in row.keys() if k != "secret_encrypted"})
 
 
 @router.post("/{ziel_id}/test", response_model=SSHTestAntwort)

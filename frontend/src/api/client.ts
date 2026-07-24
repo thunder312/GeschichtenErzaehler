@@ -156,6 +156,12 @@ export const api = {
   sshZielLoeschen: (id: string) =>
     anfrage<void>(`/api/ssh-targets/${id}`, { method: "DELETE" }),
 
+  sshZielFavoritSetzen: (id: string, favorit: boolean) =>
+    anfrage<SSHZiel>(`/api/ssh-targets/${id}/favorit`, {
+      method: "PUT",
+      body: JSON.stringify({ favorit }),
+    }),
+
   sshZielTesten: (id: string) =>
     anfrage<SSHTestErgebnis>(`/api/ssh-targets/${id}/test`, { method: "POST" }),
 

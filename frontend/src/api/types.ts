@@ -36,6 +36,7 @@ export interface SSHZiel {
   username: string;
   auth_method: AuthMethod;
   remote_ollama_port: number;
+  favorit: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -177,3 +177,40 @@ def test_aktualisieren_wechsel_zu_direct_braucht_kein_geheimnis(client):
     r = client.put(f"/api/ssh-targets/{ziel_id}", json=_direct_ziel())
     assert r.status_code == 200
     assert r.json()["auth_method"] == "direct"
+
+
+def test_favorit_ist_anfangs_false(client):
+    r = client.post("/api/ssh-targets", json=_passwort_ziel())
+    assert r.json()["favorit"] is False
+
+
+def test_favorit_setzen(client):
+    ziel_id = client.post("/api/ssh-targets", json=_passwort_ziel()).json()["id"]
+    r = client.put(f"/api/ssh-targets/{ziel_id}/favorit", json={"favorit": True})
+    assert r.status_code == 200
+    assert r.json()["favorit"] is True
+
+
+def test_favorit_ist_exklusiv(client):
+    id1 = client.post("/api/ssh-targets", json=_passwort_ziel(name="Erstes")).json()["id"]
+    id2 = client.post("/api/ssh-targets", json=_passwort_ziel(name="Zweites")).json()["id"]
+    client.put(f"/api/ssh-targets/{id1}/favorit", json={"favorit": True})
+    client.put(f"/api/ssh-targets/{id2}/favorit", json={"favorit": True})
+
+    liste = client.get("/api/ssh-targets").json()
+    favoriten = [z for z in liste if z["favorit"]]
+    assert len(favoriten) == 1
+    assert favoriten[0]["id"] == id2
+
+
+def test_favorit_entfernen(client):
+    ziel_id = client.post("/api/ssh-targets", json=_passwort_ziel()).json()["id"]
+    client.put(f"/api/ssh-targets/{ziel_id}/favorit", json={"favorit": True})
+    r = client.put(f"/api/ssh-targets/{ziel_id}/favorit", json={"favorit": False})
+    assert r.status_code == 200
+    assert r.json()["favorit"] is False
+
+
+def test_favorit_setzen_fuer_unbekanntes_ziel_gibt_404(client):
+    r = client.put("/api/ssh-targets/unbekannt/favorit", json={"favorit": True})
+    assert r.status_code == 404

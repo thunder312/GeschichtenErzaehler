@@ -125,6 +125,11 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
     onGeaendert();
   }
 
+  async function favoritUmschalten(z: SSHZiel) {
+    await api.sshZielFavoritSetzen(z.id, !z.favorit);
+    onGeaendert();
+  }
+
   function schluesseldateiWaehlen(datei: File | undefined) {
     if (!datei) return;
     const reader = new FileReader();
@@ -142,33 +147,48 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
             Standard-Ollama angesprochen.
           </p>
         ) : (
-          <ul className="divide-y divide-border">
-            {sshZiele.map((z) => (
-              <li key={z.id} className="flex items-center justify-between py-2.5">
-                <div>
-                  <div className="text-sm font-medium text-text">{z.name}</div>
-                  <div className="text-xs text-text-muted">
-                    {z.auth_method === "direct" ? (
-                      <>{z.host}</>
-                    ) : (
-                      <>
-                        {z.username}@{z.host}:{z.port} · Ollama-Port {z.remote_ollama_port}{" "}
-                      </>
-                    )}{" "}
-                    · <Badge>{z.auth_method === "direct" ? "direkt, kein SSH" : z.auth_method}</Badge>
+          <>
+            <p className="mb-2 text-xs text-text-muted">
+              ⭐ markiert das Ziel, das im Kopfbereich-Dropdown automatisch vorausgewählt wird (statt "Lokal /
+              Standard-Ollama"). Es kann immer nur ein Favorit gleichzeitig gesetzt sein.
+            </p>
+            <ul className="divide-y divide-border">
+              {sshZiele.map((z) => (
+                <li key={z.id} className="flex items-center justify-between py-2.5">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => favoritUmschalten(z)}
+                      title={z.favorit ? "Favorit entfernen" : "Als Favorit im Kopfbereich vorauswählen"}
+                      className={`text-lg leading-none ${z.favorit ? "text-amber-300" : "text-text-muted hover:text-amber-300"}`}
+                    >
+                      {z.favorit ? "★" : "☆"}
+                    </button>
+                    <div>
+                      <div className="text-sm font-medium text-text">{z.name}</div>
+                      <div className="text-xs text-text-muted">
+                        {z.auth_method === "direct" ? (
+                          <>{z.host}</>
+                        ) : (
+                          <>
+                            {z.username}@{z.host}:{z.port} · Ollama-Port {z.remote_ollama_port}{" "}
+                          </>
+                        )}{" "}
+                        · <Badge>{z.auth_method === "direct" ? "direkt, kein SSH" : z.auth_method}</Badge>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="secondary" onClick={() => bearbeiten(z)}>
-                    Bearbeiten
-                  </Button>
-                  <Button variant="danger" onClick={() => loeschen(z)}>
-                    Löschen
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
+                  <div className="flex gap-2">
+                    <Button variant="secondary" onClick={() => bearbeiten(z)}>
+                      Bearbeiten
+                    </Button>
+                    <Button variant="danger" onClick={() => loeschen(z)}>
+                      Löschen
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </Card>
 

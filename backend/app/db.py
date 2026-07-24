@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS ssh_targets (
     auth_method TEXT NOT NULL,
     secret_encrypted BLOB,
     remote_ollama_port INTEGER NOT NULL DEFAULT 11434,
+    favorit INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -52,6 +53,12 @@ def _verbindung(db_path: Path):
 def init_db(db_path: Path) -> None:
     with _verbindung(db_path) as conn:
         conn.executescript(SCHEMA)
+        # Migration fuer vor der Favorit-Funktion angelegte Datenbanken -
+        # CREATE TABLE IF NOT EXISTS legt die Spalte bei einer bereits
+        # bestehenden Tabelle nicht nachtraeglich an.
+        spalten = {r["name"] for r in conn.execute("PRAGMA table_info(ssh_targets)").fetchall()}
+        if "favorit" not in spalten:
+            conn.execute("ALTER TABLE ssh_targets ADD COLUMN favorit INTEGER NOT NULL DEFAULT 0")
 
 
 def _jetzt() -> str:
@@ -108,9 +115,21 @@ def ssh_ziele_auflisten(db_path: Path) -> list[sqlite3.Row]:
     with _verbindung(db_path) as conn:
         return conn.execute(
             "SELECT id, name, host, port, username, auth_method, "
-            "remote_ollama_port, created_at, updated_at FROM ssh_targets "
-            "ORDER BY name"
+            "remote_ollama_port, favorit, created_at, updated_at FROM "
+            "ssh_targets ORDER BY favorit DESC, name"
         ).fetchall()
+
+
+def ssh_ziel_favorit_setzen(db_path: Path, ziel_id: str, favorit: bool) -> None:
+    """Es kann immer nur genau ein Favorit existieren - beim Setzen wird der
+    Favorit-Status aller anderen Ziele deshalb zuerst geloescht."""
+    with _verbindung(db_path) as conn:
+        if favorit:
+            conn.execute("UPDATE ssh_targets SET favorit=0")
+        conn.execute(
+            "UPDATE ssh_targets SET favorit=?, updated_at=? WHERE id=?",
+            (1 if favorit else 0, _jetzt(), ziel_id),
+        )
 
 
 def ssh_ziel_lesen(db_path: Path, ziel_id: str) -> sqlite3.Row | None:

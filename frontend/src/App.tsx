@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api/client";
 import type { ProjektDetail, ProjektKurz, SSHZiel } from "./api/types";
 import { TabBar } from "./components/TabBar";
@@ -30,6 +30,7 @@ function App() {
   // versehentlich gegen ein nicht erreichbares lokales Ollama lief, obwohl
   // im Schreiben-Tab zuvor ein SSH-Ziel gewaehlt war.
   const [sshZielId, setSshZielId] = useState("");
+  const favoritVorausgewaehlt = useRef(false);
 
   const projekteLaden = useCallback(() => {
     api.projekte().then(setProjekte);
@@ -51,6 +52,16 @@ function App() {
   useEffect(() => {
     projektDetailLaden();
   }, [projektDetailLaden]);
+
+  useEffect(() => {
+    // Nur EINMAL beim ersten Laden der KI-Ziele automatisch vorbelegen -
+    // ein spaeter im laufenden Betrieb gesetzter/entfernter Favorit soll die
+    // gerade aktive Auswahl nicht nachtraeglich unter dem Nutzer wegziehen.
+    if (favoritVorausgewaehlt.current || sshZiele.length === 0) return;
+    favoritVorausgewaehlt.current = true;
+    const favorit = sshZiele.find((z) => z.favorit);
+    if (favorit) setSshZielId(favorit.id);
+  }, [sshZiele]);
 
   function projektAuswaehlen(ordner: string) {
     setAktuellesProjekt(ordner);

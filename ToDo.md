@@ -9,7 +9,7 @@
 - [x] Persona bearbeiten
 - [x] Verbotsliste bearbeiten
 - [x] lokaler Speicherort für Geschichte definierbar
-- [ ] KI-Ziele mit Favorit-Haken (genau 1 Favorit möglich) erweitern. -> Wenn gesetzt, immer im Dropdown im Kopfbereich vorausgewählt und NICHT mehr "Lokal / Standard-Ollama".
+- [x] KI-Ziele mit Favorit-Haken (genau 1 Favorit möglich) erweitern. -> Wenn gesetzt, immer im Dropdown im Kopfbereich vorausgewählt und NICHT mehr "Lokal / Standard-Ollama".
 - [ ] integriere eine Readme Datei über einen Button im Kopfbereich. Inhalt vgl. Bedienungsanleitung.md unter /docs . Öffne schön formatiert in einem neuen Browser-Tab
 - [ ] Hilfe-System für Anwender (schreibe ein Hilfefile, dass 1. den Ablauf einer neuen Geschichte erklärt und 2. mögliche Fehler z.B.: Asynchronität behandelt den Umgang damit. Binde einen Button in die Kopfzeile ein, mit dem man den Text in einem eigenen Browser-Tab öffnen kann. Natürlich schön formatiert.)
 - [ ] KI-Fehler-Logging (Schreibe ein Protokoll, was die KI am Backend macht, auch Fehler. Speichere das Protokoll zu Geschichte dazu. Wenn Teile der Geschichte neu geschrieben werden, ergänze das Protokoll)
@@ -17,7 +17,7 @@
 - [ ] Zeit-Überbrückung mit Benutzer-Unterhaltung (docs/unnützesWissen.csv in DB anlegen und anzeigen, während die KI arbeitet).
 - [ ] Implementiere im Export-Tab auch einen PDF Export. Entwerfe hierfür auch ein entsprechendes PDF-Template, das etwas verspielt ist, wie ein hochwertiges Buch.
 - [ ] Füge im Speicherort (der Geschichten) die Möglichkeit ein (Checkbox), dass automatisch Unterordner für die Epoche und/oder [Name der Geschichte] angelegt werden.
-- [ ] Lektorieren: Beide Seiten sollen dasseble Text-Layout haben. Mit Zeilenwechseln, damit man weniger scrollen muss, aktuell wird das nur rechts umgesetzt.
+- [ ] Lektorieren: Beide Seiten sollen dasselbe Text-Layout haben. Mit Zeilenwechseln, damit man weniger scrollen muss, aktuell wird das nur rechts umgesetzt.
   - [ ] Füge eine Legende in die Kopfzeile ein mit den Farben für Grammatik, Rechtschreibung und Anachronismen.
 # Bugs
 
