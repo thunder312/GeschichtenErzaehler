@@ -156,3 +156,11 @@ class EinstellungenAnfrage(BaseModel):
     # Leer/None setzt den Override zurueck auf standard_projects_dir.
     projects_dir: str | None = None
     unterordner_je_epoche: bool = False
+
+
+class WissenEintrag(BaseModel):
+    kategorie: str
+    thema: str
+    kuriositaet: str
+    hintergrund: str
+    quelle: str | None = None

@@ -15,15 +15,25 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import architekt, einstellungen, epochen, pipeline, projects, ssh_targets
+from app.api import architekt, einstellungen, epochen, pipeline, projects, ssh_targets, wissen
 from app.config import get_settings
 from app.core.ollama_client import OllamaFehler
 from app.core.projekt_dateien import DateiFehlt
 from app.core.ssh_manager import SSHVerbindungsFehler
-from app.db import init_db
+from app.core.wissen import csv_einlesen
+from app.db import init_db, wissen_anzahl, wissen_einfuegen
 
 settings = get_settings()
 init_db(settings.database_path)
+
+# Einmalig beim Start befuellen, falls die Tabelle noch leer ist (z.B. beim
+# allerersten Start oder nach dem Loeschen der DB-Datei) - kein Neu-Einlesen
+# bei jedem Reload, damit Aenderungen an der DB (falls je gewuenscht) nicht
+# staendig ueberschrieben werden.
+if wissen_anzahl(settings.database_path) == 0:
+    eintraege = csv_einlesen(settings.unnuetzes_wissen_csv)
+    if eintraege:
+        wissen_einfuegen(settings.database_path, eintraege)
 
 app = FastAPI(title="Geschichten Erzähler Backend", version="0.1.0")
 
@@ -65,6 +75,7 @@ app.include_router(ssh_targets.router)
 app.include_router(architekt.router)
 app.include_router(epochen.router)
 app.include_router(einstellungen.router)
+app.include_router(wissen.router)
 # Catch-All-Route fuer die Projekt-Detailansicht ("/{ordner:path}", matcht
 # jeden Rest-Pfad) - muss als LETZTES eingebunden werden, sonst verdeckt sie
 # spezifischere Routen aus pipeline/architekt (siehe Kommentar in

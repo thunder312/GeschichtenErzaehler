@@ -92,6 +92,14 @@ export interface Einstellungen {
   unterordner_je_epoche: boolean;
 }
 
+export interface WissenEintrag {
+  kategorie: string;
+  thema: string;
+  kuriositaet: string;
+  hintergrund: string;
+  quelle: string | null;
+}
+
 // WebSocket-Nachrichten von /api/projects/{ordner}/ws/schreiben/{n}
 export type SchreibenNachricht =
   | { phase: "stand_nachholen"; typ: "start" | "done"; kapitel: number }

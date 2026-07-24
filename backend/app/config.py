@@ -13,6 +13,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 APP_DIR = BACKEND_DIR / "app"
+REPO_DIR = BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
@@ -42,6 +43,12 @@ class Settings(BaseSettings):
     secret_key_path: Path = BACKEND_DIR / "instance" / ".secret_key"
 
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+    # Haeppchen "unnuetzes Wissen" rund ums Bücherschreiben, die waehrend
+    # laengerer KI-Wartezeiten im Frontend eingeblendet werden (siehe
+    # app/api/wissen.py). Pipe-getrennt statt echtes CSV, weil die
+    # Kuriositaets-/Hintergrundtexte oft Kommas enthalten.
+    unnuetzes_wissen_csv: Path = REPO_DIR / "docs" / "unnützesWissen.csv"
 
 
 @lru_cache

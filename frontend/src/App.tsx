@@ -7,6 +7,7 @@ import { EinstellungenPage } from "./pages/EinstellungenPage";
 import { EpocheErstellenPage } from "./pages/EpocheErstellenPage";
 import { GeruestPage } from "./pages/GeruestPage";
 import { StatusFooter } from "./components/StatusFooter";
+import { ZeitUeberbrueckungOverlay } from "./components/ZeitUeberbrueckungOverlay";
 import { AktivitaetProvider } from "./context/AktivitaetContext";
 import { LektorierenPage } from "./pages/LektorierenPage";
 import { ProjektePage } from "./pages/ProjektePage";
@@ -244,6 +245,7 @@ function App() {
         </div>
       </main>
       <StatusFooter />
+      <ZeitUeberbrueckungOverlay />
     </div>
     </AktivitaetProvider>
   );

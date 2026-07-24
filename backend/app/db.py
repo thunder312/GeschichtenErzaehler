@@ -37,6 +37,15 @@ CREATE TABLE IF NOT EXISTS einstellungen (
     projects_dir TEXT,
     unterordner_je_epoche INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS unnuetzes_wissen (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kategorie TEXT NOT NULL,
+    thema TEXT NOT NULL,
+    kuriositaet TEXT NOT NULL,
+    hintergrund TEXT NOT NULL,
+    quelle TEXT
+);
 """
 
 
@@ -182,3 +191,24 @@ def einstellung_unterordner_je_epoche_schreiben(db_path: Path, aktiv: bool) -> N
             "ON CONFLICT(id) DO UPDATE SET unterordner_je_epoche=excluded.unterordner_je_epoche",
             (1 if aktiv else 0,),
         )
+
+
+def wissen_anzahl(db_path: Path) -> int:
+    with _verbindung(db_path) as conn:
+        return conn.execute("SELECT COUNT(*) AS n FROM unnuetzes_wissen").fetchone()["n"]
+
+
+def wissen_einfuegen(db_path: Path, eintraege: list[dict]) -> None:
+    with _verbindung(db_path) as conn:
+        conn.executemany(
+            "INSERT INTO unnuetzes_wissen (kategorie, thema, kuriositaet, hintergrund, quelle) "
+            "VALUES (:kategorie, :thema, :kuriositaet, :hintergrund, :quelle)",
+            eintraege,
+        )
+
+
+def wissen_alle_lesen(db_path: Path) -> list[sqlite3.Row]:
+    with _verbindung(db_path) as conn:
+        return conn.execute(
+            "SELECT kategorie, thema, kuriositaet, hintergrund, quelle FROM unnuetzes_wissen ORDER BY id"
+        ).fetchall()

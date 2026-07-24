@@ -9,6 +9,7 @@ import type {
   SSHTestErgebnis,
   SSHZiel,
   SSHZielEingabe,
+  WissenEintrag,
 } from "./types";
 
 async function anfrage<T>(pfad: string, init?: RequestInit): Promise<T> {
@@ -183,6 +184,8 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ projects_dir: projectsDir, unterordner_je_epoche: unterordnerJeEpoche }),
     }),
+
+  unnuetzesWissen: () => anfrage<WissenEintrag[]>("/api/unnuetzeswissen"),
 };
 
 export function schreibenWebSocketUrl(
