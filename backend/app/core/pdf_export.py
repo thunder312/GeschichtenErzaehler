@@ -19,19 +19,29 @@ from app.core.geruest import titel_erkennen, titelseite_erzeugen
 
 ZIERZEICHEN = "❦"
 
-_TITEL_ZEILE_RE = re.compile(r"^#\s*(.+)$", re.MULTILINE)
 _UNTERTITEL_ZEILE_RE = re.compile(r"^\*(.+?)\*\s*$", re.MULTILINE)
-_KAPITEL_UEBERSCHRIFT_RE = re.compile(r"^\*\*(.+?)\*\*\s*$")
+
+# Die Kapitelueberschrift-Zeile, die JEDE Kapiteldatei einleitet (Format
+# laut Autor-Persona: "Kapitel eins: Sprechender Untertitel"). Das Modell
+# setzt sie nicht zuverlaessig in Markdown-Fett ("**...**") - Kapitel 1
+# tut es haeufig (weil die Titelseiten-Zeilen davor stehen), alle
+# folgenden Kapitel oft nicht. Die Erkennung darf sich deshalb NICHT auf
+# "**" verlassen, sondern muss beide Varianten abdecken, sonst wird die
+# Ueberschrift als gewoehnlicher Absatz mitgerendert (linksbuendig, falsche
+# Schrift, und der Kapitelname erscheint doppelt).
+_KAPITEL_UEBERSCHRIFT_RE = re.compile(
+    r"^\*{0,2}Kapitel\s+\S+\s*[:\-–—]\s*(.+?)\*{0,2}\s*$", re.IGNORECASE
+)
 
 
 def _kapitel_parsen(text: str) -> tuple[str | None, list[str]]:
-    """Trennt eine Kapiteldatei in (Kapitelueberschrift, Absaetze). Ueberspringt
+    """Trennt eine Kapiteldatei in (Kapitel-Untertitel, Absaetze). Ueberspringt
     die Titelseiten-Zeilen ("# Titel", "*Untertitel*"), die nur in Kapitel 1
-    vorkommen (siehe geruest.titelseite_erzeugen), und erkennt die fett
-    gesetzte "Kapitel N: ..."-Ueberschrift, die jede Kapiteldatei einleitet."""
+    vorkommen (siehe geruest.titelseite_erzeugen), und erkennt die
+    "Kapitel N: ..."-Ueberschrift, die jede Kapiteldatei einleitet."""
     zeilen = text.strip().split("\n")
     rest_start = 0
-    ueberschrift: str | None = None
+    untertitel: str | None = None
     for i, zeile in enumerate(zeilen):
         z = zeile.strip()
         if not z:
@@ -40,7 +50,7 @@ def _kapitel_parsen(text: str) -> tuple[str | None, list[str]]:
             continue
         treffer = _KAPITEL_UEBERSCHRIFT_RE.match(z)
         if treffer:
-            ueberschrift = treffer.group(1).strip()
+            untertitel = treffer.group(1).strip()
             rest_start = i + 1
         else:
             rest_start = i
@@ -48,7 +58,7 @@ def _kapitel_parsen(text: str) -> tuple[str | None, list[str]]:
 
     rest = "\n".join(zeilen[rest_start:]).strip()
     absaetze = [re.sub(r"[ \t]+", " ", p.strip()) for p in re.split(r"\n\s*\n", rest) if p.strip()]
-    return ueberschrift, absaetze
+    return untertitel, absaetze
 
 
 def _roemisch(zahl: int) -> str:
@@ -144,16 +154,12 @@ def buch_pdf_erzeugen(geruest_text: str, epoche: str | None, kapitel: list[tuple
 
     for nummer, text in kapitel:
         inhalt.append(PageBreak())
-        ueberschrift, absaetze = _kapitel_parsen(text)
+        untertitel_kapitel, absaetze = _kapitel_parsen(text)
         inhalt.append(Spacer(1, 1.6 * cm))
         inhalt.append(Paragraph(ZIERZEICHEN, zierstil))
         inhalt.append(Paragraph(f"KAPITEL {_roemisch(nummer)}", kapitel_nummer_stil))
-        if ueberschrift:
-            anzeige = ueberschrift
-            doppelpunkt = anzeige.find(":")
-            if doppelpunkt != -1:
-                anzeige = anzeige[doppelpunkt + 1:].strip()
-            inhalt.append(Paragraph(_escape(anzeige), kapitel_titel_stil))
+        if untertitel_kapitel:
+            inhalt.append(Paragraph(_escape(untertitel_kapitel), kapitel_titel_stil))
         for absatz in absaetze:
             inhalt.append(Paragraph(_escape(absatz), absatz_stil))
 
