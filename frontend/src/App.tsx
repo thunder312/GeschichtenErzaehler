@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api/client";
 import type { ProjektDetail, ProjektKurz, SSHZiel } from "./api/types";
+import { AboutDialog } from "./components/AboutDialog";
 import { TabBar } from "./components/TabBar";
 import { ArchitektInterviewPage } from "./pages/ArchitektInterviewPage";
 import { EinstellungenPage } from "./pages/EinstellungenPage";
@@ -36,6 +37,7 @@ function App() {
   // versehentlich gegen ein nicht erreichbares lokales Ollama lief, obwohl
   // im Schreiben-Tab zuvor ein SSH-Ziel gewaehlt war.
   const [sshZielId, setSshZielId] = useState("");
+  const [ueberSichtbar, setUeberSichtbar] = useState(false);
   const favoritVorausgewaehlt = useRef(false);
 
   const projekteLaden = useCallback(() => {
@@ -151,6 +153,21 @@ function App() {
           </div>
         )}
         <div className="shrink-0 flex items-center gap-3">
+          <button
+            onClick={() => window.open(api.anleitungUrl(), "_blank")}
+            className="text-sm text-text-muted hover:text-text"
+          >
+            Anleitung
+          </button>
+          <button
+            onClick={() => window.open(api.hilfeUrl(), "_blank")}
+            className="text-sm text-text-muted hover:text-text"
+          >
+            Hilfe
+          </button>
+          <button onClick={() => setUeberSichtbar(true)} className="text-sm text-text-muted hover:text-text">
+            Über
+          </button>
           <span className="text-sm text-text-muted">{benutzer.username}</span>
           <Button variant="secondary" onClick={() => logout()}>
             Abmelden
@@ -272,6 +289,7 @@ function App() {
       </main>
       <StatusFooter />
       <ZeitUeberbrueckungOverlay />
+      {ueberSichtbar && <AboutDialog onClose={() => setUeberSichtbar(false)} />}
     </div>
     </AktivitaetProvider>
   );

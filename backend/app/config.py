@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     # Kuriositaets-/Hintergrundtexte oft Kommas enthalten.
     unnuetzes_wissen_csv: Path = REPO_DIR / "docs" / "unnützesWissen.csv"
 
+    # Dokumentation, die das Frontend als gerendertes HTML in einem neuen
+    # Tab oeffnet (siehe app/api/dokumentation.py).
+    anleitung_md: Path = REPO_DIR / "docs" / "Anleitung.md"
+    hilfe_md: Path = REPO_DIR / "docs" / "Hilfe.md"
+
     # Login-Zugang (siehe app/auth.py). Waehrend Entwicklung/Test bewusst
     # inaktiv (get_current_user liefert dann transparent default_username) -
     # erst kurz vor dem echten Deploy auf True stellen.

@@ -135,6 +135,10 @@ export const api = {
 
   exportPdfUrl: (ordner: string) => `/api/projects/${ordner}/export/pdf`,
 
+  anleitungUrl: () => "/api/docs/anleitung",
+
+  hilfeUrl: () => "/api/docs/hilfe",
+
   zusammenfassen: (ordner: string, von?: number, bis?: number) => {
     const params = new URLSearchParams();
     if (von !== undefined) params.set("von", String(von));
