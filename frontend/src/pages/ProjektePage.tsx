@@ -25,9 +25,21 @@ export function ProjektePage({
   useEffect(() => {
     api.epochen().then((liste) => {
       setEpochen(liste);
-      if (liste.length > 0) setEpoche(liste[0].name);
+      if (liste.length === 0) return;
+      // Zuletzt gewaehlte Epoche vorbelegen statt immer die alphabetisch
+      // erste - sonst landet ein neues Projekt leicht in der falschen
+      // Epoche, wenn man sich beim erneuten Oeffnen der Seite auf die
+      // zuletzt benutzte Epoche verlaesst, ohne die Auswahl zu pruefen.
+      const letzte = window.localStorage.getItem("letzte-epoche");
+      const vorbelegung = letzte && liste.some((e) => e.name === letzte) ? letzte : liste[0].name;
+      setEpoche(vorbelegung);
     });
   }, []);
+
+  function epocheAuswaehlen(name: string) {
+    setEpoche(name);
+    window.localStorage.setItem("letzte-epoche", name);
+  }
 
   async function anlegen() {
     if (!epoche) return;
@@ -81,10 +93,10 @@ export function ProjektePage({
           </div>
           <div>
             <Label>Epoche</Label>
-            <Select value={epoche} onChange={(e) => setEpoche(e.target.value)}>
+            <Select value={epoche} onChange={(e) => epocheAuswaehlen(e.target.value)}>
               {epochen.map((e) => (
                 <option key={e.name} value={e.name}>
-                  {e.name}
+                  {e.genre ? `${e.name} (${e.genre})` : e.name}
                 </option>
               ))}
             </Select>

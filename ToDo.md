@@ -19,13 +19,15 @@
 - [x] Füge im Speicherort (der Geschichten) die Möglichkeit ein (Checkbox), dass automatisch Unterordner für die Epoche und/oder [Name der Geschichte] angelegt und benutzt werden.
 - [x] Lektorieren: Beide Seiten sollen dasselbe Text-Layout haben. Mit Zeilenwechseln, damit man weniger horizontal scrollen muss, aktuell wird das nur rechts umgesetzt.
   - [x] Füge eine Legende in die Kopfzeile ein mit den Farben für Grammatik, Rechtschreibung und Anachronismen. Und warum ist der scrollbar rechts viel breiter?
-- [ ] Wenn das Kapitel geschrieben ist, könnte man für die anderen Tabs die Infos gleich laden, sodass die Infos gleich da sind, wenn man das Tab wechselt. Das vermeidet auch, dass man versehentlich das flasche Kapitel nochmal lektoriert.
-- [ ] Epoche sollte auch auf Genre erweitert werden, da das fast fliessend ineinander übergeht.
-- [ ] Quen3 LLM aus dem Test Kontext im Script nehmen. Sie steht gleichberechtigt neben Hermes3 als Schreiber.
-- [ ] Den Hauptbildschirm so einrichten, dass niemals gescrollt wird. Notfalls sollen die Container zu scrollen sein.
+- [x] Wenn das Kapitel geschrieben ist, könnte man für die anderen Tabs die Infos gleich laden, sodass die Infos gleich da sind, wenn man das Tab wechselt. Das vermeidet auch, dass man versehentlich das flasche Kapitel nochmal lektoriert.
+- [x] Epoche sollte auch auf Genre erweitert werden, da das fast fliessend ineinander übergeht.
+- [x] Quen3 LLM aus dem Test Kontext im Script nehmen. Sie steht gleichberechtigt neben Hermes3 als Schreiber.
+- [x] Den Hauptbildschirm so einrichten, dass niemals gescrollt wird. Notfalls sollen die Container zu scrollen sein.
+- [x] Architektenstrand soll zwischengespeichert werden können. Und dann auch fortgesetzt werden können.
+- [ ] Unnützes Wissen zufällig aus der DB holen und zur Überbrückung anzeigen.
 # Bugs
-- [ ] eventuell funktioniert das fort schreiben der Tabs nicht richtig, ich hatte 2mal Kapitel 3, kein Kapitel 4. Muss nochmal verifiziert werden. 
-- [ ] Die Speicherort-Logik und der Ordnername mus nochmal verifiziert werden.
+- [x] eventuell funktioniert das fort schreiben der Tabs nicht richtig, ich hatte 2mal Kapitel 3, kein Kapitel 4. Muss nochmal verifiziert werden. 
+- [x] Die Speicherort-Logik und der Ordnername mus nochmal verifiziert werden.
 
 # Deployment
 - [ ] Implementiere einen User-Zugang mit Accounts. Benutze hierfür die bestehende DB. Hier im Entwickler-/Test-System kann der Login inaktiv sein, um es bequem zu halten. Aktiv ist es nur solange bis es erfolgreich implementiert und getestet ist.

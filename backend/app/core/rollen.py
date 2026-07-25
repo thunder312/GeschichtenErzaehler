@@ -85,7 +85,11 @@ ROLLEN: dict[str, dict] = {
             "seed": 42,
         },
     },
-    "autor_qwen_test": {
+    # Gleichberechtigte Autor-Alternative zu "autor" (Hermes3), waehlbar
+    # ueber "Autor-Modell: Qwen3" im Geruest - siehe
+    # app/core/geruest.py:autor_rolle_erkennen. Kein Test-/Vergleichsmodus,
+    # sondern ein vollwertiger zweiter Schreiber.
+    "autor_qwen": {
         "modell": "qwen3:14b",
         "think": False,
         "optionen": {

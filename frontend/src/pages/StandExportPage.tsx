@@ -27,7 +27,7 @@ export function StandExportPage({
   const [von, setVon] = useState<number | undefined>(undefined);
   const [bis, setBis] = useState<number | undefined>(undefined);
   const [gesamtText, setGesamtText] = useState<string | null>(null);
-  const [gesamtDateiname, setGesamtDateiname] = useState("gesamt.md");
+  const [gesamtDateiname, setGesamtDateiname] = useState("");
   const [ladenExport, setLadenExport] = useState(false);
 
   const [fehler, setFehler] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export function StandExportPage({
     try {
       const antwort = await api.exportieren(ordner);
       setGesamtText(antwort.gesamt);
-      setGesamtDateiname("gesamt.md");
+      setGesamtDateiname(antwort.dateiname);
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
@@ -71,7 +71,7 @@ export function StandExportPage({
     try {
       const antwort = await api.zusammenfassen(ordner, von, bis);
       setGesamtText(antwort.inhalt ?? antwort.gesamt ?? null);
-      setGesamtDateiname(`zwischenstand_${von ?? "start"}-${bis ?? "ende"}.md`);
+      setGesamtDateiname(antwort.datei ?? antwort.dateiname ?? "gesamt.md");
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
@@ -122,7 +122,7 @@ export function StandExportPage({
         <CardTitle>🗂️ Export / Zwischenstand</CardTitle>
         <div className="flex flex-wrap items-end gap-4">
           <Button onClick={exportieren} variant="secondary" disabled={ladenExport}>
-            Alle Kapitel -&gt; gesamt.md
+            Alle Kapitel zusammenfassen
           </Button>
           <Button
             type="button"

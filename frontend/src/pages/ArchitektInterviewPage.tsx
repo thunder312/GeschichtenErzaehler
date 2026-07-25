@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { architektWebSocketUrl } from "../api/client";
+import { api, architektWebSocketUrl } from "../api/client";
 import type { ArchitektNachricht } from "../api/types";
 import { Button, Card } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
@@ -54,6 +54,8 @@ export function ArchitektInterviewPage({
   const [denktNach, setDenktNach] = useState(false);
   const [abgeschlossen, setAbgeschlossen] = useState(false);
   const [beendetOhneSpeichern, setBeendetOhneSpeichern] = useState(false);
+  const [pausiert, setPausiert] = useState(false);
+  const [fortsetzbar, setFortsetzbar] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const chatEndeRef = useRef<HTMLDivElement>(null);
@@ -65,12 +67,23 @@ export function ArchitektInterviewPage({
 
   useEffect(() => () => socketRef.current?.close(), []);
 
+  // Zeigt auf dem Start-Bildschirm an, ob es fuer dieses Projekt bereits ein
+  // zwischengespeichertes, noch nicht abgeschlossenes Interview gibt (siehe
+  // backend/app/api/architekt.py: architekt_verlauf.json).
+  useEffect(() => {
+    api
+      .architektFortsetzbar(ordner)
+      .then((antwort) => setFortsetzbar(antwort.fortsetzbar))
+      .catch(() => setFortsetzbar(false));
+  }, [ordner]);
+
   function starten() {
     setGestartet(true);
     setNachrichten([]);
     setFehler(null);
     setAbgeschlossen(false);
     setBeendetOhneSpeichern(false);
+    setPausiert(false);
     setWartetAufAntwort(true);
 
     const socket = new WebSocket(architektWebSocketUrl(ordner, sshZielId || null));
@@ -80,6 +93,18 @@ export function ArchitektInterviewPage({
 
     socket.onmessage = (ereignis) => {
       const nachricht: ArchitektNachricht = JSON.parse(ereignis.data);
+      if (nachricht.phase === "fortgesetzt") {
+        // Erster ("Ich: Lass uns anfangen...") und letzter Eintrag
+        // (die gerade noch offene Frage) werden ausgelassen - Ersterer wird
+        // auch beim frischen Start nie als eigene Chat-Blase gezeigt,
+        // Letzterer kommt gleich danach ganz normal per "frage"/"fertig".
+        const bisherige = nachricht.verlauf.slice(1, -1).map((zeile): ChatEintrag => {
+          if (zeile.startsWith("Ich: ")) return { rolle: "ich", text: zeile.slice("Ich: ".length) };
+          if (zeile.startsWith("Du: ")) return { rolle: "architekt", text: zeile.slice("Du: ".length) };
+          return { rolle: "architekt", text: zeile };
+        });
+        setNachrichten(bisherige);
+      }
       if (nachricht.phase === "frage" && nachricht.typ === "start") {
         setWartetAufAntwort(true);
         setDenktNach(false);
@@ -132,7 +157,17 @@ export function ArchitektInterviewPage({
     socketRef.current?.send(JSON.stringify({ eingabe: "ende" }));
   }
 
-  const kannAntworten = !wartetAufAntwort && !abgeschlossen && !beendetOhneSpeichern;
+  function spaeterFortsetzen() {
+    // Kein "ende" senden - der zuletzt gespeicherte Verlauf (siehe Backend)
+    // bleibt dadurch als Zwischenstand erhalten und wird beim naechsten
+    // Verbindungsaufbau zu diesem Projekt automatisch fortgesetzt.
+    socketRef.current?.close();
+    setPausiert(true);
+    setWartetAufAntwort(false);
+    aktivitaetBeenden();
+  }
+
+  const kannAntworten = !wartetAufAntwort && !abgeschlossen && !beendetOhneSpeichern && !pausiert;
   const letzteNachricht = nachrichten.at(-1);
   const optionen =
     kannAntworten && letzteNachricht?.rolle === "architekt" ? optionenErkennen(letzteNachricht.text) : [];
@@ -147,7 +182,12 @@ export function ArchitektInterviewPage({
             Der Architekt stellt dir Schritt für Schritt Fragen zu Setting, Figuren, Konflikt und
             Kapitelplan und erstellt daraus automatisch das Story-Gerüst dieses Projekts.
           </p>
-          <Button onClick={starten}>Interview starten</Button>
+          {fortsetzbar && (
+            <p className="mb-4 text-sm text-accent-light">
+              Es gibt ein zwischengespeichertes, noch nicht abgeschlossenes Interview für dieses Projekt.
+            </p>
+          )}
+          <Button onClick={starten}>{fortsetzbar ? "Interview fortsetzen" : "Interview starten"}</Button>
         </Card>
       </div>
     );
@@ -190,6 +230,12 @@ export function ArchitektInterviewPage({
               starten.
             </div>
           )}
+          {pausiert && (
+            <div className="rounded-lg border border-accent-soft bg-accent-soft/40 px-4 py-3 text-sm text-accent-light">
+              <p className="mb-2">Fortschritt zwischengespeichert.</p>
+              <Button onClick={starten}>Interview fortsetzen</Button>
+            </div>
+          )}
           {fehler && <p className="text-sm text-red-400">{fehler}</p>}
           <div ref={chatEndeRef} />
         </div>
@@ -209,7 +255,7 @@ export function ArchitektInterviewPage({
         </div>
       )}
 
-      {!abgeschlossen && !beendetOhneSpeichern && (
+      {!abgeschlossen && !beendetOhneSpeichern && !pausiert && (
         <div className="flex gap-2">
           <textarea
             className="flex-1 resize-none rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none transition-colors focus:border-accent"
@@ -228,6 +274,9 @@ export function ArchitektInterviewPage({
           <div className="flex flex-col gap-2">
             <Button onClick={senden} disabled={wartetAufAntwort || !eingabe.trim()}>
               Senden
+            </Button>
+            <Button onClick={spaeterFortsetzen} variant="secondary" disabled={wartetAufAntwort}>
+              Später fortsetzen
             </Button>
             <Button onClick={beenden} variant="secondary" disabled={wartetAufAntwort}>
               Beenden

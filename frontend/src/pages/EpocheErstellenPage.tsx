@@ -3,6 +3,7 @@ import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 
 interface EpocheErstellenAnfrage {
   name: string;
+  genre: string;
   erfunden: boolean;
   beschreibung: string;
   zeitraum: string;
@@ -18,6 +19,7 @@ interface EpocheErstellenAnfrage {
 
 const LEERES_FORMULAR: EpocheErstellenAnfrage = {
   name: "",
+  genre: "",
   erfunden: false,
   beschreibung: "",
   zeitraum: "",
@@ -236,6 +238,19 @@ export function EpocheErstellenPage() {
               onChange={(e) => feld("verbote_start", e.target.value)}
               placeholder="Eisenbahn, Fotografie, moderne Anglizismen"
             />
+          </div>
+
+          <div>
+            <Label>13) Genre-Prägung (optional)</Label>
+            <Input
+              value={formular.genre}
+              onChange={(e) => feld("genre", e.target.value)}
+              placeholder="z.B. Krimi, Dark Fantasy, Komödie - Epoche und Genre gehen oft fließend ineinander über"
+            />
+            <p className="mt-1 text-xs text-text-muted">
+              Wird Architekt und Autor als zusätzliche Ton-/Stilvorgabe mitgegeben und bei der Epochen-Auswahl
+              für ein neues Projekt angezeigt.
+            </p>
           </div>
 
           {fehler && <p className="text-sm text-red-400">{fehler}</p>}

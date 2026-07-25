@@ -29,6 +29,7 @@ def epoche_erstellen(anfrage: EpocheErstellenAnfrage, settings: Settings = Depen
         orte=anfrage.orte,
         gesellschaft=anfrage.gesellschaft,
         statusregel=anfrage.statusregel,
+        genre=anfrage.genre,
         rang_wort=anfrage.rang_wort.strip() or "Stand",
         anreden=anfrage.anreden.strip() or "(noch keine Angabe)",
         nebenstrang_typen=anfrage.nebenstrang_typen.strip() or "ein zum Setting passender Nebenstrang",
@@ -40,5 +41,7 @@ def epoche_erstellen(anfrage: EpocheErstellenAnfrage, settings: Settings = Depen
     ziel.mkdir(parents=True)
     for dateiname, inhalt in dateien.items():
         (ziel / dateiname).write_text(inhalt, encoding="utf-8")
+    if anfrage.genre.strip():
+        (ziel / ".genre").write_text(anfrage.genre.strip(), encoding="utf-8")
 
     return EpocheErstellenAntwort(name=anfrage.name, ordner=ordner_name, dateien=dateien)

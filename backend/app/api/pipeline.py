@@ -333,7 +333,10 @@ async def stand(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
 def export(ordner: str, settings: Settings = Depends(get_settings)):
     projekt_root = projekt_pfad(settings, ordner)
     ganz = _export_ausfuehren(projekt_root / "projekt")
-    return {"gesamt": ganz}
+    # projekt_root.name statt hartcodiert "gesamt" - traegt (nach dem Fix
+    # der Ordner-Umbenennung) den eigentlichen Geschichtennamen, siehe
+    # app/core/projekt_dateien.py:projektordner_umbenennen.
+    return {"gesamt": ganz, "dateiname": f"{projekt_root.name}.md"}
 
 
 @router.get("/{ordner:path}/export/pdf")
@@ -361,9 +364,10 @@ def export_pdf(ordner: str, settings: Settings = Depends(get_settings)):
 @router.post("/{ordner:path}/zusammenfassen")
 def zusammenfassen(ordner: str, von: int | None = None, bis: int | None = None,
                     settings: Settings = Depends(get_settings)):
-    projekt = projekt_pfad(settings, ordner) / "projekt"
+    projekt_root = projekt_pfad(settings, ordner)
+    projekt = projekt_root / "projekt"
     if von is None or bis is None:
-        return {"gesamt": _export_ausfuehren(projekt)}
+        return {"gesamt": _export_ausfuehren(projekt), "dateiname": f"{projekt_root.name}.md"}
     if von > bis:
         von, bis = bis, von
     alle = pd.vorhandene_kapitel(projekt)
@@ -371,7 +375,11 @@ def zusammenfassen(ordner: str, von: int | None = None, bis: int | None = None,
     if not ausgewaehlt:
         raise HTTPException(404, f"Keine Kapitel im Bereich {von}-{bis} gefunden.")
     ganz = "\n\n".join(pd.lies(p) for p in ausgewaehlt)
-    ziel_name = f"zusammen_{von:02d}-{bis:02d}.md"
+    # Geschichtenname + Kapitelnummern als Suffix (z.B. "Die-Reise_2_3.md")
+    # statt generischem "zusammen_02-03.md" - so bleibt auch bei mehreren
+    # Zwischenstaenden erkennbar, zu welcher Geschichte und welchem
+    # Kapitelbereich die Datei gehoert.
+    ziel_name = f"{projekt_root.name}_{von}_{bis}.md"
     pd.schreib(projekt / ziel_name, ganz, force=True)
     return {"datei": ziel_name, "inhalt": ganz}
 

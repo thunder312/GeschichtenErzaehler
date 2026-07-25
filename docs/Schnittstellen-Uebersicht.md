@@ -94,7 +94,7 @@ re.search(r"Jugendschutz-Stufe\s*[:\-]?\s*([A-Za-zÄÖÜäöüß/ ]+)",
 
 # Autor-Modell (Frage 3 im Architekten-Interview, siehe 5.2a):
 re.search(r"Autor-Modell\s*[:\-]?\s*([A-Za-z0-9 ]+)", geruest, re.IGNORECASE)
-# wert.lower() enthaelt "qwen" -> Rolle "autor_qwen_test" (qwen3:14b)
+# wert.lower() enthaelt "qwen" -> Rolle "autor_qwen" (qwen3:14b)
 # sonst (auch wenn kein Treffer) -> Rolle "autor" (hermes3:8b) - Standard
 
 # Automatische Fortsetzung (Frage 4 im Architekten-Interview, siehe 5.4):
@@ -246,7 +246,7 @@ Modell, eigenen Denkmodus-Schalter, eigene Sampling-Parameter:
 | `kontinuitaet` | gemma4 | true | 0.1 | 16384 | 6144 | 42 |
 | `lektor` | gemma4 | false | 0.15 | 16384 | 6144 | 42 |
 | `anachronismen_korrektur` | gemma4 | false | 0.1 | 16384 | 6144 | 42 |
-| `autor_qwen_test` (optional) | qwen3:14b | false | 0.7 | 16384 | 6144 | – |
+| `autor_qwen` (optional) | qwen3:14b | false | 0.7 | 16384 | 6144 | – |
 
 Vollständige Sampling-Parameter je Rolle (top_p, min_p, top_k,
 repeat_penalty, repeat_last_n, ggf. presence_penalty) stehen im Quelltext im
@@ -296,7 +296,7 @@ def _autor_rolle_erkennen(geruest: str) -> str:
         return "autor"
     wert = treffer.group(1).lower()
     if "qwen" in wert:
-        return "autor_qwen_test"
+        return "autor_qwen"
     return "autor"
 ```
 
@@ -305,11 +305,12 @@ wird sowohl an den Haupt-Schreibaufruf als auch an jeden Fortsetzungsaufruf
 in `_bei_bedarf_fortsetzen` durchgereicht - dieselbe Story bleibt also über
 alle Kapitel und Fortsetzungsversuche hinweg beim einmal gewählten Modell.
 
-Die Rolle `autor_qwen_test` existierte bereits vorher als reine
-Vergleichsrolle für `./novelle.py testen <n>` und wird jetzt doppelt
-genutzt: einerseits weiterhin für den expliziten A/B-Vergleichsbefehl
-(der immer beide Modelle nutzt, unabhängig vom Geruest), andererseits jetzt
-auch produktiv, wenn das Geruest Qwen3 als Autor-Modell festlegt.
+Die Rolle `autor_qwen` (im GUI-Backend `app/core/rollen.py`, ursprünglich
+`autor_qwen_test` genannt) existierte im CLI-Vorbild zunächst nur als reine
+Vergleichsrolle für `./novelle.py testen <n>`. Im GUI-Backend ist Qwen3
+gleichberechtigt neben Hermes3 als zweite vollwertige Autor-Wahl nutzbar,
+nicht mehr nur als Test-/Vergleichsmodus - der A/B-Vergleichsbefehl selbst
+ist reine CLI-Historie und im GUI-Backend nicht nachgebaut.
 
 Fehlt die Angabe (ältere Projekte ohne diese Frage), lautet der Rückgabewert
 immer `"autor"` (Hermes) - unverändertes Verhalten für Bestandsprojekte.

@@ -78,6 +78,11 @@ function App() {
     projekteLaden();
   }
 
+  function ordnerUmbenannt(neuerOrdner: string) {
+    setAktuellesProjekt(neuerOrdner);
+    projekteLaden();
+  }
+
   const tabs = [
     { id: "projekte", label: "Projekte", icon: "📚" },
     ...(aktuellesProjekt
@@ -98,7 +103,7 @@ function App() {
 
   return (
     <AktivitaetProvider>
-    <div className="flex min-h-screen flex-col text-text">
+    <div className="flex h-screen flex-col overflow-hidden text-text">
       <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
         <div className="flex min-w-0 items-center gap-4">
           <h1 className="flex shrink-0 items-center gap-2">
@@ -149,7 +154,11 @@ function App() {
           key={aktuellesProjekt} sorgt weiterhin dafuer, dass beim
           Wechsel zu einem ANDEREN Projekt alles frisch neu gemountet
           wird (kein Ueberbleibsel des vorherigen Projekts). */}
-      <main className="flex-1 pb-10">
+      {/* h-screen + overflow-hidden am aeusseren Container (oben) sorgt
+          dafuer, dass Kopfbereich, Tab-Leiste und Fussleiste immer fix
+          sichtbar bleiben - nur dieser mittlere Bereich scrollt bei Bedarf,
+          statt dass die ganze Seite scrollt. */}
+      <main className="flex-1 overflow-y-auto pb-10">
         <div className={activeTab === "projekte" ? "" : "hidden"}>
           <ProjektePage
             projekte={projekte}
@@ -173,6 +182,7 @@ function App() {
                   ordner={aktuellesProjekt}
                   projekt={projektDetail}
                   onGeaendert={projektDetailLaden}
+                  onOrdnerUmbenannt={ordnerUmbenannt}
                   onInterviewStarten={() => setInterviewErzwungen(true)}
                 />
               )}

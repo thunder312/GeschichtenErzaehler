@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { AnwendenAntwort, ProjektDetail } from "../api/types";
 import { MergeEditor } from "../components/MergeEditor";
@@ -26,6 +26,17 @@ export function LektorierenPage({
   const [offeneAenderungen, setOffeneAenderungen] = useState(0);
   const { starten, beenden } = useAktivitaet();
   useLetztesKapitelSync(projekt, setN);
+
+  // Beim Wechsel auf ein anderes Kapitel die Merge-Ansicht des vorherigen
+  // Kapitels verwerfen - sonst blieb sie stehen und "Aktuellen Stand
+  // speichern" haette versehentlich das falsche Kapitel ueberschrieben.
+  useEffect(() => {
+    setErgebnis(null);
+    setBearbeitet("");
+    setGespeichertHinweis(null);
+    setOffeneAenderungen(0);
+    setFehler(null);
+  }, [ordner, n]);
 
   async function lektorieren() {
     setLaedt(true);

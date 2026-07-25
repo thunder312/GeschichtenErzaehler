@@ -58,7 +58,7 @@ export const api = {
   projekt: (ordner: string) => anfrage<ProjektDetail>(`/api/projects/${ordner}`),
 
   geruestSchreiben: (ordner: string, inhalt: string) =>
-    anfrage<{ gespeichert: string; gesichert_als: string | null }>(
+    anfrage<{ gespeichert: string; gesichert_als: string | null; neuer_ordner: string | null }>(
       `/api/projects/${ordner}/geruest`,
       { method: "PUT", body: JSON.stringify({ inhalt }) },
     ),
@@ -82,6 +82,9 @@ export const api = {
 
   architektenGespraech: (ordner: string) =>
     anfrage<string>(`/api/projects/${ordner}/architekten-gespraech`),
+
+  architektFortsetzbar: (ordner: string) =>
+    anfrage<{ fortsetzbar: boolean }>(`/api/projects/${ordner}/architekt-fortsetzbar`),
 
   verbotslisteSchreiben: (ordner: string, inhalt: string) =>
     anfrage<{ gesichert_als: string | null }>(
@@ -125,7 +128,7 @@ export const api = {
     ),
 
   exportieren: (ordner: string) =>
-    anfrage<{ gesamt: string }>(`/api/projects/${ordner}/export`, { method: "POST" }),
+    anfrage<{ gesamt: string; dateiname: string }>(`/api/projects/${ordner}/export`, { method: "POST" }),
 
   exportPdfUrl: (ordner: string) => `/api/projects/${ordner}/export/pdf`,
 
@@ -134,7 +137,7 @@ export const api = {
     if (von !== undefined) params.set("von", String(von));
     if (bis !== undefined) params.set("bis", String(bis));
     const query = params.toString() ? `?${params.toString()}` : "";
-    return anfrage<{ datei?: string; gesamt?: string; inhalt?: string }>(
+    return anfrage<{ datei?: string; gesamt?: string; dateiname?: string; inhalt?: string }>(
       `/api/projects/${ordner}/zusammenfassen${query}`,
       { method: "POST" },
     );

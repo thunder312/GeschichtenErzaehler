@@ -60,6 +60,20 @@ def neuer_projekt_pfad(settings: Settings, titel: str, epoche: str | None = None
     return ziel
 
 
+def ordner_nach_umbenennung(ordner: str, neuer_name: str) -> str:
+    """Baut den vollstaendigen relativen Projektordner-Pfad neu zusammen,
+    nachdem projektordner_umbenennen() (app/core/projekt_dateien.py) nur
+    den eigentlichen Projektordner (letztes Pfadsegment) umbenannt hat.
+    Ohne das hier ginge bei aktivem Epoche-Unterordner (z.B.
+    "Zukunft/neu" -> "Zukunft/Die-Reise") das Epoche-Praefix verloren -
+    der zurueckgegebene neue Ordner waere dann nicht mehr unter der
+    Speicherort-Wurzel auffindbar."""
+    if "/" in ordner:
+        praefix = ordner.rsplit("/", 1)[0]
+        return f"{praefix}/{neuer_name}"
+    return neuer_name
+
+
 def ssh_ziel_aus_db(settings: Settings, ziel_id: str) -> ssh_manager.SSHZiel:
     row = db.ssh_ziel_lesen(settings.database_path, ziel_id)
     if row is None:

@@ -95,7 +95,7 @@ def autor_rolle_erkennen(geruest: str) -> str:
         return "autor"
     wert = treffer.group(1).lower()
     if "qwen" in wert:
-        return "autor_qwen_test"
+        return "autor_qwen"
     return "autor"
 
 

@@ -8,10 +8,12 @@ from pydantic import BaseModel, Field
 
 class EpocheKurz(BaseModel):
     name: str
+    genre: str | None = None
 
 
 class EpocheErstellenAnfrage(BaseModel):
     name: str = Field(min_length=1)
+    genre: str = ""
     erfunden: bool
     beschreibung: str = Field(min_length=1)
     zeitraum: str = Field(min_length=1)

@@ -51,6 +51,14 @@ def verbotsliste_datei(projekt: Path) -> Path:
     return projekt / "verbotsliste.md"
 
 
+def architekt_verlauf_datei(projekt: Path) -> Path:
+    """Zwischenspeicher fuer ein unterbrochenes Architekten-Gespraech (siehe
+    app/api/architekt.py) - existiert nur, waehrend das Interview noch
+    laeuft, und wird bei Abschluss oder explizitem Abbruch wieder
+    geloescht."""
+    return projekt / "architekt_verlauf.json"
+
+
 def lies(pfad: Path, pflicht: bool = True, ersatz: str = "") -> str:
     if not pfad.exists():
         if pflicht:

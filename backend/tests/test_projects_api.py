@@ -34,17 +34,22 @@ def test_projektliste_zeigt_titel_und_kapitelanzahl_aus_projekt_unterordner(clie
     # projekt/-Unterordner und zeigte deshalb immer Titel=None und
     # anzahl_kapitel=0, obwohl die Detailansicht (GET /api/projects/{ordner})
     # dieselben Dateien korrekt fand.
-    client.put(f"/api/projects/{projekt}/geruest", json={
+    antwort = client.put(f"/api/projects/{projekt}/geruest", json={
         "inhalt": "# STORY-GERUEST\n\n## Titel\nDer Turm im Nebel\n\n## Kapitelplan\n"
                    "Kapitel 1: Start. Zielwortzahl: 1000 Woerter.\n",
     })
+    # Der abweichende Titel benennt den Ordner um (siehe
+    # app/api/projects.py:geruest_schreiben) - fuer die weiteren Schritte
+    # muss also der ZURUECKGEGEBENE neue Ordner verwendet werden, nicht mehr
+    # der urspruengliche "projekt"-Fixture-Ordnername.
+    aktueller_ordner = antwort.json()["neuer_ordner"] or projekt
     from app.core import projekt_dateien as pd
-    projekt_pfad = tmp_path / "projects" / projekt / "projekt"
+    projekt_pfad = tmp_path / "projects" / aktueller_ordner / "projekt"
     pd.schreib(pd.kapitel_datei(projekt_pfad, 1), "Ein Kapiteltext.")
 
     r = client.get("/api/projects")
     assert r.status_code == 200
-    eintrag = next(p for p in r.json() if p["ordner"] == projekt)
+    eintrag = next(p for p in r.json() if p["ordner"] == aktueller_ordner)
     assert eintrag["titel"] == "Der Turm im Nebel"
     assert eintrag["anzahl_kapitel"] == 1
     assert eintrag["letztes_geplantes_kapitel"] == 1

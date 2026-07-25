@@ -98,3 +98,21 @@ def test_epoche_erstellen_verbotsliste_uebernimmt_kommagetrennte_eintraege(clien
 def test_epoche_erstellen_mit_leerem_namen_wird_abgelehnt(client):
     r = client.post("/api/epochen", json=_reale_epoche(name=""))
     assert r.status_code == 422
+
+
+def test_epoche_erstellen_mit_genre_wird_in_vorlagen_und_liste_uebernommen(client, tmp_path):
+    r = client.post("/api/epochen", json=_reale_epoche(genre="Krimi"))
+    assert r.status_code == 201
+    assert "Genre-Praegung: Krimi." in r.json()["dateien"]["architekt.txt"]
+    assert (tmp_path / "epochen" / "Viktorianisches-England" / ".genre").read_text(encoding="utf-8") == "Krimi"
+
+    liste = client.get("/api/projects/epochen").json()
+    eintrag = next(e for e in liste if e["name"] == "Viktorianisches-England")
+    assert eintrag["genre"] == "Krimi"
+
+
+def test_epoche_erstellen_ohne_genre_hat_kein_genre_in_liste(client):
+    client.post("/api/epochen", json=_reale_epoche())
+    liste = client.get("/api/projects/epochen").json()
+    eintrag = next(e for e in liste if e["name"] == "Viktorianisches-England")
+    assert eintrag["genre"] is None

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { AnwendenAntwort, ProjektDetail } from "../api/types";
 import { BefundeView } from "../components/BefundeView";
@@ -28,6 +28,32 @@ export function PruefenAnwendenPage({
   const [fehler, setFehler] = useState<string | null>(null);
   const { starten, beenden } = useAktivitaet();
   useLetztesKapitelSync(projekt, setN);
+
+  // Beim Wechsel auf ein anderes Kapitel (z.B. automatisch nach dem
+  // Schreiben eines neuen Kapitels) die Merge-Ansicht des VORHERIGEN
+  // Kapitels verwerfen, statt sie stehen zu lassen - sonst konnte man
+  // "Aktuellen Stand speichern" versehentlich fuer das falsche Kapitel
+  // ausloesen. Bereits vorhandene Befunde (aus dem automatischen Pruef-
+  // Schritt beim Schreiben) gleich mitladen, statt eine erneute, teure
+  // KI-Pruefung zu erzwingen, nur um sie wieder anzuzeigen.
+  useEffect(() => {
+    setErgebnis(null);
+    setBearbeitet("");
+    setGespeichertHinweis(null);
+    setFehler(null);
+    let abgebrochen = false;
+    api
+      .befunde(ordner, n)
+      .then((text) => {
+        if (!abgebrochen) setBefunde(text);
+      })
+      .catch(() => {
+        if (!abgebrochen) setBefunde(null);
+      });
+    return () => {
+      abgebrochen = true;
+    };
+  }, [ordner, n]);
 
   async function pruefen() {
     setLadenPruefen(true);

@@ -18,7 +18,7 @@ from app.schemas import (
     ProjektDetail,
     ProjektKurz,
 )
-from app.services import neuer_projekt_pfad, projekt_pfad, projekte_wurzel
+from app.services import neuer_projekt_pfad, ordner_nach_umbenennung, projekt_pfad, projekte_wurzel
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -35,11 +35,21 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 fallback_router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
+def _epoche_genre_lesen(epoche_ordner) -> str | None:
+    marker = epoche_ordner / ".genre"
+    if not marker.exists():
+        return None
+    return marker.read_text(encoding="utf-8").strip() or None
+
+
 @router.get("/epochen", response_model=list[EpocheKurz])
 def epochen_auflisten(settings: Settings = Depends(get_settings)):
     if not settings.epochen_dir.is_dir():
         return []
-    return [EpocheKurz(name=p.name) for p in sorted(settings.epochen_dir.iterdir()) if p.is_dir()]
+    return [
+        EpocheKurz(name=p.name, genre=_epoche_genre_lesen(p))
+        for p in sorted(settings.epochen_dir.iterdir()) if p.is_dir()
+    ]
 
 
 def _projekt_kurz(pfad, wurzel, settings: Settings) -> ProjektKurz:
@@ -129,9 +139,16 @@ def projekt_lesen(ordner: str, settings: Settings = Depends(get_settings)):
 @router.put("/{ordner:path}/geruest")
 def geruest_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
                        settings: Settings = Depends(get_settings)):
-    pfad = projekt_pfad(settings, ordner) / "projekt"
-    ziel_pfad, gesichert_als = pd.schreib(pd.geruest_datei(pfad), anfrage.inhalt)
-    return {"gespeichert": str(ziel_pfad), "gesichert_als": gesichert_als}
+    projekt_root = projekt_pfad(settings, ordner)
+    ziel_pfad, gesichert_als = pd.schreib(pd.geruest_datei(projekt_root / "projekt"), anfrage.inhalt)
+    # Der Ordner traegt nach der Projektanlage oft noch den Platzhalter-
+    # Namen "neu" (siehe projekt_anlegen()) - das Architekten-Interview
+    # benennt ihn zwar am Ende automatisch um, aber nicht, wenn der Titel
+    # erst nachtraeglich hier im Gerueest-Editor gesetzt/geaendert wird.
+    # Ohne diesen Aufruf bliebe der Ordner dann dauerhaft "neu".
+    neuer_name = pd.projektordner_umbenennen(projekt_root, anfrage.inhalt)
+    neuer_ordner = ordner_nach_umbenennung(ordner, neuer_name) if neuer_name else None
+    return {"gespeichert": str(ziel_pfad), "gesichert_als": gesichert_als, "neuer_ordner": neuer_ordner}
 
 
 @router.put("/{ordner:path}/verbotsliste")

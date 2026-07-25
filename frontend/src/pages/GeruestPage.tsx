@@ -18,6 +18,7 @@ interface GeruestPageProps {
   ordner: string;
   projekt: ProjektDetail | null;
   onGeaendert: () => void;
+  onOrdnerUmbenannt: (neuerOrdner: string) => void;
   onInterviewStarten: () => void;
 }
 
@@ -28,7 +29,7 @@ interface GeruestPageProps {
  * exakt wie im CLI (siehe backend/app/core/geruest.py) und wird hier zur
  * Kontrolle angezeigt. Verbotsliste (fuer die Anachronismus-Pruefung)
  * liegt gleich daneben, da beide Dateien zusammen das Setting definieren. */
-export function GeruestPage({ ordner, projekt, onGeaendert, onInterviewStarten }: GeruestPageProps) {
+export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, onInterviewStarten }: GeruestPageProps) {
   const [inhalt, setInhalt] = useState(projekt?.geruest ?? "");
   const [wirdGespeichert, setWirdGespeichert] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
@@ -55,9 +56,14 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onInterviewStarten }
     setWirdGespeichert(true);
     setGespeichertHinweis(null);
     try {
-      await api.geruestSchreiben(ordner, inhalt);
-      onGeaendert();
-      setGespeichertHinweis("Gespeichert.");
+      const antwort = await api.geruestSchreiben(ordner, inhalt);
+      if (antwort.neuer_ordner) {
+        onOrdnerUmbenannt(antwort.neuer_ordner);
+        setGespeichertHinweis(`Gespeichert - Ordner umbenannt in "${antwort.neuer_ordner}".`);
+      } else {
+        onGeaendert();
+        setGespeichertHinweis("Gespeichert.");
+      }
     } finally {
       setWirdGespeichert(false);
     }

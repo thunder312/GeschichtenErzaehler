@@ -49,7 +49,7 @@ Danach: STOPP. Kein weiterer Text.
    d) Eigene Angabe
 3. Autor-Modell: Welches installierte Modell soll die Geschichte schreiben?
    a) Hermes3 (empfohlen, insbesondere fuer explizite Inhalte)
-   b) Qwen3 (testweise, ggf. andere Staerken/Schwaechen)
+   b) Qwen3 (gleichwertige Alternative, ggf. andere Staerken/Schwaechen)
    c) Eigene Angabe
 4. Automatische Fortsetzung bei zu kurzen Kapiteln?
    a) Aus (empfohlen) - ein zu kurzes Kapitel bleibt so, wie es geschrieben

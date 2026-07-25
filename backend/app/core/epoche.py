@@ -109,11 +109,21 @@ class EpocheAntworten:
     orte: str
     gesellschaft: str
     statusregel: str
+    genre: str = ""
     rang_wort: str = "Stand"
     anreden: str = "(noch keine Angabe)"
     nebenstrang_typen: str = "ein zum Setting passender Nebenstrang"
     vorbild_franchise: str = ""
     verbote_start: str = ""
+
+    @property
+    def genre_hinweis(self) -> str:
+        # Epoche und Genre gehen fliessend ineinander ueber (z.B. "Mittelalter"
+        # als Zeit/Ort-Rahmen, "Krimi" oder "Dark Fantasy" als Ton/Genre) -
+        # das Genre wird deshalb nicht als eigene Dimension modelliert,
+        # sondern direkt in die Setting-Beschreibung eingewoben, die an
+        # Architekt und Autor geht.
+        return f" Genre-Praegung: {self.genre.strip()}." if self.genre.strip() else ""
 
     @property
     def markenhinweis(self) -> str:
@@ -130,11 +140,12 @@ class EpocheAntworten:
 def architekt_vorlage(a: EpocheAntworten) -> str:
     beschreibung = (
         f'Du bist Erzaehlarchitekt fuer deutschsprachige historische '
-        f'Erotik-Erzaehlungen in {a.beschreibung}.'
+        f'Erotik-Erzaehlungen in {a.beschreibung}.{a.genre_hinweis}'
         if not a.erfunden else
         f'Du bist Erzaehlarchitekt fuer deutschsprachige Erotik-Erzaehlungen '
         f'in einem eigenstaendigen, erfundenen Setting: {a.beschreibung}. '
         f'Dies ist KEIN bekanntes Franchise und darf auch nicht danach klingen.'
+        f'{a.genre_hinweis}'
     )
     return f'''{beschreibung}
 Du schreibst KEINE Prosa. Nicht einen Satz. Deine einzige Aufgabe ist das Geruest.
@@ -151,7 +162,7 @@ Du schreibst KEINE Prosa. Nicht einen Satz. Deine einzige Aufgabe ist das Gerues
    d) Eigene Angabe
 3. Autor-Modell: Welches installierte Modell soll die Geschichte schreiben?
    a) Hermes3 (empfohlen, insbesondere fuer explizite Inhalte)
-   b) Qwen3 (testweise, ggf. andere Staerken/Schwaechen)
+   b) Qwen3 (gleichwertige Alternative, ggf. andere Staerken/Schwaechen)
    c) Eigene Angabe
 4. Automatische Fortsetzung bei zu kurzen Kapiteln?
    a) Aus (empfohlen) - ein zu kurzes Kapitel bleibt so, wie es geschrieben
@@ -261,10 +272,10 @@ Antworte auf Deutsch.
 def autor_vorlage(a: EpocheAntworten) -> str:
     kopf = (
         f'Du bist Autor fuer deutschsprachige historische erotische Romane '
-        f'und Kurzgeschichten, angesiedelt in {a.beschreibung}.'
+        f'und Kurzgeschichten, angesiedelt in {a.beschreibung}.{a.genre_hinweis}'
         if not a.erfunden else
         f'Du bist Autor fuer deutschsprachige Erotik in einem eigenstaendigen, '
-        f'erfundenen Setting: {a.beschreibung}.'
+        f'erfundenen Setting: {a.beschreibung}.{a.genre_hinweis}'
     )
     return f'''{kopf}
 

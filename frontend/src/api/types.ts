@@ -2,6 +2,7 @@
 
 export interface EpocheKurz {
   name: string;
+  genre?: string | null;
 }
 
 export interface ProjektKurz {
@@ -121,6 +122,7 @@ export type SchreibenNachricht =
 
 // WebSocket-Nachrichten von /api/projects/{ordner}/ws/architekt
 export type ArchitektNachricht =
+  | { phase: "fortgesetzt"; verlauf: string[] }
   | { phase: "frage"; typ: "start" }
   | { phase: "frage"; typ: "denkt_nach" }
   | { phase: "frage"; typ: "fertig"; text: string }

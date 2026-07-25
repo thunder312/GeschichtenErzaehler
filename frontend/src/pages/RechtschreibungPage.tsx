@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { ProjektDetail, RechtschreibWort } from "../api/types";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
@@ -43,6 +43,15 @@ export function RechtschreibungPage({
   const [fehler, setFehler] = useState<string | null>(null);
   const { starten, beenden } = useAktivitaet();
   useLetztesKapitelSync(projekt, setN);
+
+  // Beim Wechsel auf ein anderes Kapitel die Wortliste des vorherigen
+  // Kapitels verwerfen - sonst wirkten Woerter aus einem frueheren Kapitel
+  // so, als gehoerten sie zum gerade angezeigten.
+  useEffect(() => {
+    setWoerter(null);
+    setErsatzWerte({});
+    setFehler(null);
+  }, [ordner, n]);
 
   async function rechtschreibungPruefen() {
     setLaedt(true);

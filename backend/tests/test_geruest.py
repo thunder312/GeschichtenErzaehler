@@ -51,7 +51,7 @@ def test_jugendschutz_stufe_erkennen():
 
 
 def test_autor_rolle_erkennen():
-    assert g.autor_rolle_erkennen(BEISPIEL_GERUEST) == "autor_qwen_test"
+    assert g.autor_rolle_erkennen(BEISPIEL_GERUEST) == "autor_qwen"
     assert g.autor_rolle_erkennen("Autor-Modell: Hermes3") == "autor"
     assert g.autor_rolle_erkennen("keine Angabe") == "autor"
 

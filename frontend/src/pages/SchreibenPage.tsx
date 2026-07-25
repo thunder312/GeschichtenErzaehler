@@ -133,6 +133,15 @@ export function SchreibenPage({
         setLaeuft(false);
         aktivitaetBeenden();
         onKapitelGeschrieben();
+        // Nach erfolgreichem Schreiben automatisch zum naechsten Kapitel
+        // weiterschalten - sonst blieb die Kapitelnummer auf dem gerade
+        // geschriebenen Kapitel stehen (die Nummer wird bewusst NICHT bei
+        // jeder Projekt-Aktualisierung neu vorgeschlagen, siehe Kommentar
+        // oben), und ein zweiter Klick auf "Schreiben starten" ohne manuelle
+        // Anpassung schrieb versehentlich dasselbe Kapitel nochmal (statt
+        // das naechste), was wie ein "haengengebliebenes" Fortschreiben
+        // aussah.
+        setN(n + 1);
       }
       if (nachricht.phase === "fehler") {
         setFehler(nachricht.text);

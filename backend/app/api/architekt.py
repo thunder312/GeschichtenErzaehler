@@ -17,20 +17,60 @@ Unterschied zum CLI: Denk-Tokens (still=True-Aequivalent) werden nicht live
 gestreamt - nur ein "denkt nach"-Signal - weil sonst mehrere Fragen kurz
 sichtbar waeren, bevor der Ein-Frage-Filter greift (siehe cmd_architekt-
 Kommentar im Original).
+
+Zwischenspeichern/Fortsetzen: der Verlauf wird nach jedem Zug als
+architekt_verlauf.json im Projekt abgelegt (siehe pd.architekt_verlauf_datei)
+und erst bei Abschluss oder explizitem Abbruch ("ende"/"exit"/"quit")
+wieder geloescht. Trennt die Verbindung stattdessen unerwartet (Tab
+geschlossen, Netzwerk weg) oder schliesst das Frontend sie bewusst zum
+Pausieren, bleibt die Datei liegen - der naechste Verbindungsaufbau zu
+diesem Projekt erkennt sie und setzt das Gespraech an genau der Stelle
+fort, sendet dafuer aber zuerst den kompletten bisherigen Verlauf ans
+Frontend, damit der Chat-Verlauf dort nicht bei der letzten Frage leer
+anfaengt.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+import json
 
-from app.config import get_settings
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+
+from app.config import Settings, get_settings
 from app.core import architekt as arch
 from app.core import projekt_dateien as pd
 from app.core.ollama_client import OllamaFehler, chat_stream
-from app.services import ollama_basis_url, projekt_pfad
+from app.services import ollama_basis_url, ordner_nach_umbenennung, projekt_pfad
 
 router = APIRouter(prefix="/api/projects", tags=["architekt"])
 
 ERSTE_EINGABE = "Lass uns anfangen. Stelle mir die ersten Fragen."
+
+
+def _verlauf_laden(projekt_root) -> list[str] | None:
+    datei = pd.architekt_verlauf_datei(projekt_root / "projekt")
+    if not datei.exists():
+        return None
+    try:
+        verlauf = json.loads(datei.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    return verlauf or None
+
+
+def _verlauf_speichern(projekt_root, verlauf: list[str]) -> None:
+    datei = pd.architekt_verlauf_datei(projekt_root / "projekt")
+    datei.parent.mkdir(parents=True, exist_ok=True)
+    datei.write_text(json.dumps(verlauf, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _verlauf_loeschen(projekt_root) -> None:
+    pd.architekt_verlauf_datei(projekt_root / "projekt").unlink(missing_ok=True)
+
+
+@router.get("/{ordner:path}/architekt-fortsetzbar")
+def architekt_fortsetzbar(ordner: str, settings: Settings = Depends(get_settings)):
+    projekt_root = projekt_pfad(settings, ordner)
+    return {"fortsetzbar": _verlauf_laden(projekt_root) is not None}
 
 
 async def _zug(websocket: WebSocket, base_url: str, persona_text: str,
@@ -63,10 +103,23 @@ async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | Non
     try:
         projekt_root = projekt_pfad(settings, ordner)
         persona_text = pd.persona_lesen(projekt_root, "architekt")
-        verlauf: list[str] = []
+
+        gespeicherter_verlauf = _verlauf_laden(projekt_root)
 
         with ollama_basis_url(settings, ssh_ziel_id) as base_url:
-            antwort, fertig = await _zug(websocket, base_url, persona_text, verlauf, ERSTE_EINGABE)
+            if gespeicherter_verlauf is not None:
+                verlauf = gespeicherter_verlauf
+                # Der Verlauf endet immer mit "Du: <letzte gestellte Frage>"
+                # (siehe _zug) - ein bereits abgeschlossenes Geruest wuerde
+                # sofort gespeichert und die Verlaufsdatei geloescht, kann
+                # hier also nicht vorkommen.
+                antwort = verlauf[-1].removeprefix("Du: ")
+                fertig = False
+                await websocket.send_json({"phase": "fortgesetzt", "verlauf": verlauf})
+            else:
+                verlauf = []
+                antwort, fertig = await _zug(websocket, base_url, persona_text, verlauf, ERSTE_EINGABE)
+                _verlauf_speichern(projekt_root, verlauf)
 
             while True:
                 if fertig:
@@ -87,14 +140,16 @@ async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | Non
                         force=True,
                     )
 
-                    neuer_ordner = pd.projektordner_umbenennen(projekt_root, antwort)
+                    neuer_name = pd.projektordner_umbenennen(projekt_root, antwort)
+                    neuer_ordner = ordner_nach_umbenennung(ordner, neuer_name) if neuer_name else ordner
 
+                    _verlauf_loeschen(projekt_root)
                     await websocket.send_json({
                         "phase": "abgeschlossen",
                         "geruest": antwort,
                         "ausgangslage_gespeichert": ausgangslage_gespeichert,
                         "gesichert_als": gesichert_als,
-                        "neuer_ordner": neuer_ordner or ordner,
+                        "neuer_ordner": neuer_ordner,
                     })
                     break
 
@@ -103,14 +158,21 @@ async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | Non
                 nachricht = await websocket.receive_json()
                 eingabe = (nachricht.get("eingabe") or "").strip()
                 if not eingabe or eingabe.lower() in ("ende", "exit", "quit"):
+                    _verlauf_loeschen(projekt_root)
                     await websocket.send_json({"phase": "beendet_ohne_speichern"})
                     break
 
                 antwort, fertig = await _zug(websocket, base_url, persona_text, verlauf, eingabe)
+                _verlauf_speichern(projekt_root, verlauf)
 
     except OllamaFehler:
         pass
     except WebSocketDisconnect:
+        # Verbindung unerwartet weg (Tab geschlossen, Netzwerk) oder vom
+        # Frontend bewusst zum Pausieren geschlossen - der zuletzt
+        # gespeicherte Verlauf (siehe _verlauf_speichern oben) bleibt
+        # bewusst liegen, damit die naechste Verbindung zu diesem Projekt
+        # das Gespraech fortsetzen kann.
         return
     finally:
         try:
