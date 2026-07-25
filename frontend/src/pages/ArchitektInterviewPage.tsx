@@ -57,8 +57,16 @@ export function ArchitektInterviewPage({
   const [pausiert, setPausiert] = useState(false);
   const [fortsetzbar, setFortsetzbar] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
+  const [verbindungVerloren, setVerbindungVerloren] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const chatEndeRef = useRef<HTMLDivElement>(null);
+  // true, sobald das Gespraech ueber eine reguläre Nachricht (abgeschlossen,
+  // beendet_ohne_speichern, fehler) oder bewusst per "Spaeter fortsetzen"
+  // beendet wurde - unterscheidet im onclose-Handler ein erwartetes Ende von
+  // einem unerwarteten Verbindungsabbruch (z.B. Server-Neustart waehrend der
+  // Architekt noch ueberlegt), bei dem sonst "Architekt denkt nach..." ewig
+  // stehen bliebe, ohne dass sichtbar waere, dass gar nichts mehr laeuft.
+  const kontrolliertBeendetRef = useRef(false);
   const { starten: aktivitaetStarten, beenden: aktivitaetBeenden } = useAktivitaet();
 
   useEffect(() => {
@@ -84,7 +92,9 @@ export function ArchitektInterviewPage({
     setAbgeschlossen(false);
     setBeendetOhneSpeichern(false);
     setPausiert(false);
+    setVerbindungVerloren(false);
     setWartetAufAntwort(true);
+    kontrolliertBeendetRef.current = false;
 
     const socket = new WebSocket(architektWebSocketUrl(ordner, sshZielId || null));
     socketRef.current = socket;
@@ -120,17 +130,20 @@ export function ArchitektInterviewPage({
         aktivitaetBeenden();
       }
       if (nachricht.phase === "abgeschlossen") {
+        kontrolliertBeendetRef.current = true;
         setAbgeschlossen(true);
         setWartetAufAntwort(false);
         aktivitaetBeenden();
         onAbgeschlossen(nachricht.neuer_ordner);
       }
       if (nachricht.phase === "beendet_ohne_speichern") {
+        kontrolliertBeendetRef.current = true;
         setBeendetOhneSpeichern(true);
         setWartetAufAntwort(false);
         aktivitaetBeenden();
       }
       if (nachricht.phase === "fehler") {
+        kontrolliertBeendetRef.current = true;
         setFehler(nachricht.text);
         setWartetAufAntwort(false);
         aktivitaetBeenden();
@@ -140,6 +153,19 @@ export function ArchitektInterviewPage({
       setFehler("WebSocket-Verbindung fehlgeschlagen.");
       setWartetAufAntwort(false);
       aktivitaetBeenden();
+    };
+    socket.onclose = () => {
+      // Verbindung ist weg, OHNE dass eine der obigen Nachrichten (oder
+      // "Spaeter fortsetzen") das schon erklaert hat - z.B. weil der Server
+      // mitten im Gespraech neu gestartet wurde, waehrend der Architekt noch
+      // ueberlegt hat. Ohne diesen Fall wuerde "Architekt denkt nach..." ewig
+      // stehen bleiben, obwohl laengst nichts mehr laeuft.
+      if (!kontrolliertBeendetRef.current) {
+        setVerbindungVerloren(true);
+        setWartetAufAntwort(false);
+        setDenktNach(false);
+        aktivitaetBeenden();
+      }
     };
   }
 
@@ -161,13 +187,15 @@ export function ArchitektInterviewPage({
     // Kein "ende" senden - der zuletzt gespeicherte Verlauf (siehe Backend)
     // bleibt dadurch als Zwischenstand erhalten und wird beim naechsten
     // Verbindungsaufbau zu diesem Projekt automatisch fortgesetzt.
+    kontrolliertBeendetRef.current = true;
     socketRef.current?.close();
     setPausiert(true);
     setWartetAufAntwort(false);
     aktivitaetBeenden();
   }
 
-  const kannAntworten = !wartetAufAntwort && !abgeschlossen && !beendetOhneSpeichern && !pausiert;
+  const kannAntworten =
+    !wartetAufAntwort && !abgeschlossen && !beendetOhneSpeichern && !pausiert && !verbindungVerloren;
   const letzteNachricht = nachrichten.at(-1);
   const optionen =
     kannAntworten && letzteNachricht?.rolle === "architekt" ? optionenErkennen(letzteNachricht.text) : [];
@@ -236,6 +264,15 @@ export function ArchitektInterviewPage({
               <Button onClick={starten}>Interview fortsetzen</Button>
             </div>
           )}
+          {verbindungVerloren && (
+            <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+              <p className="mb-2">
+                ⚠️ Verbindung verloren, während der Architekt noch überlegt hat (z. B. weil der Server
+                zwischendurch neu gestartet wurde). Dein Fortschritt bis zur letzten Antwort ist gespeichert.
+              </p>
+              <Button onClick={starten}>Erneut verbinden</Button>
+            </div>
+          )}
           {fehler && <p className="text-sm text-red-400">{fehler}</p>}
           <div ref={chatEndeRef} />
         </div>
@@ -255,7 +292,7 @@ export function ArchitektInterviewPage({
         </div>
       )}
 
-      {!abgeschlossen && !beendetOhneSpeichern && !pausiert && (
+      {!abgeschlossen && !beendetOhneSpeichern && !pausiert && !verbindungVerloren && (
         <div className="flex gap-2">
           <textarea
             className="flex-1 resize-none rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none transition-colors focus:border-accent"
