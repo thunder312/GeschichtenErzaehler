@@ -93,6 +93,18 @@ export interface Einstellungen {
   unterordner_je_epoche: boolean;
 }
 
+// /api/auth/*
+export interface Benutzer {
+  id: number;
+  username: string;
+  ist_admin: boolean;
+}
+
+export interface LoginEingabe {
+  username: string;
+  password: string;
+}
+
 export interface WissenEintrag {
   nummer: number;
   kategorie: string;

@@ -32,7 +32,7 @@ def projekt_mit_kapitel(client, tmp_path):
     r = client.post("/api/projects", json={"titel": "Fehlertest", "epoche": "Regency"})
     ordner = r.json()["ordner"]
     client.put(f"/api/projects/{ordner}/geruest", json={"inhalt": "# STORY-GERUEST\n\n## Rahmen\nJahr: 1815\n"})
-    projekt_pfad = tmp_path / "projects" / ordner / "projekt"
+    projekt_pfad = tmp_path / "projects" / "daniel" / ordner / "projekt"
     pd.schreib(pd.kapitel_datei(projekt_pfad, 1), "Ein Testkapitel.")
     return ordner
 

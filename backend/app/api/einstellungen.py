@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app import db
 from app.config import Settings, get_settings
 from app.schemas import EinstellungenAnfrage, EinstellungenAntwort
-from app.services import projekte_wurzel
+from app.services import projekte_wurzel_unskopiert
 
 router = APIRouter(prefix="/api/einstellungen", tags=["einstellungen"])
 
@@ -41,7 +41,7 @@ def einstellungen_schreiben(anfrage: EinstellungenAnfrage, settings: Settings = 
     if not neuer_pfad:
         # Leerer Wert setzt den Override zurueck auf den Standardpfad.
         db.einstellung_projects_dir_schreiben(settings.database_path, None)
-        projekte_wurzel(settings)
+        projekte_wurzel_unskopiert(settings)
         return _antwort(settings)
 
     kandidat = Path(neuer_pfad)

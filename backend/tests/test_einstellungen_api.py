@@ -42,8 +42,8 @@ def test_schreiben_setzt_override_und_neue_projekte_landen_dort(client, tmp_path
     r2 = client.post("/api/projects", json={"titel": "Testprojekt", "epoche": "Regency"})
     assert r2.status_code == 201
     ordner = r2.json()["ordner"]
-    assert (neuer_ordner / ordner / "projekt").is_dir()
-    assert not (tmp_path / "projects" / ordner).exists()
+    assert (neuer_ordner / "daniel" / ordner / "projekt").is_dir()
+    assert not (tmp_path / "projects" / "daniel" / ordner).exists()
 
     r3 = client.get("/api/projects")
     assert any(p["ordner"] == ordner for p in r3.json())

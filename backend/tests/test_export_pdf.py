@@ -30,7 +30,7 @@ def projekt_mit_kapiteln(client, tmp_path):
     client.put(f"/api/projects/{ordner}/geruest", json={
         "inhalt": "# STORY-GERUEST\n\n## Rahmen\nJahr: 1815\n\n## Titel\nDer Markt von Rothenfeld\n",
     })
-    projekt_pfad = tmp_path / "projects" / ordner / "projekt"
+    projekt_pfad = tmp_path / "projects" / "daniel" / ordner / "projekt"
     # Kapitel 1 real oft FETT (steht hinter der generierten Titelseite),
     # Kapitel 2+ vom Autor-Modell haeufig OHNE Markdown-Fett - beide Formen
     # muss der PDF-Export gleich behandeln (siehe test_kapitel_parsen_*).

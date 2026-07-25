@@ -50,6 +50,17 @@ class Settings(BaseSettings):
     # Kuriositaets-/Hintergrundtexte oft Kommas enthalten.
     unnuetzes_wissen_csv: Path = REPO_DIR / "docs" / "unnützesWissen.csv"
 
+    # Login-Zugang (siehe app/auth.py). Waehrend Entwicklung/Test bewusst
+    # inaktiv (get_current_user liefert dann transparent default_username) -
+    # erst kurz vor dem echten Deploy auf True stellen.
+    auth_aktiv: bool = False
+    default_username: str = "daniel"
+    session_cookie_name: str = "ge_session"
+    session_ttl_tage: int = 30
+    # Erst im Prod-Deploy (HTTPS) auf True stellen - im lokalen http://
+    # Dev-Betrieb wuerde der Browser ein "Secure"-Cookie sonst verwerfen.
+    cookie_secure: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

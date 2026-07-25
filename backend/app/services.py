@@ -15,23 +15,36 @@ from app.core import ssh_manager
 from app.core.geruest import ordnername_aus_titel
 
 
-def projekte_wurzel(settings: Settings) -> Path:
-    """Wurzelverzeichnis aller Story-Projekte. Ohne in der DB gesetzten
-    Override (siehe app/api/einstellungen.py) gilt Settings.projects_dir
-    (Umgebungsvariable/Default) - mit Override der dort hinterlegte Pfad,
-    damit der Speicherort ueber die GUI aenderbar ist, ohne das Backend neu
-    zu starten."""
+def projekte_wurzel_unskopiert(settings: Settings) -> Path:
+    """Speicherort-Wurzel OHNE Username-Unterordner. Ohne in der DB
+    gesetzten Override (siehe app/api/einstellungen.py) gilt
+    Settings.projects_dir (Umgebungsvariable/Default) - mit Override der
+    dort hinterlegte Pfad, damit der Speicherort ueber die GUI aenderbar
+    ist, ohne das Backend neu zu starten. Nur fuer projekte_wurzel() selbst
+    und app/migration.py gedacht - alle anderen Aufrufer wollen die pro
+    Benutzer verschachtelte Wurzel, siehe projekte_wurzel()."""
     override = db.einstellung_projects_dir_lesen(settings.database_path)
     pfad = Path(override) if override else settings.projects_dir
     pfad.mkdir(parents=True, exist_ok=True)
     return pfad
 
 
-def projekt_pfad(settings: Settings, ordner: str) -> Path:
+def projekte_wurzel(settings: Settings, username: str) -> Path:
+    """Wurzelverzeichnis der Story-Projekte EINES Benutzers - ein
+    Unterordner je Username unter der eigentlichen Speicherort-Wurzel, damit
+    ein User nur seine eigenen Projekte sieht (siehe ToDo.md Deployment).
+    Bestehende Projekte aus der Zeit vor dieser Trennung werden einmalig von
+    app/migration.py hierher verschoben."""
+    wurzel = projekte_wurzel_unskopiert(settings) / ordnername_aus_titel(username)
+    wurzel.mkdir(parents=True, exist_ok=True)
+    return wurzel
+
+
+def projekt_pfad(settings: Settings, username: str, ordner: str) -> Path:
     """Verhindert Path-Traversal (z.B. '../../etc') - der Ordnername muss
-    ein direkter Unterordner der Projekte-Wurzel sein und dort auch
-    existieren."""
-    wurzel = projekte_wurzel(settings).resolve()
+    ein direkter Unterordner der (benutzerspezifischen) Projekte-Wurzel sein
+    und dort auch existieren."""
+    wurzel = projekte_wurzel(settings, username).resolve()
     kandidat = (wurzel / ordner).resolve()
     if wurzel not in kandidat.parents and kandidat != wurzel:
         raise HTTPException(400, "Ungueltiger Projektordner.")
@@ -40,13 +53,13 @@ def projekt_pfad(settings: Settings, ordner: str) -> Path:
     return kandidat
 
 
-def neuer_projekt_pfad(settings: Settings, titel: str, epoche: str | None = None) -> Path:
+def neuer_projekt_pfad(settings: Settings, username: str, titel: str, epoche: str | None = None) -> Path:
     """Ort fuer ein neu anzulegendes Projekt. Ist die Einstellung
     "Unterordner je Epoche" aktiv (siehe app/api/einstellungen.py), landet
     das Projekt in einem nach der Epoche benannten Unterordner der
-    Speicherort-Wurzel statt direkt darin - erspart das manuelle Umstellen
-    des Speicherorts beim Wechsel zwischen Epochen."""
-    wurzel = projekte_wurzel(settings)
+    (benutzerspezifischen) Speicherort-Wurzel statt direkt darin - erspart
+    das manuelle Umstellen des Speicherorts beim Wechsel zwischen Epochen."""
+    wurzel = projekte_wurzel(settings, username)
     if epoche and db.einstellung_unterordner_je_epoche_lesen(settings.database_path):
         wurzel = wurzel / ordnername_aus_titel(epoche)
         wurzel.mkdir(parents=True, exist_ok=True)

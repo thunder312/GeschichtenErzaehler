@@ -9,7 +9,9 @@ import { GeruestPage } from "./pages/GeruestPage";
 import { StatusFooter } from "./components/StatusFooter";
 import { ZeitUeberbrueckungOverlay } from "./components/ZeitUeberbrueckungOverlay";
 import { AktivitaetProvider } from "./context/AktivitaetContext";
+import { useAuth } from "./context/AuthContext";
 import { LektorierenPage } from "./pages/LektorierenPage";
+import { LoginPage } from "./pages/LoginPage";
 import { ProjektePage } from "./pages/ProjektePage";
 import { PersonasPage } from "./pages/PersonasPage";
 import { PruefenAnwendenPage } from "./pages/PruefenAnwendenPage";
@@ -17,9 +19,10 @@ import { RechtschreibungPage } from "./pages/RechtschreibungPage";
 import { SchreibenPage } from "./pages/SchreibenPage";
 import { SshZielePage } from "./pages/SshZielePage";
 import { StandExportPage } from "./pages/StandExportPage";
-import { Select } from "./components/ui";
+import { Button, Select } from "./components/ui";
 
 function App() {
+  const { benutzer, ladend, logout } = useAuth();
   const [projekte, setProjekte] = useState<ProjektKurz[]>([]);
   const [sshZiele, setSshZiele] = useState<SSHZiel[]>([]);
   const [aktuellesProjekt, setAktuellesProjekt] = useState<string | null>(null);
@@ -48,9 +51,13 @@ function App() {
   }, [aktuellesProjekt]);
 
   useEffect(() => {
+    // Vor dem Login (siehe useAuth() oben) macht das Laden noch keinen
+    // Sinn - ist Settings.auth_aktiv im Backend an, liefen diese Aufrufe
+    // sonst ins Leere (401), bevor ueberhaupt eine Session existiert.
+    if (!benutzer) return;
     projekteLaden();
     sshZieleLaden();
-  }, [projekteLaden, sshZieleLaden]);
+  }, [benutzer, projekteLaden, sshZieleLaden]);
 
   useEffect(() => {
     projektDetailLaden();
@@ -82,6 +89,9 @@ function App() {
     setAktuellesProjekt(neuerOrdner);
     projekteLaden();
   }
+
+  if (ladend) return null;
+  if (!benutzer) return <LoginPage />;
 
   const tabs = [
     { id: "projekte", label: "Projekte", icon: "📚" },
@@ -140,6 +150,12 @@ function App() {
             </Select>
           </div>
         )}
+        <div className="shrink-0 flex items-center gap-3">
+          <span className="text-sm text-text-muted">{benutzer.username}</span>
+          <Button variant="secondary" onClick={() => logout()}>
+            Abmelden
+          </Button>
+        </div>
       </header>
 
       <TabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} />

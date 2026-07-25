@@ -167,3 +167,14 @@ class WissenEintrag(BaseModel):
     kuriositaet: str
     hintergrund: str
     quelle: str | None = None
+
+
+class Benutzer(BaseModel):
+    id: int
+    username: str
+    ist_admin: bool
+
+
+class LoginEingabe(BaseModel):
+    username: str
+    password: str

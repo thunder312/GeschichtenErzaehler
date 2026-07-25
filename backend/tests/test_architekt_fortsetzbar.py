@@ -37,7 +37,7 @@ def test_ohne_verlaufsdatei_nicht_fortsetzbar(client, projekt):
 
 
 def test_mit_verlaufsdatei_fortsetzbar(client, projekt, tmp_path):
-    verlauf_datei = tmp_path / "projects" / projekt / "projekt" / "architekt_verlauf.json"
+    verlauf_datei = tmp_path / "projects" / "daniel" / projekt / "projekt" / "architekt_verlauf.json"
     verlauf_datei.write_text(
         json.dumps(["Ich: Lass uns anfangen.", "Du: Frage 1 von 10: ..."]),
         encoding="utf-8",
@@ -47,14 +47,14 @@ def test_mit_verlaufsdatei_fortsetzbar(client, projekt, tmp_path):
 
 
 def test_leere_verlaufsdatei_nicht_fortsetzbar(client, projekt, tmp_path):
-    verlauf_datei = tmp_path / "projects" / projekt / "projekt" / "architekt_verlauf.json"
+    verlauf_datei = tmp_path / "projects" / "daniel" / projekt / "projekt" / "architekt_verlauf.json"
     verlauf_datei.write_text("[]", encoding="utf-8")
     r = client.get(f"/api/projects/{projekt}/architekt-fortsetzbar")
     assert r.json() == {"fortsetzbar": False}
 
 
 def test_defekte_verlaufsdatei_nicht_fortsetzbar(client, projekt, tmp_path):
-    verlauf_datei = tmp_path / "projects" / projekt / "projekt" / "architekt_verlauf.json"
+    verlauf_datei = tmp_path / "projects" / "daniel" / projekt / "projekt" / "architekt_verlauf.json"
     verlauf_datei.write_text("kein json{{{", encoding="utf-8")
     r = client.get(f"/api/projects/{projekt}/architekt-fortsetzbar")
     assert r.json() == {"fortsetzbar": False}

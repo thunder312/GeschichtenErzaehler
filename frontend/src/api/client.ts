@@ -1,8 +1,10 @@
 import type {
   AnwendenAntwort,
   BefundeAntwort,
+  Benutzer,
   Einstellungen,
   EpocheKurz,
+  LoginEingabe,
   ProjektDetail,
   ProjektKurz,
   RechtschreibAntwort,
@@ -15,6 +17,7 @@ import type {
 async function anfrage<T>(pfad: string, init?: RequestInit): Promise<T> {
   const antwort = await fetch(pfad, {
     headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
     ...init,
   });
   if (!antwort.ok) {
@@ -189,6 +192,13 @@ export const api = {
     }),
 
   unnuetzesWissen: () => anfrage<WissenEintrag[]>("/api/unnuetzeswissen"),
+
+  login: (eingabe: LoginEingabe) =>
+    anfrage<Benutzer>("/api/auth/login", { method: "POST", body: JSON.stringify(eingabe) }),
+
+  logout: () => anfrage<void>("/api/auth/logout", { method: "POST" }),
+
+  me: () => anfrage<Benutzer>("/api/auth/me"),
 };
 
 export function schreibenWebSocketUrl(

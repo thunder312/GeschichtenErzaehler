@@ -21,6 +21,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocket, WebSocketDisconnect
 
+from app.auth import get_current_user, get_current_user_ws
 from app.config import Settings, get_settings
 from app.core import geruest as g
 from app.core import heuristik as h
@@ -30,7 +31,7 @@ from app.core.ollama_client import OllamaFehler, chat_stream
 from app.core.pdf_export import buch_pdf_erzeugen
 from app.core.rollen import ROLLEN, STUFE_DIREKTIVEN
 from app.core.textutil import woerter
-from app.schemas import AnwendenAntwort, BefundeAntwort, RechtschreibAntwort, RechtschreibWort
+from app.schemas import AnwendenAntwort, BefundeAntwort, Benutzer, RechtschreibAntwort, RechtschreibWort
 from app.services import ollama_basis_url, projekt_pfad, ssh_ziel_aus_db
 
 router = APIRouter(prefix="/api/projects", tags=["pipeline"])
@@ -95,26 +96,31 @@ async def _stand_ausfuehren(projekt_root: Path, base_url: str, n: int) -> tuple[
     vorhandene = pd.vorhandene_kapitel(projekt)
     auto_export = bool(letztes and n == letztes and len(vorhandene) >= letztes)
     if auto_export:
-        _export_ausfuehren(projekt)
+        _export_ausfuehren(projekt_root)
     return text, auto_export
 
 
-def _export_ausfuehren(projekt: Path) -> str:
+def _export_ausfuehren(projekt_root: Path) -> str:
+    """Schreibt gesamt.md in den Story-Root (NICHT in den projekt/-
+    Arbeitsdateien-Unterordner) - dort sollen nur Arbeitsdateien liegen,
+    Exporte/Endergebnisse eine Ebene hoeher, siehe ToDo.md Deployment."""
+    projekt = projekt_root / "projekt"
     kapitel = pd.vorhandene_kapitel(projekt)
     if not kapitel:
         raise HTTPException(404, "Keine Kapitel gefunden.")
     ganz = "\n\n".join(pd.lies(p) for p in kapitel)
-    pd.schreib(projekt / "gesamt.md", ganz, force=True)
+    pd.schreib(projekt_root / "gesamt.md", ganz, force=True)
     return ganz
 
 
 @router.websocket("/{ordner:path}/ws/schreiben/{n}")
 async def ws_schreiben(websocket: WebSocket, ordner: str, n: int,
-                        zusatzhinweis: str = "", ssh_ziel_id: str | None = None):
+                        zusatzhinweis: str = "", ssh_ziel_id: str | None = None,
+                        benutzer: Benutzer = Depends(get_current_user_ws)):
     settings = get_settings()
     await websocket.accept()
     try:
-        projekt_root = projekt_pfad(settings, ordner)
+        projekt_root = projekt_pfad(settings, benutzer.username, ordner)
         projekt = projekt_root / "projekt"
 
         # Stand-Sicherstellung (siehe Schnittstellen-Uebersicht 5.14): fehlt
@@ -267,8 +273,9 @@ def _hunspell_exec_fn(settings: Settings, ssh_ziel_id: str | None):
 
 @router.post("/{ordner:path}/pruefen/{n}", response_model=BefundeAntwort)
 async def pruefen(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
-                   settings: Settings = Depends(get_settings)):
-    projekt_root = projekt_pfad(settings, ordner)
+                   settings: Settings = Depends(get_settings),
+                   benutzer: Benutzer = Depends(get_current_user)):
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     projekt = projekt_root / "projekt"
     kapiteltext = pd.lies(pd.kapitel_datei(projekt, n))
     with ollama_basis_url(settings, ssh_ziel_id) as base_url:
@@ -278,8 +285,9 @@ async def pruefen(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
 
 @router.post("/{ordner:path}/anwenden/{n}", response_model=AnwendenAntwort)
 async def anwenden(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
-                    settings: Settings = Depends(get_settings)):
-    projekt_root = projekt_pfad(settings, ordner)
+                    settings: Settings = Depends(get_settings),
+                    benutzer: Benutzer = Depends(get_current_user)):
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     projekt = projekt_root / "projekt"
     text_alt = pd.lies(pd.kapitel_datei(projekt, n))
     befunde = pd.lies(pd.befunde_datei(projekt, n))
@@ -300,8 +308,9 @@ async def anwenden(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
 
 @router.post("/{ordner:path}/lektorieren/{n}", response_model=AnwendenAntwort)
 async def lektorieren(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
-                       settings: Settings = Depends(get_settings)):
-    projekt_root = projekt_pfad(settings, ordner)
+                       settings: Settings = Depends(get_settings),
+                       benutzer: Benutzer = Depends(get_current_user)):
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     projekt = projekt_root / "projekt"
     text_alt = pd.lies(pd.kapitel_datei(projekt, n))
     geruest_text = pd.lies(pd.geruest_datei(projekt), pflicht=False, ersatz="(kein Geruest gefunden)")
@@ -322,17 +331,19 @@ async def lektorieren(ordner: str, n: int, ssh_ziel_id: str | None = Query(None)
 
 @router.post("/{ordner:path}/stand/{n}")
 async def stand(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
-                 settings: Settings = Depends(get_settings)):
-    projekt_root = projekt_pfad(settings, ordner)
+                 settings: Settings = Depends(get_settings),
+                 benutzer: Benutzer = Depends(get_current_user)):
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     with ollama_basis_url(settings, ssh_ziel_id) as base_url:
         text, auto_export = await _stand_ausfuehren(projekt_root, base_url, n)
     return {"stand": text, "auto_export": auto_export}
 
 
 @router.post("/{ordner:path}/export")
-def export(ordner: str, settings: Settings = Depends(get_settings)):
-    projekt_root = projekt_pfad(settings, ordner)
-    ganz = _export_ausfuehren(projekt_root / "projekt")
+def export(ordner: str, settings: Settings = Depends(get_settings),
+           benutzer: Benutzer = Depends(get_current_user)):
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    ganz = _export_ausfuehren(projekt_root)
     # projekt_root.name statt hartcodiert "gesamt" - traegt (nach dem Fix
     # der Ordner-Umbenennung) den eigentlichen Geschichtennamen, siehe
     # app/core/projekt_dateien.py:projektordner_umbenennen.
@@ -340,8 +351,9 @@ def export(ordner: str, settings: Settings = Depends(get_settings)):
 
 
 @router.get("/{ordner:path}/export/pdf")
-def export_pdf(ordner: str, settings: Settings = Depends(get_settings)):
-    projekt_root = projekt_pfad(settings, ordner)
+def export_pdf(ordner: str, settings: Settings = Depends(get_settings),
+                benutzer: Benutzer = Depends(get_current_user)):
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     projekt = projekt_root / "projekt"
     kapitel_dateien = pd.vorhandene_kapitel(projekt)
     if not kapitel_dateien:
@@ -363,11 +375,12 @@ def export_pdf(ordner: str, settings: Settings = Depends(get_settings)):
 
 @router.post("/{ordner:path}/zusammenfassen")
 def zusammenfassen(ordner: str, von: int | None = None, bis: int | None = None,
-                    settings: Settings = Depends(get_settings)):
-    projekt_root = projekt_pfad(settings, ordner)
+                    settings: Settings = Depends(get_settings),
+                    benutzer: Benutzer = Depends(get_current_user)):
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     projekt = projekt_root / "projekt"
     if von is None or bis is None:
-        return {"gesamt": _export_ausfuehren(projekt), "dateiname": f"{projekt_root.name}.md"}
+        return {"gesamt": _export_ausfuehren(projekt_root), "dateiname": f"{projekt_root.name}.md"}
     if von > bis:
         von, bis = bis, von
     alle = pd.vorhandene_kapitel(projekt)
@@ -378,16 +391,18 @@ def zusammenfassen(ordner: str, von: int | None = None, bis: int | None = None,
     # Geschichtenname + Kapitelnummern als Suffix (z.B. "Die-Reise_2_3.md")
     # statt generischem "zusammen_02-03.md" - so bleibt auch bei mehreren
     # Zwischenstaenden erkennbar, zu welcher Geschichte und welchem
-    # Kapitelbereich die Datei gehoert.
+    # Kapitelbereich die Datei gehoert. Landet im Story-Root, nicht im
+    # projekt/-Arbeitsdateien-Unterordner (siehe _export_ausfuehren).
     ziel_name = f"{projekt_root.name}_{von}_{bis}.md"
-    pd.schreib(projekt / ziel_name, ganz, force=True)
+    pd.schreib(projekt_root / ziel_name, ganz, force=True)
     return {"datei": ziel_name, "inhalt": ganz}
 
 
 @router.get("/{ordner:path}/rechtschreibung/{n}", response_model=RechtschreibAntwort)
 def rechtschreibung(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
-                     settings: Settings = Depends(get_settings)):
-    projekt = projekt_pfad(settings, ordner) / "projekt"
+                     settings: Settings = Depends(get_settings),
+                     benutzer: Benutzer = Depends(get_current_user)):
+    projekt = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
     text = pd.lies(pd.kapitel_datei(projekt, n))
     unbekannt = h.hunspell_unbekannte_woerter(text, exec_fn=_hunspell_exec_fn(settings, ssh_ziel_id))
     if unbekannt is None:

@@ -1,12 +1,11 @@
 """Verschluesselung von SSH-Zugangsdaten (Passwoerter, private Schluessel,
 Passphrasen) fuer die Ablage in der lokalen SQLite-DB.
 
-Es gibt keinen Server/Multi-User-Betrieb (siehe doc/Schnittstellen-
-Uebersicht.md Abschnitt 7 - das gilt fuer die GUI genauso wie fuers CLI),
-aber Zugangsdaten sollen trotzdem nicht im Klartext auf der Platte liegen.
-Der Fernet-Schluessel wird beim ersten Start einmalig erzeugt und lokal
-neben der Datenbank abgelegt (siehe .gitignore - secret_key_path ist nicht
-versioniert).
+Zugangsdaten sollen nicht im Klartext auf der Platte liegen. Der Fernet-
+Schluessel wird beim ersten Start einmalig erzeugt und lokal neben der
+Datenbank abgelegt (siehe .gitignore - secret_key_path ist nicht
+versioniert). Fuer Login-Passwoerter siehe stattdessen app/auth.py
+(Argon2-Hashing, nicht reversibel wie Fernet hier).
 """
 from functools import lru_cache
 from pathlib import Path

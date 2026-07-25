@@ -11,20 +11,23 @@ Das Frontend (siehe /frontend) laeuft im Dev-Betrieb separat unter Vite
 Produktions-Build kann das Vite-dist/-Verzeichnis spaeter zusaetzlich hier
 gemountet werden.
 """
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import architekt, einstellungen, epochen, pipeline, projects, ssh_targets, wissen
+from app.api import architekt, auth, einstellungen, epochen, pipeline, projects, ssh_targets, wissen
+from app.auth import get_current_user
 from app.config import get_settings
 from app.core.ollama_client import OllamaFehler
 from app.core.projekt_dateien import DateiFehlt
 from app.core.ssh_manager import SSHVerbindungsFehler
 from app.core.wissen import csv_einlesen
 from app.db import init_db, wissen_anzahl, wissen_einfuegen
+from app.migration import layout_migrieren
 
 settings = get_settings()
 init_db(settings.database_path)
+layout_migrieren(settings)
 
 # Einmalig beim Start befuellen, falls die Tabelle noch leer ist (z.B. beim
 # allerersten Start oder nach dem Loeschen der DB-Datei) - kein Neu-Einlesen
@@ -69,13 +72,21 @@ async def datei_fehlt_handler(_request: Request, exc: DateiFehlt) -> JSONRespons
     return JSONResponse(status_code=404, content={"detail": str(exc)})
 
 
+app.include_router(auth.router)
+
+# projects/pipeline/architekt lesen den eingeloggten Benutzer selbst per
+# Depends(get_current_user) aus (siehe app/services.py - Projekt-Pfade
+# werden pro Username verschachtelt), deshalb hier KEIN zusaetzliches
+# router-weites dependencies=[...] noetig. Die uebrigen Router betreffen
+# keine Projekt-Daten und brauchen den Benutzer selbst nicht - dort reicht
+# der reine Seiteneffekt "ueberhaupt eingeloggt" (oder Dev-Bypass).
 app.include_router(projects.router)
 app.include_router(pipeline.router)
-app.include_router(ssh_targets.router)
 app.include_router(architekt.router)
-app.include_router(epochen.router)
-app.include_router(einstellungen.router)
-app.include_router(wissen.router)
+app.include_router(ssh_targets.router, dependencies=[Depends(get_current_user)])
+app.include_router(epochen.router, dependencies=[Depends(get_current_user)])
+app.include_router(einstellungen.router, dependencies=[Depends(get_current_user)])
+app.include_router(wissen.router, dependencies=[Depends(get_current_user)])
 # Catch-All-Route fuer die Projekt-Detailansicht ("/{ordner:path}", matcht
 # jeden Rest-Pfad) - muss als LETZTES eingebunden werden, sonst verdeckt sie
 # spezifischere Routen aus pipeline/architekt (siehe Kommentar in

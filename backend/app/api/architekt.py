@@ -35,10 +35,12 @@ import json
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
+from app.auth import get_current_user, get_current_user_ws
 from app.config import Settings, get_settings
 from app.core import architekt as arch
 from app.core import projekt_dateien as pd
 from app.core.ollama_client import OllamaFehler, chat_stream
+from app.schemas import Benutzer
 from app.services import ollama_basis_url, ordner_nach_umbenennung, projekt_pfad
 
 router = APIRouter(prefix="/api/projects", tags=["architekt"])
@@ -68,8 +70,9 @@ def _verlauf_loeschen(projekt_root) -> None:
 
 
 @router.get("/{ordner:path}/architekt-fortsetzbar")
-def architekt_fortsetzbar(ordner: str, settings: Settings = Depends(get_settings)):
-    projekt_root = projekt_pfad(settings, ordner)
+def architekt_fortsetzbar(ordner: str, settings: Settings = Depends(get_settings),
+                           benutzer: Benutzer = Depends(get_current_user)):
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     return {"fortsetzbar": _verlauf_laden(projekt_root) is not None}
 
 
@@ -97,11 +100,12 @@ async def _zug(websocket: WebSocket, base_url: str, persona_text: str,
 
 
 @router.websocket("/{ordner:path}/ws/architekt")
-async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | None = None):
+async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | None = None,
+                        benutzer: Benutzer = Depends(get_current_user_ws)):
     settings = get_settings()
     await websocket.accept()
     try:
-        projekt_root = projekt_pfad(settings, ordner)
+        projekt_root = projekt_pfad(settings, benutzer.username, ordner)
         persona_text = pd.persona_lesen(projekt_root, "architekt")
 
         gespeicherter_verlauf = _verlauf_laden(projekt_root)

@@ -46,6 +46,22 @@ CREATE TABLE IF NOT EXISTS unnuetzes_wissen (
     hintergrund TEXT NOT NULL,
     quelle TEXT
 );
+
+CREATE TABLE IF NOT EXISTS benutzer (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    ist_admin INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    benutzer_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    FOREIGN KEY (benutzer_id) REFERENCES benutzer(id) ON DELETE CASCADE
+);
 """
 
 
@@ -212,3 +228,65 @@ def wissen_alle_lesen(db_path: Path) -> list[sqlite3.Row]:
         return conn.execute(
             "SELECT id, kategorie, thema, kuriositaet, hintergrund, quelle FROM unnuetzes_wissen ORDER BY id"
         ).fetchall()
+
+
+def benutzer_anlegen(db_path: Path, username: str, password_hash: str, ist_admin: bool = False) -> int:
+    with _verbindung(db_path) as conn:
+        cur = conn.execute(
+            "INSERT INTO benutzer (username, password_hash, ist_admin, created_at) "
+            "VALUES (?, ?, ?, ?)",
+            (username, password_hash, 1 if ist_admin else 0, _jetzt()),
+        )
+        return cur.lastrowid
+
+
+def benutzer_by_username(db_path: Path, username: str) -> sqlite3.Row | None:
+    with _verbindung(db_path) as conn:
+        return conn.execute(
+            "SELECT * FROM benutzer WHERE username=?", (username,)
+        ).fetchone()
+
+
+def benutzer_by_id(db_path: Path, benutzer_id: int) -> sqlite3.Row | None:
+    with _verbindung(db_path) as conn:
+        return conn.execute(
+            "SELECT * FROM benutzer WHERE id=?", (benutzer_id,)
+        ).fetchone()
+
+
+def session_anlegen(db_path: Path, token: str, benutzer_id: int) -> None:
+    with _verbindung(db_path) as conn:
+        conn.execute(
+            "INSERT INTO sessions (token, benutzer_id, created_at, last_seen_at) "
+            "VALUES (?, ?, ?, ?)",
+            (token, benutzer_id, _jetzt(), _jetzt()),
+        )
+
+
+def session_lesen(db_path: Path, token: str, max_age_tage: int = 30) -> sqlite3.Row | None:
+    """Gibt den zugehoerigen Benutzer zurueck, wenn das Token existiert und
+    seit last_seen_at nicht laenger als max_age_tage vergangen ist -
+    andernfalls None (abgelaufen oder unbekannt)."""
+    with _verbindung(db_path) as conn:
+        zeile = conn.execute(
+            "SELECT b.id, b.username, b.password_hash, b.ist_admin, b.created_at, "
+            "s.last_seen_at FROM sessions s JOIN benutzer b ON b.id = s.benutzer_id "
+            "WHERE s.token=?",
+            (token,),
+        ).fetchone()
+    if zeile is None:
+        return None
+    letzte_aktivitaet = datetime.fromisoformat(zeile["last_seen_at"])
+    if (datetime.now(timezone.utc) - letzte_aktivitaet).days > max_age_tage:
+        return None
+    return zeile
+
+
+def session_beruehren(db_path: Path, token: str) -> None:
+    with _verbindung(db_path) as conn:
+        conn.execute("UPDATE sessions SET last_seen_at=? WHERE token=?", (_jetzt(), token))
+
+
+def session_loeschen(db_path: Path, token: str) -> None:
+    with _verbindung(db_path) as conn:
+        conn.execute("DELETE FROM sessions WHERE token=?", (token,))

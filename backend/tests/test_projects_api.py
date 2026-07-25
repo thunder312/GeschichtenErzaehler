@@ -44,7 +44,7 @@ def test_projektliste_zeigt_titel_und_kapitelanzahl_aus_projekt_unterordner(clie
     # der urspruengliche "projekt"-Fixture-Ordnername.
     aktueller_ordner = antwort.json()["neuer_ordner"] or projekt
     from app.core import projekt_dateien as pd
-    projekt_pfad = tmp_path / "projects" / aktueller_ordner / "projekt"
+    projekt_pfad = tmp_path / "projects" / "daniel" / aktueller_ordner / "projekt"
     pd.schreib(pd.kapitel_datei(projekt_pfad, 1), "Ein Kapiteltext.")
 
     r = client.get("/api/projects")
@@ -121,7 +121,7 @@ def test_projekt_anlegen_mit_epoche_unterordner(client, tmp_path):
     assert r.status_code == 201
     daten = r.json()
     assert daten["ordner"] == "Regency/Der-Sturm"
-    assert (tmp_path / "projects" / "Regency" / "Der-Sturm" / "projekt").is_dir()
+    assert (tmp_path / "projects" / "daniel" / "Regency" / "Der-Sturm" / "projekt").is_dir()
 
     r2 = client.get(f"/api/projects/{daten['ordner']}")
     assert r2.status_code == 200
@@ -146,4 +146,4 @@ def test_projekt_mit_epoche_unterordner_geruest_lesen_und_schreiben(client):
 def test_projekt_ohne_epoche_unterordner_bleibt_flach(client, tmp_path):
     r = client.post("/api/projects", json={"titel": "Der Sturm", "epoche": "Regency"})
     assert r.json()["ordner"] == "Der-Sturm"
-    assert (tmp_path / "projects" / "Der-Sturm" / "projekt").is_dir()
+    assert (tmp_path / "projects" / "daniel" / "Der-Sturm" / "projekt").is_dir()

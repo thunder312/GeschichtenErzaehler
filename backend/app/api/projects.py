@@ -8,10 +8,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 
+from app.auth import get_current_user
 from app.config import Settings, get_settings
 from app.core import geruest as g
 from app.core import projekt_dateien as pd
 from app.schemas import (
+    Benutzer,
     EpocheKurz,
     GeruestSchreibenAnfrage,
     ProjektAnlegenAnfrage,
@@ -80,8 +82,9 @@ def _ist_projekt_ordner(pfad) -> bool:
 
 
 @router.get("", response_model=list[ProjektKurz])
-def projekte_auflisten(settings: Settings = Depends(get_settings)):
-    wurzel = projekte_wurzel(settings)
+def projekte_auflisten(settings: Settings = Depends(get_settings),
+                        benutzer: Benutzer = Depends(get_current_user)):
+    wurzel = projekte_wurzel(settings, benutzer.username)
     if not wurzel.is_dir():
         return []
     ergebnis = []
@@ -101,7 +104,8 @@ def projekte_auflisten(settings: Settings = Depends(get_settings)):
 
 
 @router.post("", response_model=ProjektKurz, status_code=201)
-def projekt_anlegen(anfrage: ProjektAnlegenAnfrage, settings: Settings = Depends(get_settings)):
+def projekt_anlegen(anfrage: ProjektAnlegenAnfrage, settings: Settings = Depends(get_settings),
+                     benutzer: Benutzer = Depends(get_current_user)):
     epoche_ordner = settings.epochen_dir / anfrage.epoche
     if not epoche_ordner.is_dir():
         raise HTTPException(404, f"Epoche '{anfrage.epoche}' nicht gefunden.")
@@ -109,14 +113,15 @@ def projekt_anlegen(anfrage: ProjektAnlegenAnfrage, settings: Settings = Depends
     # Platzhalter-Ordner "neu" anlegen - projektordner_umbenennen() benennt
     # ihn automatisch um, sobald das Interview einen Titel liefert.
     basis_titel = anfrage.titel.strip() or "neu"
-    ziel = neuer_projekt_pfad(settings, basis_titel, anfrage.epoche)
+    ziel = neuer_projekt_pfad(settings, benutzer.username, basis_titel, anfrage.epoche)
     pd.projekt_anlegen(ziel, epoche_ordner, settings.shared_personas_dir, anfrage.epoche)
-    return _projekt_kurz(ziel, projekte_wurzel(settings), settings)
+    return _projekt_kurz(ziel, projekte_wurzel(settings, benutzer.username), settings)
 
 
 @fallback_router.get("/{ordner:path}", response_model=ProjektDetail)
-def projekt_lesen(ordner: str, settings: Settings = Depends(get_settings)):
-    pfad = projekt_pfad(settings, ordner)
+def projekt_lesen(ordner: str, settings: Settings = Depends(get_settings),
+                   benutzer: Benutzer = Depends(get_current_user)):
+    pfad = projekt_pfad(settings, benutzer.username, ordner)
     projekt_unterordner = pfad / "projekt"
     geruest_text = pd.lies(pd.geruest_datei(projekt_unterordner), pflicht=False, ersatz="")
     verbotsliste_text = pd.lies(pd.verbotsliste_datei(projekt_unterordner), pflicht=False, ersatz="")
@@ -138,8 +143,9 @@ def projekt_lesen(ordner: str, settings: Settings = Depends(get_settings)):
 
 @router.put("/{ordner:path}/geruest")
 def geruest_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
-                       settings: Settings = Depends(get_settings)):
-    projekt_root = projekt_pfad(settings, ordner)
+                       settings: Settings = Depends(get_settings),
+                       benutzer: Benutzer = Depends(get_current_user)):
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     ziel_pfad, gesichert_als = pd.schreib(pd.geruest_datei(projekt_root / "projekt"), anfrage.inhalt)
     # Der Ordner traegt nach der Projektanlage oft noch den Platzhalter-
     # Namen "neu" (siehe projekt_anlegen()) - das Architekten-Interview
@@ -153,8 +159,9 @@ def geruest_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
 
 @router.put("/{ordner:path}/verbotsliste")
 def verbotsliste_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
-                            settings: Settings = Depends(get_settings)):
-    pfad = projekt_pfad(settings, ordner) / "projekt"
+                            settings: Settings = Depends(get_settings),
+                            benutzer: Benutzer = Depends(get_current_user)):
+    pfad = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
     ziel_pfad, gesichert_als = pd.schreib(pd.verbotsliste_datei(pfad), anfrage.inhalt)
     return {"gespeichert": str(ziel_pfad), "gesichert_als": gesichert_als}
 
@@ -166,16 +173,18 @@ PERSONA_NAMEN = (
 
 
 @router.get("/{ordner:path}/personas", response_model=list[str])
-def personas_auflisten(ordner: str, settings: Settings = Depends(get_settings)):
-    pfad = projekt_pfad(settings, ordner) / "personas"
+def personas_auflisten(ordner: str, settings: Settings = Depends(get_settings),
+                        benutzer: Benutzer = Depends(get_current_user)):
+    pfad = projekt_pfad(settings, benutzer.username, ordner) / "personas"
     return [name for name in PERSONA_NAMEN if (pfad / f"{name}.txt").exists()]
 
 
 @router.get("/{ordner:path}/personas/{name}", response_class=PlainTextResponse)
-def persona_lesen(ordner: str, name: str, settings: Settings = Depends(get_settings)):
+def persona_lesen(ordner: str, name: str, settings: Settings = Depends(get_settings),
+                   benutzer: Benutzer = Depends(get_current_user)):
     if name not in PERSONA_NAMEN:
         raise HTTPException(404, f"Unbekannte Persona '{name}'.")
-    projekt_root = projekt_pfad(settings, ordner)
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     try:
         return pd.persona_lesen(projekt_root, name)
     except pd.DateiFehlt as e:
@@ -184,25 +193,28 @@ def persona_lesen(ordner: str, name: str, settings: Settings = Depends(get_setti
 
 @router.put("/{ordner:path}/personas/{name}")
 def persona_schreiben(ordner: str, name: str, anfrage: GeruestSchreibenAnfrage,
-                       settings: Settings = Depends(get_settings)):
+                       settings: Settings = Depends(get_settings),
+                       benutzer: Benutzer = Depends(get_current_user)):
     if name not in PERSONA_NAMEN:
         raise HTTPException(404, f"Unbekannte Persona '{name}'.")
-    projekt_root = projekt_pfad(settings, ordner)
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     _, gesichert_als = pd.schreib(projekt_root / "personas" / f"{name}.txt", anfrage.inhalt)
     return {"gesichert_als": gesichert_als}
 
 
 @router.get("/{ordner:path}/architekten-gespraech", response_class=PlainTextResponse)
-def architekten_gespraech_lesen(ordner: str, settings: Settings = Depends(get_settings)):
-    pfad = projekt_pfad(settings, ordner) / "projekt" / "architekten_gespraech.md"
+def architekten_gespraech_lesen(ordner: str, settings: Settings = Depends(get_settings),
+                                 benutzer: Benutzer = Depends(get_current_user)):
+    pfad = projekt_pfad(settings, benutzer.username, ordner) / "projekt" / "architekten_gespraech.md"
     if not pfad.exists():
         raise HTTPException(404, "Noch kein abgeschlossenes Architekten-Gespräch für dieses Projekt gespeichert.")
     return pd.lies(pfad)
 
 
 @router.get("/{ordner:path}/kapitel/{n}", response_class=PlainTextResponse)
-def kapitel_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings)):
-    pfad = projekt_pfad(settings, ordner) / "projekt"
+def kapitel_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings),
+                   benutzer: Benutzer = Depends(get_current_user)):
+    pfad = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
     datei = pd.kapitel_datei(pfad, n)
     if not datei.exists():
         raise HTTPException(404, f"Kapitel {n} nicht gefunden.")
@@ -211,18 +223,20 @@ def kapitel_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings
 
 @router.put("/{ordner:path}/kapitel/{n}")
 def kapitel_schreiben(ordner: str, n: int, anfrage: GeruestSchreibenAnfrage,
-                       settings: Settings = Depends(get_settings)):
+                       settings: Settings = Depends(get_settings),
+                       benutzer: Benutzer = Depends(get_current_user)):
     """Speichert einen (ggf. im Merge-Editor von Hand nachbearbeiteten)
     Kapiteltext. Alte Fassung wird wie ueberall automatisch als .bak
     gesichert (siehe app/core/projekt_dateien.py:schreib)."""
-    pfad = projekt_pfad(settings, ordner) / "projekt"
+    pfad = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
     _, gesichert_als = pd.schreib(pd.kapitel_datei(pfad, n), anfrage.inhalt)
     return {"gesichert_als": gesichert_als}
 
 
 @router.get("/{ordner:path}/stand/{n}", response_class=PlainTextResponse)
-def stand_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings)):
-    pfad = projekt_pfad(settings, ordner) / "projekt"
+def stand_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings),
+                 benutzer: Benutzer = Depends(get_current_user)):
+    pfad = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
     datei = pd.stand_datei(pfad, n)
     if not datei.exists():
         raise HTTPException(404, f"Stand {n} nicht gefunden.")
@@ -230,8 +244,9 @@ def stand_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings))
 
 
 @router.get("/{ordner:path}/befunde/{n}", response_class=PlainTextResponse)
-def befunde_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings)):
-    pfad = projekt_pfad(settings, ordner) / "projekt"
+def befunde_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings),
+                   benutzer: Benutzer = Depends(get_current_user)):
+    pfad = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
     datei = pd.befunde_datei(pfad, n)
     if not datei.exists():
         raise HTTPException(404, f"Befunde zu Kapitel {n} nicht gefunden.")
@@ -239,8 +254,9 @@ def befunde_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings
 
 
 @router.get("/{ordner:path}/gesamt", response_class=PlainTextResponse)
-def gesamt_lesen(ordner: str, settings: Settings = Depends(get_settings)):
-    pfad = projekt_pfad(settings, ordner) / "projekt" / "gesamt.md"
+def gesamt_lesen(ordner: str, settings: Settings = Depends(get_settings),
+                  benutzer: Benutzer = Depends(get_current_user)):
+    pfad = projekt_pfad(settings, benutzer.username, ordner) / "gesamt.md"
     if not pfad.exists():
         raise HTTPException(404, "gesamt.md nicht gefunden - noch nicht exportiert.")
     return pd.lies(pfad)
