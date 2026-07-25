@@ -36,6 +36,7 @@ def layout_migrieren(settings: Settings) -> None:
                 shutil.move(str(eintrag), str(ziel))
 
     _gesamt_md_umziehen(ziel_ordner)
+    _gesamt_md_umbenennen(ziel_ordner)
 
 
 def _gesamt_md_umziehen(benutzer_ordner: Path) -> None:
@@ -49,3 +50,20 @@ def _gesamt_md_umziehen(benutzer_ordner: Path) -> None:
         if not neue_datei.exists():
             logger.info("Layout-Migration: verschiebe %s nach %s", alte_datei, neue_datei)
             shutil.move(str(alte_datei), str(neue_datei))
+
+
+def _gesamt_md_umbenennen(benutzer_ordner: Path) -> None:
+    """gesamt.md hiess frueher immer woertlich so, unabhaengig vom
+    Story-Titel. Export/PDF nutzen inzwischen den tatsaechlichen Titel
+    (=Ordnername) als Dateiname (siehe app/api/pipeline.py:
+    _export_ausfuehren) - bereits vorhandene gesamt.md-Dateien einmalig
+    entsprechend umbenennen, damit auch alte Exporte konsistent heissen."""
+    if not benutzer_ordner.is_dir():
+        return
+    for projekt_unterordner in benutzer_ordner.rglob("projekt"):
+        story_root = projekt_unterordner.parent
+        alte_datei = story_root / "gesamt.md"
+        neue_datei = story_root / f"{story_root.name}.md"
+        if alte_datei.exists() and not neue_datei.exists():
+            logger.info("Layout-Migration: benenne %s um zu %s", alte_datei, neue_datei)
+            alte_datei.rename(neue_datei)

@@ -101,15 +101,24 @@ async def _stand_ausfuehren(projekt_root: Path, base_url: str, n: int) -> tuple[
 
 
 def _export_ausfuehren(projekt_root: Path) -> str:
-    """Schreibt gesamt.md in den Story-Root (NICHT in den projekt/-
+    """Schreibt die Gesamtdatei in den Story-Root (NICHT in den projekt/-
     Arbeitsdateien-Unterordner) - dort sollen nur Arbeitsdateien liegen,
-    Exporte/Endergebnisse eine Ebene hoeher, siehe ToDo.md Deployment."""
+    Exporte/Endergebnisse eine Ebene hoeher, siehe ToDo.md Deployment.
+    Dateiname folgt dem aktuellen Projekttitel (= Ordnername), nicht mehr
+    hartcodiert "gesamt.md"."""
     projekt = projekt_root / "projekt"
     kapitel = pd.vorhandene_kapitel(projekt)
     if not kapitel:
         raise HTTPException(404, "Keine Kapitel gefunden.")
     ganz = "\n\n".join(pd.lies(p) for p in kapitel)
-    pd.schreib(projekt_root / "gesamt.md", ganz, force=True)
+    ziel = projekt_root / f"{projekt_root.name}.md"
+    pd.schreib(ziel, ganz, force=True)
+    # Altlast aus einer frueheren Version (fester Dateiname "gesamt.md")
+    # aufraeumen, damit nicht zwei widerspruechliche Exporte nebeneinander
+    # liegen bleiben.
+    alte_datei = projekt_root / "gesamt.md"
+    if alte_datei != ziel and alte_datei.exists():
+        alte_datei.unlink()
     return ganz
 
 

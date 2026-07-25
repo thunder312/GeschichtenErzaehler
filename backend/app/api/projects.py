@@ -256,7 +256,8 @@ def befunde_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings
 @router.get("/{ordner:path}/gesamt", response_class=PlainTextResponse)
 def gesamt_lesen(ordner: str, settings: Settings = Depends(get_settings),
                   benutzer: Benutzer = Depends(get_current_user)):
-    pfad = projekt_pfad(settings, benutzer.username, ordner) / "gesamt.md"
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    pfad = projekt_root / f"{projekt_root.name}.md"
     if not pfad.exists():
-        raise HTTPException(404, "gesamt.md nicht gefunden - noch nicht exportiert.")
+        raise HTTPException(404, "Noch nicht exportiert.")
     return pd.lies(pfad)

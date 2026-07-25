@@ -12,6 +12,7 @@ lesen.
 """
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 import time
@@ -19,6 +20,8 @@ from pathlib import Path
 
 from app.core import geruest as _geruest
 from app.core.textutil import woerter
+
+logger = logging.getLogger(__name__)
 
 EPOCHE_PERSONA_DATEIEN = ("architekt.txt", "autor.txt", "pruefer_anachronismus.txt")
 GEMEINSAME_PERSONA_DATEIEN = (
@@ -160,8 +163,26 @@ def projektordner_umbenennen(projekt_root: Path, geruest_text: str) -> str | Non
 
     neuer_pfad = _freier_pfad(projekt_root.parent, neuer_name)
 
-    try:
-        projekt_root.rename(neuer_pfad)
-    except OSError:
-        return None
-    return neuer_pfad.name
+    # Direkt nach dem Schreiben von geruest.md (siehe Aufrufer) haelt ein
+    # Sync-Tool (Dropbox) oder der Windows-Suchindex/Virenscanner die Datei
+    # manchmal fuer einen kurzen Moment noch offen - Windows verweigert dann
+    # das Umbenennen des Elternordners mit PermissionError(13), obwohl der
+    # Zustand Millisekunden spaeter schon wieder frei ist. Mit kurzen,
+    # steigenden Wartezeiten erneut versuchen, bevor endgueltig aufgegeben
+    # wird (insgesamt ca. 3s), statt beim ersten Versuch schon klein
+    # beizugeben.
+    letzter_fehler: OSError | None = None
+    for wartezeit in (0, 0.1, 0.2, 0.4, 0.8, 1.6):
+        if wartezeit:
+            time.sleep(wartezeit)
+        try:
+            projekt_root.rename(neuer_pfad)
+            return neuer_pfad.name
+        except OSError as e:
+            letzter_fehler = e
+
+    logger.warning(
+        "Projektordner-Umbenennung fehlgeschlagen nach mehreren Versuchen: %s -> %s (%r)",
+        projekt_root, neuer_pfad, letzter_fehler,
+    )
+    return None
