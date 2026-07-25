@@ -178,6 +178,13 @@ async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | Non
         # bewusst liegen, damit die naechste Verbindung zu diesem Projekt
         # das Gespraech fortsetzen kann.
         return
+    except Exception as e:
+        # Sicherheitsnetz gegen unerwartete Fehler - siehe gleiches Muster
+        # in app/api/pipeline.py:ws_schreiben.
+        try:
+            await websocket.send_json({"phase": "fehler", "typ": "error", "text": str(e)})
+        except RuntimeError:
+            pass
     finally:
         try:
             await websocket.close()

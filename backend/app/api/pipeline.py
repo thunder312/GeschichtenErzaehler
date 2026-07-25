@@ -266,6 +266,15 @@ async def ws_schreiben(websocket: WebSocket, ordner: str, n: int,
         await websocket.send_json({"phase": "fehler", "typ": "error", "text": e.detail})
     except WebSocketDisconnect:
         return
+    except Exception as e:
+        # Sicherheitsnetz gegen unerwartete Fehler (z.B. ein zukuenftiger Bug
+        # wie der SSHVerbindungsFehler-Absturz durch hunspell auf einem
+        # "direct"-KI-Ziel): lieber eine Fehlermeldung ans Frontend schicken,
+        # als dass FastAPI versucht, auf die schon offene WebSocket-
+        # Verbindung noch eine HTTP-Fehlerantwort zu schreiben (kracht mit
+        # "Unexpected ASGI message" und reisst die Verbindung ohne jede
+        # Frontend-Nachricht ab).
+        await websocket.send_json({"phase": "fehler", "typ": "error", "text": str(e)})
     finally:
         try:
             await websocket.close()
@@ -277,6 +286,16 @@ def _hunspell_exec_fn(settings: Settings, ssh_ziel_id: str | None):
     if not ssh_ziel_id:
         return None
     ziel = ssh_ziel_aus_db(settings, ssh_ziel_id)
+    if ziel.auth_method == "direct":
+        # "Direkt"-Ziele haben nur eine HTTP-Basis-URL fuer Ollama, keine
+        # echte SSH-Verbindung - exec_command (fuer hunspell) kann hier
+        # nicht laufen. Ohne diese Abfrage versuchte ssh_manager._connect()
+        # buchstaeblich "http://127.0.0.1:18321" als SSH-Hostnamen aufzuloesen
+        # und krachte mit einer nicht abgefangenen SSHVerbindungsFehler mitten
+        # im WebSocket-Handler (siehe ws_schreiben) - das Kapitel war zu dem
+        # Zeitpunkt zwar schon gespeichert, aber die "abgeschlossen"-Nachricht
+        # kam nie beim Frontend an.
+        return None
     return functools.partial(ssh_manager.exec_command, ziel)
 
 
