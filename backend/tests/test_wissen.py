@@ -79,8 +79,20 @@ def test_wissen_auflisten_liefert_vorab_eingefuegte_eintraege(client, db_pfad):
     assert r.status_code == 200
     daten = r.json()
     assert len(daten) == 1
+    assert daten[0]["nummer"] == 1
     assert daten[0]["thema"] == "Testautor"
     assert daten[0]["kuriositaet"] == "Kurioses Detail"
+
+
+def test_wissen_auflisten_nummeriert_eintraege_fortlaufend(client, db_pfad):
+    db.wissen_einfuegen(db_pfad, [
+        {"kategorie": "A", "thema": "Erstes", "kuriositaet": "x", "hintergrund": "x", "quelle": None},
+        {"kategorie": "B", "thema": "Zweites", "kuriositaet": "x", "hintergrund": "x", "quelle": None},
+    ])
+
+    daten = client.get("/api/unnuetzeswissen").json()
+
+    assert [d["nummer"] for d in daten] == [1, 2]
 
 
 def test_wissen_auflisten_ohne_eintraege_liefert_leere_liste(client):

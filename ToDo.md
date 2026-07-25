@@ -24,7 +24,7 @@
 - [x] Quen3 LLM aus dem Test Kontext im Script nehmen. Sie steht gleichberechtigt neben Hermes3 als Schreiber.
 - [x] Den Hauptbildschirm so einrichten, dass niemals gescrollt wird. Notfalls sollen die Container zu scrollen sein.
 - [x] Architektenstrand soll zwischengespeichert werden können. Und dann auch fortgesetzt werden können.
-- [ ] Unnützes Wissen zufällig aus der DB holen und zur Überbrückung anzeigen.
+- [x] Unnützes Wissen zufällig aus der DB holen und zur Überbrückung anzeigen.
 # Bugs
 - [x] eventuell funktioniert das fort schreiben der Tabs nicht richtig, ich hatte 2mal Kapitel 3, kein Kapitel 4. Muss nochmal verifiziert werden. 
 - [x] Die Speicherort-Logik und der Ordnername mus nochmal verifiziert werden.

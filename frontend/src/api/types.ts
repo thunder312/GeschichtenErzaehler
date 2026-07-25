@@ -94,6 +94,7 @@ export interface Einstellungen {
 }
 
 export interface WissenEintrag {
+  nummer: number;
   kategorie: string;
   thema: string;
   kuriositaet: string;

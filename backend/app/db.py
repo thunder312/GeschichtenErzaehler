@@ -210,5 +210,5 @@ def wissen_einfuegen(db_path: Path, eintraege: list[dict]) -> None:
 def wissen_alle_lesen(db_path: Path) -> list[sqlite3.Row]:
     with _verbindung(db_path) as conn:
         return conn.execute(
-            "SELECT kategorie, thema, kuriositaet, hintergrund, quelle FROM unnuetzes_wissen ORDER BY id"
+            "SELECT id, kategorie, thema, kuriositaet, hintergrund, quelle FROM unnuetzes_wissen ORDER BY id"
         ).fetchall()

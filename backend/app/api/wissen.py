@@ -15,4 +15,9 @@ router = APIRouter(prefix="/api/unnuetzeswissen", tags=["wissen"])
 
 @router.get("", response_model=list[WissenEintrag])
 def wissen_auflisten(settings: Settings = Depends(get_settings)):
-    return [WissenEintrag(**dict(zeile)) for zeile in db.wissen_alle_lesen(settings.database_path)]
+    eintraege = []
+    for zeile in db.wissen_alle_lesen(settings.database_path):
+        daten = dict(zeile)
+        daten["nummer"] = daten.pop("id")
+        eintraege.append(WissenEintrag(**daten))
+    return eintraege

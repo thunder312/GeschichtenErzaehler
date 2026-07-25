@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { WissenEintrag } from "../api/types";
 import { useAktivitaet } from "../context/AktivitaetContext";
@@ -33,6 +33,21 @@ export function ZeitUeberbrueckungOverlay() {
     api.unnuetzesWissen().then(setWissen).catch(() => setWissen([]));
   }, []);
 
+  const starteWechselIntervall = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      setEintrag((bisher) => naechsterZufallsEintrag(wissen, bisher));
+    }, WECHSEL_INTERVALL_MS);
+  }, [wissen]);
+
+  // Manuelles Weiterblaettern setzt das Auto-Wechsel-Intervall zurueck,
+  // damit nicht kurz nach einem bewussten Klick schon der naechste
+  // automatische Wechsel folgt.
+  const weiterblaettern = useCallback(() => {
+    setEintrag((bisher) => naechsterZufallsEintrag(wissen, bisher));
+    starteWechselIntervall();
+  }, [wissen, starteWechselIntervall]);
+
   useEffect(() => {
     function aufraeumen() {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -51,13 +66,11 @@ export function ZeitUeberbrueckungOverlay() {
     timerRef.current = setTimeout(() => {
       setEintrag((bisher) => naechsterZufallsEintrag(wissen, bisher));
       setSichtbar(true);
-      intervalRef.current = setInterval(() => {
-        setEintrag((bisher) => naechsterZufallsEintrag(wissen, bisher));
-      }, WECHSEL_INTERVALL_MS);
+      starteWechselIntervall();
     }, START_VERZOEGERUNG_MS);
 
     return aufraeumen;
-  }, [aktivitaet, wissen]);
+  }, [aktivitaet, wissen, starteWechselIntervall]);
 
   if (!sichtbar || !eintrag) return null;
 
@@ -75,13 +88,20 @@ export function ZeitUeberbrueckungOverlay() {
           <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden="true" />
           {aktivitaet?.text ?? "Die KI arbeitet..."}
         </div>
-        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-accent-light">
-          Unnützes Wissen · {eintrag.kategorie}
+        <div className="mb-2 flex items-center justify-between gap-2 text-xs font-medium uppercase tracking-wider text-accent-light">
+          <span>Unnützes Wissen · {eintrag.kategorie}</span>
+          <span className="text-text-muted">{eintrag.nummer} / {wissen.length}</span>
         </div>
         <h3 className="font-heading mb-2 text-lg font-semibold text-text">
           {eintrag.thema}: {eintrag.kuriositaet}
         </h3>
-        <p className="text-sm leading-relaxed text-text-muted">{eintrag.hintergrund}</p>
+        <p className="mb-4 text-sm leading-relaxed text-text-muted">{eintrag.hintergrund}</p>
+        <button
+          onClick={weiterblaettern}
+          className="text-xs font-medium text-accent-light hover:text-accent"
+        >
+          Nächster Fakt →
+        </button>
       </div>
     </div>
   );

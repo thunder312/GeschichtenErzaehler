@@ -161,6 +161,7 @@ class EinstellungenAnfrage(BaseModel):
 
 
 class WissenEintrag(BaseModel):
+    nummer: int
     kategorie: str
     thema: str
     kuriositaet: str
