@@ -82,6 +82,15 @@ def _connect(ziel: SSHZiel, timeout: float = 15.0) -> paramiko.SSHClient:
         raise SSHVerbindungsFehler(f"Authentifizierung fehlgeschlagen: {e}") from e
     except (paramiko.SSHException, OSError) as e:
         raise SSHVerbindungsFehler(f"Verbindung zu {ziel.host}:{ziel.port} fehlgeschlagen: {e}") from e
+
+    # Ohne Keepalive kann ein zwischengeschalteter Router/eine Firewall eine
+    # laenger stille Verbindung (z.B. waehrend die entfernte KI "denkt") fuer
+    # tot halten und sie kappen - besonders relevant fuer den lang gehaltenen
+    # Tunnel waehrend des Schreibens (siehe app/api/pipeline.py ws_schreiben).
+    transport = client.get_transport()
+    if transport is not None:
+        transport.set_keepalive(15)
+
     return client
 
 
