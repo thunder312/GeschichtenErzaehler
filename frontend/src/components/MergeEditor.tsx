@@ -44,15 +44,26 @@ export function MergeEditor({
         modified={modified}
         theme="vs-dark"
         onMount={(editor, monaco) => {
-          // Beim ALLERERSTEN Aufbau des Diff-Editors setzt Monaco intern
-          // kurzzeitig wordWrapOverride2 auf "off" (Annahme: renderSideBySide
-          // sei noch nicht aktiv) und das bleibt danach haengen - es
-          // ueberstimmt "wordWrap"/"diffWordWrap" komplett und ist der Grund,
-          // warum bisher nur die rechte Seite umbrach. Erst ein expliziter
-          // updateOptions()-Aufruf NACH dem Mount setzt es zuverlaessig auf
-          // "inherit" zurueck, damit "diffWordWrap" wirklich fuer beide
-          // Seiten greift (per Live-Test in den DevTools verifiziert).
-          editor.getOriginalEditor().updateOptions({ wordWrapOverride2: "inherit" });
+          // Monaco setzt wordWrapOverride2 auf der ORIGINAL-Seite intern
+          // wieder auf "off" zurueck (Annahme: renderSideBySide sei noch
+          // nicht aktiv), und zwar zeitlich nicht zuverlaessig fassbar -
+          // weder ein sofortiger noch ein verzoegerter (naechster Macrotask/
+          // mehrere Animationsframes) Gegen-Aufruf direkt nach dem Mount
+          // bleibt zuverlaessig stehen, der interne Reset kann noch danach
+          // erfolgen (per Live-Test in den DevTools verifiziert). Deshalb
+          // hier direkt die Quelle abgeklemmt: updateOptions() der
+          // ORIGINAL-Seite wird umgebaut, sodass JEDER Versuch (auch von
+          // Monaco selbst, ganz gleich zu welchem Zeitpunkt), wordWrapOverride2
+          // zu setzen, zwangsweise auf "inherit" umgebogen wird.
+          const originalEditor = editor.getOriginalEditor();
+          const echtesUpdateOptions = originalEditor.updateOptions.bind(originalEditor);
+          originalEditor.updateOptions = (optionen) => {
+            if (optionen && "wordWrapOverride2" in optionen) {
+              optionen = { ...optionen, wordWrapOverride2: "inherit" };
+            }
+            echtesUpdateOptions(optionen);
+          };
+          echtesUpdateOptions({ wordWrapOverride2: "inherit" });
 
           const modifiedEditor = editor.getModifiedEditor();
           modifiedEditor.onDidChangeModelContent(() => {
