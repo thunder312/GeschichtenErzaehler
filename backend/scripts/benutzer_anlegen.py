@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Legt einen neuen Benutzer-Account interaktiv an (Konsole: Benutzername +
-Passwort-Abfrage). Bewusst KEIN HTTP-Endpunkt/keine Web-UI dafuer (siehe
-ToDo.md Deployment) - Account-Anlage soll nicht oeffentlich erreichbar
-sein, sondern erfordert direkten Zugriff auf den Server.
+Passwort-Abfrage). Fuer den laufenden Betrieb gibt es dafuer inzwischen den
+Tab "Benutzer" in der Web-GUI (nur fuer Admin-Benutzer sichtbar, siehe
+app/api/benutzer.py) - dieses Skript bleibt dennoch nuetzlich, um den
+allerersten Admin-Account anzulegen, BEVOR ueberhaupt ein Login existiert,
+mit dem man sich in der GUI anmelden koennte.
 
 Aufruf (aus dem backend/-Ordner, funktioniert unter Windows genauso wie auf
 dem spaeteren Linux-Server):

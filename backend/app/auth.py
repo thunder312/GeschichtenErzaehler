@@ -65,3 +65,14 @@ def get_current_user_ws(websocket: WebSocket, settings: Settings = Depends(get_s
     if not settings.auth_aktiv:
         return Benutzer(id=0, username=settings.default_username, ist_admin=True)
     return _benutzer_aus_token(websocket.cookies.get(settings.session_cookie_name), settings)
+
+
+def get_current_admin(benutzer: Benutzer = Depends(get_current_user)) -> Benutzer:
+    """Fuer Routen, die nur Admin-Benutzern zugaenglich sein sollen (KI-Ziele
+    verwalten, Einstellungen, Benutzerverwaltung - siehe app/api/benutzer.py).
+    Solange Settings.auth_aktiv False ist, liefert get_current_user() bereits
+    immer einen Admin-Benutzer zurueck (siehe dort), dieser Check greift also
+    erst im echten Login-Betrieb."""
+    if not benutzer.ist_admin:
+        raise HTTPException(403, "Nur für Admin-Benutzer.")
+    return benutzer

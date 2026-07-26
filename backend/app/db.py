@@ -254,6 +254,23 @@ def benutzer_by_id(db_path: Path, benutzer_id: int) -> sqlite3.Row | None:
         ).fetchone()
 
 
+def benutzer_alle_auflisten(db_path: Path) -> list[sqlite3.Row]:
+    with _verbindung(db_path) as conn:
+        return conn.execute(
+            "SELECT id, username, ist_admin, created_at FROM benutzer ORDER BY username"
+        ).fetchall()
+
+
+def benutzer_loeschen(db_path: Path, benutzer_id: int) -> None:
+    with _verbindung(db_path) as conn:
+        # SQLite erzwingt FOREIGN KEY-Constraints nicht automatisch (PRAGMA
+        # foreign_keys ist hier nicht gesetzt) - Sessions des Benutzers
+        # deshalb explizit mitloeschen, sonst blieben verwaiste Zeilen in
+        # der sessions-Tabelle zurueck.
+        conn.execute("DELETE FROM sessions WHERE benutzer_id=?", (benutzer_id,))
+        conn.execute("DELETE FROM benutzer WHERE id=?", (benutzer_id,))
+
+
 def session_anlegen(db_path: Path, token: str, benutzer_id: int) -> None:
     with _verbindung(db_path) as conn:
         conn.execute(

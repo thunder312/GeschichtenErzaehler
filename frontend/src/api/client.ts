@@ -2,6 +2,8 @@ import type {
   AnwendenAntwort,
   BefundeAntwort,
   Benutzer,
+  BenutzerAnlegenEingabe,
+  BenutzerEintrag,
   Einstellungen,
   EpocheKurz,
   LoginEingabe,
@@ -203,6 +205,14 @@ export const api = {
   logout: () => anfrage<void>("/api/auth/logout", { method: "POST" }),
 
   me: () => anfrage<Benutzer>("/api/auth/me"),
+
+  benutzerListe: () => anfrage<BenutzerEintrag[]>("/api/benutzer"),
+
+  benutzerAnlegen: (daten: BenutzerAnlegenEingabe) =>
+    anfrage<BenutzerEintrag>("/api/benutzer", { method: "POST", body: JSON.stringify(daten) }),
+
+  benutzerLoeschen: (id: number) =>
+    anfrage<void>(`/api/benutzer/${id}`, { method: "DELETE" }),
 };
 
 export function schreibenWebSocketUrl(

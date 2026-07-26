@@ -18,6 +18,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from app import db
+from app.auth import get_current_admin
 from app.config import Settings, get_settings
 from app.core import ollama_client, ssh_manager
 from app.schemas import (
@@ -63,12 +64,16 @@ def _geheimnis_fuer_neuanlage_pruefen(a: SSHZielAnlegenAnfrage) -> None:
 
 @router.get("", response_model=list[SSHZielAntwort])
 def liste(settings: Settings = Depends(get_settings)):
+    # Bewusst OHNE get_current_admin: jeder eingeloggte Benutzer braucht
+    # diese Liste fuer das KI-Ziel-Dropdown im Kopfbereich (siehe
+    # frontend/src/App.tsx) - nur das Anlegen/Aendern/Loeschen/Testen der
+    # Ziele selbst (Tab "KI-Ziele") ist Admins vorbehalten.
     db.init_db(settings.database_path)
     zeilen = db.ssh_ziele_auflisten(settings.database_path)
     return [SSHZielAntwort(**dict(z)) for z in zeilen]
 
 
-@router.post("", response_model=SSHZielAntwort, status_code=201)
+@router.post("", response_model=SSHZielAntwort, status_code=201, dependencies=[Depends(get_current_admin)])
 def anlegen(anfrage: SSHZielAnlegenAnfrage, settings: Settings = Depends(get_settings)):
     _grundstruktur_pruefen(anfrage)
     _geheimnis_fuer_neuanlage_pruefen(anfrage)
@@ -84,7 +89,7 @@ def anlegen(anfrage: SSHZielAnlegenAnfrage, settings: Settings = Depends(get_set
     return SSHZielAntwort(**{k: row[k] for k in row.keys() if k != "secret_encrypted"})
 
 
-@router.put("/{ziel_id}", response_model=SSHZielAntwort)
+@router.put("/{ziel_id}", response_model=SSHZielAntwort, dependencies=[Depends(get_current_admin)])
 def aktualisieren(ziel_id: str, anfrage: SSHZielAnlegenAnfrage,
                    settings: Settings = Depends(get_settings)):
     bestehend = db.ssh_ziel_lesen(settings.database_path, ziel_id)
@@ -120,12 +125,12 @@ def aktualisieren(ziel_id: str, anfrage: SSHZielAnlegenAnfrage,
     return SSHZielAntwort(**{k: row[k] for k in row.keys() if k != "secret_encrypted"})
 
 
-@router.delete("/{ziel_id}", status_code=204)
+@router.delete("/{ziel_id}", status_code=204, dependencies=[Depends(get_current_admin)])
 def loeschen(ziel_id: str, settings: Settings = Depends(get_settings)):
     db.ssh_ziel_loeschen(settings.database_path, ziel_id)
 
 
-@router.put("/{ziel_id}/favorit", response_model=SSHZielAntwort)
+@router.put("/{ziel_id}/favorit", response_model=SSHZielAntwort, dependencies=[Depends(get_current_admin)])
 def favorit_setzen(ziel_id: str, anfrage: SSHZielFavoritAnfrage,
                     settings: Settings = Depends(get_settings)):
     if db.ssh_ziel_lesen(settings.database_path, ziel_id) is None:
@@ -135,7 +140,7 @@ def favorit_setzen(ziel_id: str, anfrage: SSHZielFavoritAnfrage,
     return SSHZielAntwort(**{k: row[k] for k in row.keys() if k != "secret_encrypted"})
 
 
-@router.post("/{ziel_id}/test", response_model=SSHTestAntwort)
+@router.post("/{ziel_id}/test", response_model=SSHTestAntwort, dependencies=[Depends(get_current_admin)])
 def verbindung_testen(ziel_id: str, settings: Settings = Depends(get_settings)):
     row = db.ssh_ziel_lesen(settings.database_path, ziel_id)
     if row is None:
@@ -152,7 +157,7 @@ def verbindung_testen(ziel_id: str, settings: Settings = Depends(get_settings)):
     return SSHTestAntwort(erfolgreich=erfolgreich, meldung=meldung)
 
 
-@router.post("/test", response_model=SSHTestAntwort)
+@router.post("/test", response_model=SSHTestAntwort, dependencies=[Depends(get_current_admin)])
 def verbindung_testen_ungespeichert(anfrage: SSHTestAnfrage):
     """Testet Zugangsdaten, BEVOR sie gespeichert werden - fuer den 'Testen'-
     Knopf im Anlegen-Dialog."""

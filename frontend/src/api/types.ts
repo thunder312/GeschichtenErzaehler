@@ -105,6 +105,20 @@ export interface LoginEingabe {
   password: string;
 }
 
+// /api/benutzer/* - nur fuer Admin-Benutzer erreichbar (siehe Tab "Benutzer")
+export interface BenutzerEintrag {
+  id: number;
+  username: string;
+  ist_admin: boolean;
+  created_at: string;
+}
+
+export interface BenutzerAnlegenEingabe {
+  username: string;
+  password: string;
+  ist_admin: boolean;
+}
+
 export interface WissenEintrag {
   nummer: number;
   kategorie: string;

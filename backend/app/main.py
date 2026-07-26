@@ -15,8 +15,8 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import architekt, auth, dokumentation, einstellungen, epochen, pipeline, projects, ssh_targets, wissen
-from app.auth import get_current_user
+from app.api import architekt, auth, benutzer, dokumentation, einstellungen, epochen, pipeline, projects, ssh_targets, wissen
+from app.auth import get_current_admin, get_current_user
 from app.config import get_settings
 from app.core.ollama_client import OllamaFehler
 from app.core.projekt_dateien import DateiFehlt
@@ -85,7 +85,13 @@ app.include_router(pipeline.router)
 app.include_router(architekt.router)
 app.include_router(ssh_targets.router, dependencies=[Depends(get_current_user)])
 app.include_router(epochen.router, dependencies=[Depends(get_current_user)])
-app.include_router(einstellungen.router, dependencies=[Depends(get_current_user)])
+# einstellungen (Speicherort) und benutzer (Benutzerverwaltung) sind
+# vollstaendig Admin-Benutzern vorbehalten (siehe ToDo.md: Tabs "KI-Ziele",
+# "Einstellungen", "Benutzer" nur fuer Admins sichtbar) - bei ssh_targets ist
+# nur die Liste (GET) fuer alle eingeloggten Benutzer offen, siehe dortige
+# einzelne Endpunkt-Dependencies.
+app.include_router(einstellungen.router, dependencies=[Depends(get_current_admin)])
+app.include_router(benutzer.router, dependencies=[Depends(get_current_admin)])
 app.include_router(wissen.router, dependencies=[Depends(get_current_user)])
 app.include_router(dokumentation.router, dependencies=[Depends(get_current_user)])
 # Catch-All-Route fuer die Projekt-Detailansicht ("/{ordner:path}", matcht

@@ -4,6 +4,7 @@ einen SSH-Tunnel angesprochen wird.
 """
 from __future__ import annotations
 
+import shutil
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -71,6 +72,29 @@ def neuer_projekt_pfad(settings: Settings, username: str, titel: str, epoche: st
         ziel = wurzel / f"{name}-{zaehler}"
         zaehler += 1
     return ziel
+
+
+def benutzer_projekte_uebertragen(settings: Settings, von_username: str, zu_username: str) -> None:
+    """Verschiebt alle Projektordner eines Benutzers zu einem anderen -
+    gedacht fuer app/api/benutzer.py: wird ein Benutzer geloescht, sollen
+    dessen Geschichten nicht mitgeloescht werden, sondern beim Admin landen
+    (siehe ToDo.md). Namenskonflikte werden wie bei neuer_projekt_pfad()
+    durch einen angehaengten Zaehler aufgeloest."""
+    if von_username == zu_username:
+        return
+    quelle = projekte_wurzel(settings, von_username)
+    ziel = projekte_wurzel(settings, zu_username)
+    for eintrag in sorted(quelle.iterdir()):
+        ziel_pfad = ziel / eintrag.name
+        zaehler = 2
+        while ziel_pfad.exists():
+            ziel_pfad = ziel / f"{eintrag.name}-{zaehler}"
+            zaehler += 1
+        shutil.move(str(eintrag), str(ziel_pfad))
+    try:
+        quelle.rmdir()
+    except OSError:
+        pass
 
 
 def ordner_nach_umbenennung(ordner: str, neuer_name: str) -> str:

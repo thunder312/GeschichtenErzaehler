@@ -11,6 +11,7 @@ import { StatusFooter } from "./components/StatusFooter";
 import { ZeitUeberbrueckungOverlay } from "./components/ZeitUeberbrueckungOverlay";
 import { AktivitaetProvider } from "./context/AktivitaetContext";
 import { useAuth } from "./context/AuthContext";
+import { BenutzerPage } from "./pages/BenutzerPage";
 import { LektorierenPage } from "./pages/LektorierenPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ProjektePage } from "./pages/ProjektePage";
@@ -109,8 +110,17 @@ function App() {
         ]
       : []),
     { id: "epoche", label: "Epoche erstellen", icon: "🏛️" },
-    { id: "ssh", label: "KI-Ziele", icon: "🔌", align: "end" as const },
-    { id: "einstellungen", label: "Einstellungen", icon: "⚙️", align: "end" as const },
+    // KI-Ziele verwalten, Speicherort-Einstellungen und Benutzerverwaltung
+    // betreffen die gesamte Installation, nicht nur das eigene Projekt -
+    // deshalb nur fuer Admin-Benutzer sichtbar (serverseitig zusaetzlich ueber
+    // get_current_admin abgesichert, siehe backend/app/main.py).
+    ...(benutzer.ist_admin
+      ? [
+          { id: "ssh", label: "KI-Ziele", icon: "🔌", align: "end" as const },
+          { id: "einstellungen", label: "Einstellungen", icon: "⚙️", align: "end" as const },
+          { id: "benutzer", label: "Benutzer", icon: "👤", align: "end" as const },
+        ]
+      : []),
   ];
 
   return (
@@ -279,13 +289,21 @@ function App() {
           <EpocheErstellenPage />
         </div>
 
-        <div className={activeTab === "ssh" ? "" : "hidden"}>
-          <SshZielePage sshZiele={sshZiele} onGeaendert={sshZieleLaden} />
-        </div>
+        {benutzer.ist_admin && (
+          <>
+            <div className={activeTab === "ssh" ? "" : "hidden"}>
+              <SshZielePage sshZiele={sshZiele} onGeaendert={sshZieleLaden} />
+            </div>
 
-        <div className={activeTab === "einstellungen" ? "" : "hidden"}>
-          <EinstellungenPage />
-        </div>
+            <div className={activeTab === "einstellungen" ? "" : "hidden"}>
+              <EinstellungenPage />
+            </div>
+
+            <div className={activeTab === "benutzer" ? "" : "hidden"}>
+              <BenutzerPage />
+            </div>
+          </>
+        )}
       </main>
       <StatusFooter />
       <ZeitUeberbrueckungOverlay />

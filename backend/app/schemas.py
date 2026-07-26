@@ -178,3 +178,16 @@ class Benutzer(BaseModel):
 class LoginEingabe(BaseModel):
     username: str
     password: str
+
+
+class BenutzerEintrag(BaseModel):
+    id: int
+    username: str
+    ist_admin: bool
+    created_at: str
+
+
+class BenutzerAnlegenAnfrage(BaseModel):
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=8)
+    ist_admin: bool = False

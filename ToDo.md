@@ -31,6 +31,6 @@
 - [x] Die Speicherort-Logik und der Ordnername mus nochmal verifiziert werden.
 
 # Deployment
-- [ ] Implementiere einen User-Zugang mit Accounts. Benutze hierfür die bestehende DB. Hier im Entwickler-/Test-System kann der Login inaktiv sein, um es bequem zu halten. Aktiv ist es nur solange bis es erfolgreich implementiert und getestet ist.
-  - [ ] Schlage Lösungen vor, wie ein User NUR seine Projekte sehen kann, falls Geschichten auf dem KI-Server liegen bleiben.
-- [ ] Layout und Sicherheitskonzept für Frontend auf meiner Domain (daniel-ertl.de; hole Infos zum Deploy aus dem myReceipes Projekt) und KIs lokal auf meinem Server. Homepage->Router(Ports...)->lokaler Server(sowas wie ein API-Key?)
+- [x] Implementiere einen User-Zugang mit Accounts. Benutze hierfür die bestehende DB. Hier im Entwickler-/Test-System kann der Login inaktiv sein, um es bequem zu halten. Aktiv ist es nur solange bis es erfolgreich implementiert und getestet ist.
+  - [x] Schlage Lösungen vor, wie ein User NUR seine Projekte sehen kann, falls Geschichten auf dem KI-Server liegen bleiben.
+- [x] Layout und Sicherheitskonzept für Frontend auf meiner Domain (daniel-ertl.de; hole Infos zum Deploy aus dem myReceipes Projekt) und KIs lokal auf meinem Server. Homepage->Router(Ports...)->lokaler Server(sowas wie ein API-Key?)
