@@ -84,3 +84,14 @@ body {
   font-style: italic;
   font-variation-settings: "opsz" 144;
 }
+
+/* Anachronismus-Korrekturen in der hunkweisen Merge-Ansicht (siehe
+ * PruefenAnwendenPage/hunkReview.ts) heben sich bewusst farblich (Amber)
+ * von normalen Lektorat-Aenderungen (Standard-Diff-Gruen/-Rot in
+ * LektorierenPage) ab - ganze Kapitel-Bloecke statt einzelner Woerter.
+ * !important + der zusaetzliche .monaco-editor-Praefix, weil Monacos
+ * eigene Diff-Zeilenfaerbung (.line-insert/.line-delete) sonst per
+ * Ladereihenfolge im Stylesheet gewinnen kann. */
+.monaco-editor .hunk-review-anachronismus {
+  background-color: rgba(217, 119, 6, 0.35) !important;
+}

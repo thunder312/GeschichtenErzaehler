@@ -26,6 +26,7 @@ export function PruefenAnwendenPage({
   const [ladenAnwenden, setLadenAnwenden] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
+  const [offeneAenderungen, setOffeneAenderungen] = useState(0);
   const { starten, beenden } = useAktivitaet();
   useLetztesKapitelSync(projekt, setN);
 
@@ -40,6 +41,7 @@ export function PruefenAnwendenPage({
     setErgebnis(null);
     setBearbeitet("");
     setGespeichertHinweis(null);
+    setOffeneAenderungen(0);
     setFehler(null);
     let abgebrochen = false;
     api
@@ -79,6 +81,7 @@ export function PruefenAnwendenPage({
       const antwort = await api.anwenden(ordner, n, sshZielId || null);
       setErgebnis(antwort);
       setBearbeitet(antwort.neu);
+      setOffeneAenderungen(0);
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
@@ -120,9 +123,18 @@ export function PruefenAnwendenPage({
       {ergebnis && (
         <Card>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-heading text-lg font-semibold tracking-wide text-text">
-              Merge-Ansicht: alt (links) vs. korrigiert (rechts, editierbar)
-            </h2>
+            <div className="flex items-center gap-3">
+              <h2 className="font-heading text-lg font-semibold tracking-wide text-text">
+                Merge-Ansicht: alt (links) vs. korrigiert (rechts, editierbar)
+              </h2>
+              {offeneAenderungen > 0 ? (
+                <span className="rounded-full bg-amber-400/15 px-2.5 py-0.5 text-xs font-medium text-amber-300">
+                  {offeneAenderungen} offene {offeneAenderungen === 1 ? "Änderung" : "Änderungen"}
+                </span>
+              ) : (
+                <span className="text-xs text-text-muted">Alle Änderungen durchgesehen</span>
+              )}
+            </div>
             <div className="flex items-center gap-3">
               {ergebnis.gesichert_als === null ? (
                 <Badge tone="amber">Nicht automatisch übernommen (deutlich kürzer)</Badge>
@@ -133,7 +145,20 @@ export function PruefenAnwendenPage({
               <Button onClick={speichern}>Aktuellen Stand speichern</Button>
             </div>
           </div>
-          <MergeEditor original={ergebnis.alt} modified={bearbeitet} onModifiedChange={setBearbeitet} />
+          <p className="mb-2 text-xs text-text-muted">
+            Anachronismus-Korrekturen sind amber hinterlegt (ganze Absätze/Blöcke statt einzelner Wörter) und
+            damit klar von Lektorat-Änderungen (Tab "Lektorieren") unterscheidbar. Jede Änderung hat am Ende
+            ihrer ersten Zeile ein ✓/✗-Symbol: ✓ übernimmt die Korrektur, ✗ verwirft sie und stellt die
+            Original-Stelle wieder her.
+          </p>
+          <MergeEditor
+            original={ergebnis.alt}
+            modified={bearbeitet}
+            onModifiedChange={setBearbeitet}
+            hunkweiseBestaetigen
+            hunkArt="anachronismus"
+            onOffeneAenderungen={setOffeneAenderungen}
+          />
         </Card>
       )}
     </div>

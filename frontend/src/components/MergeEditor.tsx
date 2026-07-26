@@ -11,6 +11,12 @@ interface MergeEditorProps {
    * (wie VS Code/GitHub), statt nur einen einzigen Gesamt-Diff anzuzeigen. */
   hunkweiseBestaetigen?: boolean;
   onOffeneAenderungen?: (anzahl: number) => void;
+  /** "anachronismus" hebt die Hunks farblich (Amber) von der normalen
+   * Diff-Faerbung ab - fuer PruefenAnwendenPage, wo ganze Kapitel-Bloecke
+   * statt einzelner Woerter vorgeschlagen werden und sich das klar von
+   * Lektorat-Aenderungen (Standardfarbe, LektorierenPage) unterscheiden
+   * soll. Ohne Angabe (bzw. "lektorat") bleibt die Standardfarbe. */
+  hunkArt?: "lektorat" | "anachronismus";
 }
 
 /** Side-by-side Merge-Ansicht: links die alte Fassung (nur lesbar), rechts
@@ -23,6 +29,7 @@ export function MergeEditor({
   height = "480px",
   hunkweiseBestaetigen = false,
   onOffeneAenderungen,
+  hunkArt = "lektorat",
 }: MergeEditorProps) {
   const hunkCleanupRef = useRef<(() => void) | null>(null);
 
@@ -53,7 +60,12 @@ export function MergeEditor({
           });
 
           if (hunkweiseBestaetigen) {
-            hunkCleanupRef.current = installHunkReview(editor, monaco, onOffeneAenderungen);
+            hunkCleanupRef.current = installHunkReview(
+              editor,
+              monaco,
+              onOffeneAenderungen,
+              hunkArt === "anachronismus" ? "hunk-review-anachronismus" : undefined,
+            );
           }
         }}
         options={{
