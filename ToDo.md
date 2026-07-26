@@ -25,7 +25,7 @@
 - [x] Den Hauptbildschirm so einrichten, dass niemals gescrollt wird. Notfalls sollen die Container zu scrollen sein.
 - [x] Architektenstrand soll zwischengespeichert werden können. Und dann auch fortgesetzt werden können.
 - [x] Unnützes Wissen zufällig aus der DB holen und zur Überbrückung anzeigen.
-- [ ] KI-Konfiguration aus dem Haupt-Skript auslagern, sodass man die einfach auf einem anderen System anpassen kann.
+- [ ] KI-Konfiguration: Wenn es Änderungen auf dem KI-Server bezüglich der Verfügbaren KIs gibt, muss das von der Software erkannt werden. Es muss der Architekt benachrichtigt werden, damit er fehlende KIs nicht mehr abfrägt oder vorschlägt. Könnte man einen Prüflauf- in den Admin-Einstellungen einrichten, die das automatisch korrigiert?
 # Bugs
 - [x] eventuell funktioniert das fort schreiben der Tabs nicht richtig, ich hatte 2-mal Kapitel 3, kein Kapitel 4. Muss nochmal verifiziert werden. 
 - [x] Die Speicherort-Logik und der Ordnername mus nochmal verifiziert werden.
