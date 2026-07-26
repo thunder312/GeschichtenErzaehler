@@ -8,9 +8,10 @@
    Projektordner wird nach dem gewählten Titel umbenannt.
 3. **Schreiben** → Kapitel 1 schreiben lassen. Läuft automatisch mit:
    Rechtschreibprüfung, Anachronismus-/Kontinuitäts-Prüfung.
-4. Bei Bedarf: **Prüfen & Anwenden** (sichere Korrekturen übernehmen),
-   **Lektorieren** (Grammatik glätten), **Rechtschreibung** (unbekannte
-   Wörter durchgehen).
+4. Bei Bedarf: **Prüfen & Anwenden** (sichere Anachronismus-Korrekturen,
+   amber markiert, je Änderung per ✓/✗ annehmen/verwerfen), **Lektorieren**
+   (Grammatik glätten, gleiche ✓/✗-Bedienung), **Rechtschreibung**
+   (unbekannte Wörter durchgehen).
 5. **Stand & Export** → „Stand erzeugen“ für Kapitel 1 — *immer als
    letzten Schritt für dieses Kapitel*, damit der festgehaltene Zustand
    auch wirklich die endgültige Fassung ist.

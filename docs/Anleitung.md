@@ -113,9 +113,16 @@ gesichert, nichts geht verloren.
 
 | Tab | Wirkung |
 |---|---|
-| **Prüfen & Anwenden** | „Prüfen“ lässt die beiden Prüfer erneut laufen; „Sichere Anachronismus-Funde anwenden“ übernimmt nur Funde mit hoher Sicherheit **und** konkretem Ersatzvorschlag automatisch — in einer Merge-Ansicht (alt/korrigiert), die du vor dem Speichern noch von Hand anpassen kannst |
-| **Lektorieren** | Grammatik/Rechtschreibung/Sprachregister korrigieren, ebenfalls über eine Merge-Ansicht |
+| **Prüfen & Anwenden** | „Prüfen“ lässt die beiden Prüfer erneut laufen; „Sichere Anachronismus-Funde anwenden“ übernimmt nur Funde mit hoher Sicherheit **und** konkretem Ersatzvorschlag automatisch — in einer Merge-Ansicht (alt/korrigiert). Jede vorgeschlagene Korrektur ist **amber** hinterlegt (ganze Absätze/Sätze statt einzelner Wörter, da sich ein Anachronismus selten in einem Wort beheben lässt) |
+| **Lektorieren** | Grammatik/Rechtschreibung/Sprachregister korrigieren, ebenfalls über eine Merge-Ansicht — hier in der normalen Diff-Farbe (Grün/Rot), zur klaren Unterscheidung von Anachronismus-Korrekturen |
 | **Rechtschreibung** | Interaktiv: unbekannte Wörter (hunspell) einzeln mit Satzkontext durchgehen — leer lassen = behalten, Ersatzwort eintragen = im ganzen Kapitel ersetzen |
+
+In beiden Merge-Ansichten (Prüfen & Anwenden sowie Lektorieren) hat jede
+einzelne Änderung am Ende ihrer ersten Zeile ein eigenes ✓/✗-Symbol: **✓**
+übernimmt genau diese eine Korrektur, **✗** verwirft sie und stellt an
+dieser Stelle die Original-Fassung wieder her — kein Alles-oder-Nichts,
+jede Änderung lässt sich einzeln beurteilen. Der rechte Bereich bleibt
+außerdem frei editierbar, falls eine Korrektur nur teilweise passt.
 
 Fällt eine korrigierte Fassung deutlich kürzer aus als das Original, wird
 sie **nicht** automatisch übernommen, sondern nur zur Ansicht angezeigt
