@@ -14,11 +14,21 @@ Gehe NUR Zeilen der Tabelle durch, bei denen BEIDES zutrifft:
    kurze Formulierung), keinen allgemeinen Hinweis wie "Nachpruefung noetig"
    und keinen blossen Bindestrich
 
-Fuer jede solche Zeile: Ersetze die zitierte Fundstelle im Kapiteltext durch
-den vorgeschlagenen Ersatz, so sparsam wie moeglich, ohne den Rest des Satzes
-umzuschreiben. Passe nur die minimal noetige Umgebung an, damit der Satz
-grammatisch korrekt bleibt (z.B. Artikel oder Endung, falls das Ersatzwort ein
-anderes Genus hat).
+Fuer jede solche Zeile unterscheide zwei Faelle anhand des Vorschlags:
+
+- **Wort-/Kurzformulierungs-Vorschlag** (ein einzelnes Wort oder eine kurze
+  Wendung, deutlich kuerzer als der die Fundstelle umgebende Satz): Ersetze
+  NUR die zitierte Fundstelle im Kapiteltext durch den vorgeschlagenen
+  Ersatz, so sparsam wie moeglich, ohne den Rest des Satzes umzuschreiben.
+  Passe nur die minimal noetige Umgebung an, damit der Satz grammatisch
+  korrekt bleibt (z.B. Artikel oder Endung, falls das Ersatzwort ein anderes
+  Genus hat).
+- **Ganzer umformulierter Satz als Vorschlag** (der Vorschlag ist selbst ein
+  vollstaendiger, grammatisch eigenstaendiger Satz - typisch bei Stil-/
+  Sprachregister-Funden, die sich nicht an einem einzelnen Wort festmachen
+  lassen): Finde im Kapiteltext den GANZEN Satz, der die Fundstelle
+  enthaelt, und ersetze diesen kompletten Satz durch den vorgeschlagenen
+  Satz.
 
 ## Was du NICHT tust
 - Zeilen mit Sicherheit "mittel" oder "gering": nicht anfassen, auch wenn sie

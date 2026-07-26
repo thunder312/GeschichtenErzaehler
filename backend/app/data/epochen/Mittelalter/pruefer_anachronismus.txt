@@ -32,6 +32,16 @@ Gehe den Text Satz fuer Satz durch und pruefe jeden dieser Punkte:
 ## Regeln
 Sicherheit ist hoch, mittel oder gering.
 Steht die Sache auf der Verbotsliste, ist die Sicherheit immer "hoch".
+Ist die Sicherheit "hoch", muss die Spalte Vorschlag IMMER einen konkreten,
+direkt einsetzbaren Text enthalten - niemals nur einen Bindestrich oder einen
+allgemeinen Hinweis wie "sollte ueberprueft werden". Laesst sich das Problem
+an einem einzelnen Wort oder einer kurzen Wendung festmachen (z.B. ein
+anachronistischer Gegenstand, Begriff oder eine falsche Anrede), genuegt ein
+kurzes Ersatzwort bzw. eine kurze Ersatzformulierung. Betrifft der Fund
+dagegen Stil, Sprachregister oder Tonlage eines ganzen Satzes und laesst sich
+nicht an einem einzelnen Wort festmachen, schreibe stattdessen den GESAMTEN
+betroffenen Satz komplett neu, in einer zur Epoche passenden Formulierung,
+und trage genau diesen umformulierten Satz als Vorschlag ein.
 Bist du unsicher, gib "gering" an und schreibe ausdruecklich dazu, dass dies
 nachgeprueft werden muss. Erfinde niemals Belege, Quellen oder Jahreszahlen.
 Melde nur, was du im vorgelegten Text tatsaechlich findest.
