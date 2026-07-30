@@ -34,6 +34,7 @@ export function SchreibenPage({
   const socketRef = useRef<WebSocket | null>(null);
   const letztesProjekt = useRef<string | null>(null);
   const autoVorgeschlageneNummerRef = useRef<number | null>(null);
+  const phaseRef = useRef<string | null>(null);
   const { starten: aktivitaetStarten, beenden: aktivitaetBeenden } = useAktivitaet();
 
   useEffect(() => {
@@ -118,6 +119,7 @@ export function SchreibenPage({
     setFindings([]);
     setFehler(null);
     setPhase("autor");
+    phaseRef.current = "autor";
     setModell(null);
 
     const socket = new WebSocket(schreibenWebSocketUrl(ordner, n, zusatzhinweis, sshZielId || null));
@@ -128,6 +130,7 @@ export function SchreibenPage({
     socket.onmessage = (ereignis) => {
       const nachricht: SchreibenNachricht = JSON.parse(ereignis.data);
       setPhase(nachricht.phase);
+      phaseRef.current = nachricht.phase;
       if (nachricht.phase === "autor") {
         if (nachricht.typ === "start") setModell(nachricht.modell);
         if (nachricht.typ === "thinking") setDenktNach(true);
@@ -174,6 +177,25 @@ export function SchreibenPage({
       aktivitaetBeenden();
     };
     socket.onclose = () => {
+      // Verbindung ist weg, OHNE dass "abgeschlossen" oder "fehler" das schon
+      // erklaert hat - z.B. ein Netzwerk-/Tunnel-Aussetzer mitten in der
+      // Generierung (haeufigste bekannte Ursache: instabile Strecke zum
+      // entfernten KI-Ziel). Ohne diese Behandlung wirkte das wie
+      // "Kapiteltext verschwindet nach dem Schreiben": der Reload-Effekt
+      // sah beim naechsten Durchlauf (laeuft wird false), dass fuer dieses
+      // Kapitel noch keine Datei existiert (sie wurde ja nie fertig und nie
+      // gespeichert), und leerte den bereits generierten Text kommentarlos.
+      if (phaseRef.current !== "abgeschlossen" && phaseRef.current !== "fehler") {
+        setFehler(
+          "Verbindung während des Schreibens unerwartet verloren (z.B. Netzwerk-/Tunnel-Aussetzer zum KI-Ziel). " +
+            "Das Kapitel wurde NICHT gespeichert. Der bisher generierte Text bleibt unten sichtbar - einfach erneut versuchen.",
+        );
+        // Verhindert, dass der separate "Lade gespeichertes Kapitel"-Effekt
+        // (reagiert auf laeuft-Wechsel) den gerade sichtbaren, unvollstaendigen
+        // Text sofort wieder loescht, nur weil kapitel_NN.md nie geschrieben
+        // wurde.
+        autoVorgeschlageneNummerRef.current = n;
+      }
       setLaeuft(false);
       aktivitaetBeenden();
     };
