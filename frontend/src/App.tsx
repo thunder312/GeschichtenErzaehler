@@ -282,7 +282,7 @@ function App() {
         </div>
 
         <div className={activeTab === "fundus" ? "" : "hidden"}>
-          <FundusPage />
+          <FundusPage sshZielId={sshZielId} />
         </div>
 
         {benutzer.ist_admin && (

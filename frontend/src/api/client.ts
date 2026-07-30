@@ -210,8 +210,8 @@ export const api = {
       body: JSON.stringify({ inhalt }),
     }),
 
-  fundusImportieren: () =>
-    anfrage<FundusImportAntwort>("/api/fundus/import", { method: "POST" }),
+  fundusImportieren: (sshZielId?: string | null) =>
+    anfrage<FundusImportAntwort>(`/api/fundus/import${sshQuery(sshZielId)}`, { method: "POST" }),
 };
 
 export function schreibenWebSocketUrl(

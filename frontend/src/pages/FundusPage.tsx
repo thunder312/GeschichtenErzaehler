@@ -4,10 +4,18 @@ import { api } from "../api/client";
 import { Button, Card, CardTitle } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 
+interface FundusPageProps {
+  sshZielId: string;
+}
+
 /** Editor fuer den Personen-Fundus (fundus.md) - eine einzige, nutzerweite
  * Datei statt einer Auswahlliste wie bei PersonasPage, da es hier keine
- * mehreren Rollen-Dateien gibt (siehe backend/app/core/fundus.py). */
-export function FundusPage() {
+ * mehreren Rollen-Dateien gibt (siehe backend/app/core/fundus.py). Der
+ * Import-Button braucht sshZielId wie jede andere Ollama-aufrufende Seite
+ * (siehe SchreibenPage/PruefenAnwendenPage) - ohne das faellt der Aufruf
+ * serverseitig auf das lokale Standard-Ollama zurueck, das z.B. auf dem
+ * Produktivserver gar nicht existiert. */
+export function FundusPage({ sshZielId }: FundusPageProps) {
   const [inhalt, setInhalt] = useState("");
   const [wirdGeladen, setWirdGeladen] = useState(true);
   const [wirdGespeichert, setWirdGespeichert] = useState(false);
@@ -42,7 +50,7 @@ export function FundusPage() {
     setImportHinweis(null);
     starten("Durchsucht vorhandene Geschichten nach Figuren...");
     try {
-      const antwort = await api.fundusImportieren();
+      const antwort = await api.fundusImportieren(sshZielId);
       setImportHinweis(
         `${antwort.importierte_projekte} Projekt(e) durchsucht, ` +
           `${antwort.gefundene_figuren} Figur(en) gefunden` +
