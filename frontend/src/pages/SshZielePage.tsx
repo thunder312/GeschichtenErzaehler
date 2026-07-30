@@ -245,7 +245,12 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
               <div className="grid grid-cols-[2fr_1fr] gap-3">
                 <div>
                   <Label>Host</Label>
-                  <Input value={formular.host} onChange={(e) => feld("host", e.target.value)} placeholder="192.168.1.50" />
+                  <Input
+                    autoComplete="off"
+                    value={formular.host}
+                    onChange={(e) => feld("host", e.target.value)}
+                    placeholder="192.168.1.50"
+                  />
                 </div>
                 <div>
                   <Label>SSH-Port</Label>
@@ -260,7 +265,7 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
               </div>
               <div>
                 <Label>Benutzername</Label>
-                <Input value={formular.username} onChange={(e) => feld("username", e.target.value)} />
+                <Input autoComplete="off" value={formular.username} onChange={(e) => feld("username", e.target.value)} />
               </div>
             </>
           )}
@@ -270,6 +275,7 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
               <Label>Passwort</Label>
               <Input
                 type="password"
+                autoComplete="off"
                 value={formular.password}
                 onChange={(e) => feld("password", e.target.value)}
                 placeholder={geheimnisUnveraendert || bearbeiteId ? "unverändert lassen = leer" : ""}
@@ -309,6 +315,7 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
                 <Label>Passphrase (falls vorhanden)</Label>
                 <Input
                   type="password"
+                  autoComplete="off"
                   value={formular.private_key_passphrase}
                   onChange={(e) => feld("private_key_passphrase", e.target.value)}
                 />

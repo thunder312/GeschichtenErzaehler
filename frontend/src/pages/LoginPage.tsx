@@ -34,11 +34,23 @@ export function LoginPage() {
         >
           <div>
             <Label>Benutzername</Label>
-            <Input value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+            <Input
+              name="username"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoFocus
+            />
           </div>
           <div>
             <Label>Passwort</Label>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Input
+              type="password"
+              name="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
           {fehler && <p className="text-sm text-red-400">{fehler}</p>}
           <Button type="submit" disabled={laden || !username || !password}>

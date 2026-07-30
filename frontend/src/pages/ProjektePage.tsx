@@ -89,7 +89,12 @@ export function ProjektePage({
         <div className="space-y-3">
           <div>
             <Label>Titel (optional)</Label>
-            <Input value={titel} onChange={(e) => setTitel(e.target.value)} placeholder="ergibt sich oft erst im Architekten-Interview" />
+            <Input
+              autoComplete="off"
+              value={titel}
+              onChange={(e) => setTitel(e.target.value)}
+              placeholder="ergibt sich oft erst im Architekten-Interview"
+            />
           </div>
           <div>
             <Label>Epoche</Label>

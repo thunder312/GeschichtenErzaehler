@@ -104,12 +104,13 @@ export function BenutzerPage() {
         <div className="space-y-3">
           <div>
             <Label>Benutzername</Label>
-            <Input value={formular.username} onChange={(e) => feld("username", e.target.value)} />
+            <Input autoComplete="off" value={formular.username} onChange={(e) => feld("username", e.target.value)} />
           </div>
           <div>
             <Label>Passwort</Label>
             <Input
               type="password"
+              autoComplete="new-password"
               value={formular.password}
               onChange={(e) => feld("password", e.target.value)}
               placeholder="mindestens 8 Zeichen"
@@ -119,6 +120,7 @@ export function BenutzerPage() {
             <Label>Passwort (Wiederholung)</Label>
             <Input
               type="password"
+              autoComplete="new-password"
               value={formular.passwortWiederholung}
               onChange={(e) => feld("passwortWiederholung", e.target.value)}
             />
