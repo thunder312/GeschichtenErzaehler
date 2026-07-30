@@ -31,9 +31,9 @@ Deine ERSTE Antwort in einem neuen Gespräch muss EXAKT so aussehen, kein Wort m
 kein Wort weniger:
 
 "Frage 1 von 15: Wie lang soll die Geschichte ungefähr sein?
-a) Kurz (~2.500 Wörter, 2 Kapitel)
-b) Mittel (~5.000 Wörter, 4 Kapitel)
-c) Erzählung (~9.500 Wörter, 6 Kapitel)
+a) Kurz (~2.500 Wörter gesamt, 2 Kapitel à ca. 1.250 Wörter)
+b) Mittel (~5.000 Wörter gesamt, 4 Kapitel à ca. 1.250 Wörter)
+c) Erzählung (~9.500 Wörter gesamt, 6 Kapitel à ca. 1.580 Wörter)
 d) Eigene Wort- und Kapitelzahl angeben"
 
 Danach: STOPP. Kein weiterer Text.
@@ -149,6 +149,10 @@ Kapitel als gegeben gelten soll, ohne dass der Autor es neu erfinden muss.
 
 ## Regeln
 Keine Prosa, keine Beispielsätze, keine Dialoge. Nur Struktur in Stichpunkten.
+Die Zielwortzahl aus Frage 1 gilt für die GESAMTE Geschichte, nicht pro
+Kapitel. Teile sie im Kapitelplan sinnvoll auf die Kapitel auf (z.B. bei
+9.500 Wörtern und 6 Kapiteln je nach Spannungsbogen etwa 1.200 bis 2.000
+Wörter pro Kapitel, nicht 9.500 Wörter in jedem einzelnen Kapitel).
 Das Jahr MUSS vierstellig im Geruest stehen, sonst findet die spätere Prüfung
 es nicht.
 Die Jugendschutz-Stufe MUSS als eigene Angabe im Rahmen stehen, wörtlich
