@@ -9,16 +9,16 @@ cmd_rechtschreibung) - Prompt-Aufbau und Reihenfolge der Nachbearbeitungs-
 Schritte sind bewusst wortgleich zum Original, damit dieselbe Geschichte in
 CLI und GUI gleich behandelt wird (siehe doc/Schnittstellen-Uebersicht.md).
 
-Automatische Fortsetzung bei zu kurzen Kapiteln (Abschnitt 5.5) ist in
-dieser ersten Fassung noch NICHT implementiert - der Standardfall
-(Fortsetzung deaktiviert) verhaelt sich bereits identisch: Es wird nur ein
-Hinweis zurueckgegeben, das Kapitel bleibt unveraendert kurz.
+Automatische Fortsetzung bei zu kurzen Kapiteln (Abschnitt 5.5, siehe
+_bei_bedarf_fortsetzen) ist implementiert, siehe Bedienungsanleitung
+Abschnitt 9b.
 """
 from __future__ import annotations
 
 import asyncio
 import functools
 import hashlib
+import logging
 import time
 from pathlib import Path
 
@@ -43,6 +43,7 @@ from app.schemas import Befund, BefundeAntwort, Benutzer, RechtschreibAntwort, R
 from app.services import ollama_basis_url, projekt_pfad, ssh_ziel_aus_db
 
 router = APIRouter(prefix="/api/projects", tags=["pipeline"])
+logger = logging.getLogger(__name__)
 
 # Unter dieser Schwelle (Anteil der Zielwortzahl) wird bei eingeschalteter
 # automatischer Fortsetzung weitergeschrieben, bzw. ohne Fortsetzung nur
@@ -469,10 +470,25 @@ async def ws_schreiben(websocket: WebSocket, ordner: str, n: int,
             await websocket.send_json({"phase": "abgeschlossen", "kapitel_text": text})
 
     except OllamaFehler as e:
-        await websocket.send_json({"phase": "fehler", "typ": "error", "text": str(e)})
+        logger.warning("ws_schreiben: OllamaFehler fuer %s/%s: %s", ordner, n, e)
+        try:
+            await websocket.send_json({"phase": "fehler", "typ": "error", "text": str(e)})
+        except Exception:
+            logger.warning("ws_schreiben: konnte OllamaFehler-Meldung nicht mehr senden (Verbindung schon weg)")
     except HTTPException as e:
-        await websocket.send_json({"phase": "fehler", "typ": "error", "text": e.detail})
-    except WebSocketDisconnect:
+        logger.warning("ws_schreiben: HTTPException fuer %s/%s: %s", ordner, n, e.detail)
+        try:
+            await websocket.send_json({"phase": "fehler", "typ": "error", "text": e.detail})
+        except Exception:
+            logger.warning("ws_schreiben: konnte HTTPException-Meldung nicht mehr senden (Verbindung schon weg)")
+    except WebSocketDisconnect as e:
+        # Client (oder ein dazwischenliegender Proxy/Tunnel) hat die
+        # Verbindung beendet - es gibt niemanden mehr, an den eine
+        # Fehlermeldung geschickt werden koennte. Bewusst mit Code/Grund
+        # geloggt, damit ein Verbindungsabbruch waehrend des Schreibens
+        # (siehe Bedienungsanleitung/ToDo: "Kapiteltext verschwindet") im
+        # Server-Log auffindbar ist, statt spurlos zu verschwinden.
+        logger.warning("ws_schreiben: WebSocketDisconnect fuer %s/%s (code=%s)", ordner, n, getattr(e, "code", "?"))
         return
     except Exception as e:
         # Sicherheitsnetz gegen unerwartete Fehler (z.B. ein zukuenftiger Bug
@@ -482,7 +498,11 @@ async def ws_schreiben(websocket: WebSocket, ordner: str, n: int,
         # Verbindung noch eine HTTP-Fehlerantwort zu schreiben (kracht mit
         # "Unexpected ASGI message" und reisst die Verbindung ohne jede
         # Frontend-Nachricht ab).
-        await websocket.send_json({"phase": "fehler", "typ": "error", "text": str(e)})
+        logger.exception("ws_schreiben: unerwarteter Fehler fuer %s/%s", ordner, n)
+        try:
+            await websocket.send_json({"phase": "fehler", "typ": "error", "text": str(e)})
+        except Exception:
+            logger.warning("ws_schreiben: konnte generische Fehlermeldung nicht mehr senden (Verbindung schon weg)")
     finally:
         try:
             await websocket.close()
