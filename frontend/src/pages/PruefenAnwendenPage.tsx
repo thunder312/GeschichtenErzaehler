@@ -20,6 +20,7 @@ export function PruefenAnwendenPage({
   const [n, setN] = useState(projekt?.kapitel.at(-1) ?? 1);
   const [kapiteltext, setKapiteltext] = useState("");
   const [bearbeitet, setBearbeitet] = useState("");
+  const [kapitelGeladen, setKapitelGeladen] = useState(false);
   const [befunde, setBefunde] = useState<BefundeAntwort | null>(null);
   const [ladenPruefen, setLadenPruefen] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
@@ -34,6 +35,7 @@ export function PruefenAnwendenPage({
   useEffect(() => {
     setGespeichertHinweis(null);
     setFehler(null);
+    setKapitelGeladen(false);
     let abgebrochen = false;
     api
       .kapitel(ordner, n)
@@ -42,10 +44,14 @@ export function PruefenAnwendenPage({
         setKapiteltext(text);
         setBearbeitet(text);
       })
-      .catch(() => {
+      .catch((e) => {
         if (abgebrochen) return;
         setKapiteltext("");
         setBearbeitet("");
+        setFehler(`Kapiteltext konnte nicht geladen werden: ${e instanceof Error ? e.message : String(e)}`);
+      })
+      .finally(() => {
+        if (!abgebrochen) setKapitelGeladen(true);
       });
     api
       .befunde(ordner, n)
@@ -121,13 +127,15 @@ export function PruefenAnwendenPage({
             markiert). Bitte "Erneut prüfen" klicken.
           </p>
         )}
-        {befunde ? (
+        {befunde && kapitelGeladen ? (
           <BefundEditor
             key={n}
             kapiteltext={bearbeitet}
             befunde={befunde.befunde}
             onKapiteltextChange={setBearbeitet}
           />
+        ) : befunde ? (
+          <p className="text-sm text-text-muted">Lädt Kapiteltext...</p>
         ) : (
           <p className="text-sm text-text-muted">
             Noch keine Befunde für dieses Kapitel - "Erneut prüfen" klicken oder zuerst im Tab "Schreiben" ein

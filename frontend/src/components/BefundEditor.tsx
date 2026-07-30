@@ -36,6 +36,11 @@ export function BefundEditor({ kapiteltext, befunde, onKapiteltextChange, height
   // "Erneut pruefen" oder Kapitelwechsel) - NICHT auf jeden Tastenanschlag:
   // bereits angelegte Decorations/Widgets verschieben sich mit Monacos
   // eigener Positions-Nachfuehrung automatisch mit (siehe befundReview.ts).
+  // Setzt voraus, dass kapiteltext beim MOUNT bereits vollstaendig geladen
+  // ist (siehe PruefenAnwendenPage: rendert BefundEditor erst, wenn beide
+  // parallelen Fetches - Text und Befunde - abgeschlossen sind), sonst
+  // wuerde setzeBefunde() beim ersten Aufruf gegen ein noch leeres Model
+  // pruefen und jeden Fund faelschlich als "verwaist" markieren.
   useEffect(() => {
     reviewRef.current?.setzeBefunde(befunde);
     setOrphanIds(new Set());
