@@ -110,7 +110,7 @@ def aktualisieren(ziel_id: str, anfrage: SSHZielAnlegenAnfrage,
         # Verbindung mit einer irrefuehrenden Fehlermeldung fehlschlagen.
         raise HTTPException(
             400, "Beim Wechsel der Authentifizierungsart bitte die neuen "
-                 "Zugangsdaten (Passwort bzw. privater Schluessel) angeben."
+                 "Zugangsdaten (Passwort bzw. privater Schlüssel) angeben."
         )
     else:
         geheimnis = None

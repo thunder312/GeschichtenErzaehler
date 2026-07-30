@@ -12,7 +12,6 @@ import { ZeitUeberbrueckungOverlay } from "./components/ZeitUeberbrueckungOverla
 import { AktivitaetProvider } from "./context/AktivitaetContext";
 import { useAuth } from "./context/AuthContext";
 import { BenutzerPage } from "./pages/BenutzerPage";
-import { LektorierenPage } from "./pages/LektorierenPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ProjektePage } from "./pages/ProjektePage";
 import { PersonasPage } from "./pages/PersonasPage";
@@ -32,7 +31,7 @@ function App() {
   const [activeTab, setActiveTab] = useState("projekte");
   const [interviewErzwungen, setInterviewErzwungen] = useState(false);
   // Geteilt ueber alle Pipeline-Schritte hinweg (Architekt, Schreiben,
-  // Pruefen, Lektorieren, Stand): das gewaehlte KI-Ziel soll beim
+  // Pruefen, Stand): das gewaehlte KI-Ziel soll beim
   // Tab-Wechsel erhalten bleiben, statt bei jedem neu gemounteten Tab auf
   // "Lokal" zurueckzufallen - das fuehrte sonst dazu, dass z.B. "Pruefen"
   // versehentlich gegen ein nicht erreichbares lokales Ollama lief, obwohl
@@ -103,7 +102,6 @@ function App() {
           { id: "geruest", label: "Architekt / Gerüst", icon: "🗺️" },
           { id: "schreiben", label: "Schreiben", icon: "✍️" },
           { id: "pruefen", label: "Prüfen & Anwenden", icon: "🔍" },
-          { id: "lektorieren", label: "Lektorieren", icon: "🪄" },
           { id: "rechtschreibung", label: "Rechtschreibung", icon: "📖" },
           { id: "stand", label: "Stand & Export", icon: "📦" },
           { id: "personas", label: "Personas", icon: "🎭" },
@@ -245,14 +243,6 @@ function App() {
 
             <div className={activeTab === "pruefen" ? "" : "hidden"}>
               <PruefenAnwendenPage
-                ordner={aktuellesProjekt}
-                projekt={projektDetail}
-                sshZielId={sshZielId}
-              />
-            </div>
-
-            <div className={activeTab === "lektorieren" ? "" : "hidden"}>
-              <LektorierenPage
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
                 sshZielId={sshZielId}

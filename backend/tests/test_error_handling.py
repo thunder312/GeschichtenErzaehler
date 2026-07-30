@@ -51,11 +51,6 @@ def test_pruefen_ohne_erreichbares_ollama_liefert_502_statt_500(client, projekt_
     assert r.json()["detail"]
 
 
-def test_lektorieren_ohne_erreichbares_ollama_liefert_502(client, projekt_mit_kapitel):
-    r = client.post(f"/api/projects/{projekt_mit_kapitel}/lektorieren/1")
-    assert r.status_code == 502
-
-
 def test_pruefen_fuer_nicht_geschriebenes_kapitel_liefert_404_statt_500(client, projekt_mit_kapitel):
     r = client.post(f"/api/projects/{projekt_mit_kapitel}/pruefen/99")
     assert r.status_code == 404

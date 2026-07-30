@@ -25,8 +25,7 @@ logger = logging.getLogger(__name__)
 
 EPOCHE_PERSONA_DATEIEN = ("architekt.txt", "autor.txt", "pruefer_anachronismus.txt")
 GEMEINSAME_PERSONA_DATEIEN = (
-    "chronist.txt", "pruefer_kontinuitaet.txt",
-    "lektor.txt", "anachronismen_korrektur.txt",
+    "chronist.txt", "pruefer_kontinuitaet.txt", "lektor.txt",
 )
 
 
@@ -43,7 +42,7 @@ def stand_datei(projekt: Path, n: int) -> Path:
 
 
 def befunde_datei(projekt: Path, n: int) -> Path:
-    return projekt / f"befunde_{n:02d}.md"
+    return projekt / f"befunde_{n:02d}.json"
 
 
 def geruest_datei(projekt: Path) -> Path:

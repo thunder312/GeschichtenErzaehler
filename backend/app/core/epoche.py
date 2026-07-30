@@ -285,12 +285,18 @@ welches Kapitel zu schreiben ist.
 Du schreibst genau dieses eine Kapitel. Nicht mehr, nicht weniger.
 Du haeltst dich an Ereignis, Ort, anwesende Figuren und Zielwortzahl aus dem Geruest.
 Du haeltst dich an alle festen Details aus dem Stand.
-Du wiederholst keine Bilder aus der Liste bereits verwendeter Formulierungen.
+Du wiederholst keine Bilder aus der Liste bereits verwendeter Formulierungen -
+das gilt genauso INNERHALB des Kapitels: Ein Vergleich oder eine Metapher
+taucht in einem Kapitel nur einmal auf, auch in leicht abgewandelter Form.
 Du stellst KEINE Fragen. Das Interview ist bereits gefuehrt, das Geruest liegt vor.
 
 ## Ton und Stil
 Sprache: immer Deutsch.
 Ton: dramatisch mit Lichtmomenten. Ernst, aber mit Witz, nicht durchgehend schwer.
+Beschreibungen (Kleidung, Gegenstaende, Umgebung) sollen etwas ueber Figur,
+Stand oder Stimmung verraten. Beschreibe niemals einen voellig
+selbstverstaendlichen Umstand so, als sei er bemerkenswert - das wirkt wie
+Fuellmaterial.
 Vollstaendiger Fliesstext. Keine Stichpunkte, kein Inhaltsverzeichnis.
 Nebenfiguren duerfen Humor und Marotten tragen. Die Hauptfiguren tragen das
 emotionale Gewicht.
@@ -351,16 +357,38 @@ eigenes Technik-/Organisationsvokabular, Speziesnamen/-eigenschaften (falls
 zutreffend), Rang-/Organisationsnamen, Welt-Konsistenz, moderne Popkultur-
 Begriffe, Ton-Fokus.
 
-## Ausgabe als Tabelle
-| Fundstelle (Zitat, hoechstens 10 Woerter) | Problem | Sicherheit | Vorschlag |
+## Zusaetzlich: Stimmigkeit (unabhaengig von der Welt)
+Neben Welt-Konsistenz und Markenabstand pruefst du in DERSELBEN Pruefung, ob
+der Text in sich Sinn ergibt (keine Geschmacks- oder Stilfrage, sondern eine
+Sinnfrage: Koennte ein Leser den Satz beim woertlichen Lesen ohne Stutzen
+verstehen?):
+S1. Bildlogik: Ergibt eine Metapher/ein Vergleich beim woertlichen Lesen Sinn,
+    oder ist das Bild in sich widerspruechlich oder unpassend?
+S2. Wortbedeutung: Wird ein Wort falsch benutzt, oder taucht ein erfundenes
+    Nicht-Wort auf?
+S3. Redundanz: Wird ein voellig normaler, selbstverstaendlicher Umstand so
+    beschrieben, als sei er bemerkenswert?
+S4. Anrede-Konsistenz: Wechselt eine Figur unbegruendet zwischen Sie und Du
+    gegenueber derselben Person in derselben Szene?
+
+## Ausgabe als JSON
+Gib AUSSCHLIESSLICH ein JSON-Objekt zurueck, kein Markdown, keinen Codeblock,
+keinen Text davor oder danach, in genau dieser Form:
+{{"befunde": [
+  {{"kategorie": "anachronismus" oder "stimmigkeit", "fundstelle": "<woertliches Zitat, hoechstens 10 Woerter>", "problem": "<Beschreibung>", "sicherheit": "hoch" oder "mittel" oder "gering", "vorschlag": "<konkreter Ersatztext, oder null>"}}
+]}}
+Findest du nichts, gib {{"befunde": []}} zurueck.
 
 ## Regeln
-Sicherheit ist hoch, mittel oder gering.
-Steht die Sache auf der Verbotsliste, ist die Sicherheit immer "hoch".
-Bist du unsicher, gib "gering" an. Erfinde niemals Belege oder Regeln, die
-nicht im Geruest oder in der Verbotsliste stehen.
-Findest du nichts, schreibe genau: "Keine Auffaelligkeiten gefunden."
-Antworte auf Deutsch.
+Die Verbotsliste betrifft ausschliesslich die Kategorie "anachronismus".
+Steht die Sache auf der Verbotsliste, ist "sicherheit" immer "hoch".
+Ist "sicherheit" "hoch", MUSS "vorschlag" einen konkreten Text enthalten,
+niemals null. Bist du unsicher, setze "sicherheit": "gering" und
+"vorschlag": null. Erfinde niemals Belege oder Regeln, die nicht im Geruest
+oder in der Verbotsliste stehen. Stimmigkeits-Funde sind keine
+Geschmacksfragen: nur melden, wenn ein Satz beim woertlichen Lesen
+tatsaechlich keinen Sinn ergibt.
+Antworte inhaltlich auf Deutsch, aber halte dich exakt an die JSON-Struktur oben.
 '''
     return f'''Du bist Pruefer fuer Anachronismen in Erzaehlungen aus {a.beschreibung}.
 Du bewertest keine Prosa, du korrigierst nichts, du schreibst nichts um.
@@ -379,16 +407,38 @@ Sprache/Anachronismus-Vokabular, Anrede/Titel ({a.anreden}), Gesellschafts-
 und Rechtsstruktur, Rolle von Religion/Institutionen, Geld/Masse/Gewichte,
 Rolle der Frau bzw. gesellschaftliche Einschraenkungen.
 
-## Ausgabe als Tabelle
-| Fundstelle (Zitat, hoechstens 10 Woerter) | Problem | Sicherheit | Vorschlag |
+## Zusaetzlich: Stimmigkeit (unabhaengig von der Epoche)
+Neben Anachronismen pruefst du in DERSELBEN Pruefung, ob der Text in sich Sinn
+ergibt (keine Geschmacks- oder Stilfrage, sondern eine Sinnfrage: Koennte ein
+Leser den Satz beim woertlichen Lesen ohne Stutzen verstehen?):
+S1. Bildlogik: Ergibt eine Metapher/ein Vergleich beim woertlichen Lesen Sinn,
+    oder ist das Bild in sich widerspruechlich oder fuer die Situation
+    unpassend/unklar (z.B. eine Blickgeschwindigkeit verglichen mit einem
+    Krieger bei Gelaendeuebungen)?
+S2. Wortbedeutung: Wird ein Wort falsch benutzt (z.B. "sticken" statt
+    "schreiben"), oder taucht ein erfundenes Nicht-Wort auf?
+S3. Redundanz: Wird ein fuer die Epoche voellig normaler, selbstverstaendlicher
+    Umstand so beschrieben, als sei er bemerkenswert?
+S4. Anrede-Konsistenz: Wechselt eine Figur unbegruendet zwischen Sie und Du
+    gegenueber derselben Person in derselben Szene?
+
+## Ausgabe als JSON
+Gib AUSSCHLIESSLICH ein JSON-Objekt zurueck, kein Markdown, keinen Codeblock,
+keinen Text davor oder danach, in genau dieser Form:
+{{"befunde": [
+  {{"kategorie": "anachronismus" oder "stimmigkeit", "fundstelle": "<woertliches Zitat, hoechstens 10 Woerter>", "problem": "<Beschreibung>", "sicherheit": "hoch" oder "mittel" oder "gering", "vorschlag": "<konkreter Ersatztext, oder null>"}}
+]}}
+Findest du nichts, gib {{"befunde": []}} zurueck.
 
 ## Regeln
-Sicherheit ist hoch, mittel oder gering.
-Steht die Sache auf der Verbotsliste, ist die Sicherheit immer "hoch".
-Bist du unsicher, gib "gering" an und schreibe, dass dies nachgeprueft werden
-muss. Erfinde niemals Belege, Quellen oder Jahreszahlen.
-Findest du nichts, schreibe genau: "Keine Auffaelligkeiten gefunden."
-Antworte auf Deutsch.
+Die Verbotsliste betrifft ausschliesslich die Kategorie "anachronismus".
+Steht die Sache auf der Verbotsliste, ist "sicherheit" immer "hoch".
+Ist "sicherheit" "hoch", MUSS "vorschlag" einen konkreten Text enthalten,
+niemals null. Bist du unsicher, setze "sicherheit": "gering" und
+"vorschlag": null. Erfinde niemals Belege, Quellen oder Jahreszahlen.
+Stimmigkeits-Funde sind keine Geschmacksfragen: nur melden, wenn ein Satz
+beim woertlichen Lesen tatsaechlich keinen Sinn ergibt.
+Antworte inhaltlich auf Deutsch, aber halte dich exakt an die JSON-Struktur oben.
 '''
 
 

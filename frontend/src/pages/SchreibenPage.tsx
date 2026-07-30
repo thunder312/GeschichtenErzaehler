@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, schreibenWebSocketUrl } from "../api/client";
-import type { Finding, ProjektDetail, SchreibenNachricht } from "../api/types";
-import { BefundeView } from "../components/BefundeView";
+import type { BefundeAntwort, Finding, ProjektDetail, SchreibenNachricht } from "../api/types";
+import { BefundListe } from "../components/BefundListe";
 import { FindingsList } from "../components/FindingsList";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
@@ -27,7 +27,7 @@ export function SchreibenPage({
   const [autorText, setAutorText] = useState("");
   const [geladenAusDatei, setGeladenAusDatei] = useState(false);
   const [modell, setModell] = useState<string | null>(null);
-  const [befunde, setBefunde] = useState<string | null>(null);
+  const [befunde, setBefunde] = useState<BefundeAntwort | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [phase, setPhase] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
@@ -124,10 +124,10 @@ export function SchreibenPage({
         setFindings(nachricht.findings);
       }
       if (nachricht.phase === "pruefen" && nachricht.typ === "start") {
-        aktivitaetStarten(`Prüft Kapitel ${n} auf Anachronismen & Kontinuität...`);
+        aktivitaetStarten(`Prüft Kapitel ${n} auf Anachronismen, Stimmigkeit, Kontinuität & Lektorat...`);
       }
       if (nachricht.phase === "pruefen" && nachricht.typ === "done") {
-        setBefunde(nachricht.text);
+        setBefunde(nachricht.befunde);
       }
       if (nachricht.phase === "abgeschlossen") {
         setLaeuft(false);
@@ -198,7 +198,7 @@ export function SchreibenPage({
             value={zusatzhinweis}
             onChange={(e) => setZusatzhinweis(e.target.value)}
             disabled={laeuft}
-            placeholder="z.B. bei starken Kontinuitaets-Bruechen im letzten Versuch..."
+            placeholder="z.B. bei starken Kontinuitäts-Brüchen im letzten Versuch..."
           />
         </div>
         {!laeuft ? (
@@ -249,8 +249,8 @@ export function SchreibenPage({
 
         {befunde && (
           <Card>
-            <CardTitle>Befunde der Prüfer (Anachronismen &amp; Kontinuität)</CardTitle>
-            <BefundeView text={befunde} />
+            <CardTitle>Befunde der Prüfer (Anachronismen, Stimmigkeit &amp; Kontinuität)</CardTitle>
+            <BefundListe befunde={befunde.befunde} />
           </Card>
         )}
       </div>

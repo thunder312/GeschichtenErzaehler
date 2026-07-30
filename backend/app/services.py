@@ -48,7 +48,7 @@ def projekt_pfad(settings: Settings, username: str, ordner: str) -> Path:
     wurzel = projekte_wurzel(settings, username).resolve()
     kandidat = (wurzel / ordner).resolve()
     if wurzel not in kandidat.parents and kandidat != wurzel:
-        raise HTTPException(400, "Ungueltiger Projektordner.")
+        raise HTTPException(400, "Ungültiger Projektordner.")
     if not kandidat.is_dir():
         raise HTTPException(404, f"Projekt '{ordner}' nicht gefunden.")
     return kandidat

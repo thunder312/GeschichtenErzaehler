@@ -5,6 +5,8 @@ doc/Schnittstellen-Uebersicht.md Abschnitt 1 - kein Ollama-Aufruf hier
 (siehe app/api/pipeline.py fuer die eigentlichen Schreib-/Pruef-Schritte)."""
 from __future__ import annotations
 
+import hashlib
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 
@@ -13,6 +15,7 @@ from app.config import Settings, get_settings
 from app.core import geruest as g
 from app.core import projekt_dateien as pd
 from app.schemas import (
+    BefundeAntwort,
     Benutzer,
     EpocheKurz,
     GeruestSchreibenAnfrage,
@@ -168,7 +171,7 @@ def verbotsliste_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
 
 PERSONA_NAMEN = (
     "architekt", "autor", "pruefer_anachronismus",
-    "chronist", "pruefer_kontinuitaet", "lektor", "anachronismen_korrektur",
+    "chronist", "pruefer_kontinuitaet", "lektor",
 )
 
 
@@ -243,14 +246,30 @@ def stand_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings),
     return pd.lies(datei)
 
 
-@router.get("/{ordner:path}/befunde/{n}", response_class=PlainTextResponse)
+@router.get("/{ordner:path}/befunde/{n}", response_model=BefundeAntwort)
 def befunde_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings),
                    benutzer: Benutzer = Depends(get_current_user)):
     pfad = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
     datei = pd.befunde_datei(pfad, n)
     if not datei.exists():
         raise HTTPException(404, f"Befunde zu Kapitel {n} nicht gefunden.")
-    return pd.lies(datei)
+    antwort = BefundeAntwort.model_validate_json(pd.lies(datei))
+
+    # Die start/end-Offsets in `antwort.befunde` wurden beim letzten
+    # /pruefen-Lauf gegen den DAMALIGEN Kapiteltext berechnet. Wurde die
+    # Kapiteldatei seither ueberschrieben (Regenerierung im Schreiben-Tab,
+    # manuelles Speichern), zeigen sie auf falsche Stellen im JETZIGEN Text -
+    # der klassische "Offsets aus Revision A auf Revision B angewandt"-Fehler.
+    # Hash-Vergleich erkennt das billig, bevor das Frontend ueberhaupt erst
+    # eine (dann falsch positionierte) Decoration anlegt; der Anker-Check in
+    # befundReview.ts faengt es zusaetzlich pro Fund ab, falls hier doch mal
+    # etwas durchrutscht (z.B. altes befunde_*.json ohne quelltext_sha256).
+    kapitel_datei = pd.kapitel_datei(pfad, n)
+    if kapitel_datei.exists():
+        aktueller_hash = hashlib.sha256(pd.lies(kapitel_datei).encode("utf-8")).hexdigest()
+        antwort.veraltet = antwort.quelltext_sha256 != aktueller_hash
+
+    return antwort
 
 
 @router.get("/{ordner:path}/gesamt", response_class=PlainTextResponse)

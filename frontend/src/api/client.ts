@@ -1,5 +1,4 @@
 import type {
-  AnwendenAntwort,
   BefundeAntwort,
   Benutzer,
   BenutzerAnlegenEingabe,
@@ -81,7 +80,7 @@ export const api = {
     anfrage<string>(`/api/projects/${ordner}/stand/${n}`),
 
   befunde: (ordner: string, n: number) =>
-    anfrage<string>(`/api/projects/${ordner}/befunde/${n}`),
+    anfrage<BefundeAntwort>(`/api/projects/${ordner}/befunde/${n}`),
 
   gesamt: (ordner: string) => anfrage<string>(`/api/projects/${ordner}/gesamt`),
 
@@ -111,18 +110,6 @@ export const api = {
   pruefen: (ordner: string, n: number, sshZielId?: string | null) =>
     anfrage<BefundeAntwort>(
       `/api/projects/${ordner}/pruefen/${n}${sshQuery(sshZielId)}`,
-      { method: "POST" },
-    ),
-
-  anwenden: (ordner: string, n: number, sshZielId?: string | null) =>
-    anfrage<AnwendenAntwort>(
-      `/api/projects/${ordner}/anwenden/${n}${sshQuery(sshZielId)}`,
-      { method: "POST" },
-    ),
-
-  lektorieren: (ordner: string, n: number, sshZielId?: string | null) =>
-    anfrage<AnwendenAntwort>(
-      `/api/projects/${ordner}/lektorieren/${n}${sshQuery(sshZielId)}`,
       { method: "POST" },
     ),
 

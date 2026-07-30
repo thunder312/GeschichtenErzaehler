@@ -85,13 +85,31 @@ body {
   font-variation-settings: "opsz" 144;
 }
 
-/* Anachronismus-Korrekturen in der hunkweisen Merge-Ansicht (siehe
- * PruefenAnwendenPage/hunkReview.ts) heben sich bewusst farblich (Amber)
- * von normalen Lektorat-Aenderungen (Standard-Diff-Gruen/-Rot in
- * LektorierenPage) ab - ganze Kapitel-Bloecke statt einzelner Woerter.
- * !important + der zusaetzliche .monaco-editor-Praefix, weil Monacos
- * eigene Diff-Zeilenfaerbung (.line-insert/.line-delete) sonst per
- * Ladereihenfolge im Stylesheet gewinnen kann. */
-.monaco-editor .hunk-review-anachronismus {
-  background-color: rgba(217, 119, 6, 0.35) !important;
+/* Inline-Markierungen im einzelnen (nicht Diff-)Editor der vereinheitlichten
+ * Pruefer-Ansicht (siehe BefundEditor.tsx) - eine Farbe je Fund-Kategorie,
+ * dieselbe Farblogik wie in BefundListe.tsx (Amber/Violett/Sky/Emerald),
+ * dazu Rot fuer Konflikte und eine eigene Mischfarbe, wenn mehr als eine
+ * Kategorie denselben Textbereich betrifft. */
+.monaco-editor .finding-anachronismus {
+  background-color: rgba(217, 119, 6, 0.35);
+}
+
+.monaco-editor .finding-stimmigkeit {
+  background-color: rgba(139, 92, 246, 0.3);
+}
+
+.monaco-editor .finding-kontinuitaet {
+  background-color: rgba(2, 132, 199, 0.35);
+}
+
+.monaco-editor .finding-lektorat {
+  background-color: rgba(52, 211, 153, 0.3);
+}
+
+.monaco-editor .finding-multi {
+  background-color: rgba(20, 184, 166, 0.35);
+}
+
+.monaco-editor .finding-konflikt {
+  background-color: rgba(248, 113, 113, 0.4);
 }

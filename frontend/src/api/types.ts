@@ -65,15 +65,37 @@ export interface Finding {
   schwere: "warnung" | "info";
 }
 
-export interface BefundeAntwort {
-  kapitel: number;
-  inhalt: string;
+export type BefundKategorie = "anachronismus" | "stimmigkeit" | "kontinuitaet" | "lektorat";
+
+export interface BefundBeschreibung {
+  quelle: string;
+  text: string;
 }
 
-export interface AnwendenAntwort {
-  alt: string;
-  neu: string;
-  gesichert_als: string | null;
+export interface Befund {
+  id: string;
+  kategorien: BefundKategorie[];
+  fundstelle: string;
+  beschreibungen: BefundBeschreibung[];
+  sicherheit: "hoch" | "mittel" | "gering" | null;
+  vorschlag: string | null;
+  konflikt: boolean;
+  konflikt_vorschlaege: BefundBeschreibung[] | null;
+  gefunden: boolean;
+  start: number | null;
+  end: number | null;
+}
+
+export interface BefundeAntwort {
+  kapitel: number;
+  erzeugt_am: string;
+  jahr: string | null;
+  befunde: Befund[];
+  quelltext_sha256: string | null;
+  /** true, wenn der Kapiteltext seit dieser Pruefung ueberschrieben wurde -
+   * die start/end-Offsets in `befunde` koennen dann auf falsche Stellen
+   * zeigen (siehe befunde_lesen() im Backend). */
+  veraltet: boolean;
 }
 
 export interface RechtschreibWort {
@@ -143,7 +165,7 @@ export type SchreibenNachricht =
       titelseite_hinzugefuegt: boolean;
     }
   | { phase: "pruefen"; typ: "start" }
-  | { phase: "pruefen"; typ: "done"; text: string }
+  | { phase: "pruefen"; typ: "done"; befunde: BefundeAntwort }
   | { phase: "abgeschlossen"; kapitel_text: string }
   | { phase: "fehler"; typ: "error"; text: string };
 

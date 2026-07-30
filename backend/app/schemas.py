@@ -126,15 +126,42 @@ class Finding(BaseModel):
     schwere: str
 
 
+class BefundBeschreibung(BaseModel):
+    quelle: str
+    text: str
+
+
+class Befund(BaseModel):
+    """Ein (ggf. aus mehreren Pruefer-Funden zusammengefuehrter) Fund - siehe
+    app/core/befunde_merge.py fuer die Zusammenfuehrungs-Logik und
+    app/core/fundstellen.py fuer die Ermittlung von start/end."""
+    id: str
+    kategorien: list[str]
+    fundstelle: str
+    beschreibungen: list[BefundBeschreibung]
+    sicherheit: str | None
+    vorschlag: str | None
+    konflikt: bool
+    konflikt_vorschlaege: list[BefundBeschreibung] | None = None
+    gefunden: bool
+    start: int | None
+    end: int | None
+
+
 class BefundeAntwort(BaseModel):
     kapitel: int
-    inhalt: str
-
-
-class AnwendenAntwort(BaseModel):
-    alt: str
-    neu: str
-    gesichert_als: str | None
+    erzeugt_am: str
+    jahr: str | None
+    befunde: list[Befund]
+    # SHA-256 des Kapiteltexts, gegen den die start/end-Offsets in `befunde`
+    # berechnet wurden - erlaubt es, beim spaeteren Lesen (befunde_lesen())
+    # zu erkennen, ob der Kapiteltext seither ueberschrieben wurde und die
+    # Offsets damit veraltet sind. None nur bei vor Einfuehrung dieses Felds
+    # geschriebenen befunde_*.json-Dateien.
+    quelltext_sha256: str | None = None
+    # Wird nicht mitgeschrieben, sondern erst beim Lesen (befunde_lesen())
+    # anhand von quelltext_sha256 gesetzt.
+    veraltet: bool = False
 
 
 class RechtschreibWort(BaseModel):

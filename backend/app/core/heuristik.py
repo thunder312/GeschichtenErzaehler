@@ -48,10 +48,10 @@ def sprachdrift_pruefen(text: str, schwelle: float = 0.03) -> list[Finding]:
     if anteil > schwelle:
         return [Finding(
             "sprachdrift",
-            f"Moeglicher Sprachdrift ins Englische - {treffer} typisch "
-            f"englische Woerter auf {gesamt} Woerter gesamt ({anteil:.0%}). "
+            f"Möglicher Sprachdrift ins Englische - {treffer} typisch "
+            f"englische Wörter auf {gesamt} Wörter gesamt ({anteil:.0%}). "
             f"Bei echtem Drift: betroffenen Abschnitt verwerfen und neu "
-            f"erzeugen lassen, nicht nur uebersetzen.",
+            f"erzeugen lassen, nicht nur übersetzen.",
         )]
     return []
 
@@ -78,8 +78,8 @@ def erzaehlperspektive_pruefen(text: str, geruest: str, schwellwert: int = 2) ->
         gefundene_woerter = ", ".join(sorted(set(w.lower() for w in treffer)))
         return [Finding(
             "ich_perspektive",
-            f"Geruest schreibt dritte Person vor, aber ausserhalb woertlicher "
-            f"Rede tauchen {len(treffer)} Ich-Perspektive-Woerter auf "
+            f"Geruest schreibt dritte Person vor, aber außerhalb wörtlicher "
+            f"Rede tauchen {len(treffer)} Ich-Perspektive-Wörter auf "
             f"({gefundene_woerter}). Vermutlich mitten im Text in die "
             f"Ich-Perspektive gerutscht - Abschnitt eher neu schreiben lassen "
             f"als von Hand umformulieren.",
@@ -104,11 +104,11 @@ def anredeform_pruefen(text: str) -> list[Finding]:
     if foermlich and informell:
         return [Finding(
             "anredeform",
-            f"Sowohl foermliche Anrede (Sie/Ihnen, {len(foermlich)}x) als "
+            f"Sowohl förmliche Anrede (Sie/Ihnen, {len(foermlich)}x) als "
             f"auch informelle Anrede (du/dich/dir/dein, {len(informell)}x) "
-            f"in woertlicher Rede gefunden. Pruefen, ob der Wechsel "
+            f"in wörtlicher Rede gefunden. Prüfen, ob der Wechsel "
             f"beabsichtigt ist (z.B. wachsende Vertrautheit) oder ein "
-            f"unbegruendeter Ausrutscher.",
+            f"unbegründeter Ausrutscher.",
         )]
     return []
 
@@ -123,7 +123,7 @@ AUSWEICH_MUSTER = [
     "grenzen erkundet", "grenzen erkunden",
     "verloren ineinander", "eins wurden", "eins werden",
     "neue welt", "neuer morgen brach",
-    "wie die götter", "wie die goetter es vorgeschrieben",
+    "wie die götter es vorgeschrieben",
 ]
 
 
@@ -132,8 +132,8 @@ def ausweichformulierungen_pruefen(text: str) -> list[Finding]:
     if treffer:
         return [Finding(
             "ausweichformulierung",
-            f"Moegliche Ausweichformulierung(en) gefunden: {', '.join(treffer)}. "
-            f"Deutet auf ein Fade-to-black statt einer ausgefuehrten Szene hin - "
+            f"Mögliche Ausweichformulierung(en) gefunden: {', '.join(treffer)}. "
+            f"Deutet auf ein Fade-to-black statt einer ausgeführten Szene hin - "
             f"Kapitel lesen, nicht nur auf die Wortzahl verlassen.",
         )]
     return []
@@ -201,9 +201,9 @@ def kapitel_neustart_abschneiden(text: str) -> tuple[str, list[Finding]]:
     grenze = treffer[1].start()
     finding = Finding(
         "kapitel_neustart",
-        "Die Kapitelueberschrift wurde ein zweites Mal gefunden - das Modell "
+        "Die Kapitelüberschrift wurde ein zweites Mal gefunden - das Modell "
         "hat vermutlich neu angefangen statt fortzusetzen. Text ab der "
-        "zweiten Ueberschrift automatisch abgeschnitten.",
+        "zweiten Überschrift automatisch abgeschnitten.",
     )
     return text[:grenze].rstrip(), [finding]
 
@@ -226,9 +226,9 @@ def vorzeitige_kapitelende_abschneiden(text: str, mindest_rest: int = 50) -> tup
         return text, []
     finding = Finding(
         "vorzeitiges_kapitelende",
-        f"Der Text erklaert sich mitten drin selbst fuer beendet "
+        f"Der Text erklärt sich mitten drin selbst für beendet "
         f"(Fundstelle: '{treffer.group(0)}'), schreibt danach aber noch "
-        f"{woerter(rest)} Woerter weiter - vermutlich eine ungeplante neue "
+        f"{woerter(rest)} Wörter weiter - vermutlich eine ungeplante neue "
         f"Szene nach einer Fortsetzung. Text ab dieser Stelle automatisch "
         f"abgeschnitten.",
     )
@@ -254,7 +254,7 @@ def fuehrende_duplikate_entfernen(bisheriger_text: str, fortsetzung: str,
         if min(aehnlichkeiten) > 0.75:
             finding = Finding(
                 "fuehrende_duplikate",
-                f"{k} wiederholte(r) Absatz/Absaetze aus der Fortsetzung "
+                f"{k} wiederholte(r) Absatz/Absätze aus der Fortsetzung "
                 f"entfernt (Modell hat trotz Anweisung dupliziert).",
                 schwere="info",
             )

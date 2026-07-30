@@ -1,70 +1,70 @@
 # Verbotsliste: deutsches Hochmittelalter, ca. 1100 bis 1300
 
-Diese Datei wird bei jeder Pruefung vollstaendig mitgeschickt. Je konkreter sie ist,
-desto besser die Trefferquote. Beim Schreiben laufend ergaenzen.
+Diese Datei wird bei jeder Prüfung vollständig mitgeschickt. Je konkreter sie ist,
+desto besser die Trefferquote. Beim Schreiben laufend ergänzen.
 
-## Speisen, Getraenke, Genussmittel
-- Kartoffel, Tomate, Mais, Paprika, Bohne (Gartenbohne), Kuerbis, Sonnenblume,
+## Speisen, Getränke, Genussmittel
+- Kartoffel, Tomate, Mais, Paprika, Bohne (Gartenbohne), Kürbis, Sonnenblume,
   Kakao, Schokolade, Vanille, Truthahn: alle erst nach 1500 aus Amerika
 - Kaffee, Tee: im Reich erst im 17. Jahrhundert
 - Tabak, Rauchen, Schnupftabak
-- Zucker als Alltagszutat. Rohrzucker war teure Apothekerware, gesuesst wurde mit Honig
-- Branntwein, Schnaps, destillierter Alkohol als Getraenk
-- Kartoffelgerichte jeder Art, auch beilaeufig erwaehnt
+- Zucker als Alltagszutat. Rohrzucker war teure Apothekerware, gesüßt wurde mit Honig
+- Branntwein, Schnaps, destillierter Alkohol als Getränk
+- Kartoffelgerichte jeder Art, auch beiläufig erwähnt
 
-## Gegenstaende und Technik
-- Streichhoelzer, Feuerzeug. Feuer wird mit Zunder, Stahl und Feuerstein geschlagen
-- Buchdruck, gedruckte Buecher, Flugblaetter (erst ab ca. 1450)
+## Gegenstände und Technik
+- Streichhölzer, Feuerzeug. Feuer wird mit Zunder, Stahl und Feuerstein geschlagen
+- Buchdruck, gedruckte Bücher, Flugblätter (erst ab ca. 1450)
 - Papier als Alltagsmaterial. Geschrieben wird auf Pergament
 - Schusswaffen, Kanonen, Schwarzpulver
-- Gabel als Essbesteck. Gegessen wird mit Messer, Loeffel und Fingern
-- Fensterglas in Bauern- und Buergerhaeusern. Glas nur in Kirchen und reichen Burgen
+- Gabel als Essbesteck. Gegessen wird mit Messer, Löffel und Fingern
+- Fensterglas in Bauern- und Bürgerhäusern. Glas nur in Kirchen und reichen Burgen
 - Spiegel aus Glas. Es gibt polierte Metallspiegel
-- Raederuhr mit Minutenzeiger, Uhrzeiten auf die Minute genau
-- Taschentuch, Seife als Alltagsprodukt, Zahnbuerste
-- Spielkarten (erst spaetes 14. Jahrhundert)
+- Räderuhr mit Minutenzeiger, Uhrzeiten auf die Minute genau
+- Taschentuch, Seife als Alltagsprodukt, Zahnbürste
+- Spielkarten (erst spätes 14. Jahrhundert)
 - Brille: sehr grenzwertig, erst gegen 1290 in Italien. Im Reich vor 1300 vermeiden
 - Schubkarre mit Rad in modernem Sinn, Spinnrad (erst 13. bis 14. Jahrhundert,
   vorsichtig behandeln)
 
-## Ruestung und Kampf
-- Vollstaendige Plattenruestung. Getragen wird das Kettenhemd, spaeter mit
-  Plattenverstaerkungen
-- Visierhelm im spaetmittelalterlichen Sinn. Es gibt Nasalhelm und Topfhelm
-- Zweihaender, Rapier, Degen
+## Rüstung und Kampf
+- Vollständige Plattenrüstung. Getragen wird das Kettenhemd, später mit
+  Plattenverstärkungen
+- Visierhelm im spätmittelalterlichen Sinn. Es gibt Nasalhelm und Topfhelm
+- Zweihänder, Rapier, Degen
 - Ritterinnen, Frauen mit Ritterschlag oder ritterlichem Status: existiert nicht
-- Turnier als hoefisches Schauspiel mit Tribuenen im spaetmittelalterlichen Sinn.
+- Turnier als höfisches Schauspiel mit Tribünen im spätmittelalterlichen Sinn.
   Das hochmittelalterliche Turnei ist eine rauhe Massenveranstaltung
 
 ## Gesellschaft, Recht, Kirche
-- Hexenverbrennung und Hexenprozesse: ueberwiegend Fruehe Neuzeit, nicht 1100 bis 1300
-- Inquisition als flaechendeckende Einrichtung im Reich
+- Hexenverbrennung und Hexenprozesse: überwiegend Frühe Neuzeit, nicht 1100 bis 1300
+- Inquisition als flächendeckende Einrichtung im Reich
 - Feste Nachnamen bei Bauern und einfachen Leuten
-- Buergerliche Ehe aus freier Liebeswahl im Adel. Ehen sind Buendnisse
+- Bürgerliche Ehe aus freier Liebeswahl im Adel. Ehen sind Bündnisse
 - Konfession, evangelisch, protestantisch, Reformation
 - Absolutismus, Nationalstaat, Deutschland als Land, Patriotismus
-- Schulpflicht, Universitaet als Massenbetrieb
-- Anwalt, Polizei, Gefaengnisstrafe als uebliche Sanktion
+- Schulpflicht, Universität als Massenbetrieb
+- Anwalt, Polizei, Gefängnisstrafe als übliche Sanktion
 
 ## Sprache und Anrede
 - "Hallo" als Grussformel
-- "Okay", "Tschuess", "Servus" in moderner Verwendung
+- "Okay", "Tschüss", "Servus" in moderner Verwendung
 - Anglizismen jeder Art
 - Fachbegriffe der Psychologie: Trauma, Depression, Beziehung im modernen Sinn,
-  Selbstverwirklichung, Identitaet
-- Moderne Hoeflichkeitsfloskeln: "Kein Problem", "Alles klar", "Viel Glueck"
+  Selbstverwirklichung, Identität
+- Moderne Höflichkeitsfloskeln: "Kein Problem", "Alles klar", "Viel Glück"
 - Uhrzeitangaben. Die Zeit wird nach Tageslicht und Gebetszeiten bestimmt:
   Matutin, Laudes, Prim, Terz, Sext, Non, Vesper, Komplet
 - Regency- und viktorianisches Vokabular: Lady, Sir, Mylord im englischen Sinn,
-  Salon, Sekretaer, Kutsche mit Federung, Ballsaison, Gouvernante, Debuetantin
-- Metrische Masse: Meter, Kilometer, Gramm, Kilogramm, Grad Celsius, Minuten
+  Salon, Sekretär, Kutsche mit Federung, Ballsaison, Gouvernante, Debütantin
+- Metrische Maße: Meter, Kilometer, Gramm, Kilogramm, Grad Celsius, Minuten
 - Prozentangaben
 
 ## Namen und Orte
-- Englische, franzoesische oder italienische Vornamen ohne Begruendung
+- Englische, französische oder italienische Vornamen ohne Begründung
 - Moderne Vornamen. Epochentypisch sind Konrad, Heinrich, Otto, Dietrich, Gottfried,
   Adelheid, Kunigunde, Mechthild, Irmgard, Hedwig
 - Reale Ortsnamen in falscher Schreibweise oder mit falschem Status
 
-## Eigene Ergaenzungen
-(hier waehrend des Schreibens eintragen, was beim Lesen aufgefallen ist)
+## Eigene Ergänzungen
+(hier während des Schreibens eintragen, was beim Lesen aufgefallen ist)

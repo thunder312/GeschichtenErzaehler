@@ -1,23 +1,23 @@
 # Verbotsliste: Shadowrun
 
-Diese Datei wird bei jeder Pruefung vollstaendig mitgeschickt. Je konkreter sie
-ist, desto besser die Trefferquote. Beim Schreiben laufend ergaenzen.
+Diese Datei wird bei jeder Prüfung vollständig mitgeschickt. Je konkreter sie
+ist, desto besser die Trefferquote. Beim Schreiben laufend ergänzen.
 
-## Aus dem Fragebogen uebernommen
+## Aus dem Fragebogen übernommen
 - Eisenbahn
 - Kutschen
 - Magie und alles was vor 2026 benutzt wurde
 
-## HIER ERGAENZEN
+## HIER ERGÄNZEN
 Das ist der wichtigste Abschnitt der ganzen Epoche und der, den ein lokales
-Modell am wenigsten zuverlaessig selbst recherchieren kann. Fuer echte Epochen:
-was gab es im gewaehlten Zeitraum noch nicht (Gegenstaende, Technik, Sprache,
-Institutionen)? Fuer erfundene Welten: welche Fremdmarken-Begriffe sind zu
+Modell am wenigsten zuverlässig selbst recherchieren kann. Für echte Epochen:
+was gab es im gewählten Zeitraum noch nicht (Gegenstände, Technik, Sprache,
+Institutionen)? Für erfundene Welten: welche Fremdmarken-Begriffe sind zu
 vermeiden, welche eigenen Begriffe gelten stattdessen?
-Empfehlung: Diese Liste in einem eigenen Gespraech recherchieren lassen, mit
-Websuche, aehnlich wie epochen/Regency/verbotsliste.md oder
+Empfehlung: Diese Liste in einem eigenen Gespräch recherchieren lassen, mit
+Websuche, ähnlich wie epochen/Regency/verbotsliste.md oder
 epochen/Zukunft/verbotsliste.md entstanden sind - nicht dem lokalen Modell
-ueberlassen.
+überlassen.
 
-## Eigene Ergaenzungen
-(hier waehrend des Schreibens eintragen, was beim Lesen aufgefallen ist)
+## Eigene Ergänzungen
+(hier während des Schreibens eintragen, was beim Lesen aufgefallen ist)

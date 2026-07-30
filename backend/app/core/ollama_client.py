@@ -41,6 +41,7 @@ async def chat_stream(
     user: str,
     ueberschreibe: dict | None = None,
     timeout: float = 3600.0,
+    format: dict | str | None = None,
 ) -> AsyncIterator[ChatEvent]:
     if rolle not in ROLLEN:
         raise OllamaFehler(f"Unbekannte Rolle: {rolle}")
@@ -61,6 +62,11 @@ async def chat_stream(
         "think": cfg.get("think", False),
         "options": optionen,
     }
+    # Nur gesetzt, wenn explizit angefordert (z.B. "json" fuer die
+    # Pruefer-Rollen, die eine strukturierte Befund-Liste statt Fliesstext
+    # liefern sollen) - jede andere Rolle bleibt unveraendert im Verhalten.
+    if format:
+        payload["format"] = format
 
     start = time.time()
     teile: list[str] = []

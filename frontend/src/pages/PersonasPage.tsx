@@ -10,15 +10,14 @@ interface PersonasPageProps {
 const BESCHRIFTUNG: Record<string, string> = {
   architekt: "🗺️ Architekt",
   autor: "✍️ Autor",
-  pruefer_anachronismus: "🔍 Anachronismus-Prüfer",
+  pruefer_anachronismus: "🔍 Anachronismus- & Stimmigkeits-Prüfer",
   chronist: "📖 Chronist",
   pruefer_kontinuitaet: "🔗 Kontinuitäts-Prüfer",
   lektor: "🪄 Lektor",
-  anachronismen_korrektur: "🛠️ Anachronismus-Korrektor",
 };
 
 /** Editor fuer die Rollen-Prompts (personas/*.txt) dieses Projekts. Jedes
- * Projekt haelt beim Anlegen eine eigene Kopie der 7 Personas (siehe
+ * Projekt haelt beim Anlegen eine eigene Kopie der 6 Personas (siehe
  * app/core/projekt_dateien.py:projekt_anlegen) - Aenderungen hier wirken
  * sich deshalb nur auf DIESES Projekt aus, nicht auf die zentrale
  * Epochen-/Personas-Bibliothek. */

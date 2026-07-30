@@ -118,21 +118,6 @@ ROLLEN: dict[str, dict] = {
             "seed": 42,
         },
     },
-    "anachronismen_korrektur": {
-        "modell": "gemma4",
-        "think": False,
-        "optionen": {
-            "temperature": 0.1,
-            "top_p": 0.7,
-            "min_p": 0.1,
-            "top_k": 20,
-            "repeat_penalty": 1.0,
-            "repeat_last_n": 64,
-            "num_ctx": 16384,
-            "num_predict": 6144,
-            "seed": 42,
-        },
-    },
 }
 
 GESAMT_NUM_CTX = 24576
@@ -142,27 +127,27 @@ GESAMT_NUM_PREDICT = 6144
 # werden (Architekten-Frage 2, siehe Bedienungsanleitung Abschnitt 8).
 STUFE_DIREKTIVEN: dict[str, str] = {
     "voll": (
-        "Content-Stufe fuer dieses Projekt: VOLL EXPLIZIT. Halte dich an die "
+        "Content-Stufe für dieses Projekt: VOLL EXPLIZIT. Halte dich an die "
         "Vorgaben deiner Persona zu expliziter Erotik."
     ),
     "angedeutet": (
-        "WICHTIG, Content-Stufe fuer dieses Projekt: ANGEDEUTET/ROMANTISCH. "
-        "Ignoriere fuer dieses Projekt alle Anweisungen deiner Persona zu "
+        "WICHTIG, Content-Stufe für dieses Projekt: ANGEDEUTET/ROMANTISCH. "
+        "Ignoriere für dieses Projekt alle Anweisungen deiner Persona zu "
         "expliziten sexuellen Handlungen (Oralsex, Analsex, Fingering, "
-        "detaillierte koerperliche Beschreibung des Akts). Erlaubt sind "
-        "Anziehung, Naehe, Kuss, Umarmung, angedeutete Zuneigung. Ein "
+        "detaillierte körperliche Beschreibung des Akts). Erlaubt sind "
+        "Anziehung, Nähe, Kuss, Umarmung, angedeutete Zuneigung. Ein "
         "intimer Moment darf beginnen, wird aber VOR dem eigentlichen "
-        "sexuellen Akt per Szenenwechsel, Ellipse oder gedaempfter Andeutung "
+        "sexuellen Akt per Szenenwechsel, Ellipse oder gedämpfter Andeutung "
         "beendet, z.B. 'Er zog sie sanft zu sich, und die Kerze verlosch.' "
-        "Keine expliziten Koerperbeschreibungen sexueller Natur."
+        "Keine expliziten Körperbeschreibungen sexueller Natur."
     ),
     "jugendfrei": (
-        "WICHTIG, Content-Stufe fuer dieses Projekt: JUGENDFREI. Ignoriere "
-        "fuer dieses Projekt VOLLSTAENDIG alle Anweisungen deiner Persona zu "
-        "Erotik oder Sexualitaet. Keine koerperliche Intimitaet ueber "
+        "WICHTIG, Content-Stufe für dieses Projekt: JUGENDFREI. Ignoriere "
+        "für dieses Projekt VOLLSTÄNDIG alle Anweisungen deiner Persona zu "
+        "Erotik oder Sexualität. Keine körperliche Intimität über "
         "Handhalten, eine Umarmung oder einen einzelnen, keuschen Kuss "
-        "hinaus. Romantische Gefuehle duerfen thematisiert werden, aber rein "
-        "emotional, nie koerperlich vertieft. Kein Bett, kein Entkleiden, "
-        "keine sinnliche Beschreibung von Koerpern."
+        "hinaus. Romantische Gefühle dürfen thematisiert werden, aber rein "
+        "emotional, nie körperlich vertieft. Kein Bett, kein Entkleiden, "
+        "keine sinnliche Beschreibung von Körpern."
     ),
 }
