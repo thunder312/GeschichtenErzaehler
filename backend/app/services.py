@@ -54,6 +54,15 @@ def projekt_pfad(settings: Settings, username: str, ordner: str) -> Path:
     return kandidat
 
 
+def fundus_datei(settings: Settings, username: str) -> Path:
+    """Pfad zur Personen-Fundus-Datei EINES Benutzers - liegt direkt unter
+    der (benutzerspezifischen) Projekte-Wurzel, unabhaengig von der
+    "Unterordner je Epoche"-Einstellung, da der Fundus epochenuebergreifend
+    EINE Datei ist (intern nach '## <Epoche>' gegliedert, siehe
+    app/core/fundus.py)."""
+    return projekte_wurzel(settings, username) / "fundus.md"
+
+
 def neuer_projekt_pfad(settings: Settings, username: str, titel: str, epoche: str | None = None) -> Path:
     """Ort fuer ein neu anzulegendes Projekt. Ist die Einstellung
     "Unterordner je Epoche" aktiv (siehe app/api/einstellungen.py), landet

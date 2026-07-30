@@ -181,6 +181,12 @@ class EinstellungenAntwort(BaseModel):
     unterordner_je_epoche: bool
 
 
+class FundusImportAntwort(BaseModel):
+    importierte_projekte: int
+    gefundene_figuren: int
+    uebersprungen: list[str]
+
+
 class EinstellungenAnfrage(BaseModel):
     # Leer/None setzt den Override zurueck auf standard_projects_dir.
     projects_dir: str | None = None

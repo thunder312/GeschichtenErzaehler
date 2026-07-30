@@ -125,6 +125,29 @@ async def chat_stream(
         ) from e
 
 
+async def sammle_antwort(
+    base_url: str, rolle: str, system: str, user: str, format: dict | str | None = None,
+) -> tuple[str, dict]:
+    """Sammelt chat_stream() zu einer fertigen (nicht-streamenden) Antwort
+    auf - fuer Rollen, deren Ergebnis als Ganzes weiterverarbeitet wird
+    (z.B. format="json" fuer strukturierte Antworten) statt live an ein
+    Frontend gestreamt zu werden. Raised OllamaFehler bei Stream-Fehler oder
+    leerer Antwort - bewusst KEINE HTTPException hier (core/ darf nicht von
+    FastAPI abhaengen; app/api/pipeline.py uebersetzt OllamaFehler bei
+    Bedarf in eine HTTPException, app/api/architekt.py faengt sie direkt
+    als nicht-fatalen Fehler ab, siehe dortiger Fundus-Auto-Save)."""
+    text = ""
+    meta: dict = {}
+    async for event in chat_stream(base_url, rolle, system, user, format=format):
+        if event.typ == "error":
+            raise OllamaFehler(f"Ollama-Fehler ({rolle}): {event.text}")
+        if event.typ == "done":
+            text, meta = event.text, event.meta
+    if not text:
+        raise OllamaFehler(f"Leere Antwort von Rolle '{rolle}' erhalten.")
+    return text, meta
+
+
 async def ps(base_url: str) -> dict:
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.get(f"{base_url}/api/ps")
