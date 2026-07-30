@@ -34,14 +34,18 @@ from __future__ import annotations
 import json
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from pydantic import ValidationError
 
 from app.auth import get_current_user, get_current_user_ws
 from app.config import Settings, get_settings
 from app.core import architekt as arch
+from app.core import fundus as fu
+from app.core import geruest as g
 from app.core import projekt_dateien as pd
-from app.core.ollama_client import OllamaFehler, chat_stream
+from app.core.fundus_schema import FundusExtraktionAntwortLLM
+from app.core.ollama_client import OllamaFehler, chat_stream, sammle_antwort
 from app.schemas import Benutzer
-from app.services import ollama_basis_url, ordner_nach_umbenennung, projekt_pfad
+from app.services import fundus_datei, ollama_basis_url, ordner_nach_umbenennung, projekt_pfad
 
 router = APIRouter(prefix="/api/projects", tags=["architekt"])
 
@@ -76,6 +80,53 @@ def architekt_fortsetzbar(ordner: str, settings: Settings = Depends(get_settings
     return {"fortsetzbar": _verlauf_laden(projekt_root) is not None}
 
 
+def _fundus_kontext(settings: Settings, benutzer: Benutzer, projekt_root) -> str:
+    """Baut den einmalig an persona_text anzuhaengenden Fundus-Auszug fuer
+    die aktuelle Epoche des Projekts (siehe app/core/fundus.py) - leerer
+    String, falls das Projekt keine Epoche hat oder der Fundus dafuer noch
+    keinen Abschnitt enthaelt."""
+    epoche = pd.epoche_von_projekt(projekt_root)
+    if not epoche:
+        return ""
+    fundus_text = pd.lies(fundus_datei(settings, benutzer.username), pflicht=False, ersatz="")
+    abschnitt = fu.epoche_abschnitt_erkennen(fundus_text, epoche) if fundus_text else None
+    if not abschnitt:
+        return ""
+    return f"\n\n## FUNDUS DIESER EPOCHE\n{abschnitt}\n"
+
+
+async def _fundus_aktualisieren(settings: Settings, benutzer: Benutzer, projekt_root, base_url: str,
+                                 geruest_text: str) -> None:
+    """Extrahiert Figuren aus dem fertigen Geruest und fuehrt sie in den
+    Personen-Fundus des Nutzers ein (siehe app/core/fundus.py). Rein additiv
+    und bewusst NICHT-FATAL: jeder Fehler hier darf den erfolgreichen
+    Abschluss des Architekten-Interviews nicht verhindern, das Geruest ist
+    zu diesem Zeitpunkt bereits gespeichert."""
+    figuren_text = arch.figuren_abschnitt_erkennen(geruest_text)
+    if not figuren_text:
+        return
+    epoche = pd.epoche_von_projekt(projekt_root)
+    if not epoche:
+        return
+
+    try:
+        persona = pd.lies(settings.shared_personas_dir / "fundus_pfleger.txt")
+        antwort_text, _ = await sammle_antwort(base_url, "fundus_pfleger", persona, figuren_text, format="json")
+        antwort = FundusExtraktionAntwortLLM.model_validate_json(antwort_text)
+    except (OllamaFehler, ValidationError):
+        return
+    if not antwort.figuren:
+        return
+
+    titel = g.titel_erkennen(geruest_text) or projekt_root.name
+    figuren = [fu.FigurEintrag(name=e.name, alter=e.alter, stand=e.stand, eigenschaften=e.eigenschaften)
+               for e in antwort.figuren]
+    ziel = fundus_datei(settings, benutzer.username)
+    fundus_text = pd.lies(ziel, pflicht=False, ersatz=fu.leere_vorlage())
+    fundus_text = fu.figuren_zusammenfuehren(fundus_text, epoche, titel, figuren)
+    pd.schreib(ziel, fundus_text, force=True)
+
+
 async def _zug(websocket: WebSocket, base_url: str, persona_text: str,
                 verlauf: list[str], eingabe: str) -> tuple[str, bool]:
     verlauf.append(f"Ich: {eingabe}")
@@ -106,7 +157,7 @@ async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | Non
     await websocket.accept()
     try:
         projekt_root = projekt_pfad(settings, benutzer.username, ordner)
-        persona_text = pd.persona_lesen(projekt_root, "architekt")
+        persona_text = pd.persona_lesen(projekt_root, "architekt") + _fundus_kontext(settings, benutzer, projekt_root)
 
         gespeicherter_verlauf = _verlauf_laden(projekt_root)
 
@@ -128,6 +179,7 @@ async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | Non
             while True:
                 if fertig:
                     _, gesichert_als = pd.schreib(pd.geruest_datei(projekt_root / "projekt"), antwort, force=True)
+                    await _fundus_aktualisieren(settings, benutzer, projekt_root, base_url, antwort)
                     ausgangslage = arch.ausgangslage_erkennen(antwort)
                     ausgangslage_gespeichert = False
                     if ausgangslage:

@@ -19,6 +19,11 @@ _AUSGANGSLAGE_MUSTER = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
+_FIGUREN_MUSTER = re.compile(
+    r"^##[ \t]*Figuren[ \t]*\n(.*?)(?=\n##[ \t]|\Z)",
+    re.IGNORECASE | re.DOTALL | re.MULTILINE,
+)
+
 
 def nur_erste_frage(antwort: str) -> str:
     """Die Architekten-Persona soll laut ihrer Anweisung nur eine Frage pro
@@ -53,6 +58,21 @@ def ausgangslage_erkennen(geruest: str) -> str | None:
     auf einem toten Platzhalter. None, wenn der Abschnitt fehlt - dann
     bleibt stand_00.md schlicht ungeschrieben (korrekter Normalfall)."""
     treffer = _AUSGANGSLAGE_MUSTER.search(geruest)
+    if not treffer:
+        return None
+    inhalt = treffer.group(1).strip()
+    return inhalt or None
+
+
+def figuren_abschnitt_erkennen(geruest: str) -> str | None:
+    """Extrahiert '## Figuren' aus dem fertigen Geruest (siehe app/api/
+    architekt.py: fertig-Branch von ws_architekt) - Grundlage fuer den
+    automatischen Personen-Fundus-Abgleich (app/core/fundus.py). Bewusst
+    NUR die oberste '## Figuren'-Ueberschrift, nicht die gleichnamige
+    '### Figuren'-Unterueberschrift unter '## Ausgangslage vor Kapitel eins'
+    (die beschreibt Zustaende zu Geschichtenbeginn, keine Figurenstammdaten).
+    None, wenn der Abschnitt fehlt."""
+    treffer = _FIGUREN_MUSTER.search(geruest)
     if not treffer:
         return None
     inhalt = treffer.group(1).strip()

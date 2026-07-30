@@ -108,6 +108,12 @@ export interface RechtschreibAntwort {
   hunspell_verfuegbar: boolean;
 }
 
+export interface FundusImportAntwort {
+  importierte_projekte: number;
+  gefundene_figuren: number;
+  uebersprungen: string[];
+}
+
 export interface Einstellungen {
   projects_dir: string;
   ist_standard: boolean;

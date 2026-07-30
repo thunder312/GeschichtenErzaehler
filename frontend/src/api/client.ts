@@ -5,6 +5,7 @@ import type {
   BenutzerEintrag,
   Einstellungen,
   EpocheKurz,
+  FundusImportAntwort,
   LoginEingabe,
   ProjektDetail,
   ProjektKurz,
@@ -200,6 +201,17 @@ export const api = {
 
   benutzerLoeschen: (id: number) =>
     anfrage<void>(`/api/benutzer/${id}`, { method: "DELETE" }),
+
+  fundusLesen: () => anfrage<string>("/api/fundus"),
+
+  fundusSchreiben: (inhalt: string) =>
+    anfrage<{ gesichert_als: string | null }>("/api/fundus", {
+      method: "PUT",
+      body: JSON.stringify({ inhalt }),
+    }),
+
+  fundusImportieren: () =>
+    anfrage<FundusImportAntwort>("/api/fundus/import", { method: "POST" }),
 };
 
 export function schreibenWebSocketUrl(

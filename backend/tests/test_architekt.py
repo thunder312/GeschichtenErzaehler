@@ -54,6 +54,37 @@ def test_ausgangslage_erkennen_liefert_none_ohne_abschnitt():
     assert arch.ausgangslage_erkennen("# STORY-GERUEST\n\n## Rahmen\nJahr: 1815") is None
 
 
+def test_figuren_abschnitt_erkennen_extrahiert_abschnitt():
+    geruest = (
+        "# STORY-GERUEST\n\n"
+        "## Figuren\n"
+        "Lady Amelia Hartwell, 24, Baronesse, Ziel: ...\n\n"
+        "## Konflikt\nSie will heiraten, ihr Vater verbietet es.\n"
+    )
+    figuren = arch.figuren_abschnitt_erkennen(geruest)
+    assert figuren == "Lady Amelia Hartwell, 24, Baronesse, Ziel: ..."
+
+
+def test_figuren_abschnitt_erkennen_liefert_none_ohne_abschnitt():
+    assert arch.figuren_abschnitt_erkennen("# STORY-GERUEST\n\n## Rahmen\nJahr: 1815") is None
+
+
+def test_figuren_abschnitt_erkennen_ignoriert_unterueberschrift_in_ausgangslage():
+    geruest = (
+        "# STORY-GERUEST\n\n"
+        "## Figuren\n"
+        "Lady Amelia Hartwell, 24, Baronesse.\n\n"
+        "## Ausgangslage vor Kapitel eins\n"
+        "### Figuren\n"
+        "Mira steht am Marktplatz.\n\n"
+        "### Zeit\nFruehling 1815.\n\n"
+        "## Offene Punkte\nKeine.\n"
+    )
+    figuren = arch.figuren_abschnitt_erkennen(geruest)
+    assert figuren == "Lady Amelia Hartwell, 24, Baronesse."
+    assert "Mira" not in figuren
+
+
 def test_transkript_erzeugen_beschriftet_nutzer_und_architekt():
     verlauf = [
         "Ich: Lass uns anfangen. Stelle mir die ersten Fragen.",

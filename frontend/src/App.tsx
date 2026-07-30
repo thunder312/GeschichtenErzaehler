@@ -6,6 +6,7 @@ import { TabBar } from "./components/TabBar";
 import { ArchitektInterviewPage } from "./pages/ArchitektInterviewPage";
 import { EinstellungenPage } from "./pages/EinstellungenPage";
 import { EpocheErstellenPage } from "./pages/EpocheErstellenPage";
+import { FundusPage } from "./pages/FundusPage";
 import { GeruestPage } from "./pages/GeruestPage";
 import { StatusFooter } from "./components/StatusFooter";
 import { ZeitUeberbrueckungOverlay } from "./components/ZeitUeberbrueckungOverlay";
@@ -108,6 +109,7 @@ function App() {
         ]
       : []),
     { id: "epoche", label: "Epoche erstellen", icon: "🏛️" },
+    { id: "fundus", label: "Personen-Fundus", icon: "🧬", align: "end" as const },
     // KI-Ziele verwalten, Speicherort-Einstellungen und Benutzerverwaltung
     // betreffen die gesamte Installation, nicht nur das eigene Projekt -
     // deshalb nur fuer Admin-Benutzer sichtbar (serverseitig zusaetzlich ueber
@@ -277,6 +279,10 @@ function App() {
 
         <div className={activeTab === "epoche" ? "" : "hidden"}>
           <EpocheErstellenPage />
+        </div>
+
+        <div className={activeTab === "fundus" ? "" : "hidden"}>
+          <FundusPage />
         </div>
 
         {benutzer.ist_admin && (

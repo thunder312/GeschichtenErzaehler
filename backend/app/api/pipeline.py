@@ -34,6 +34,7 @@ from app.core import ssh_manager
 from app.core.befunde_merge import RoherBefund, befunde_zusammenfuehren
 from app.core.fundstellen import finde_fundstelle
 from app.core.ollama_client import OllamaFehler, chat_stream
+from app.core.ollama_client import sammle_antwort as _sammle_antwort
 from app.core.pdf_export import buch_pdf_erzeugen
 from app.core.pruef_schema import AnachronismusAntwortLLM, KontinuitaetAntwortLLM, LektorAntwortLLM
 from app.core.rollen import ROLLEN, STUFE_DIREKTIVEN
@@ -53,16 +54,16 @@ FORTSETZEN_MAX_VERSUCHE = 3
 async def _sammle_stream(
     base_url: str, rolle: str, system: str, user: str, format: dict | str | None = None,
 ) -> tuple[str, dict]:
-    text = ""
-    meta: dict = {}
-    async for event in chat_stream(base_url, rolle, system, user, format=format):
-        if event.typ == "error":
-            raise HTTPException(502, f"Ollama-Fehler ({rolle}): {event.text}")
-        if event.typ == "done":
-            text, meta = event.text, event.meta
-    if not text:
-        raise HTTPException(502, f"Leere Antwort von Rolle '{rolle}' erhalten.")
-    return text, meta
+    """Duenner Wrapper um app.core.ollama_client.sammle_antwort() fuer die
+    reinen HTTP-Endpunkte dieses Routers: uebersetzt das dort bewusst
+    FastAPI-freie OllamaFehler in eine HTTPException, wie es dieser Router
+    schon immer getan hat (siehe app/main.py - andere Router wie
+    app/api/architekt.py fangen OllamaFehler dagegen direkt ab, da sie als
+    WebSocket keine HTTP-Antwort liefern)."""
+    try:
+        return await _sammle_antwort(base_url, rolle, system, user, format=format)
+    except OllamaFehler as e:
+        raise HTTPException(502, str(e)) from e
 
 
 def _anachronismus_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefund]:

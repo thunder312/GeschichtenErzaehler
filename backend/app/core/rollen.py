@@ -103,6 +103,26 @@ ROLLEN: dict[str, dict] = {
             "num_predict": 6144,
         },
     },
+    # Extrahiert Figuren aus dem "## Figuren"-Abschnitt eines fertigen
+    # Geruests fuer den Personen-Fundus (siehe app/core/fundus.py) - laeuft
+    # nutzerweit statt projektweit, deshalb dieselben konservativen
+    # Pruefer-Parameter wie "anachronismus"/"kontinuitaet" (niedrige
+    # Temperatur, damit nichts hinzuerfunden wird).
+    "fundus_pfleger": {
+        "modell": "gemma4",
+        "think": True,
+        "optionen": {
+            "temperature": 0.1,
+            "top_p": 0.7,
+            "min_p": 0.1,
+            "top_k": 20,
+            "repeat_penalty": 1.0,
+            "repeat_last_n": 64,
+            "num_ctx": 16384,
+            "num_predict": 6144,
+            "seed": 42,
+        },
+    },
     "lektor": {
         "modell": "gemma4",
         "think": False,
