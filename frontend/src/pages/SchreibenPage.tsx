@@ -33,6 +33,7 @@ export function SchreibenPage({
   const [fehler, setFehler] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const letztesProjekt = useRef<string | null>(null);
+  const geradeAbgeschlossenRef = useRef(false);
   const { starten: aktivitaetStarten, beenden: aktivitaetBeenden } = useAktivitaet();
 
   useEffect(() => {
@@ -54,6 +55,18 @@ export function SchreibenPage({
   // der Platte lag (die Anzeige war reiner, nicht persistenter React-State).
   useEffect(() => {
     if (laeuft) return;
+    // Direkt nach erfolgreichem Abschluss zeigt "starten()" bereits den
+    // frisch geschriebenen Text an, und die Kapitelnummer wurde automatisch
+    // auf das naechste (noch nicht existierende) Kapitel hochgezaehlt (siehe
+    // "abgeschlossen"-Handler unten). Ohne diese Absicherung wuerde dieser
+    // Effekt sofort danach feuern, sehen dass das NEUE n noch keine Datei
+    // hat, und den gerade erst angezeigten, bereits gespeicherten Text
+    // wieder leeren - wirkte wie "Kapiteltext verschwindet nach dem
+    // Schreiben", obwohl kapitel_NN.md korrekt auf der Platte liegt.
+    if (geradeAbgeschlossenRef.current) {
+      geradeAbgeschlossenRef.current = false;
+      return;
+    }
     let abgebrochen = false;
     setFehler(null);
     if (!projekt?.kapitel.includes(n)) {
@@ -141,6 +154,7 @@ export function SchreibenPage({
         // Anpassung schrieb versehentlich dasselbe Kapitel nochmal (statt
         // das naechste), was wie ein "haengengebliebenes" Fortschreiben
         // aussah.
+        geradeAbgeschlossenRef.current = true;
         setN(n + 1);
       }
       if (nachricht.phase === "fehler") {
