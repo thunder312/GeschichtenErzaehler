@@ -33,7 +33,7 @@ export function SchreibenPage({
   const [fehler, setFehler] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const letztesProjekt = useRef<string | null>(null);
-  const geradeAbgeschlossenRef = useRef(false);
+  const autoVorgeschlageneNummerRef = useRef<number | null>(null);
   const { starten: aktivitaetStarten, beenden: aktivitaetBeenden } = useAktivitaet();
 
   useEffect(() => {
@@ -59,12 +59,17 @@ export function SchreibenPage({
     // frisch geschriebenen Text an, und die Kapitelnummer wurde automatisch
     // auf das naechste (noch nicht existierende) Kapitel hochgezaehlt (siehe
     // "abgeschlossen"-Handler unten). Ohne diese Absicherung wuerde dieser
-    // Effekt sofort danach feuern, sehen dass das NEUE n noch keine Datei
-    // hat, und den gerade erst angezeigten, bereits gespeicherten Text
-    // wieder leeren - wirkte wie "Kapiteltext verschwindet nach dem
-    // Schreiben", obwohl kapitel_NN.md korrekt auf der Platte liegt.
-    if (geradeAbgeschlossenRef.current) {
-      geradeAbgeschlossenRef.current = false;
+    // Effekt feuern, sehen dass das NEUE n noch keine Datei hat, und den
+    // gerade erst angezeigten, bereits gespeicherten Text wieder leeren -
+    // wirkte wie "Kapiteltext verschwindet nach dem Schreiben", obwohl
+    // kapitel_NN.md korrekt auf der Platte liegt. Bewusst KEIN einmaliges
+    // Verbrauchen des Flags (z.B. per Reset auf false direkt hier): der
+    // Effekt haengt auch an "projekt", das durch onKapitelGeschrieben() erst
+    // ASYNCHRON (verzoegert, nach diesem ersten Durchlauf) aktualisiert wird
+    // und den Effekt dadurch ein zweites Mal feuert - der Vergleich gegen n
+    // bleibt deshalb so lange gueltig, bis der Nutzer die Nummer tatsaechlich
+    // manuell auf einen anderen Wert aendert.
+    if (autoVorgeschlageneNummerRef.current === n) {
       return;
     }
     let abgebrochen = false;
@@ -154,7 +159,7 @@ export function SchreibenPage({
         // Anpassung schrieb versehentlich dasselbe Kapitel nochmal (statt
         // das naechste), was wie ein "haengengebliebenes" Fortschreiben
         // aussah.
-        geradeAbgeschlossenRef.current = true;
+        autoVorgeschlageneNummerRef.current = n + 1;
         setN(n + 1);
       }
       if (nachricht.phase === "fehler") {
