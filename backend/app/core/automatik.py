@@ -1,0 +1,129 @@
+"""Automatikmodus: alle fehlenden Kapitel am Stueck schreiben, danach alle
+Pruefer-Korrekturen automatisch anwenden - siehe app/api/pipeline.py fuer
+den eigentlichen Ablauf (_automatik_lauf). Dieses Modul haelt bewusst nur
+framework-freie Logik (kein FastAPI/Settings), analog zu
+app/core/heuristik.py und app/core/befunde_merge.py:
+- befunde_anwenden(): das serverseitige Pendant zum bisher rein im Browser
+  (Monaco-Editor-Decorations, siehe frontend/src/components/befundReview.ts)
+  laufenden "Uebernehmen" - noetig, weil der Automatikmodus unbeaufsichtigt
+  ohne offenen Browser laufen soll.
+- status_lesen/status_schreiben(): einfache JSON-Datei-Persistenz fuer den
+  Fortschritt, abfragbar ueber GET .../automatik/status auch nachdem der
+  Browser-Tab geschlossen wurde.
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+AUTOMATIK_STATUS_DATEINAME = "automatik_status.json"
+
+
+def _automatik_status_datei(projekt_root: Path) -> Path:
+    return projekt_root / "projekt" / AUTOMATIK_STATUS_DATEINAME
+
+
+def status_lesen(projekt_root: Path) -> dict[str, Any]:
+    """Liefert den zuletzt gespeicherten Status, oder einen Leerzustand,
+    wenn noch nie ein Automatik-Lauf gestartet wurde."""
+    pfad = _automatik_status_datei(projekt_root)
+    if not pfad.exists():
+        return {
+            "laeuft": False,
+            "gestartet_am": None,
+            "phase": None,
+            "aktuelles_kapitel": None,
+            "gesamt_kapitel": None,
+            "log": [],
+            "protokoll": [],
+            "stop_angefordert": False,
+            "abgeschlossen": False,
+            "fehler": None,
+        }
+    return json.loads(pfad.read_text(encoding="utf-8"))
+
+
+def status_schreiben(projekt_root: Path, status: dict[str, Any]) -> None:
+    pfad = _automatik_status_datei(projekt_root)
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    pfad.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def zustand_zusammenfassen(status: dict[str, Any]) -> str | None:
+    """Fasst den Status zu EINEM Wort fuer die Projektliste zusammen (siehe
+    app/api/projects.py:_projekt_kurz), damit man ohne den Schreiben-Tab zu
+    oeffnen sieht, ob ein ueber Nacht laufender Automatik-Lauf fertig ist
+    und ob noch manuelle Nacharbeit noetig ist:
+    - None: noch nie gestartet
+    - "laeuft": aktuell aktiv
+    - "fehler": abgebrochen mit Fehler
+    - "abgeschlossen_mit_resten": fertig, aber Protokoll enthaelt
+      uebersprungene Funde (Konflikt/nicht gefunden) oder unbekannte
+      Woerter - manuelle Durchsicht im Tab "Pruefen & Anwenden" noetig
+    - "abgeschlossen_sauber": fertig, nichts uebrig"""
+    if status.get("gestartet_am") is None:
+        return None
+    if status.get("laeuft"):
+        return "laeuft"
+    if status.get("fehler"):
+        return "fehler"
+    reste = any(
+        eintrag.get("art") == "uebersprungen"
+        or (eintrag.get("art") == "rechtschreibung" and eintrag.get("unbekannte_woerter"))
+        for eintrag in status.get("protokoll", [])
+    )
+    return "abgeschlossen_mit_resten" if reste else "abgeschlossen_sauber"
+
+
+def befunde_anwenden(text: str, befunde: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
+    """Wendet alle uebernehmbaren Funde auf `text` an - dieselbe Regel wie
+    kannUebernommenWerden() im Frontend (befundReview.ts): ein Fund ist nur
+    uebernehmbar, wenn er weder `konflikt` noch `nicht gefunden` ist. Statt
+    Monacos live mitverschobenen Decorations zu nutzen, werden die
+    betroffenen Funde nach `start` ABSTEIGEND sortiert und von hinten nach
+    vorne eingefuegt - dadurch bleiben die vorher berechneten Offsets der
+    noch nicht verarbeiteten Funde gueltig, unabhaengig von der
+    Eingabe-Reihenfolge.
+
+    Gibt den korrigierten Text und ein Protokoll zurueck, in dem JEDER Fund
+    (angewendet oder uebersprungen samt Grund) auftaucht - fuer die
+    Abschluss-Anzeige im Automatikmodus."""
+    anwendbar = []
+    protokoll: list[dict[str, Any]] = []
+
+    for befund in befunde:
+        if befund.get("konflikt"):
+            protokoll.append({
+                "art": "uebersprungen", "grund": "konflikt",
+                "fundstelle": befund.get("fundstelle"), "vorschlag": befund.get("vorschlag"),
+            })
+            continue
+        if not befund.get("gefunden") or befund.get("start") is None or befund.get("end") is None:
+            protokoll.append({
+                "art": "uebersprungen", "grund": "nicht_gefunden",
+                "fundstelle": befund.get("fundstelle"), "vorschlag": befund.get("vorschlag"),
+            })
+            continue
+        if not befund.get("vorschlag"):
+            protokoll.append({
+                "art": "uebersprungen", "grund": "kein_vorschlag",
+                "fundstelle": befund.get("fundstelle"), "vorschlag": None,
+            })
+            continue
+        anwendbar.append(befund)
+
+    # Absteigend nach start: von hinten nach vorne einfuegen, damit die
+    # Offsets weiter vorne im Text fuer die naechste Iteration noch stimmen.
+    anwendbar.sort(key=lambda b: b["start"], reverse=True)
+
+    neuer_text = text
+    for befund in anwendbar:
+        start, end = befund["start"], befund["end"]
+        neuer_text = neuer_text[:start] + befund["vorschlag"] + neuer_text[end:]
+        protokoll.append({
+            "art": "angewendet", "grund": None,
+            "fundstelle": befund.get("fundstelle"), "vorschlag": befund.get("vorschlag"),
+        })
+
+    return neuer_text, protokoll
