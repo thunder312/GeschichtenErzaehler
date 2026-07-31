@@ -21,8 +21,19 @@ ROLLEN: dict[str, dict] = {
             "top_k": 40,
             "repeat_penalty": 1.05,
             "repeat_last_n": 64,
-            "num_ctx": 8192,
-            "num_predict": 4096,
+            # Der ganze bisherige Gespraechsverlauf wird bei jedem Zug neu
+            # als eine einzige User-Nachricht mitgeschickt (siehe
+            # app/core/architekt.py) UND die letzte Antwort muss im Erfolgs-
+            # fall das komplette Story-Geruest (Rahmen, Figuren, Konflikt,
+            # ausführlicher Kapitelplan, Ausgangslage, ...) enthalten - bei
+            # einem langen Interview (viele Kapitel, ausfuehrliche
+            # Nutzerantworten) plus "think": True-Denkanteil reichte das
+            # alte 8192/4096-Budget nicht mehr aus und die Antwort wurde
+            # mitten im Geruest abgeschnitten, aber trotzdem als fertig
+            # gespeichert (siehe app/api/architekt.py:_zug, Vorfall
+            # "Der-Preis-der-Wuerde-Ein-Geheimnis-in-Mayfair").
+            "num_ctx": 24576,
+            "num_predict": 8192,
             "seed": 42,
         },
     },
@@ -71,6 +82,27 @@ ROLLEN: dict[str, dict] = {
         },
     },
     "kontinuitaet": {
+        "modell": "gemma4",
+        "think": True,
+        "optionen": {
+            "temperature": 0.1,
+            "top_p": 0.7,
+            "min_p": 0.1,
+            "top_k": 20,
+            "repeat_penalty": 1.0,
+            "repeat_last_n": 64,
+            "num_ctx": 16384,
+            "num_predict": 6144,
+            "seed": 42,
+        },
+    },
+    # Dedizierter, bewusst extrem schmaler Pruefer NUR fuer Verb-Letzt-
+    # Stellung in Nebensaetzen - ausgelagert aus "lektor", weil diese eine
+    # Regel dort unter acht anderen Kategorien unterging und selbst von
+    # groesseren/spezialisierten Modellen zuverlaessig uebersehen wurde
+    # (siehe Session-Notizen zur Mars-Fluesterns-Geschichte). Gleiche
+    # konservative Parameter wie die anderen Pruefer-Rollen.
+    "satzbau": {
         "modell": "gemma4",
         "think": True,
         "optionen": {

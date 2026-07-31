@@ -44,8 +44,9 @@ from app.core import geruest as g
 from app.core import projekt_dateien as pd
 from app.core.fundus_schema import FundusExtraktionAntwortLLM
 from app.core.ollama_client import OllamaFehler, chat_stream, sammle_antwort
+from app.core.rollen import ROLLEN
 from app.schemas import Benutzer
-from app.services import fundus_datei, ollama_basis_url, ordner_nach_umbenennung, projekt_pfad
+from app.services import fundus_datei, ollama_basis_url, ordner_nach_umbenennung, projekt_pfad, rollen_modell_override
 
 router = APIRouter(prefix="/api/projects", tags=["architekt"])
 
@@ -111,7 +112,10 @@ async def _fundus_aktualisieren(settings: Settings, benutzer: Benutzer, projekt_
 
     try:
         persona = pd.lies(settings.shared_personas_dir / "fundus_pfleger.txt")
-        antwort_text, _ = await sammle_antwort(base_url, "fundus_pfleger", persona, figuren_text, format="json")
+        antwort_text, _ = await sammle_antwort(
+            base_url, "fundus_pfleger", persona, figuren_text, format="json",
+            modell_override=rollen_modell_override(settings, "fundus_pfleger"),
+        )
         antwort = FundusExtraktionAntwortLLM.model_validate_json(antwort_text)
     except (OllamaFehler, ValidationError):
         return
@@ -127,13 +131,18 @@ async def _fundus_aktualisieren(settings: Settings, benutzer: Benutzer, projekt_
     pd.schreib(ziel, fundus_text, force=True)
 
 
-async def _zug(websocket: WebSocket, base_url: str, persona_text: str,
-                verlauf: list[str], eingabe: str) -> tuple[str, bool]:
-    verlauf.append(f"Ich: {eingabe}")
-    await websocket.send_json({"phase": "frage", "typ": "start"})
+_MAX_GERUEST_VERSUCHE = 2
 
+
+async def _einen_zug_generieren(base_url: str, settings: Settings, persona_text: str,
+                                 verlauf: list[str], websocket: WebSocket,
+                                 ueberschreibe: dict | None) -> str:
     teile: list[str] = []
-    async for event in chat_stream(base_url, "architekt", persona_text, arch.verlauf_zu_text(verlauf)):
+    async for event in chat_stream(
+        base_url, "architekt", persona_text, arch.verlauf_zu_text(verlauf),
+        ueberschreibe=ueberschreibe,
+        modell_override=rollen_modell_override(settings, "architekt"),
+    ):
         if event.typ == "error":
             await websocket.send_json({"phase": "fehler", "typ": "error", "text": event.text})
             raise OllamaFehler(event.text)
@@ -141,9 +150,43 @@ async def _zug(websocket: WebSocket, base_url: str, persona_text: str,
             await websocket.send_json({"phase": "frage", "typ": "denkt_nach"})
         if event.typ == "content":
             teile.append(event.text)
+    return "".join(teile).strip()
 
-    antwort = "".join(teile).strip()
-    ist_geruest = arch.ist_geruest_antwort(antwort)
+
+async def _zug(websocket: WebSocket, settings: Settings, base_url: str, persona_text: str,
+                verlauf: list[str], eingabe: str) -> tuple[str, bool]:
+    verlauf.append(f"Ich: {eingabe}")
+    await websocket.send_json({"phase": "frage", "typ": "start"})
+
+    # Ein fertiges Geruest MUSS einen auswertbaren Kapitelplan enthalten -
+    # Automatikmodus und letztes_geplantes_kapitel() bauen direkt darauf auf
+    # (siehe app/core/geruest.py). Wird die Antwort durch die num_predict-
+    # Grenze abgeschnitten, bevor der Kapitelplan geschrieben wurde, kam
+    # bisher trotzdem "# STORY-GERUEST..." als Praefix durch und wurde
+    # klaglos als abgeschlossen gespeichert - ein Projekt blieb dauerhaft
+    # ohne Kapitelplan zurueck (siehe Vorfall
+    # "Der-Preis-der-Wuerde-Ein-Geheimnis-in-Mayfair"). Ein Retry mit
+    # verdoppeltem num_predict behebt die meisten Faelle automatisch, ohne
+    # dass der Nutzer davon etwas mitbekommt.
+    ueberschreibe: dict | None = None
+    antwort = ""
+    for versuch in range(1, _MAX_GERUEST_VERSUCHE + 1):
+        antwort = await _einen_zug_generieren(base_url, settings, persona_text, verlauf, websocket, ueberschreibe)
+        ist_geruest = arch.ist_geruest_antwort(antwort)
+        if not ist_geruest or g.kapitelplan_erkennen(antwort):
+            break
+        if versuch < _MAX_GERUEST_VERSUCHE:
+            ueberschreibe = {"num_predict": ROLLEN["architekt"]["optionen"]["num_predict"] * 2}
+
+    if ist_geruest and not g.kapitelplan_erkennen(antwort):
+        fehlertext = (
+            "Die Antwort des Architekten wurde wiederholt abgeschnitten und "
+            "enthielt keinen vollständigen Kapitelplan. Bitte versuche es "
+            "erneut - ggf. hilft eine kürzere Vorgabe bei der Kapitel-Frage."
+        )
+        await websocket.send_json({"phase": "fehler", "typ": "error", "text": fehlertext})
+        raise OllamaFehler(fehlertext)
+
     if not ist_geruest:
         antwort = arch.nur_erste_frage(antwort)
     verlauf.append(f"Du: {antwort}")
@@ -173,7 +216,7 @@ async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | Non
                 await websocket.send_json({"phase": "fortgesetzt", "verlauf": verlauf})
             else:
                 verlauf = []
-                antwort, fertig = await _zug(websocket, base_url, persona_text, verlauf, ERSTE_EINGABE)
+                antwort, fertig = await _zug(websocket, settings, base_url, persona_text, verlauf, ERSTE_EINGABE)
                 _verlauf_speichern(projekt_root, verlauf)
 
             while True:
@@ -218,7 +261,7 @@ async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | Non
                     await websocket.send_json({"phase": "beendet_ohne_speichern"})
                     break
 
-                antwort, fertig = await _zug(websocket, base_url, persona_text, verlauf, eingabe)
+                antwort, fertig = await _zug(websocket, settings, base_url, persona_text, verlauf, eingabe)
                 _verlauf_speichern(projekt_root, verlauf)
 
     except OllamaFehler:
