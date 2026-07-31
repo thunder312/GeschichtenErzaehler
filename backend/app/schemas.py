@@ -39,6 +39,9 @@ class ProjektKurz(BaseModel):
     epoche: str | None = None
     anzahl_kapitel: int
     letztes_geplantes_kapitel: int | None = None
+    # None = Automatikmodus nie gestartet. Siehe app/core/automatik.py:
+    # zustand_zusammenfassen() fuer die moeglichen Werte.
+    automatik_zustand: str | None = None
 
 
 class ProjektAnlegenAnfrage(BaseModel):
@@ -179,6 +182,23 @@ class BefundeAntwort(BaseModel):
     # Wird nicht mitgeschrieben, sondern erst beim Lesen (befunde_lesen())
     # anhand von quelltext_sha256 gesetzt.
     veraltet: bool = False
+
+
+class AutomatikStartAnfrage(BaseModel):
+    max_durchlaeufe: int = Field(default=3, ge=1, le=10)
+
+
+class AutomatikStatusAntwort(BaseModel):
+    laeuft: bool
+    gestartet_am: str | None
+    phase: str | None
+    aktuelles_kapitel: int | None
+    gesamt_kapitel: int | None
+    log: list[str]
+    protokoll: list[dict]
+    stop_angefordert: bool
+    abgeschlossen: bool
+    fehler: str | None
 
 
 class RechtschreibWort(BaseModel):

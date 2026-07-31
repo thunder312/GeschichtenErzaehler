@@ -1,4 +1,5 @@
 import type {
+  AutomatikStatus,
   BefundeAntwort,
   Benutzer,
   BenutzerAnlegenEingabe,
@@ -146,6 +147,18 @@ export const api = {
     anfrage<RechtschreibAntwort>(
       `/api/projects/${ordner}/rechtschreibung/${n}${sshQuery(sshZielId)}`,
     ),
+
+  automatikStarten: (ordner: string, maxDurchlaeufe: number, sshZielId?: string | null) =>
+    anfrage<{ gestartet: boolean }>(
+      `/api/projects/${ordner}/automatik/start${sshQuery(sshZielId)}`,
+      { method: "POST", body: JSON.stringify({ max_durchlaeufe: maxDurchlaeufe }) },
+    ),
+
+  automatikStatus: (ordner: string) =>
+    anfrage<AutomatikStatus>(`/api/projects/${ordner}/automatik/status`),
+
+  automatikStoppen: (ordner: string) =>
+    anfrage<{ stop_angefordert: boolean }>(`/api/projects/${ordner}/automatik/stop`, { method: "POST" }),
 
   sshZiele: () => anfrage<SSHZiel[]>("/api/ssh-targets"),
 

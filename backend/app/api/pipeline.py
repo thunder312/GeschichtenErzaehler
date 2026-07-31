@@ -1,7 +1,8 @@
 """Die eigentlichen Pipeline-Schritte: Schreiben (WebSocket, streamend),
-Pruefen (Anachronismus/Stimmigkeit, Kontinuitaet UND Lektorat laufen
-parallel und liefern eine gemeinsame Fund-Liste, siehe _pruefe_kapitel),
-Stand, Export/Zusammenfassen, Rechtschreibpruefung.
+Pruefen (Anachronismus/Stimmigkeit, Kontinuitaet, Lektorat UND der
+dedizierte Satzbau-Pruefer laufen parallel und liefern eine gemeinsame
+Fund-Liste, siehe _pruefe_kapitel), Stand, Export/Zusammenfassen,
+Rechtschreibpruefung.
 
 Portiert aus pre-GUI/novelle.py (cmd_schreiben, _pruefe, cmd_anwenden,
 cmd_lektorieren, cmd_stand, cmd_export, cmd_zusammenfassen,
@@ -21,12 +22,14 @@ import hashlib
 import logging
 import time
 from pathlib import Path
+from typing import Awaitable, Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
 from app.auth import get_current_user, get_current_user_ws
 from app.config import Settings, get_settings
+from app.core import automatik
 from app.core import geruest as g
 from app.core import heuristik as h
 from app.core import projekt_dateien as pd
@@ -39,8 +42,18 @@ from app.core.pdf_export import buch_pdf_erzeugen
 from app.core.pruef_schema import AnachronismusAntwortLLM, KontinuitaetAntwortLLM, LektorAntwortLLM
 from app.core.rollen import ROLLEN, STUFE_DIREKTIVEN
 from app.core.textutil import woerter
-from app.schemas import Befund, BefundeAntwort, Benutzer, RechtschreibAntwort, RechtschreibWort
-from app.services import ollama_basis_url, projekt_pfad, ssh_ziel_aus_db
+from app.schemas import (
+    AutomatikStartAnfrage,
+    AutomatikStatusAntwort,
+    Befund,
+    BefundeAntwort,
+    Benutzer,
+    RechtschreibAntwort,
+    RechtschreibWort,
+)
+from app.services import ollama_basis_url, projekt_pfad, rollen_modell_override, ssh_ziel_aus_db
+
+OnEvent = Callable[[dict], Awaitable[None]]
 
 router = APIRouter(prefix="/api/projects", tags=["pipeline"])
 logger = logging.getLogger(__name__)
@@ -53,18 +66,57 @@ FORTSETZEN_MAX_VERSUCHE = 3
 
 
 async def _sammle_stream(
-    base_url: str, rolle: str, system: str, user: str, format: dict | str | None = None,
+    settings: Settings, base_url: str, rolle: str, system: str, user: str,
+    format: dict | str | None = None,
 ) -> tuple[str, dict]:
     """Duenner Wrapper um app.core.ollama_client.sammle_antwort() fuer die
     reinen HTTP-Endpunkte dieses Routers: uebersetzt das dort bewusst
     FastAPI-freie OllamaFehler in eine HTTPException, wie es dieser Router
     schon immer getan hat (siehe app/main.py - andere Router wie
     app/api/architekt.py fangen OllamaFehler dagegen direkt ab, da sie als
-    WebSocket keine HTTP-Antwort liefern)."""
+    WebSocket keine HTTP-Antwort liefern). Loest zusaetzlich den globalen
+    Admin-Modell-Override fuer die Rolle auf (Tab KI-Ziele -> Persona-Modell-
+    Zuordnung, siehe app/services.py:rollen_modell_override)."""
     try:
-        return await _sammle_antwort(base_url, rolle, system, user, format=format)
+        return await _sammle_antwort(
+            base_url, rolle, system, user, format=format,
+            modell_override=rollen_modell_override(settings, rolle),
+        )
     except OllamaFehler as e:
         raise HTTPException(502, str(e)) from e
+
+
+def _ohne_eigene_duplikate(eintraege: list, schluessel: tuple[str, ...]) -> list:
+    """Ein einzelner Pruefer-Aufruf wiederholt gelegentlich denselben Fund
+    innerhalb der EIGENEN Antwort (z.B. wortgleiche fundstelle+vorschlag
+    zweimal in einer JSON-Liste) - beobachtet beim Lektor auf einem echten
+    Kapitel. Filtert das VOR der Weiterverarbeitung heraus, damit nicht
+    zwei identische, oft gleichermassen nicht auffindbare Eintraege im
+    Frontend nebeneinander auftauchen. Vergleicht nur die uebergebenen
+    Attributnamen (z.B. ("fundstelle", "vorschlag")), nicht das ganze
+    Objekt."""
+    gesehen: set[tuple] = set()
+    ergebnis = []
+    for eintrag in eintraege:
+        schluesselwert = tuple(getattr(eintrag, feld) for feld in schluessel)
+        if schluesselwert in gesehen:
+            continue
+        gesehen.add(schluesselwert)
+        ergebnis.append(eintrag)
+    return ergebnis
+
+
+def _ist_echte_korrektur(fundstelle: str, vorschlag: str | None) -> bool:
+    """False, wenn "vorschlag" (nach Normalisierung von Leerraum) wortgleich
+    mit "fundstelle" ist - beobachtet beim Lektor auf einem echten Kapitel:
+    ueber die Haelfte der gemeldeten Funde schlug woertlich denselben Text
+    als 'Korrektur' vor, obwohl die Persona explizit anweist, nur echte
+    Verstoesse zu melden. Ein Prompt-Hinweis allein reicht dagegen nicht
+    zuverlaessig - dieser Check filtert deterministisch, unabhaengig davon,
+    ob sich das Modell an die Anweisung haelt."""
+    if vorschlag is None:
+        return True
+    return " ".join(vorschlag.split()) != " ".join(fundstelle.split())
 
 
 def _anachronismus_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefund]:
@@ -77,7 +129,9 @@ def _anachronismus_roh_befunde(kapiteltext: str, antwort_text: str) -> list[Rohe
             start=None, end=None,
         )]
     ergebnis = []
-    for eintrag in antwort.befunde:
+    for eintrag in _ohne_eigene_duplikate(antwort.befunde, ("fundstelle", "vorschlag")):
+        if not _ist_echte_korrektur(eintrag.fundstelle, eintrag.vorschlag):
+            continue
         bereich = finde_fundstelle(kapiteltext, eintrag.fundstelle)
         ergebnis.append(RoherBefund(
             kategorie=eintrag.kategorie,
@@ -101,7 +155,10 @@ def _kontinuitaet_roh_befunde(kapiteltext: str, antwort_text: str) -> list[Roher
             start=None, end=None,
         )]
     ergebnis = []
-    for eintrag in antwort.befunde:
+    for eintrag in _ohne_eigene_duplikate(antwort.befunde, ("zitat", "vorschlag")):
+        vorschlag = None if eintrag.unsicher else eintrag.vorschlag
+        if not _ist_echte_korrektur(eintrag.zitat, vorschlag):
+            continue
         bereich = finde_fundstelle(kapiteltext, eintrag.zitat)
         beschreibung = eintrag.widerspruch
         if eintrag.beleg:
@@ -111,7 +168,7 @@ def _kontinuitaet_roh_befunde(kapiteltext: str, antwort_text: str) -> list[Roher
             fundstelle=eintrag.zitat,
             beschreibung=beschreibung,
             sicherheit=None,
-            vorschlag=None if eintrag.unsicher else eintrag.vorschlag,
+            vorschlag=vorschlag,
             start=bereich[0] if bereich else None,
             end=bereich[1] if bereich else None,
         ))
@@ -128,7 +185,9 @@ def _lektor_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefund
             start=None, end=None,
         )]
     ergebnis = []
-    for eintrag in antwort.befunde:
+    for eintrag in _ohne_eigene_duplikate(antwort.befunde, ("fundstelle", "vorschlag")):
+        if not _ist_echte_korrektur(eintrag.fundstelle, eintrag.vorschlag):
+            continue
         bereich = finde_fundstelle(kapiteltext, eintrag.fundstelle)
         ergebnis.append(RoherBefund(
             kategorie="lektorat",
@@ -147,16 +206,49 @@ def _lektor_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefund
     return ergebnis
 
 
+def _satzbau_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefund]:
+    """Dediziert eigener, schmaler Pruefer NUR fuer Verb-Letzt-Stellung in
+    Nebensaetzen (Rolle "satzbau", siehe rollen.py) - dieselbe Antwort-Form
+    wie beim Lektor, deshalb dasselbe Pydantic-Schema (LektorAntwortLLM).
+    Kategorie bewusst ebenfalls "lektorat", damit sich ein hier gefundener
+    Fund nahtlos ins bestehende Lektorat-Farbschema/-Merge einreiht, statt
+    eine eigene, dem Nutzer neu zu erklaerende Kategorie zu brauchen."""
+    try:
+        antwort = LektorAntwortLLM.model_validate_json(antwort_text)
+    except ValidationError:
+        return [RoherBefund(
+            kategorie="lektorat", fundstelle="", sicherheit="hoch", vorschlag=None,
+            beschreibung="Antwort des Satzbau-Pruefers konnte nicht gelesen werden (kein gueltiges JSON).",
+            start=None, end=None,
+        )]
+    ergebnis = []
+    for eintrag in _ohne_eigene_duplikate(antwort.befunde, ("fundstelle", "vorschlag")):
+        if not _ist_echte_korrektur(eintrag.fundstelle, eintrag.vorschlag):
+            continue
+        bereich = finde_fundstelle(kapiteltext, eintrag.fundstelle)
+        ergebnis.append(RoherBefund(
+            kategorie="lektorat",
+            fundstelle=eintrag.fundstelle,
+            beschreibung=eintrag.problem,
+            sicherheit="hoch",
+            vorschlag=eintrag.vorschlag,
+            start=bereich[0] if bereich else None,
+            end=bereich[1] if bereich else None,
+        ))
+    return ergebnis
+
+
 async def _bei_bedarf_fortsetzen(
-    websocket: WebSocket, base_url: str, projekt_root: Path, n: int, text: str,
+    on_event: OnEvent, settings: Settings, base_url: str, projekt_root: Path, n: int, text: str,
     ziel: int, geruest_text: str, vorher: str, stufe: str, zusatzhinweis: str,
     autor_rolle: str,
 ) -> tuple[str, list[h.Finding]]:
     """Lässt den Autor nahtlos weiterschreiben, wenn ein Kapitel deutlich zu
     kurz ausfällt - portiert aus pre-GUI/novelle.py:_bei_bedarf_fortsetzen
-    (siehe Bedienungsanleitung Abschnitt 9b), inklusive WebSocket-Streaming
-    der Fortsetzung analog zum ersten Entwurf in ws_schreiben. Nur aktiv,
-    wenn 'Automatische Fortsetzung: Ein' im Geruest steht."""
+    (siehe Bedienungsanleitung Abschnitt 9b). `on_event` liefert Fortschritt
+    entweder an eine offene WebSocket (interaktives Schreiben) oder ins
+    Status-Log des Automatikmodus (siehe _kapitel_schreiben_kern). Nur
+    aktiv, wenn 'Automatische Fortsetzung: Ein' im Geruest steht."""
     findings: list[h.Finding] = []
     versuch = 0
     aktueller_block = g.kapitel_block_erkennen(geruest_text, n)
@@ -185,7 +277,7 @@ async def _bei_bedarf_fortsetzen(
         # beginnt.
         anschluss = text[-600:]
 
-        await websocket.send_json({
+        await on_event({
             "phase": "autor_fortsetzung", "typ": "start",
             "versuch": versuch, "max_versuche": FORTSETZEN_MAX_VERSUCHE,
             "woerter": woerter(text), "ziel_woerter": ziel,
@@ -208,15 +300,16 @@ async def _bei_bedarf_fortsetzen(
             f"auch wenn im bisherigen Text ein anderer Sprachanteil "
             f"vorkommen sollte.\n\n"
             f"{STUFE_DIREKTIVEN[stufe]}{aktueller_hinweis}{zusatz_block}",
+            modell_override=rollen_modell_override(settings, autor_rolle),
         ):
             if event.typ == "error":
                 raise OllamaFehler(event.text)
             if event.typ in ("thinking", "content"):
                 if event.typ == "content":
                     teile.append(event.text)
-                await websocket.send_json({"phase": "autor_fortsetzung", "typ": event.typ, "text": event.text})
+                await on_event({"phase": "autor_fortsetzung", "typ": event.typ, "text": event.text})
             if event.typ == "done":
-                await websocket.send_json({"phase": "autor_fortsetzung", "typ": "done", "versuch": versuch})
+                await on_event({"phase": "autor_fortsetzung", "typ": "done", "versuch": versuch})
 
         fortsetzung = h.meta_zeilen_entfernen("".join(teile).strip())
         fortsetzung, dup_findings = h.fuehrende_duplikate_entfernen(text, fortsetzung)
@@ -238,41 +331,103 @@ async def _bei_bedarf_fortsetzen(
     return text, findings
 
 
-async def _pruefe_kapitel(projekt: Path, base_url: str, n: int, kapiteltext: str) -> BefundeAntwort:
+# Zielgroesse fuer die Satzbau-Abschnitte (siehe _text_in_abschnitte_teilen)
+# - per Live-Test an der Mars-Fluesterns-Geschichte ermittelt: bei einem
+# kompletten Kapitel (~6700 Zeichen) uebersah gemma4 den bekannten Verb-
+# Letzt-Fehler zweimal reproduzierbar, bei einem kurzen 3-Satz-Testfall
+# fand es ihn zuverlaessig. Kleinere Abschnitte statt des ganzen Kapitels
+# sollen die Trefferquote erhoehen, auf Kosten mehrerer statt eines
+# Ollama-Aufrufs fuer diese eine Rolle.
+SATZBAU_ABSCHNITT_ZEICHEN = 1500
+
+
+def _text_in_abschnitte_teilen(text: str, ziel_zeichen: int = SATZBAU_ABSCHNITT_ZEICHEN) -> list[str]:
+    """Teilt an Absatzgrenzen (Leerzeile) in Abschnitte von je bis zu
+    ziel_zeichen Laenge - schneidet also nie mitten in einem Satz. Ein
+    einzelner Absatz, der fuer sich schon laenger als ziel_zeichen ist,
+    bleibt trotzdem als eigener (dann groesserer) Abschnitt erhalten, statt
+    ihn zu zerreissen."""
+    absaetze = [a for a in text.split("\n\n") if a.strip()]
+    if not absaetze:
+        return [text] if text.strip() else []
+
+    abschnitte: list[str] = []
+    aktuell: list[str] = []
+    laenge = 0
+    for absatz in absaetze:
+        if aktuell and laenge + len(absatz) > ziel_zeichen:
+            abschnitte.append("\n\n".join(aktuell))
+            aktuell = []
+            laenge = 0
+        aktuell.append(absatz)
+        laenge += len(absatz) + 2
+    if aktuell:
+        abschnitte.append("\n\n".join(aktuell))
+    return abschnitte
+
+
+async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: int, kapiteltext: str) -> BefundeAntwort:
     geruest_text = pd.lies(pd.geruest_datei(projekt))
     verbote = pd.lies(pd.verbotsliste_datei(projekt), pflicht=False, ersatz="")
     vorher = pd.lies(pd.stand_datei(projekt, n - 1), pflicht=False,
                       ersatz="(Kein vorheriger Stand vorhanden. Dies ist das erste Kapitel.)")
     jahr = g.jahr_erkennen(geruest_text)
 
-    # Alle drei Pruefer sind voneinander unabhaengig (unterschiedliche
-    # Eingaben, kein gemeinsamer Zustand) - parallel starten statt
-    # nacheinander, um die Wartezeit pro Kapitel zu verkuerzen. "format=json"
-    # erzwingt eine strukturierte Antwort, die deterministisch geparst werden
-    # kann statt freiformuliertes Markdown/Fliesstext zu interpretieren.
-    (anachronismen_text, _), (kontinuitaet_text, _), (lektor_text, _) = await asyncio.gather(
+    # Anachronismus/Kontinuitaet/Lektor bekommen weiterhin je EINEN Aufruf
+    # mit dem ganzen Kapitel. Satzbau bekommt dagegen mehrere Aufrufe, je
+    # einen pro Textabschnitt (siehe _text_in_abschnitte_teilen) - ein
+    # Live-Test zeigte, dass gemma4 bei einem kompletten, mehrere tausend
+    # Zeichen langen Kapitel nicht mehr jeden Nebensatz zuverlaessig prueft,
+    # bei kuerzeren Abschnitten aber doch. Alle Aufrufe (fest + pro Abschnitt)
+    # laufen in einem gemeinsamen asyncio.gather, um die Wartezeit pro
+    # Kapitel zu verkuerzen. "format=json" erzwingt eine strukturierte
+    # Antwort, die deterministisch geparst werden kann statt
+    # freiformuliertes Markdown/Fliesstext zu interpretieren.
+    satzbau_persona = pd.persona_lesen(projekt.parent, "pruefer_satzbau")
+    satzbau_abschnitte = _text_in_abschnitte_teilen(kapiteltext)
+
+    ergebnisse = await asyncio.gather(
         _sammle_stream(
-            base_url, "anachronismus", pd.persona_lesen(projekt.parent, "pruefer_anachronismus"),
+            settings, base_url, "anachronismus", pd.persona_lesen(projekt.parent, "pruefer_anachronismus"),
             f"JAHR: {jahr}\n\n=== VERBOTSLISTE ===\n{verbote}\n\n=== KAPITELTEXT ===\n{kapiteltext}",
             format="json",
         ),
         _sammle_stream(
-            base_url, "kontinuitaet", pd.persona_lesen(projekt.parent, "pruefer_kontinuitaet"),
+            settings, base_url, "kontinuitaet", pd.persona_lesen(projekt.parent, "pruefer_kontinuitaet"),
             f"=== STAND NACH DEM VORIGEN KAPITEL ===\n{vorher}\n\n=== NEUES KAPITEL {n} ===\n{kapiteltext}",
             format="json",
         ),
         _sammle_stream(
-            base_url, "lektor", pd.persona_lesen(projekt.parent, "lektor"),
+            settings, base_url, "lektor", pd.persona_lesen(projekt.parent, "lektor"),
             f"=== STORY-GERUEST ===\n{geruest_text}\n\n=== KAPITELTEXT ===\n{kapiteltext}",
             format="json",
         ),
+        *[
+            _sammle_stream(
+                settings, base_url, "satzbau", satzbau_persona,
+                f"=== KAPITELTEXT ===\n{abschnitt}",
+                format="json",
+            )
+            for abschnitt in satzbau_abschnitte
+        ],
     )
+    (anachronismen_text, _), (kontinuitaet_text, _), (lektor_text, _) = ergebnisse[:3]
+    satzbau_antworten = ergebnisse[3:]
 
     roh_befunde = (
         _anachronismus_roh_befunde(kapiteltext, anachronismen_text)
         + _kontinuitaet_roh_befunde(kapiteltext, kontinuitaet_text)
         + _lektor_roh_befunde(kapiteltext, lektor_text)
     )
+    for (satzbau_text, _) in satzbau_antworten:
+        roh_befunde += _satzbau_roh_befunde(kapiteltext, satzbau_text)
+    # Zusaetzlich zur Deduplizierung INNERHALB jeder einzelnen Pruefer-
+    # Antwort (siehe _ohne_eigene_duplikate) hier noch ein Durchgang UEBER
+    # alle Quellen hinweg - relevant seit Satzbau in mehreren Abschnitten
+    # laeuft: verschiedene Abschnitte (oder Satzbau und Lektor) koennten
+    # sonst denselben Fund doppelt melden, wenn sich Text ueberschneidet
+    # oder derselbe Satz wortgleich mehrfach im Kapitel vorkommt.
+    roh_befunde = _ohne_eigene_duplikate(roh_befunde, ("kategorie", "fundstelle", "vorschlag"))
     befunde = [Befund(**b) for b in befunde_zusammenfuehren(kapiteltext, roh_befunde)]
 
     antwort = BefundeAntwort(
@@ -283,13 +438,13 @@ async def _pruefe_kapitel(projekt: Path, base_url: str, n: int, kapiteltext: str
     return antwort
 
 
-async def _stand_ausfuehren(projekt_root: Path, base_url: str, n: int) -> tuple[str, bool]:
+async def _stand_ausfuehren(settings: Settings, projekt_root: Path, base_url: str, n: int) -> tuple[str, bool]:
     projekt = projekt_root / "projekt"
     kapiteltext = pd.lies(pd.kapitel_datei(projekt, n))
     vorher = pd.lies(pd.stand_datei(projekt, n - 1), pflicht=False,
                       ersatz="(Kein vorheriger Stand vorhanden.)")
     text, _ = await _sammle_stream(
-        base_url, "chronist", pd.persona_lesen(projekt_root, "chronist"),
+        settings, base_url, "chronist", pd.persona_lesen(projekt_root, "chronist"),
         f"=== BISHERIGER STAND ===\n{vorher}\n\n=== KAPITEL {n} ===\n{kapiteltext}\n\n"
         f"=== AUFTRAG ===\nAktualisiere den Stand auf Kapitel {n}.",
     )
@@ -326,6 +481,156 @@ def _export_ausfuehren(projekt_root: Path) -> str:
     return ganz
 
 
+async def _kapitel_schreiben_kern(
+    settings: Settings, projekt_root: Path, base_url: str, n: int,
+    zusatzhinweis: str, ssh_ziel_id: str | None, on_event: OnEvent,
+) -> dict:
+    """Kernlogik von Schreiben + Nachbearbeitung + Pruefen fuer EIN Kapitel,
+    unabhaengig von der Uebertragung. `on_event` bekommt dieselben
+    Ereignis-Dicts wie zuvor per websocket.send_json - der interaktive Pfad
+    (ws_schreiben) leitet sie direkt an eine offene WebSocket weiter, der
+    Automatikmodus (_automatik_lauf) haengt daraus lesbare Zeilen ins
+    Status-Log (siehe _automatik_log_zeile). Wirft OllamaFehler/ValueError
+    bei Fehlern - die Fehlerbehandlung bleibt bewusst beim jeweiligen
+    Aufrufer (WebSocket-Fehlermeldung vs. Status-Datei), nicht hier."""
+    projekt = projekt_root / "projekt"
+
+    # Stand-Sicherstellung (siehe Schnittstellen-Uebersicht 5.14): fehlt
+    # stand_(n-1).md, aber Kapitel n-1 existiert, wird er zuerst nachgeholt.
+    if n > 1 and not pd.stand_datei(projekt, n - 1).exists():
+        if not pd.kapitel_datei(projekt, n - 1).exists():
+            raise ValueError(
+                f"Weder stand_{n-1:02d}.md noch kapitel_{n-1:02d}.md "
+                f"vorhanden - Kapitel müssen der Reihe nach geschrieben werden."
+            )
+
+    geruest_text = pd.lies(pd.geruest_datei(projekt))
+    stufe = g.jugendschutz_stufe_erkennen(geruest_text)
+    autor_rolle = g.autor_rolle_erkennen(geruest_text)
+    ziel = g.kapitelplan_erkennen(geruest_text).get(n)
+    kapitel_block = g.kapitel_block_erkennen(geruest_text, n)
+    vorher = pd.lies(pd.stand_datei(projekt, n - 1), pflicht=False,
+                      ersatz="(Kein vorheriger Stand. Dies ist das erste Kapitel.)")
+
+    if n > 1 and not pd.stand_datei(projekt, n - 1).exists() \
+            and pd.kapitel_datei(projekt, n - 1).exists():
+        await on_event({"phase": "stand_nachholen", "typ": "start", "kapitel": n - 1})
+        await _stand_ausfuehren(settings, projekt_root, base_url, n - 1)
+        await on_event({"phase": "stand_nachholen", "typ": "done", "kapitel": n - 1})
+        vorher = pd.lies(pd.stand_datei(projekt, n - 1))
+
+    zielsatz = f"Zielumfang: etwa {ziel} Wörter." if ziel else ""
+    aktueller_hinweis = (
+        f"\n\n=== NUR DIESES KAPITEL SCHREIBEN (Kapitel {n}) ===\n{kapitel_block}\n\n"
+        f"Bleibe ausschließlich in der oben für DIESES Kapitel beschriebenen "
+        f"Stufe der Liebeshandlung. Verwende KEINE Ereignisse, keine Explizitheit "
+        f"und keinen Beziehungsstand aus einem ANDEREN Kapitel des Gesamtplans."
+        if kapitel_block else ""
+    )
+    zusatz_block = (
+        f"\n\n=== ZUSÄTZLICHER HINWEIS FÜR DIESEN VERSUCH ===\n{zusatzhinweis}\n"
+        f"Dieser Hinweis gilt nur für diesen einen Schreibversuch und hat "
+        f"Vorrang, falls er einem Detail des Geruests widerspricht."
+        if zusatzhinweis else ""
+    )
+    user_prompt = (
+        f"=== STORY-GERUEST ===\n{geruest_text}\n\n"
+        f"=== STAND NACH DEM VORIGEN KAPITEL ===\n{vorher}\n\n"
+        f"=== AUFTRAG ===\nSchreibe Kapitel {n}. {zielsatz}\n"
+        f"Gib ausschließlich den Kapiteltext aus.\n\n"
+        f"{STUFE_DIREKTIVEN[stufe]}{aktueller_hinweis}{zusatz_block}"
+    )
+
+    teile: list[str] = []
+    await on_event({
+        "phase": "autor", "typ": "start",
+        "modell": ROLLEN[autor_rolle]["modell"], "ziel_woerter": ziel,
+    })
+    async for event in chat_stream(
+        base_url, autor_rolle, pd.persona_lesen(projekt_root, "autor"), user_prompt,
+        modell_override=rollen_modell_override(settings, autor_rolle),
+    ):
+        if event.typ == "error":
+            raise OllamaFehler(event.text)
+        if event.typ in ("thinking", "content"):
+            teile.append(event.text) if event.typ == "content" else None
+            await on_event({"phase": "autor", "typ": event.typ, "text": event.text})
+        if event.typ == "done":
+            await on_event({"phase": "autor", "typ": "done", "meta": event.meta})
+
+    text = "".join(teile).strip()
+    text, findings_neustart = h.kapitel_neustart_abschneiden(text)
+    text, findings_ende = h.vorzeitige_kapitelende_abschneiden(text)
+    findings = findings_neustart + findings_ende
+
+    if ziel and g.automatische_fortsetzung_aktiviert(geruest_text):
+        text, findings_fortsetzung = await _bei_bedarf_fortsetzen(
+            on_event, settings, base_url, projekt_root, n, text, ziel,
+            geruest_text, vorher, stufe, zusatzhinweis, autor_rolle,
+        )
+        findings += findings_fortsetzung
+    elif ziel and woerter(text) < ziel * FORTSETZEN_SCHWELLE:
+        findings.append(h.Finding(
+            "zu_kurz",
+            f"Kapitel {n} liegt bei {woerter(text)} von {ziel} Wörtern "
+            f"({woerter(text)/ziel:.0%}). Automatische Fortsetzung ist "
+            f"deaktiviert - Kapitel bleibt so, wie es ist.",
+            schwere="info",
+        ))
+
+    titelseite_hinzugefuegt = False
+    if n == 1:
+        epoche = pd.epoche_von_projekt(projekt_root)
+        titelseite = g.titelseite_erzeugen(geruest_text, epoche)
+        if titelseite:
+            erste_zeile = titelseite.strip().split("\n")[0]
+            if not text.lstrip().startswith(erste_zeile):
+                text = titelseite + text
+                titelseite_hinzugefuegt = True
+
+    _, gesichert_als = pd.schreib(pd.kapitel_datei(projekt, n), text)
+
+    if ziel:
+        ist = woerter(text)
+        abw = (ist - ziel) / ziel * 100
+        if abs(abw) > 25:
+            findings.append(h.Finding(
+                "umfang_abweichung",
+                f"Umfang weicht deutlich ab: {ist} statt {ziel} Wörter ({abw:+.0f} %).",
+            ))
+
+    findings += h.alle_nachbearbeitungs_checks(text, geruest_text, stufe)
+
+    unbekannt = h.hunspell_unbekannte_woerter(
+        text, exec_fn=_hunspell_exec_fn(settings, ssh_ziel_id),
+    )
+    if unbekannt:
+        findings.append(h.Finding(
+            "rechtschreibung",
+            f"hunspell kennt folgende Wörter nicht (Eigennamen, "
+            f"Fachbegriffe oder Tippfehler): {', '.join(unbekannt)}",
+            schwere="info",
+        ))
+
+    await on_event({
+        "phase": "nachbearbeitung", "typ": "done",
+        "findings": [f.__dict__ for f in findings],
+        "gesichert_als": gesichert_als,
+        "titelseite_hinzugefuegt": titelseite_hinzugefuegt,
+    })
+
+    await on_event({"phase": "pruefen", "typ": "start"})
+    befunde_antwort = await _pruefe_kapitel(settings, projekt, base_url, n, text)
+    await on_event({"phase": "pruefen", "typ": "done", "befunde": befunde_antwort.model_dump()})
+
+    await on_event({"phase": "abgeschlossen", "kapitel_text": text})
+
+    return {
+        "text": text, "findings": findings, "befunde_antwort": befunde_antwort,
+        "gesichert_als": gesichert_als, "titelseite_hinzugefuegt": titelseite_hinzugefuegt,
+    }
+
+
 @router.websocket("/{ordner:path}/ws/schreiben/{n}")
 async def ws_schreiben(websocket: WebSocket, ordner: str, n: int,
                         zusatzhinweis: str = "", ssh_ziel_id: str | None = None,
@@ -334,140 +639,11 @@ async def ws_schreiben(websocket: WebSocket, ordner: str, n: int,
     await websocket.accept()
     try:
         projekt_root = projekt_pfad(settings, benutzer.username, ordner)
-        projekt = projekt_root / "projekt"
-
-        # Stand-Sicherstellung (siehe Schnittstellen-Uebersicht 5.14): fehlt
-        # stand_(n-1).md, aber Kapitel n-1 existiert, wird er zuerst nachgeholt.
-        if n > 1 and not pd.stand_datei(projekt, n - 1).exists():
-            if not pd.kapitel_datei(projekt, n - 1).exists():
-                await websocket.send_json({
-                    "phase": "fehler", "typ": "error",
-                    "text": f"Weder stand_{n-1:02d}.md noch kapitel_{n-1:02d}.md "
-                            f"vorhanden - Kapitel müssen der Reihe nach geschrieben werden.",
-                })
-                await websocket.close()
-                return
-
-        geruest_text = pd.lies(pd.geruest_datei(projekt))
-        stufe = g.jugendschutz_stufe_erkennen(geruest_text)
-        autor_rolle = g.autor_rolle_erkennen(geruest_text)
-        ziel = g.kapitelplan_erkennen(geruest_text).get(n)
-        kapitel_block = g.kapitel_block_erkennen(geruest_text, n)
-        vorher = pd.lies(pd.stand_datei(projekt, n - 1), pflicht=False,
-                          ersatz="(Kein vorheriger Stand. Dies ist das erste Kapitel.)")
-
         with ollama_basis_url(settings, ssh_ziel_id) as base_url:
-            if n > 1 and not pd.stand_datei(projekt, n - 1).exists() \
-                    and pd.kapitel_datei(projekt, n - 1).exists():
-                await websocket.send_json({"phase": "stand_nachholen", "typ": "start", "kapitel": n - 1})
-                await _stand_ausfuehren(projekt_root, base_url, n - 1)
-                await websocket.send_json({"phase": "stand_nachholen", "typ": "done", "kapitel": n - 1})
-                vorher = pd.lies(pd.stand_datei(projekt, n - 1))
-
-            zielsatz = f"Zielumfang: etwa {ziel} Wörter." if ziel else ""
-            aktueller_hinweis = (
-                f"\n\n=== NUR DIESES KAPITEL SCHREIBEN (Kapitel {n}) ===\n{kapitel_block}\n\n"
-                f"Bleibe ausschließlich in der oben für DIESES Kapitel beschriebenen "
-                f"Stufe der Liebeshandlung. Verwende KEINE Ereignisse, keine Explizitheit "
-                f"und keinen Beziehungsstand aus einem ANDEREN Kapitel des Gesamtplans."
-                if kapitel_block else ""
+            await _kapitel_schreiben_kern(
+                settings, projekt_root, base_url, n, zusatzhinweis, ssh_ziel_id,
+                on_event=websocket.send_json,
             )
-            zusatz_block = (
-                f"\n\n=== ZUSÄTZLICHER HINWEIS FÜR DIESEN VERSUCH ===\n{zusatzhinweis}\n"
-                f"Dieser Hinweis gilt nur für diesen einen Schreibversuch und hat "
-                f"Vorrang, falls er einem Detail des Geruests widerspricht."
-                if zusatzhinweis else ""
-            )
-            user_prompt = (
-                f"=== STORY-GERUEST ===\n{geruest_text}\n\n"
-                f"=== STAND NACH DEM VORIGEN KAPITEL ===\n{vorher}\n\n"
-                f"=== AUFTRAG ===\nSchreibe Kapitel {n}. {zielsatz}\n"
-                f"Gib ausschließlich den Kapiteltext aus.\n\n"
-                f"{STUFE_DIREKTIVEN[stufe]}{aktueller_hinweis}{zusatz_block}"
-            )
-
-            teile: list[str] = []
-            await websocket.send_json({
-                "phase": "autor", "typ": "start",
-                "modell": ROLLEN[autor_rolle]["modell"], "ziel_woerter": ziel,
-            })
-            async for event in chat_stream(base_url, autor_rolle, pd.persona_lesen(projekt_root, "autor"), user_prompt):
-                if event.typ == "error":
-                    await websocket.send_json({"phase": "autor", "typ": "error", "text": event.text})
-                    await websocket.close()
-                    return
-                if event.typ in ("thinking", "content"):
-                    teile.append(event.text) if event.typ == "content" else None
-                    await websocket.send_json({"phase": "autor", "typ": event.typ, "text": event.text})
-                if event.typ == "done":
-                    await websocket.send_json({"phase": "autor", "typ": "done", "meta": event.meta})
-
-            text = "".join(teile).strip()
-            text, findings_neustart = h.kapitel_neustart_abschneiden(text)
-            text, findings_ende = h.vorzeitige_kapitelende_abschneiden(text)
-            findings = findings_neustart + findings_ende
-
-            if ziel and g.automatische_fortsetzung_aktiviert(geruest_text):
-                text, findings_fortsetzung = await _bei_bedarf_fortsetzen(
-                    websocket, base_url, projekt_root, n, text, ziel,
-                    geruest_text, vorher, stufe, zusatzhinweis, autor_rolle,
-                )
-                findings += findings_fortsetzung
-            elif ziel and woerter(text) < ziel * FORTSETZEN_SCHWELLE:
-                findings.append(h.Finding(
-                    "zu_kurz",
-                    f"Kapitel {n} liegt bei {woerter(text)} von {ziel} Wörtern "
-                    f"({woerter(text)/ziel:.0%}). Automatische Fortsetzung ist "
-                    f"deaktiviert - Kapitel bleibt so, wie es ist.",
-                    schwere="info",
-                ))
-
-            titelseite_hinzugefuegt = False
-            if n == 1:
-                epoche = pd.epoche_von_projekt(projekt_root)
-                titelseite = g.titelseite_erzeugen(geruest_text, epoche)
-                if titelseite:
-                    erste_zeile = titelseite.strip().split("\n")[0]
-                    if not text.lstrip().startswith(erste_zeile):
-                        text = titelseite + text
-                        titelseite_hinzugefuegt = True
-
-            _, gesichert_als = pd.schreib(pd.kapitel_datei(projekt, n), text)
-
-            if ziel:
-                ist = woerter(text)
-                abw = (ist - ziel) / ziel * 100
-                if abs(abw) > 25:
-                    findings.append(h.Finding(
-                        "umfang_abweichung",
-                        f"Umfang weicht deutlich ab: {ist} statt {ziel} Wörter ({abw:+.0f} %).",
-                    ))
-
-            findings += h.alle_nachbearbeitungs_checks(text, geruest_text, stufe)
-
-            unbekannt = h.hunspell_unbekannte_woerter(
-                text, exec_fn=_hunspell_exec_fn(settings, ssh_ziel_id),
-            )
-            if unbekannt:
-                findings.append(h.Finding(
-                    "rechtschreibung",
-                    f"hunspell kennt folgende Wörter nicht (Eigennamen, "
-                    f"Fachbegriffe oder Tippfehler): {', '.join(unbekannt)}",
-                    schwere="info",
-                ))
-
-            await websocket.send_json({
-                "phase": "nachbearbeitung", "typ": "done",
-                "findings": [f.__dict__ for f in findings],
-                "gesichert_als": gesichert_als,
-                "titelseite_hinzugefuegt": titelseite_hinzugefuegt,
-            })
-
-            await websocket.send_json({"phase": "pruefen", "typ": "start"})
-            befunde_antwort = await _pruefe_kapitel(projekt, base_url, n, text)
-            await websocket.send_json({"phase": "pruefen", "typ": "done", "befunde": befunde_antwort.model_dump()})
-
-            await websocket.send_json({"phase": "abgeschlossen", "kapitel_text": text})
 
     except OllamaFehler as e:
         logger.warning("ws_schreiben: OllamaFehler fuer %s/%s: %s", ordner, n, e)
@@ -527,6 +703,200 @@ def _hunspell_exec_fn(settings: Settings, ssh_ziel_id: str | None):
     return functools.partial(ssh_manager.exec_command, ziel)
 
 
+def _automatik_log_zeile(payload: dict) -> str | None:
+    """Uebersetzt ein on_event-Ereignis (dieselbe Form wie websocket.send_json
+    im interaktiven Schreiben-Pfad) in eine lesbare Log-Zeile fuer den
+    Automatikmodus-Status. Streaming-Chunks (thinking/content) werden
+    bewusst NICHT geloggt, sonst waeren es tausende Zeilen pro Kapitel."""
+    phase, typ = payload.get("phase"), payload.get("typ")
+    if phase == "stand_nachholen":
+        return f"Stand für Kapitel {payload.get('kapitel')} wird nachgeholt ({typ})."
+    if phase == "autor" and typ == "start":
+        ziel = payload.get("ziel_woerter")
+        return f"Autor schreibt (Ziel ~{ziel} Wörter)..." if ziel else "Autor schreibt..."
+    if phase == "autor" and typ == "done":
+        meta = payload.get("meta") or {}
+        return f"Kapitel-Entwurf fertig ({meta.get('woerter', '?')} Wörter, {meta.get('token_pro_sekunde', '?')} Tok/s)."
+    if phase == "autor_fortsetzung" and typ == "start":
+        return f"Kapitel zu kurz, Fortsetzungsversuch {payload.get('versuch')}/{payload.get('max_versuche')}..."
+    if phase == "nachbearbeitung" and typ == "done":
+        return f"Nachbearbeitung fertig ({len(payload.get('findings', []))} Hinweis(e))."
+    if phase == "pruefen" and typ == "start":
+        return "Prüfer laufen..."
+    if phase == "pruefen" and typ == "done":
+        anzahl = len((payload.get("befunde") or {}).get("befunde", []))
+        return f"Prüfung fertig ({anzahl} Fund/Funde)."
+    if phase == "abgeschlossen":
+        return "Kapitel gespeichert."
+    return None
+
+
+def _automatik_stop_angefordert(status: dict, projekt_root: Path) -> bool:
+    """Liest das Stop-Flag FRISCH von der Platte statt nur aus dem im
+    Speicher gehaltenen `status`-Dict des laufenden Hintergrund-Tasks - der
+    "Stoppen"-Endpunkt (automatik_stop) laeuft in einem eigenen Request und
+    kann das In-Memory-Objekt des Background-Tasks gar nicht erreichen, nur
+    die Datei. Synchronisiert `status["stop_angefordert"]` gleich mit,
+    damit ein nachfolgendes status_schreiben() ein von aussen gesetztes
+    Flag nicht wieder auf False zurueckschreibt."""
+    aktuell = automatik.status_lesen(projekt_root)["stop_angefordert"]
+    status["stop_angefordert"] = aktuell
+    return aktuell
+
+
+def _automatik_on_event(status: dict, projekt_root: Path) -> OnEvent:
+    async def _on_event(payload: dict) -> None:
+        zeile = _automatik_log_zeile(payload)
+        if zeile:
+            status["log"].append(zeile)
+            automatik.status_schreiben(projekt_root, status)
+    return _on_event
+
+
+async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: str | None,
+                           max_durchlaeufe: int) -> None:
+    """Hintergrund-Job (siehe automatik_start(), per FastAPI BackgroundTasks
+    gestartet - laeuft unabhaengig von einer offenen Browser-Verbindung
+    weiter): schreibt zuerst alle fehlenden Kapitel, wendet dann pro
+    Kapitel alle uebernehmbaren Pruefer-Korrekturen an (siehe
+    app/core/automatik.py:befunde_anwenden - alles ausser Konflikt/nicht
+    gefunden), wiederholt das je Kapitel bis zu `max_durchlaeufe` mal oder
+    bis nichts mehr angewendet wird, und listet abschliessend unbekannte
+    Woerter (hunspell) OHNE Auto-Korrektur im Protokoll."""
+    projekt = projekt_root / "projekt"
+    status = automatik.status_lesen(projekt_root)
+    status.update({
+        "laeuft": True, "gestartet_am": time.strftime("%Y-%m-%d %H:%M"),
+        "phase": "schreiben", "aktuelles_kapitel": None, "gesamt_kapitel": None,
+        "log": [], "protokoll": [], "stop_angefordert": False,
+        "abgeschlossen": False, "fehler": None,
+    })
+    automatik.status_schreiben(projekt_root, status)
+
+    try:
+        geruest_text = pd.lies(pd.geruest_datei(projekt))
+        letztes = g.letztes_geplantes_kapitel(geruest_text)
+        if not letztes:
+            raise ValueError(
+                "Kein Kapitelplan im Gerüst gefunden - der Automatikmodus "
+                "braucht eine geplante Gesamtzahl an Kapiteln."
+            )
+        status["gesamt_kapitel"] = letztes
+        automatik.status_schreiben(projekt_root, status)
+        on_event = _automatik_on_event(status, projekt_root)
+
+        with ollama_basis_url(settings, ssh_ziel_id) as base_url:
+            # Phase 1: fehlende Kapitel der Reihe nach schreiben.
+            start_n = 1
+            while start_n <= letztes and pd.kapitel_datei(projekt, start_n).exists():
+                start_n += 1
+
+            for n in range(start_n, letztes + 1):
+                if _automatik_stop_angefordert(status, projekt_root):
+                    status["log"].append(f"Gestoppt (Benutzeranforderung) vor Kapitel {n}.")
+                    return
+                status["phase"] = "schreiben"
+                status["aktuelles_kapitel"] = n
+                status["log"].append(f"Schreibe Kapitel {n}/{letztes}...")
+                automatik.status_schreiben(projekt_root, status)
+                await _kapitel_schreiben_kern(settings, projekt_root, base_url, n, "", ssh_ziel_id, on_event)
+
+            # Phase 2: jedes Kapitel pruefen und Korrekturen anwenden -
+            # auch bereits vorher manuell geschriebene, nicht nur die
+            # gerade in Phase 1 neu entstandenen.
+            for n in range(1, letztes + 1):
+                if not pd.kapitel_datei(projekt, n).exists():
+                    continue
+                if _automatik_stop_angefordert(status, projekt_root):
+                    status["log"].append(f"Gestoppt (Benutzeranforderung) vor Prüfung von Kapitel {n}.")
+                    return
+
+                status["phase"] = "pruefen"
+                status["aktuelles_kapitel"] = n
+                automatik.status_schreiben(projekt_root, status)
+
+                durchlauf = 0
+                while True:
+                    durchlauf += 1
+                    kapiteltext = pd.lies(pd.kapitel_datei(projekt, n))
+                    befunde_antwort = await _pruefe_kapitel(settings, projekt, base_url, n, kapiteltext)
+                    befunde_dicts = [b.model_dump() for b in befunde_antwort.befunde]
+                    korrigiert, protokoll_eintraege = automatik.befunde_anwenden(kapiteltext, befunde_dicts)
+                    for eintrag in protokoll_eintraege:
+                        eintrag["kapitel"] = n
+                        eintrag["durchlauf"] = durchlauf
+                    status["protokoll"] += protokoll_eintraege
+
+                    angewendet = sum(1 for e in protokoll_eintraege if e["art"] == "angewendet")
+                    status["log"].append(
+                        f"Kapitel {n}, Durchlauf {durchlauf}: {angewendet} Korrektur(en) "
+                        f"angewendet, {len(protokoll_eintraege) - angewendet} übersprungen."
+                    )
+                    automatik.status_schreiben(projekt_root, status)
+
+                    if korrigiert != kapiteltext:
+                        pd.schreib(pd.kapitel_datei(projekt, n), korrigiert)
+
+                    if angewendet == 0 or durchlauf >= max_durchlaeufe:
+                        break
+
+                finaler_text = pd.lies(pd.kapitel_datei(projekt, n))
+                unbekannt = h.hunspell_unbekannte_woerter(
+                    finaler_text, exec_fn=_hunspell_exec_fn(settings, ssh_ziel_id),
+                )
+                if unbekannt:
+                    status["protokoll"].append({
+                        "art": "rechtschreibung", "kapitel": n, "unbekannte_woerter": unbekannt,
+                    })
+                    status["log"].append(
+                        f"Kapitel {n}: {len(unbekannt)} unbekannte(s) Wort/Wörter (hunspell) "
+                        f"- keine automatische Korrektur, siehe Protokoll."
+                    )
+                automatik.status_schreiben(projekt_root, status)
+
+        status["phase"] = "abgeschlossen"
+        status["abgeschlossen"] = True
+        status["log"].append("Automatikmodus abgeschlossen.")
+    except Exception as e:
+        logger.exception("Automatikmodus: Fehler in Projekt %s", projekt_root)
+        status["fehler"] = str(e)
+        status["log"].append(f"Fehler: {e}")
+    finally:
+        status["laeuft"] = False
+        automatik.status_schreiben(projekt_root, status)
+
+
+@router.post("/{ordner:path}/automatik/start")
+async def automatik_start(ordner: str, anfrage: AutomatikStartAnfrage,
+                           background_tasks: BackgroundTasks,
+                           ssh_ziel_id: str | None = Query(None),
+                           settings: Settings = Depends(get_settings),
+                           benutzer: Benutzer = Depends(get_current_user)):
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    if automatik.status_lesen(projekt_root)["laeuft"]:
+        raise HTTPException(409, "Automatikmodus läuft für dieses Projekt bereits.")
+    background_tasks.add_task(_automatik_lauf, settings, projekt_root, ssh_ziel_id, anfrage.max_durchlaeufe)
+    return {"gestartet": True}
+
+
+@router.get("/{ordner:path}/automatik/status", response_model=AutomatikStatusAntwort)
+def automatik_status(ordner: str, settings: Settings = Depends(get_settings),
+                      benutzer: Benutzer = Depends(get_current_user)):
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    return AutomatikStatusAntwort(**automatik.status_lesen(projekt_root))
+
+
+@router.post("/{ordner:path}/automatik/stop")
+def automatik_stop(ordner: str, settings: Settings = Depends(get_settings),
+                    benutzer: Benutzer = Depends(get_current_user)):
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    status = automatik.status_lesen(projekt_root)
+    if status["laeuft"]:
+        status["stop_angefordert"] = True
+        automatik.status_schreiben(projekt_root, status)
+    return {"stop_angefordert": True}
+
+
 @router.post("/{ordner:path}/pruefen/{n}", response_model=BefundeAntwort)
 async def pruefen(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
                    settings: Settings = Depends(get_settings),
@@ -535,7 +905,7 @@ async def pruefen(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
     projekt = projekt_root / "projekt"
     kapiteltext = pd.lies(pd.kapitel_datei(projekt, n))
     with ollama_basis_url(settings, ssh_ziel_id) as base_url:
-        return await _pruefe_kapitel(projekt, base_url, n, kapiteltext)
+        return await _pruefe_kapitel(settings, projekt, base_url, n, kapiteltext)
 
 
 @router.post("/{ordner:path}/stand/{n}")
@@ -544,7 +914,7 @@ async def stand(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
                  benutzer: Benutzer = Depends(get_current_user)):
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     with ollama_basis_url(settings, ssh_ziel_id) as base_url:
-        text, auto_export = await _stand_ausfuehren(projekt_root, base_url, n)
+        text, auto_export = await _stand_ausfuehren(settings, projekt_root, base_url, n)
     return {"stand": text, "auto_export": auto_export}
 
 

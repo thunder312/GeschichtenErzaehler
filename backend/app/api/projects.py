@@ -12,6 +12,7 @@ from fastapi.responses import PlainTextResponse
 
 from app.auth import get_current_user
 from app.config import Settings, get_settings
+from app.core import automatik
 from app.core import geruest as g
 from app.core import projekt_dateien as pd
 from app.schemas import (
@@ -77,6 +78,7 @@ def _projekt_kurz(pfad, wurzel, settings: Settings) -> ProjektKurz:
         epoche=pd.epoche_von_projekt(pfad),
         anzahl_kapitel=len(pd.vorhandene_kapitel(projekt_unterordner)),
         letztes_geplantes_kapitel=g.letztes_geplantes_kapitel(geruest_text) if geruest_text else None,
+        automatik_zustand=automatik.zustand_zusammenfassen(automatik.status_lesen(pfad)),
     )
 
 

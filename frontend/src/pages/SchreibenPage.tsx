@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, schreibenWebSocketUrl } from "../api/client";
-import type { BefundeAntwort, Finding, ProjektDetail, SchreibenNachricht } from "../api/types";
+import type { AutomatikStatus, BefundeAntwort, Finding, ProjektDetail, SchreibenNachricht } from "../api/types";
 import { BefundListe } from "../components/BefundListe";
 import { FindingsList } from "../components/FindingsList";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
@@ -36,6 +36,47 @@ export function SchreibenPage({
   const autoVorgeschlageneNummerRef = useRef<number | null>(null);
   const phaseRef = useRef<string | null>(null);
   const { starten: aktivitaetStarten, beenden: aktivitaetBeenden } = useAktivitaet();
+
+  const [automatikStatus, setAutomatikStatus] = useState<AutomatikStatus | null>(null);
+  const [automatikMaxDurchlaeufe, setAutomatikMaxDurchlaeufe] = useState(3);
+  const [automatikFehler, setAutomatikFehler] = useState<string | null>(null);
+
+  // Pollt den Automatikmodus-Status, solange dieser Tab offen ist - der Lauf
+  // selbst haengt NICHT an dieser Verbindung (Hintergrund-Job auf dem
+  // Server, siehe app/api/pipeline.py:_automatik_lauf), das Polling zeigt
+  // nur den jeweils aktuellen Stand an.
+  useEffect(() => {
+    let abgebrochen = false;
+    function laden() {
+      api
+        .automatikStatus(ordner)
+        .then((status) => {
+          if (!abgebrochen) setAutomatikStatus(status);
+        })
+        .catch(() => {});
+    }
+    laden();
+    const intervall = setInterval(laden, 4000);
+    return () => {
+      abgebrochen = true;
+      clearInterval(intervall);
+    };
+  }, [ordner]);
+
+  async function automatikStarten() {
+    setAutomatikFehler(null);
+    try {
+      await api.automatikStarten(ordner, automatikMaxDurchlaeufe, sshZielId || null);
+      setAutomatikStatus(await api.automatikStatus(ordner));
+    } catch (e) {
+      setAutomatikFehler(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function automatikStoppen() {
+    await api.automatikStoppen(ordner);
+    setAutomatikStatus(await api.automatikStatus(ordner));
+  }
 
   useEffect(() => {
     // Kapitelnummer nur beim WECHSEL des Projekts neu vorschlagen, nicht bei
@@ -295,6 +336,84 @@ export function SchreibenPage({
           </Card>
         )}
       </div>
+
+      <Card className="lg:col-span-2">
+        <CardTitle>🤖 Automatikmodus</CardTitle>
+        <p className="mb-3 text-xs text-text-muted">
+          Schreibt alle noch fehlenden Kapitel am Stück und wendet danach für jedes Kapitel automatisch alle
+          eindeutigen Prüfer-Korrekturen an. Widersprüchliche Vorschläge und nicht auffindbare Stellen werden
+          übersprungen und bleiben wie gewohnt im Tab "Prüfen &amp; Anwenden" zur manuellen Entscheidung.
+          Rechtschreibung (hunspell) läuft mit, unbekannte Wörter landen nur im Protokoll (keine automatische
+          Ersetzung). Läuft im Hintergrund weiter, auch wenn du diesen Tab schließt oder den Browser zumachst.
+        </p>
+
+        {automatikStatus?.laeuft ? (
+          <div className="space-y-3">
+            <p className="text-sm text-text">
+              Phase: <strong>{automatikStatus.phase}</strong>
+              {automatikStatus.aktuelles_kapitel != null && (
+                <>
+                  {" "}
+                  · Kapitel {automatikStatus.aktuelles_kapitel}
+                  {automatikStatus.gesamt_kapitel != null && <>/{automatikStatus.gesamt_kapitel}</>}
+                </>
+              )}
+            </p>
+            <div className="max-h-40 overflow-auto rounded-lg bg-bg p-2 font-mono text-xs text-text-muted">
+              {automatikStatus.log.length === 0 ? (
+                <p>Startet...</p>
+              ) : (
+                automatikStatus.log.slice(-20).map((zeile, i) => <div key={i}>{zeile}</div>)
+              )}
+            </div>
+            <Button variant="danger" onClick={automatikStoppen}>
+              Stoppen
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <Label>Max. Durchläufe je Kapitel</Label>
+              <Input
+                type="number"
+                min={1}
+                max={10}
+                value={automatikMaxDurchlaeufe}
+                onChange={(e) => setAutomatikMaxDurchlaeufe(Number(e.target.value))}
+                className="w-24"
+              />
+            </div>
+            <Button onClick={automatikStarten}>Automatikmodus starten</Button>
+          </div>
+        )}
+
+        {automatikFehler && <p className="mt-2 text-sm text-red-400">{automatikFehler}</p>}
+        {automatikStatus?.fehler && (
+          <p className="mt-2 text-sm text-red-400">Fehler im letzten Lauf: {automatikStatus.fehler}</p>
+        )}
+
+        {!automatikStatus?.laeuft && automatikStatus?.abgeschlossen && (
+          <details className="mt-3 text-xs text-text-muted">
+            <summary className="cursor-pointer text-text">
+              Protokoll des letzten Laufs ({automatikStatus.protokoll.length} Einträge)
+            </summary>
+            <ul className="mt-2 max-h-64 space-y-1 overflow-auto">
+              {automatikStatus.protokoll.map((eintrag, i) => (
+                <li key={i}>
+                  Kapitel {eintrag.kapitel}:{" "}
+                  {eintrag.art === "angewendet"
+                    ? "✅ angewendet"
+                    : eintrag.art === "rechtschreibung"
+                      ? `📝 ${eintrag.unbekannte_woerter?.length ?? 0} unbekannte(s) Wort/Wörter`
+                      : `⏭️ übersprungen (${eintrag.grund})`}
+                  {eintrag.fundstelle && <> – „{eintrag.fundstelle}“</>}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2">Reste findest du wie gewohnt im Tab "Prüfen &amp; Anwenden".</p>
+          </details>
+        )}
+      </Card>
     </div>
   );
 }

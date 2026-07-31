@@ -55,6 +55,27 @@ def test_projektliste_zeigt_titel_und_kapitelanzahl_aus_projekt_unterordner(clie
     assert eintrag["letztes_geplantes_kapitel"] == 1
 
 
+def test_projektliste_zeigt_automatik_zustand_none_ohne_lauf(client, projekt):
+    eintrag = next(p for p in client.get("/api/projects").json() if p["ordner"] == projekt)
+    assert eintrag["automatik_zustand"] is None
+
+
+def test_projektliste_zeigt_automatik_zustand_mit_resten(client, projekt, tmp_path):
+    from app.core import automatik
+
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    status = automatik.status_lesen(projekt_root)
+    status.update({
+        "gestartet_am": "2026-01-01 12:00", "laeuft": False, "fehler": None,
+        "abgeschlossen": True,
+        "protokoll": [{"art": "uebersprungen", "grund": "konflikt"}],
+    })
+    automatik.status_schreiben(projekt_root, status)
+
+    eintrag = next(p for p in client.get("/api/projects").json() if p["ordner"] == projekt)
+    assert eintrag["automatik_zustand"] == "abgeschlossen_mit_resten"
+
+
 def test_verbotsliste_lesen_und_schreiben(client, projekt):
     r = client.get(f"/api/projects/{projekt}")
     assert r.status_code == 200

@@ -5,12 +5,18 @@ export interface EpocheKurz {
   genre?: string | null;
 }
 
+// Siehe app/core/automatik.py:zustand_zusammenfassen() für die Bedeutung
+// der einzelnen Werte - null heißt: Automatikmodus wurde für dieses
+// Projekt noch nie gestartet.
+export type AutomatikZustand = "laeuft" | "fehler" | "abgeschlossen_mit_resten" | "abgeschlossen_sauber" | null;
+
 export interface ProjektKurz {
   ordner: string;
   titel: string | null;
   epoche: string | null;
   anzahl_kapitel: number;
   letztes_geplantes_kapitel: number | null;
+  automatik_zustand: AutomatikZustand;
 }
 
 export interface ProjektDetail {
@@ -122,6 +128,34 @@ export interface RechtschreibWort {
 export interface RechtschreibAntwort {
   unbekannte_woerter: RechtschreibWort[];
   hunspell_verfuegbar: boolean;
+}
+
+// /api/projects/{ordner}/automatik/* - schreibt alle fehlenden Kapitel am
+// Stück und wendet danach automatisch alle eindeutigen Prüfer-Korrekturen
+// an (siehe app/core/automatik.py). Läuft als Hintergrund-Job unabhängig
+// von einer offenen Browser-Verbindung - dieser Status wird per Polling
+// abgefragt, nicht per WebSocket.
+export interface AutomatikProtokollEintrag {
+  art: "angewendet" | "uebersprungen" | "rechtschreibung";
+  grund?: string | null;
+  fundstelle?: string | null;
+  vorschlag?: string | null;
+  kapitel?: number;
+  durchlauf?: number;
+  unbekannte_woerter?: string[];
+}
+
+export interface AutomatikStatus {
+  laeuft: boolean;
+  gestartet_am: string | null;
+  phase: string | null;
+  aktuelles_kapitel: number | null;
+  gesamt_kapitel: number | null;
+  log: string[];
+  protokoll: AutomatikProtokollEintrag[];
+  stop_angefordert: boolean;
+  abgeschlossen: boolean;
+  fehler: string | null;
 }
 
 export interface FundusImportAntwort {
