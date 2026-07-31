@@ -239,11 +239,12 @@ class WissenEintrag(BaseModel):
     quelle: str | None = None
 
 
-# /api/unnuetzeswissen/naechstes - liefert Eintraege in einer serverseitig
-# gemerkten, einmal gemischten Reihenfolge statt rein zufaellig, damit
-# jeder Eintrag garantiert einmal drankommt bevor sich etwas wiederholt.
 class WissenNaechstesAntwort(BaseModel):
     eintrag: WissenEintrag
+    # 1-basierte Position innerhalb der aktuell gemischten Runde (siehe
+    # app/db.py:wissen_status_*) und deren Gesamtlaenge - fuer eine
+    # "X von Y"-Anzeige, die tatsaechlich den Fortschritt durch die
+    # gemischte Reihenfolge zeigt statt nur die rohe DB-ID.
     position: int
     gesamt: int
 
