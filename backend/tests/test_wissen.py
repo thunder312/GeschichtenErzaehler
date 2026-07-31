@@ -99,3 +99,77 @@ def test_wissen_auflisten_ohne_eintraege_liefert_leere_liste(client):
     r = client.get("/api/unnuetzeswissen")
     assert r.status_code == 200
     assert r.json() == []
+
+
+def test_wissen_status_lesen_ohne_vorherigen_lauf_liefert_leerzustand(db_pfad):
+    init_db(db_pfad)
+    reihenfolge, position = db.wissen_status_lesen(db_pfad)
+    assert reihenfolge == []
+    assert position == -1
+
+
+def test_wissen_status_schreiben_und_lesen_roundtrip(db_pfad):
+    init_db(db_pfad)
+    db.wissen_status_schreiben(db_pfad, [3, 1, 2], 1)
+    reihenfolge, position = db.wissen_status_lesen(db_pfad)
+    assert reihenfolge == [3, 1, 2]
+    assert position == 1
+
+    db.wissen_status_schreiben(db_pfad, [3, 1, 2], 2)
+    _, position2 = db.wissen_status_lesen(db_pfad)
+    assert position2 == 2
+
+
+def _fuenf_eintraege_einfuegen(db_pfad):
+    db.wissen_einfuegen(db_pfad, [
+        {"kategorie": "A", "thema": f"Thema {i}", "kuriositaet": "x", "hintergrund": "x", "quelle": None}
+        for i in range(5)
+    ])
+
+
+def test_wissen_naechstes_ohne_eintraege_gibt_404(client):
+    r = client.get("/api/unnuetzeswissen/naechstes")
+    assert r.status_code == 404
+
+
+def test_wissen_naechstes_liefert_jeden_eintrag_genau_einmal_pro_runde(client, db_pfad):
+    _fuenf_eintraege_einfuegen(db_pfad)
+
+    gesehene_nummern = []
+    for _ in range(5):
+        antwort = client.get("/api/unnuetzeswissen/naechstes").json()
+        gesehene_nummern.append(antwort["eintrag"]["nummer"])
+        assert antwort["gesamt"] == 5
+
+    assert sorted(gesehene_nummern) == [1, 2, 3, 4, 5]
+    assert len(set(gesehene_nummern)) == 5  # keine Wiederholung innerhalb der Runde
+
+
+def test_wissen_naechstes_startet_nach_voller_runde_neue_mischung(client, db_pfad):
+    _fuenf_eintraege_einfuegen(db_pfad)
+
+    erste_runde = [client.get("/api/unnuetzeswissen/naechstes").json() for _ in range(5)]
+    assert [a["position"] for a in erste_runde] == [1, 2, 3, 4, 5]
+
+    naechste = client.get("/api/unnuetzeswissen/naechstes").json()
+    # Neue Runde faengt wieder bei Position 1 an, mit vollstaendiger Laenge.
+    assert naechste["position"] == 1
+    assert naechste["gesamt"] == 5
+
+
+def test_wissen_naechstes_reagiert_auf_neue_eintraege_waehrend_einer_runde(client, db_pfad):
+    _fuenf_eintraege_einfuegen(db_pfad)
+    client.get("/api/unnuetzeswissen/naechstes")  # eine Runde von 5 anstossen
+
+    db.wissen_einfuegen(db_pfad, [
+        {"kategorie": "B", "thema": "Neu", "kuriositaet": "x", "hintergrund": "x", "quelle": None},
+    ])
+
+    # Gesamtzahl der gespeicherten Reihenfolge muss sich an den neuen
+    # Datenbestand (6 statt 5) anpassen, statt an der veralteten Laenge
+    # festzuhalten oder auf eine nicht mehr passende ID zu zeigen.
+    gesehen = set()
+    for _ in range(6):
+        antwort = client.get("/api/unnuetzeswissen/naechstes").json()
+        gesehen.add(antwort["eintrag"]["nummer"])
+    assert gesehen == {1, 2, 3, 4, 5, 6}

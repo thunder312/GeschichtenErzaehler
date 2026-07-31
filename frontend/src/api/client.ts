@@ -17,6 +17,7 @@ import type {
   SSHZiel,
   SSHZielEingabe,
   WissenEintrag,
+  WissenNaechstesAntwort,
 } from "./types";
 
 async function anfrage<T>(pfad: string, init?: RequestInit): Promise<T> {
@@ -214,6 +215,8 @@ export const api = {
     }),
 
   unnuetzesWissen: () => anfrage<WissenEintrag[]>("/api/unnuetzeswissen"),
+
+  unnuetzesWissenNaechstes: () => anfrage<WissenNaechstesAntwort>("/api/unnuetzeswissen/naechstes"),
 
   login: (eingabe: LoginEingabe) =>
     anfrage<Benutzer>("/api/auth/login", { method: "POST", body: JSON.stringify(eingabe) }),

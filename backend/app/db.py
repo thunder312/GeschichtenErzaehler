@@ -53,6 +53,19 @@ CREATE TABLE IF NOT EXISTS unnuetzes_wissen (
     quelle TEXT
 );
 
+-- Merkt sich eine EINMAL gemischte Reihenfolge aller unnuetzes_wissen-IDs
+-- (reihenfolge, als JSON-Array) plus die zuletzt gezeigte Position darin -
+-- verhindert das gefuehlt "nicht zufaellige" Verhalten von purem
+-- Math.random() pro Anzeige (kurzfristige Wiederholungen sind bei echtem
+-- Zufall statistisch normal, wirken fuer Nutzer aber wie ein Bug). Naechster
+-- Aufruf rueckt einfach eine Position weiter, bis die Liste durch ist -
+-- dann wird neu gemischt.
+CREATE TABLE IF NOT EXISTS wissen_status (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    reihenfolge TEXT NOT NULL,
+    position INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS benutzer (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
@@ -264,6 +277,26 @@ def wissen_alle_lesen(db_path: Path) -> list[sqlite3.Row]:
         return conn.execute(
             "SELECT id, kategorie, thema, kuriositaet, hintergrund, quelle FROM unnuetzes_wissen ORDER BY id"
         ).fetchall()
+
+
+def wissen_status_lesen(db_path: Path) -> tuple[list[int], int]:
+    """(reihenfolge, position) - ([], -1) wenn noch nie gemischt wurde. Ein
+    nachfolgendes +1 auf position ergibt dann 0, die Aufrufer-Logik (siehe
+    app/api/wissen.py) erkennt die leere reihenfolge und mischt neu."""
+    with _verbindung(db_path) as conn:
+        zeile = conn.execute("SELECT reihenfolge, position FROM wissen_status WHERE id=1").fetchone()
+    if zeile is None:
+        return [], -1
+    return json.loads(zeile["reihenfolge"]), zeile["position"]
+
+
+def wissen_status_schreiben(db_path: Path, reihenfolge: list[int], position: int) -> None:
+    with _verbindung(db_path) as conn:
+        conn.execute(
+            "INSERT INTO wissen_status (id, reihenfolge, position) VALUES (1, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET reihenfolge=excluded.reihenfolge, position=excluded.position",
+            (json.dumps(reihenfolge), position),
+        )
 
 
 def benutzer_anlegen(db_path: Path, username: str, password_hash: str, ist_admin: bool = False) -> int:

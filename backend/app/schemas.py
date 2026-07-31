@@ -239,6 +239,15 @@ class WissenEintrag(BaseModel):
     quelle: str | None = None
 
 
+# /api/unnuetzeswissen/naechstes - liefert Eintraege in einer serverseitig
+# gemerkten, einmal gemischten Reihenfolge statt rein zufaellig, damit
+# jeder Eintrag garantiert einmal drankommt bevor sich etwas wiederholt.
+class WissenNaechstesAntwort(BaseModel):
+    eintrag: WissenEintrag
+    position: int
+    gesamt: int
+
+
 class Benutzer(BaseModel):
     id: int
     username: str

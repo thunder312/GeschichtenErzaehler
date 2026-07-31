@@ -206,6 +206,15 @@ export interface WissenEintrag {
   quelle: string | null;
 }
 
+// /api/unnuetzeswissen/naechstes - liefert Eintraege in einer serverseitig
+// gemerkten, einmal gemischten Reihenfolge statt rein zufaellig, damit
+// jeder Eintrag garantiert einmal drankommt bevor sich etwas wiederholt.
+export interface WissenNaechstesAntwort {
+  eintrag: WissenEintrag;
+  position: number;
+  gesamt: number;
+}
+
 // WebSocket-Nachrichten von /api/projects/{ordner}/ws/schreiben/{n}
 export type SchreibenNachricht =
   | { phase: "stand_nachholen"; typ: "start" | "done"; kapitel: number }

@@ -6,47 +6,50 @@ import { useAktivitaet } from "../context/AktivitaetContext";
 const START_VERZOEGERUNG_MS = 20_000;
 const WECHSEL_INTERVALL_MS = 20_000;
 
-function naechsterZufallsEintrag(liste: WissenEintrag[], bisheriger: WissenEintrag | null): WissenEintrag | null {
-  if (liste.length === 0) return null;
-  if (liste.length === 1) return liste[0];
-  let kandidat: WissenEintrag;
-  do {
-    kandidat = liste[Math.floor(Math.random() * liste.length)];
-  } while (kandidat === bisheriger);
-  return kandidat;
-}
-
 /** Zeigt waehrend laengerer KI-Wartezeiten (siehe AktivitaetContext) nach
  * 20 Sekunden ein zentrales Overlay mit unnuetzem Buch-/Autoren-Wissen, das
  * alle 20 Sekunden wechselt - gibt dem Nutzer etwas zu lesen, statt
  * untaetig auf eine fertige Antwort zu warten. Schliesst sich automatisch,
- * sobald die Aktivitaet endet. */
+ * sobald die Aktivitaet endet.
+ *
+ * Die Reihenfolge kommt vom Server (/api/unnuetzeswissen/naechstes,
+ * siehe app/db.py:wissen_status_*) - eine EINMAL gemischte Reihenfolge
+ * aller Eintraege statt reinem Math.random() pro Anzeige, damit jeder
+ * Eintrag garantiert einmal drankommt, bevor sich etwas wiederholt (purer
+ * Zufall wirkt bei kurzfristigen Wiederholungen leicht wie ein Bug, obwohl
+ * das bei echtem Zufall statistisch normal waere). */
 export function ZeitUeberbrueckungOverlay() {
   const { aktivitaet } = useAktivitaet();
-  const [wissen, setWissen] = useState<WissenEintrag[]>([]);
   const [sichtbar, setSichtbar] = useState(false);
   const [eintrag, setEintrag] = useState<WissenEintrag | null>(null);
+  const [position, setPosition] = useState<number | null>(null);
+  const [gesamt, setGesamt] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    api.unnuetzesWissen().then(setWissen).catch(() => setWissen([]));
+  const naechstesLaden = useCallback(() => {
+    api
+      .unnuetzesWissenNaechstes()
+      .then((antwort) => {
+        setEintrag(antwort.eintrag);
+        setPosition(antwort.position);
+        setGesamt(antwort.gesamt);
+      })
+      .catch(() => {});
   }, []);
 
   const starteWechselIntervall = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => {
-      setEintrag((bisher) => naechsterZufallsEintrag(wissen, bisher));
-    }, WECHSEL_INTERVALL_MS);
-  }, [wissen]);
+    intervalRef.current = setInterval(naechstesLaden, WECHSEL_INTERVALL_MS);
+  }, [naechstesLaden]);
 
   // Manuelles Weiterblaettern setzt das Auto-Wechsel-Intervall zurueck,
   // damit nicht kurz nach einem bewussten Klick schon der naechste
   // automatische Wechsel folgt.
   const weiterblaettern = useCallback(() => {
-    setEintrag((bisher) => naechsterZufallsEintrag(wissen, bisher));
+    naechstesLaden();
     starteWechselIntervall();
-  }, [wissen, starteWechselIntervall]);
+  }, [naechstesLaden, starteWechselIntervall]);
 
   useEffect(() => {
     function aufraeumen() {
@@ -56,7 +59,7 @@ export function ZeitUeberbrueckungOverlay() {
       intervalRef.current = null;
     }
 
-    if (!aktivitaet || wissen.length === 0) {
+    if (!aktivitaet) {
       aufraeumen();
       setSichtbar(false);
       return aufraeumen;
@@ -64,13 +67,13 @@ export function ZeitUeberbrueckungOverlay() {
 
     aufraeumen();
     timerRef.current = setTimeout(() => {
-      setEintrag((bisher) => naechsterZufallsEintrag(wissen, bisher));
+      naechstesLaden();
       setSichtbar(true);
       starteWechselIntervall();
     }, START_VERZOEGERUNG_MS);
 
     return aufraeumen;
-  }, [aktivitaet, wissen, starteWechselIntervall]);
+  }, [aktivitaet, naechstesLaden, starteWechselIntervall]);
 
   if (!sichtbar || !eintrag) return null;
 
@@ -90,7 +93,9 @@ export function ZeitUeberbrueckungOverlay() {
         </div>
         <div className="mb-2 flex items-center justify-between gap-2 text-xs font-medium uppercase tracking-wider text-accent-light">
           <span>Unnützes Wissen · {eintrag.kategorie}</span>
-          <span className="text-text-muted">{eintrag.nummer} / {wissen.length}</span>
+          {position != null && gesamt != null && (
+            <span className="text-text-muted">{position} / {gesamt}</span>
+          )}
         </div>
         <h3 className="font-heading mb-2 text-lg font-semibold text-text">
           {eintrag.thema}: {eintrag.kuriositaet}
