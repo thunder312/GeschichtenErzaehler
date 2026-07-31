@@ -14,6 +14,7 @@ const BESCHRIFTUNG: Record<string, string> = {
   chronist: "📖 Chronist",
   pruefer_kontinuitaet: "🔗 Kontinuitäts-Prüfer",
   lektor: "🪄 Lektor",
+  pruefer_satzbau: "📐 Satzbau-Prüfer (Verb-Letzt)",
 };
 
 /** Editor fuer die Rollen-Prompts (personas/*.txt) dieses Projekts. Jedes

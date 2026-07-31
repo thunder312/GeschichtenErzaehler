@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 EPOCHE_PERSONA_DATEIEN = ("architekt.txt", "autor.txt", "pruefer_anachronismus.txt")
 GEMEINSAME_PERSONA_DATEIEN = (
-    "chronist.txt", "pruefer_kontinuitaet.txt", "lektor.txt",
+    "chronist.txt", "pruefer_kontinuitaet.txt", "lektor.txt", "pruefer_satzbau.txt",
 )
 
 

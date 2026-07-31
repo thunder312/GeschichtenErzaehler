@@ -171,7 +171,7 @@ def verbotsliste_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
 
 PERSONA_NAMEN = (
     "architekt", "autor", "pruefer_anachronismus",
-    "chronist", "pruefer_kontinuitaet", "lektor",
+    "chronist", "pruefer_kontinuitaet", "lektor", "pruefer_satzbau",
 )
 
 
