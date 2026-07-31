@@ -59,6 +59,22 @@ export interface SSHTestErgebnis {
   meldung: string;
 }
 
+export interface OllamaModellInfo {
+  name: string;
+  parameter_size: string | null;
+  size_bytes: number | null;
+}
+
+// /api/persona-modelle - globale Admin-Zuordnung Persona -> Ollama-Modell
+// (Tab "KI-Ziele" -> Persona-Modell-Zuordnung), unabhaengig vom Projekt-
+// Override "Autor-Modell: Qwen3" im Gerüst (siehe ProjektDetail.autor_modell).
+export interface PersonaModell {
+  persona: string;
+  default_modell: string;
+  override_modell: string | null;
+  effektives_modell: string;
+}
+
 export interface Finding {
   code: string;
   meldung: string;

@@ -163,3 +163,13 @@ def ollama_basis_url(settings: Settings, ssh_ziel_id: str | None):
             yield t.base_url
     except ssh_manager.SSHVerbindungsFehler as e:
         raise HTTPException(502, f"SSH-Verbindung fehlgeschlagen: {e}") from e
+
+
+def rollen_modell_override(settings: Settings, persona: str) -> str | None:
+    """Globaler Admin-Override fuer das Modell einer ROLLEN-Persona (siehe
+    app/core/rollen.py), gepflegt im Tab "KI-Ziele" -> Persona-Modell-
+    Zuordnung. None bedeutet: kein Override gesetzt, es bleibt beim
+    Default aus rollen.py. Bewusst hier statt in app/core/ollama_client.py,
+    damit core/ ohne DB-Zugriff bleibt (siehe dortiger Kommentar zu
+    sammle_antwort())."""
+    return db.persona_modell_lesen(settings.database_path, persona)

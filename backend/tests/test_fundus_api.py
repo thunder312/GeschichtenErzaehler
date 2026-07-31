@@ -73,7 +73,7 @@ def test_fundus_import_extrahiert_figuren_aus_geruest(client, monkeypatch):
                   "## Konflikt\nSie will heiraten, ihr Vater verbietet es.\n",
     })
 
-    async def fake_sammle_antwort(base_url, rolle, system, user, format=None):
+    async def fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
         return (
             '{"figuren": [{"name": "Lady Amelia Hartwell", "alter": "24", '
             '"stand": "Baronesse", "eigenschaften": "eigensinnig"}]}',

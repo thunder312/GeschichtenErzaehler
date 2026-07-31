@@ -38,6 +38,12 @@ CREATE TABLE IF NOT EXISTS einstellungen (
     unterordner_je_epoche INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS persona_modelle (
+    persona TEXT PRIMARY KEY,
+    modell TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS unnuetzes_wissen (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     kategorie TEXT NOT NULL,
@@ -207,6 +213,36 @@ def einstellung_unterordner_je_epoche_schreiben(db_path: Path, aktiv: bool) -> N
             "ON CONFLICT(id) DO UPDATE SET unterordner_je_epoche=excluded.unterordner_je_epoche",
             (1 if aktiv else 0,),
         )
+
+
+def persona_modell_lesen(db_path: Path, persona: str) -> str | None:
+    """None bedeutet: kein Override gesetzt, es gilt der Default aus
+    app/core/rollen.py (ROLLEN[persona]["modell"])."""
+    with _verbindung(db_path) as conn:
+        zeile = conn.execute(
+            "SELECT modell FROM persona_modelle WHERE persona=?", (persona,)
+        ).fetchone()
+    return zeile["modell"] if zeile else None
+
+
+def persona_modell_schreiben(db_path: Path, persona: str, modell: str) -> None:
+    with _verbindung(db_path) as conn:
+        conn.execute(
+            "INSERT INTO persona_modelle (persona, modell, updated_at) VALUES (?, ?, ?) "
+            "ON CONFLICT(persona) DO UPDATE SET modell=excluded.modell, updated_at=excluded.updated_at",
+            (persona, modell, _jetzt()),
+        )
+
+
+def persona_modell_loeschen(db_path: Path, persona: str) -> None:
+    with _verbindung(db_path) as conn:
+        conn.execute("DELETE FROM persona_modelle WHERE persona=?", (persona,))
+
+
+def persona_modelle_alle_lesen(db_path: Path) -> dict[str, str]:
+    with _verbindung(db_path) as conn:
+        zeilen = conn.execute("SELECT persona, modell FROM persona_modelle").fetchall()
+    return {z["persona"]: z["modell"] for z in zeilen}
 
 
 def wissen_anzahl(db_path: Path) -> int:

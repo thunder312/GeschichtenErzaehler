@@ -7,6 +7,8 @@ import type {
   EpocheKurz,
   FundusImportAntwort,
   LoginEingabe,
+  OllamaModellInfo,
+  PersonaModell,
   ProjektDetail,
   ProjektKurz,
   RechtschreibAntwort,
@@ -175,6 +177,16 @@ export const api = {
     anfrage<SSHTestErgebnis>("/api/ssh-targets/test", {
       method: "POST",
       body: JSON.stringify(daten),
+    }),
+
+  sshZielModelle: (id: string) => anfrage<OllamaModellInfo[]>(`/api/ssh-targets/${id}/modelle`),
+
+  personaModelle: () => anfrage<PersonaModell[]>("/api/persona-modelle"),
+
+  personaModellSetzen: (persona: string, modell: string | null) =>
+    anfrage<PersonaModell>(`/api/persona-modelle/${encodeURIComponent(persona)}`, {
+      method: "PUT",
+      body: JSON.stringify({ modell }),
     }),
 
   einstellungen: () => anfrage<Einstellungen>("/api/einstellungen"),

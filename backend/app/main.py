@@ -15,7 +15,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import architekt, auth, benutzer, dokumentation, einstellungen, epochen, fundus, pipeline, projects, ssh_targets, wissen
+from app.api import architekt, auth, benutzer, dokumentation, einstellungen, epochen, fundus, persona_modelle, pipeline, projects, ssh_targets, wissen
 from app.auth import get_current_admin, get_current_user
 from app.config import get_settings
 from app.core.ollama_client import OllamaFehler
@@ -92,6 +92,7 @@ app.include_router(epochen.router, dependencies=[Depends(get_current_user)])
 # einzelne Endpunkt-Dependencies.
 app.include_router(einstellungen.router, dependencies=[Depends(get_current_admin)])
 app.include_router(benutzer.router, dependencies=[Depends(get_current_admin)])
+app.include_router(persona_modelle.router, dependencies=[Depends(get_current_admin)])
 app.include_router(wissen.router, dependencies=[Depends(get_current_user)])
 app.include_router(dokumentation.router, dependencies=[Depends(get_current_user)])
 # fundus liest benutzer.username selbst per Depends(get_current_user) aus

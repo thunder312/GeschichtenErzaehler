@@ -120,6 +120,23 @@ class SSHTestAntwort(BaseModel):
     meldung: str
 
 
+class OllamaModellInfo(BaseModel):
+    name: str
+    parameter_size: str | None = None
+    size_bytes: int | None = None
+
+
+class PersonaModellAntwort(BaseModel):
+    persona: str
+    default_modell: str
+    override_modell: str | None
+    effektives_modell: str
+
+
+class PersonaModellSetzenAnfrage(BaseModel):
+    modell: str | None = None
+
+
 class Finding(BaseModel):
     code: str
     meldung: str

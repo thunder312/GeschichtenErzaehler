@@ -46,7 +46,7 @@ def projekt_root(tmp_path):
 
 
 def test_fundus_aktualisieren_schreibt_figuren_bei_erfolg(settings, benutzer, projekt_root, monkeypatch):
-    async def fake_sammle_antwort(base_url, rolle, system, user, format=None):
+    async def fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
         return (
             '{"figuren": [{"name": "Lady Amelia Hartwell", "alter": "24", '
             '"stand": "Baronesse", "eigenschaften": "will unabhaengig sein"}]}',
@@ -65,7 +65,7 @@ def test_fundus_aktualisieren_schreibt_figuren_bei_erfolg(settings, benutzer, pr
 
 
 def test_fundus_aktualisieren_ist_nicht_fatal_bei_ollama_fehler(settings, benutzer, projekt_root, monkeypatch):
-    async def fake_sammle_antwort(base_url, rolle, system, user, format=None):
+    async def fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
         raise OllamaFehler("Ollama nicht erreichbar")
 
     monkeypatch.setattr(api_arch, "sammle_antwort", fake_sammle_antwort)
@@ -79,7 +79,7 @@ def test_fundus_aktualisieren_ist_nicht_fatal_bei_ollama_fehler(settings, benutz
 
 
 def test_fundus_aktualisieren_ist_nicht_fatal_bei_kaputtem_json(settings, benutzer, projekt_root, monkeypatch):
-    async def fake_sammle_antwort(base_url, rolle, system, user, format=None):
+    async def fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
         return "kein json{{{", {}
 
     monkeypatch.setattr(api_arch, "sammle_antwort", fake_sammle_antwort)
@@ -93,7 +93,7 @@ def test_fundus_aktualisieren_ist_nicht_fatal_bei_kaputtem_json(settings, benutz
 def test_fundus_aktualisieren_ueberspringt_geruest_ohne_figuren_abschnitt(settings, benutzer, projekt_root, monkeypatch):
     aufgerufen = False
 
-    async def fake_sammle_antwort(base_url, rolle, system, user, format=None):
+    async def fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
         nonlocal aufgerufen
         aufgerufen = True
         return "{}", {}
@@ -110,7 +110,7 @@ def test_fundus_aktualisieren_ueberspringt_projekt_ohne_epoche(settings, benutze
     root_ohne_epoche.mkdir()
     aufgerufen = False
 
-    async def fake_sammle_antwort(base_url, rolle, system, user, format=None):
+    async def fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
         nonlocal aufgerufen
         aufgerufen = True
         return "{}", {}

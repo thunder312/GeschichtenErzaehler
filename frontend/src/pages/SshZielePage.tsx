@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { AuthMethod, SSHZiel, SSHZielEingabe } from "../api/types";
-import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
+import type { AuthMethod, OllamaModellInfo, PersonaModell, SSHZiel, SSHZielEingabe } from "../api/types";
+import { Badge, Button, Card, CardTitle, Label, Input, Select } from "../components/ui";
 
 const LEERES_FORMULAR: SSHZielEingabe = {
   name: "",
@@ -356,6 +356,162 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
           </div>
         </div>
       </Card>
+
+      <PersonaModellZuordnung sshZiele={sshZiele} />
     </div>
+  );
+}
+
+const PERSONA_LABELS: Record<string, string> = {
+  architekt: "Architekt",
+  autor: "Autor",
+  autor_qwen: "Autor (Qwen3-Variante)",
+  chronist: "Chronist",
+  anachronismus: "Prüfer: Anachronismus",
+  kontinuitaet: "Prüfer: Kontinuität",
+  fundus_pfleger: "Fundus-Pfleger",
+  lektor: "Lektor",
+  satzbau: "Prüfer: Satzbau (Verb-Letzt)",
+};
+
+interface PersonaModellZuordnungProps {
+  sshZiele: SSHZiel[];
+}
+
+function PersonaModellZuordnung({ sshZiele }: PersonaModellZuordnungProps) {
+  const [personaModelle, setPersonaModelle] = useState<PersonaModell[]>([]);
+  const [modelleZielId, setModelleZielId] = useState<string>("");
+  const [verfuegbareModelle, setVerfuegbareModelle] = useState<OllamaModellInfo[]>([]);
+  const [auswahl, setAuswahl] = useState<Record<string, string>>({});
+  const [ladenModelle, setLadenModelle] = useState(false);
+  const [fehlerModelle, setFehlerModelle] = useState<string | null>(null);
+  const [speichertPersona, setSpeichertPersona] = useState<string | null>(null);
+  const zielVorbelegt = useRef(false);
+
+  useEffect(() => {
+    api.personaModelle().then(setPersonaModelle).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (zielVorbelegt.current || sshZiele.length === 0) return;
+    zielVorbelegt.current = true;
+    const favorit = sshZiele.find((z) => z.favorit) ?? sshZiele[0];
+    setModelleZielId(favorit.id);
+  }, [sshZiele]);
+
+  useEffect(() => {
+    if (!modelleZielId) return;
+    setLadenModelle(true);
+    setFehlerModelle(null);
+    api
+      .sshZielModelle(modelleZielId)
+      .then(setVerfuegbareModelle)
+      .catch((e) => setFehlerModelle(e instanceof Error ? e.message : String(e)))
+      .finally(() => setLadenModelle(false));
+  }, [modelleZielId]);
+
+  // Ollama akzeptiert einen Modellnamen ohne Tag (z.B. "gemma4") als Alias
+  // fuer "gemma4:latest" - ohne diese Normalisierung wuerde die
+  // Verfuegbarkeits-Warnung faelschlich bei jedem in rollen.py ohne
+  // Tag-Suffix eingetragenen Modell auschlagen, obwohl der eigentliche
+  // Ollama-Aufruf einwandfrei funktioniert.
+  const ohneLatestTag = (name: string) => name.replace(/:latest$/, "");
+  const verfuegbareNamen = new Set(verfuegbareModelle.map((m) => ohneLatestTag(m.name)));
+
+  async function speichern(persona: string, modell: string | null) {
+    setSpeichertPersona(persona);
+    try {
+      const aktualisiert = await api.personaModellSetzen(persona, modell);
+      setPersonaModelle((bisher) => bisher.map((p) => (p.persona === persona ? aktualisiert : p)));
+      setAuswahl((bisher) => {
+        const kopie = { ...bisher };
+        delete kopie[persona];
+        return kopie;
+      });
+    } finally {
+      setSpeichertPersona(null);
+    }
+  }
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardTitle>🧭 Persona-Modell-Zuordnung</CardTitle>
+      <p className="mb-3 text-xs text-text-muted">
+        Legt fest, welches Ollama-Modell hinter jeder Persona steckt - global für alle Benutzer und Projekte.
+        Überschreibt nur das Modell, alle sonstigen Parameter bleiben wie im Code hinterlegt. Unabhängig vom
+        projektspezifischen "Autor-Modell: Qwen3"-Vermerk im Gerüst.
+      </p>
+
+      <div className="mb-3 max-w-sm">
+        <Label>Modell-Liste abfragen von KI-Ziel</Label>
+        <Select value={modelleZielId} onChange={(e) => setModelleZielId(e.target.value)}>
+          {sshZiele.length === 0 && <option value="">Kein KI-Ziel angelegt</option>}
+          {sshZiele.map((z) => (
+            <option key={z.id} value={z.id}>
+              {z.name}
+            </option>
+          ))}
+        </Select>
+        {ladenModelle && <p className="mt-1 text-xs text-text-muted">Fragt verfügbare Modelle ab...</p>}
+        {fehlerModelle && <p className="mt-1 text-xs text-red-400">{fehlerModelle}</p>}
+      </div>
+
+      <ul className="divide-y divide-border">
+        {personaModelle.map((p) => {
+          const nichtVerfuegbar =
+            verfuegbareModelle.length > 0 && !verfuegbareNamen.has(ohneLatestTag(p.effektives_modell));
+          const pendingWert = auswahl[p.persona] ?? p.effektives_modell;
+          return (
+            <li key={p.persona} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+              <div>
+                <div className="text-sm font-medium text-text">{PERSONA_LABELS[p.persona] ?? p.persona}</div>
+                <div className="text-xs text-text-muted">
+                  Default: {p.default_modell}
+                  {p.override_modell && <> · Override: {p.override_modell}</>}
+                  {nichtVerfuegbar && (
+                    <>
+                      {" "}
+                      · <Badge tone="amber">⚠️ nicht auf gewähltem Ziel gefunden</Badge>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select
+                  className="w-56"
+                  value={pendingWert}
+                  onChange={(e) => setAuswahl((bisher) => ({ ...bisher, [p.persona]: e.target.value }))}
+                >
+                  <option value={p.effektives_modell}>{p.effektives_modell}</option>
+                  {verfuegbareModelle
+                    .filter((m) => m.name !== p.effektives_modell)
+                    .map((m) => (
+                      <option key={m.name} value={m.name}>
+                        {m.name}
+                      </option>
+                    ))}
+                </Select>
+                <Button
+                  variant="secondary"
+                  disabled={speichertPersona === p.persona || pendingWert === p.effektives_modell}
+                  onClick={() => speichern(p.persona, pendingWert)}
+                >
+                  Speichern
+                </Button>
+                {p.override_modell && (
+                  <Button
+                    variant="secondary"
+                    disabled={speichertPersona === p.persona}
+                    onClick={() => speichern(p.persona, null)}
+                  >
+                    Default
+                  </Button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
   );
 }

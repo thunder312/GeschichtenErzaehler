@@ -22,13 +22,14 @@ from app.auth import get_current_admin
 from app.config import Settings, get_settings
 from app.core import ollama_client, ssh_manager
 from app.schemas import (
+    OllamaModellInfo,
     SSHTestAnfrage,
     SSHTestAntwort,
     SSHZielAnlegenAnfrage,
     SSHZielAntwort,
     SSHZielFavoritAnfrage,
 )
-from app.services import ssh_ziel_aus_db
+from app.services import ollama_basis_url, ssh_ziel_aus_db
 
 router = APIRouter(prefix="/api/ssh-targets", tags=["ssh-targets"])
 
@@ -155,6 +156,29 @@ def verbindung_testen(ziel_id: str, settings: Settings = Depends(get_settings)):
     ziel = ssh_ziel_aus_db(settings, ziel_id)
     erfolgreich, meldung = ssh_manager.verbindung_testen(ziel)
     return SSHTestAntwort(erfolgreich=erfolgreich, meldung=meldung)
+
+
+@router.get("/{ziel_id}/modelle", response_model=list[OllamaModellInfo], dependencies=[Depends(get_current_admin)])
+async def modelle_auflisten(ziel_id: str, settings: Settings = Depends(get_settings)):
+    """Fragt die auf diesem KI-Ziel tatsaechlich verfuegbaren Ollama-Modelle
+    ab (fuer die Persona-Modell-Zuordnung im selben Tab, siehe
+    app/api/persona_modelle.py) - nutzt denselben ollama_basis_url()-
+    Mechanismus wie die eigentlichen Pipeline-Aufrufe, oeffnet also bei
+    einem SSH-Ziel kurz einen Tunnel. ollama_basis_url() wirft bereits eine
+    HTTPException(404), falls ziel_id unbekannt ist."""
+    with ollama_basis_url(settings, ziel_id) as base_url:
+        try:
+            daten = await ollama_client.tags(base_url)
+        except Exception as e:
+            raise HTTPException(502, f"KI-Ziel nicht erreichbar: {e}") from e
+    return [
+        OllamaModellInfo(
+            name=m["name"],
+            parameter_size=m.get("details", {}).get("parameter_size"),
+            size_bytes=m.get("size"),
+        )
+        for m in daten.get("models", [])
+    ]
 
 
 @router.post("/test", response_model=SSHTestAntwort, dependencies=[Depends(get_current_admin)])

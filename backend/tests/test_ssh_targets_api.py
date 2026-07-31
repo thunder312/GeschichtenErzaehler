@@ -171,6 +171,19 @@ def test_verbindungstest_direct_ziel_gegen_nicht_erreichbare_adresse(client):
     assert body["meldung"]
 
 
+def test_modelle_fuer_unerreichbares_direct_ziel_liefert_502(client):
+    r = client.post("/api/ssh-targets", json=_direct_ziel(host="http://127.0.0.1:1"))
+    ziel_id = r.json()["id"]
+    r2 = client.get(f"/api/ssh-targets/{ziel_id}/modelle")
+    assert r2.status_code == 502
+    assert r2.json()["detail"]
+
+
+def test_modelle_fuer_unbekanntes_ziel_gibt_404(client):
+    r = client.get("/api/ssh-targets/does-not-exist/modelle")
+    assert r.status_code == 404
+
+
 def test_aktualisieren_wechsel_zu_direct_braucht_kein_geheimnis(client):
     ziel_id = client.post("/api/ssh-targets", json=_passwort_ziel()).json()["id"]
 

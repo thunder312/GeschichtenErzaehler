@@ -19,7 +19,7 @@ from app.core import projekt_dateien as pd
 from app.core.fundus_schema import FundusExtraktionAntwortLLM
 from app.core.ollama_client import OllamaFehler, sammle_antwort
 from app.schemas import Benutzer, FundusImportAntwort, GeruestSchreibenAnfrage
-from app.services import fundus_datei, ollama_basis_url, projekte_wurzel
+from app.services import fundus_datei, ollama_basis_url, projekte_wurzel, rollen_modell_override
 
 router = APIRouter(prefix="/api/fundus", tags=["fundus"])
 
@@ -92,6 +92,7 @@ async def fundus_importieren(ssh_ziel_id: str | None = Query(None),
             try:
                 antwort_text, _ = await sammle_antwort(
                     base_url, "fundus_pfleger", persona, figuren_text, format="json",
+                    modell_override=rollen_modell_override(settings, "fundus_pfleger"),
                 )
                 antwort = FundusExtraktionAntwortLLM.model_validate_json(antwort_text)
             except (OllamaFehler, ValidationError):

@@ -42,6 +42,7 @@ async def chat_stream(
     ueberschreibe: dict | None = None,
     timeout: float = 3600.0,
     format: dict | str | None = None,
+    modell_override: str | None = None,
 ) -> AsyncIterator[ChatEvent]:
     if rolle not in ROLLEN:
         raise OllamaFehler(f"Unbekannte Rolle: {rolle}")
@@ -51,8 +52,9 @@ async def chat_stream(
     if ueberschreibe:
         optionen.update(ueberschreibe)
 
+    modell = modell_override or cfg["modell"]
     payload = {
-        "model": cfg["modell"],
+        "model": modell,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -76,6 +78,12 @@ async def chat_stream(
             async with client.stream(
                 "POST", f"{base_url}/api/chat", json=payload,
             ) as antwort:
+                if antwort.status_code == 404:
+                    raise OllamaFehler(
+                        f"Modell '{modell}' ist auf diesem KI-Ziel nicht "
+                        f"verfügbar (gelöscht/umbenannt?). Persona-Zuordnung "
+                        f"unter KI-Ziele -> Persona-Modell-Zuordnung prüfen."
+                    )
                 if antwort.status_code >= 400:
                     body = await antwort.aread()
                     raise OllamaFehler(
@@ -127,6 +135,7 @@ async def chat_stream(
 
 async def sammle_antwort(
     base_url: str, rolle: str, system: str, user: str, format: dict | str | None = None,
+    modell_override: str | None = None,
 ) -> tuple[str, dict]:
     """Sammelt chat_stream() zu einer fertigen (nicht-streamenden) Antwort
     auf - fuer Rollen, deren Ergebnis als Ganzes weiterverarbeitet wird
@@ -138,7 +147,7 @@ async def sammle_antwort(
     als nicht-fatalen Fehler ab, siehe dortiger Fundus-Auto-Save)."""
     text = ""
     meta: dict = {}
-    async for event in chat_stream(base_url, rolle, system, user, format=format):
+    async for event in chat_stream(base_url, rolle, system, user, format=format, modell_override=modell_override):
         if event.typ == "error":
             raise OllamaFehler(f"Ollama-Fehler ({rolle}): {event.text}")
         if event.typ == "done":
