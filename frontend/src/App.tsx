@@ -93,6 +93,14 @@ function App() {
     projekteLaden();
   }
 
+  function projektGeloescht(ordner: string) {
+    if (aktuellesProjekt === ordner) {
+      setAktuellesProjekt(null);
+      setActiveTab("projekte");
+    }
+    projekteLaden();
+  }
+
   if (ladend) return null;
   if (!benutzer) return <LoginPage />;
 
@@ -208,6 +216,7 @@ function App() {
             aktuellesProjekt={aktuellesProjekt}
             onProjekteGeaendert={projekteLaden}
             onProjektAuswaehlen={projektAuswaehlen}
+            onProjektGeloescht={projektGeloescht}
           />
         </div>
 

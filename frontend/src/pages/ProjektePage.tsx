@@ -1,13 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { MouseEvent } from "react";
 import { api } from "../api/client";
-import type { EpocheKurz, ProjektKurz } from "../api/types";
-import { Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
+import type { AutomatikZustand, EpocheKurz, ProjektKurz } from "../api/types";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
+
+function AutomatikBadge({ zustand }: { zustand: AutomatikZustand }) {
+  if (zustand === "laeuft") return <Badge tone="amber">🤖 Automatik läuft</Badge>;
+  if (zustand === "fehler") return <Badge tone="amber">⚠️ Automatik-Fehler</Badge>;
+  if (zustand === "abgeschlossen_mit_resten") return <Badge tone="amber">⚠️ Automatik fertig – Reste prüfen</Badge>;
+  if (zustand === "abgeschlossen_sauber") return <Badge tone="green">✅ Automatik fertig</Badge>;
+  return null;
+}
 
 interface ProjektePageProps {
   projekte: ProjektKurz[];
   aktuellesProjekt: string | null;
   onProjekteGeaendert: () => void;
   onProjektAuswaehlen: (ordner: string) => void;
+  onProjektGeloescht: (ordner: string) => void;
 }
 
 export function ProjektePage({
@@ -15,12 +26,42 @@ export function ProjektePage({
   aktuellesProjekt,
   onProjekteGeaendert,
   onProjektAuswaehlen,
+  onProjektGeloescht,
 }: ProjektePageProps) {
   const [epochen, setEpochen] = useState<EpocheKurz[]>([]);
   const [titel, setTitel] = useState("");
   const [epoche, setEpoche] = useState("");
   const [fehler, setFehler] = useState<string | null>(null);
   const [wirdAngelegt, setWirdAngelegt] = useState(false);
+  const [wirdGeloescht, setWirdGeloescht] = useState<string | null>(null);
+  const [loeschenAnfrage, setLoeschenAnfrage] = useState<ProjektKurz | null>(null);
+  const [suchtext, setSuchtext] = useState("");
+  const [epocheFilter, setEpocheFilter] = useState("");
+  const [sortierungAbsteigend, setSortierungAbsteigend] = useState(false);
+
+  // Nur tatsaechlich vorkommende Epochen zur Auswahl anbieten, nicht alle
+  // jemals angelegten (siehe api.epochen() unten fuer "Neues Projekt") -
+  // ein Filter auf eine Epoche ohne eigene Projekte waere sinnlos.
+  const vorhandeneEpochen = useMemo(() => {
+    const gefunden = new Set(projekte.map((p) => p.epoche).filter((e): e is string => !!e));
+    return Array.from(gefunden).sort((a, b) => a.localeCompare(b));
+  }, [projekte]);
+
+  const gefilterteProjekte = useMemo(() => {
+    const suchtextNormalisiert = suchtext.trim().toLowerCase();
+    const gefiltert = projekte.filter((p) => {
+      if (epocheFilter && p.epoche !== epocheFilter) return false;
+      if (suchtextNormalisiert && !(p.titel ?? p.ordner).toLowerCase().includes(suchtextNormalisiert)) {
+        return false;
+      }
+      return true;
+    });
+    const sortiert = [...gefiltert].sort((a, b) =>
+      (a.titel ?? a.ordner).localeCompare(b.titel ?? b.ordner, "de"),
+    );
+    if (sortierungAbsteigend) sortiert.reverse();
+    return sortiert;
+  }, [projekte, suchtext, epocheFilter, sortierungAbsteigend]);
 
   useEffect(() => {
     api.epochen().then((liste) => {
@@ -35,6 +76,28 @@ export function ProjektePage({
       setEpoche(vorbelegung);
     });
   }, []);
+
+  function loeschenAnfordern(ereignis: MouseEvent, p: ProjektKurz) {
+    // Verhindert, dass der Klick auf das "X" zusaetzlich den Zeilen-Klick-
+    // Handler ausloest, der das Projekt oeffnen wuerde.
+    ereignis.stopPropagation();
+    setLoeschenAnfrage(p);
+  }
+
+  async function loeschenBestaetigt() {
+    if (!loeschenAnfrage) return;
+    const ordner = loeschenAnfrage.ordner;
+    setWirdGeloescht(ordner);
+    try {
+      await api.projektLoeschen(ordner);
+      setLoeschenAnfrage(null);
+      onProjektGeloescht(ordner);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWirdGeloescht(null);
+    }
+  }
 
   function epocheAuswaehlen(name: string) {
     setEpoche(name);
@@ -61,22 +124,75 @@ export function ProjektePage({
     <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-[2fr_1fr]">
       <Card>
         <CardTitle>📚 Vorhandene Projekte</CardTitle>
+        {projekte.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <Input
+              autoComplete="off"
+              value={suchtext}
+              onChange={(e) => setSuchtext(e.target.value)}
+              placeholder="🔍 Nach Namen suchen..."
+              className="max-w-[220px]"
+            />
+            <Select value={epocheFilter} onChange={(e) => setEpocheFilter(e.target.value)} className="max-w-[200px]">
+              <option value="">Alle Epochen</option>
+              {vorhandeneEpochen.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+            <button
+              onClick={() => setSortierungAbsteigend((bisher) => !bisher)}
+              title={sortierungAbsteigend ? "Sortierung: Z → A (klicken für A → Z)" : "Sortierung: A → Z (klicken für Z → A)"}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+            >
+              {sortierungAbsteigend ? "Z → A" : "A → Z"}
+            </button>
+          </div>
+        )}
         {projekte.length === 0 ? (
           <p className="text-sm text-text-muted">Noch kein Projekt angelegt.</p>
+        ) : gefilterteProjekte.length === 0 ? (
+          <p className="text-sm text-text-muted">
+            Kein Projekt passt zu den Filtern.{" "}
+            <button
+              onClick={() => {
+                setSuchtext("");
+                setEpocheFilter("");
+              }}
+              className="text-accent-light hover:underline"
+            >
+              Filter zurücksetzen
+            </button>
+          </p>
         ) : (
           <ul className="divide-y divide-border">
-            {projekte.map((p) => (
+            {gefilterteProjekte.map((p) => (
               <li
                 key={p.ordner}
                 onClick={() => onProjektAuswaehlen(p.ordner)}
-                className={`cursor-pointer rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-surface-hover ${
+                className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-surface-hover ${
                   aktuellesProjekt === p.ordner ? "bg-accent-soft" : ""
                 }`}
               >
-                <div className="font-medium text-text">{p.titel ?? p.ordner}</div>
-                <div className="text-xs text-text-muted">
-                  {p.epoche ?? "unbekannte Epoche"} · {p.anzahl_kapitel} Kapitel
-                  {p.letztes_geplantes_kapitel ? ` von ${p.letztes_geplantes_kapitel} geplant` : ""}
+                <button
+                  onClick={(e) => loeschenAnfordern(e, p)}
+                  disabled={wirdGeloescht === p.ordner}
+                  title={`"${p.titel ?? p.ordner}" löschen`}
+                  aria-label={`"${p.titel ?? p.ordner}" löschen`}
+                  className="shrink-0 text-sm leading-none text-red-400/60 transition-colors hover:text-red-400 disabled:opacity-40"
+                >
+                  ✕
+                </button>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium text-text">{p.titel ?? p.ordner}</div>
+                    <AutomatikBadge zustand={p.automatik_zustand} />
+                  </div>
+                  <div className="text-xs text-text-muted">
+                    {p.epoche ?? "unbekannte Epoche"} · {p.anzahl_kapitel} Kapitel
+                    {p.letztes_geplantes_kapitel ? ` von ${p.letztes_geplantes_kapitel} geplant` : ""}
+                  </div>
                 </div>
               </li>
             ))}
@@ -112,6 +228,17 @@ export function ProjektePage({
           </Button>
         </div>
       </Card>
+
+      {loeschenAnfrage && (
+        <ConfirmDialog
+          titel="Projekt löschen?"
+          beschreibung={`"${loeschenAnfrage.titel ?? loeschenAnfrage.ordner}" wird unwiderruflich gelöscht - der komplette Ordner wird vom Server entfernt, es gibt keine .bak-Sicherung wie sonst üblich.`}
+          bestaetigenText="Endgültig löschen"
+          wirdAusgefuehrt={wirdGeloescht === loeschenAnfrage.ordner}
+          onBestaetigen={loeschenBestaetigt}
+          onAbbrechen={() => setLoeschenAnfrage(null)}
+        />
+      )}
     </div>
   );
 }

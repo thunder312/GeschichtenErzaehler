@@ -76,6 +76,36 @@ def test_projektliste_zeigt_automatik_zustand_mit_resten(client, projekt, tmp_pa
     assert eintrag["automatik_zustand"] == "abgeschlossen_mit_resten"
 
 
+def test_projekt_loeschen_entfernt_den_kompletten_ordner(client, projekt, tmp_path):
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    assert projekt_root.is_dir()
+
+    r = client.delete(f"/api/projects/{projekt}")
+
+    assert r.status_code == 204
+    assert not projekt_root.exists()
+    assert client.get("/api/projects").json() == []
+
+
+def test_projekt_loeschen_unbekannter_ordner_gibt_404(client):
+    r = client.delete("/api/projects/nicht-vorhanden")
+    assert r.status_code == 404
+
+
+def test_projekt_loeschen_blockiert_waehrend_automatik_laeuft(client, projekt, tmp_path):
+    from app.core import automatik
+
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    status = automatik.status_lesen(projekt_root)
+    status["laeuft"] = True
+    automatik.status_schreiben(projekt_root, status)
+
+    r = client.delete(f"/api/projects/{projekt}")
+
+    assert r.status_code == 409
+    assert projekt_root.is_dir()
+
+
 def test_verbotsliste_lesen_und_schreiben(client, projekt):
     r = client.get(f"/api/projects/{projekt}")
     assert r.status_code == 200

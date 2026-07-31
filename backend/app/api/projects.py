@@ -6,6 +6,7 @@ doc/Schnittstellen-Uebersicht.md Abschnitt 1 - kein Ollama-Aufruf hier
 from __future__ import annotations
 
 import hashlib
+import shutil
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
@@ -121,6 +122,22 @@ def projekt_anlegen(anfrage: ProjektAnlegenAnfrage, settings: Settings = Depends
     ziel = neuer_projekt_pfad(settings, benutzer.username, basis_titel, anfrage.epoche)
     pd.projekt_anlegen(ziel, epoche_ordner, settings.shared_personas_dir, anfrage.epoche)
     return _projekt_kurz(ziel, projekte_wurzel(settings, benutzer.username), settings)
+
+
+@router.delete("/{ordner:path}", status_code=204)
+def projekt_loeschen(ordner: str, settings: Settings = Depends(get_settings),
+                      benutzer: Benutzer = Depends(get_current_user)):
+    """Loescht den KOMPLETTEN Projektordner (personas/, projekt/, alles) -
+    unumkehrbar, es gibt keine .bak-Sicherung wie bei einzelnen Dateien.
+    Blockiert, waehrend fuer dieses Projekt gerade ein Automatikmodus-Lauf
+    aktiv ist (siehe app/core/automatik.py) - sonst wuerde der Hintergrund-
+    Task versuchen, in einen gerade geloeschten Ordner zu schreiben, und
+    status_schreiben() wuerde ihn per mkdir(parents=True) teilweise
+    wiederauferstehen lassen."""
+    pfad = projekt_pfad(settings, benutzer.username, ordner)
+    if automatik.status_lesen(pfad)["laeuft"]:
+        raise HTTPException(409, "Automatikmodus läuft für dieses Projekt gerade - bitte zuerst stoppen.")
+    shutil.rmtree(pfad)
 
 
 @fallback_router.get("/{ordner:path}", response_model=ProjektDetail)

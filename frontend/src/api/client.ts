@@ -65,6 +65,9 @@ export const api = {
 
   projekt: (ordner: string) => anfrage<ProjektDetail>(`/api/projects/${ordner}`),
 
+  projektLoeschen: (ordner: string) =>
+    anfrage<void>(`/api/projects/${ordner}`, { method: "DELETE" }),
+
   geruestSchreiben: (ordner: string, inhalt: string) =>
     anfrage<{ gespeichert: string; gesichert_als: string | null; neuer_ordner: string | null }>(
       `/api/projects/${ordner}/geruest`,
