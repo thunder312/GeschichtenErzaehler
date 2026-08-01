@@ -318,7 +318,8 @@ async def _bei_bedarf_fortsetzen(
         text = text.rstrip() + "\n\n" + fortsetzung.strip()
         text, findings_neustart = h.kapitel_neustart_abschneiden(text)
         text, findings_ende = h.vorzeitige_kapitelende_abschneiden(text)
-        findings += findings_neustart + findings_ende
+        text, findings_wiederholung = h.interne_wiederholung_abschneiden(text)
+        findings += findings_neustart + findings_ende + findings_wiederholung
 
     if woerter(text) < ziel * FORTSETZEN_SCHWELLE:
         findings.append(h.Finding(
@@ -562,7 +563,8 @@ async def _kapitel_schreiben_kern(
     text = "".join(teile).strip()
     text, findings_neustart = h.kapitel_neustart_abschneiden(text)
     text, findings_ende = h.vorzeitige_kapitelende_abschneiden(text)
-    findings = findings_neustart + findings_ende
+    text, findings_wiederholung = h.interne_wiederholung_abschneiden(text)
+    findings = findings_neustart + findings_ende + findings_wiederholung
 
     if ziel and g.automatische_fortsetzung_aktiviert(geruest_text):
         text, findings_fortsetzung = await _bei_bedarf_fortsetzen(

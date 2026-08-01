@@ -85,6 +85,32 @@ def test_fuehrende_duplikate_entfernen_erkennt_wiederholten_absatz():
     assert len(findings) == 1
 
 
+def test_interne_wiederholung_abschneiden_erkennt_schleife():
+    block = "Er kuesste sie sanft.\n\nSie stoehnte leise auf."
+    text = "Einleitender Absatz, der nur einmal vorkommt.\n\n" + "\n\n".join([block] * 4)
+    gekuerzt, findings = h.interne_wiederholung_abschneiden(text)
+    assert gekuerzt == "Einleitender Absatz, der nur einmal vorkommt.\n\n" + block
+    assert len(findings) == 1
+    assert findings[0].code == "interne_wiederholung"
+
+
+def test_interne_wiederholung_abschneiden_ohne_schleife_unveraendert():
+    text = "Erster Absatz.\n\nZweiter, ganz anderer Absatz.\n\nDritter Absatz zum Schluss."
+    gekuerzt, findings = h.interne_wiederholung_abschneiden(text)
+    assert gekuerzt == text
+    assert findings == []
+
+
+def test_interne_wiederholung_abschneiden_zweimalige_wiederholung_kein_fund():
+    # Zwei Kopien allein sind noch kein zuverlaessiges Schleifen-Signal -
+    # z.B. ein bewusst wiederholter Refrain im Text.
+    block = "Ein wiederkehrender Refrain."
+    text = "Auftakt.\n\n" + "\n\n".join([block] * 2)
+    gekuerzt, findings = h.interne_wiederholung_abschneiden(text)
+    assert gekuerzt == text
+    assert findings == []
+
+
 def test_explizitheit_pruefen_nur_relevant_wenn_nicht_voll():
     text = "Eine Szene mit Penetration und Orgasmus."
     assert h.explizitheit_pruefen(text, "voll") == []

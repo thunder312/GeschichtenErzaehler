@@ -56,13 +56,19 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
   const [automatikStatus, setAutomatikStatus] = useState<AutomatikStatus | null>(null);
   const [resteWirdBestaetigt, setResteWirdBestaetigt] = useState(false);
+  // Erhoeht sich bei jedem Klick auf "Neu laden" - steht bewusst in den
+  // Dependency-Arrays der beiden Lade-Effekte weiter unten, damit ein Reload
+  // AUCH DANN neu laedt, wenn sich weder ordner noch kapitelNummern geaendert
+  // haben (sonst wuerde React die Effekte trotz zurueckgesetzter Refs gar
+  // nicht erst erneut ausfuehren).
+  const [reloadToken, setReloadToken] = useState(0);
   const editorRef = useRef<BefundEditorHandle | null>(null);
   const { starten, beenden } = useAktivitaet();
   const kapitelNummern = useMemo(() => [...(projekt?.kapitel ?? [])].sort((a, b) => a - b), [projekt?.kapitel]);
   const geladenRef = useRef<Set<number>>(new Set());
   const angehaengtRef = useRef<Set<number>>(new Set());
 
-  // Projektwechsel: kompletter Reset.
+  // Projektwechsel bzw. "Neu laden": kompletter Reset.
   useEffect(() => {
     geladenRef.current = new Set();
     angehaengtRef.current = new Set();
@@ -71,7 +77,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
     setSpannen({});
     setGespeichertHinweis(null);
     api.automatikStatus(ordner).then(setAutomatikStatus).catch(() => setAutomatikStatus(null));
-  }, [ordner]);
+  }, [ordner, reloadToken]);
 
   // Laedt jedes bislang unbekannte Kapitel GENAU EINMAL.
   useEffect(() => {
@@ -108,7 +114,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
     return () => {
       abgebrochen = true;
     };
-  }, [ordner, kapitelNummern]);
+  }, [ordner, kapitelNummern, reloadToken]);
 
   // Haengt jedes frisch geladene Kapitel an den EINEN gemeinsamen Text an -
   // bewusst ANHAENGEN statt kompletter Neuaufbau, damit bereits im Editor
@@ -214,6 +220,18 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
     }
   }
 
+  function neuLaden() {
+    if (
+      hatUngespeicherteAenderungen &&
+      !window.confirm("Es gibt noch nicht gespeicherte Änderungen im Editor. Trotzdem neu laden und verwerfen?")
+    ) {
+      return;
+    }
+    setOrphanIds(new Set());
+    setUebernommenIds(new Set());
+    setReloadToken((t) => t + 1);
+  }
+
   async function pruefungAbschliessen() {
     setResteWirdBestaetigt(true);
     try {
@@ -279,6 +297,9 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
             <>
               {hatUngespeicherteAenderungen && <span className="text-xs text-text-muted">Noch nicht gespeicherte Änderungen</span>}
               {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
+              <Button variant="secondary" onClick={neuLaden}>
+                Neu laden
+              </Button>
               {automatikStatus &&
                 !automatikStatus.laeuft &&
                 automatikStatus.abgeschlossen &&

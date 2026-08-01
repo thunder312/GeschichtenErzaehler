@@ -263,6 +263,43 @@ def fuehrende_duplikate_entfernen(bisheriger_text: str, fortsetzung: str,
     return fortsetzung, []
 
 
+def interne_wiederholung_abschneiden(text: str, min_fenster: int = 2, max_fenster: int = 10,
+                                      mindest_wiederholungen: int = 3) -> tuple[str, list[Finding]]:
+    """Erkennt einen Absatzblock, den das Modell INNERHALB EINES generierten
+    Texts mehrfach hintereinander (fast) identisch wiederholt hat - eine
+    haengengebliebene Generierungsschleife, anders als
+    fuehrende_duplikate_entfernen() (Ueberlappung zwischen ZWEI
+    Fortsetzungs-Aufrufen). Schneidet nach der ERSTEN Kopie des Blocks ab."""
+    absaetze = [a for a in text.split("\n\n") if a.strip()]
+    n = len(absaetze)
+    for k in range(min_fenster, min(max_fenster, n // mindest_wiederholungen) + 1):
+        for i in range(0, n - k * mindest_wiederholungen + 1):
+            basis = absaetze[i:i + k]
+            wiederholungen = 1
+            j = i + k
+            while j + k <= n:
+                kandidat = absaetze[j:j + k]
+                aehnlichkeiten = [
+                    difflib.SequenceMatcher(None, a.strip(), b.strip()).ratio()
+                    for a, b in zip(basis, kandidat)
+                ]
+                if min(aehnlichkeiten) > 0.8:
+                    wiederholungen += 1
+                    j += k
+                else:
+                    break
+            if wiederholungen >= mindest_wiederholungen:
+                gekuerzt = "\n\n".join(absaetze[:i + k])
+                finding = Finding(
+                    "interne_wiederholung",
+                    f"Modell hat einen Textblock ({k} Absatz/Absätze) {wiederholungen}x "
+                    f"hintereinander wiederholt (hängengebliebene Generierung) - "
+                    f"Text nach der ersten Kopie automatisch abgeschnitten.",
+                )
+                return gekuerzt, [finding]
+    return text, []
+
+
 def alle_nachbearbeitungs_checks(text: str, geruest: str, stufe: str) -> list[Finding]:
     """Buendelt alle rein lesenden Pruefungen (keine Textveraenderung), wie
     sie novelle.py am Ende von cmd_schreiben/cmd_lektorieren aufruft."""
