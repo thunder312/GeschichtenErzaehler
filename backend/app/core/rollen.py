@@ -129,7 +129,18 @@ ROLLEN: dict[str, dict] = {
             "top_p": 0.8,
             "top_k": 20,
             "min_p": 0.0,
-            "repeat_penalty": 1.0,
+            # repeat_penalty stand vorher auf 1.0 (= wirkungslos) und
+            # repeat_last_n fehlte ganz - presence_penalty allein bestraft
+            # nur EINMAL benutzte Token unabhaengig von der Distanz, verhindert
+            # aber keine exakt wiederholte TOKENFOLGE (siehe Vorfall
+            # "Der-Preis-der-Wuerde-Ein-Geheimnis-in-Mayfair" Kapitel 9: ein
+            # 6-Absatz-Block wurde 6x hintereinander wortgleich wiederholt,
+            # bevorzugt in formelhaften expliziten Szenen). Werte jetzt wie
+            # bei der "autor"-Rolle (Hermes3), die dasselbe Problem nicht
+            # zeigt - siehe auch heuristik.py:interne_wiederholung_abschneiden
+            # als zusaetzliches Sicherheitsnetz, falls es trotzdem passiert.
+            "repeat_penalty": 1.1,
+            "repeat_last_n": 256,
             "presence_penalty": 1.5,
             "num_ctx": 16384,
             "num_predict": 6144,
