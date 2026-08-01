@@ -805,6 +805,7 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
         "protokoll": list(vorheriger_status.get("protokoll", [])) if fortsetzen_ab_kapitel else [],
         "stop_angefordert": False,
         "abgeschlossen": False, "fehler": None,
+        "resten_bestaetigt": False,
     })
     if fortsetzen_ab_kapitel:
         status["log"].append(
@@ -1003,6 +1004,24 @@ def automatik_stop(ordner: str, settings: Settings = Depends(get_settings),
         status["stop_angefordert"] = True
         automatik.status_schreiben(projekt_root, status)
     return {"stop_angefordert": True}
+
+
+@router.post("/{ordner:path}/automatik/resten-bestaetigen")
+def automatik_resten_bestaetigen(ordner: str, settings: Settings = Depends(get_settings),
+                                  benutzer: Benutzer = Depends(get_current_user)):
+    """Quittiert die im Protokoll des letzten Laufs verbliebenen Reste
+    (uebersprungene Funde, unbekannte Woerter) manuell als erledigt - sonst
+    zeigt die Projektliste "Automatik fertig - Reste pruefen" dauerhaft an,
+    auch nachdem sie im Tab "Pruefen & Anwenden"/"Rechtschreibung" laengst
+    durchgesehen wurden (das Protokoll ist ein eingefrorener Schnappschuss
+    des Laufs, kein live mitgefuehrter Zustand)."""
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    status = automatik.status_lesen(projekt_root)
+    if status["laeuft"]:
+        raise HTTPException(409, "Automatikmodus läuft noch für dieses Projekt.")
+    status["resten_bestaetigt"] = True
+    automatik.status_schreiben(projekt_root, status)
+    return {"resten_bestaetigt": True}
 
 
 @router.post("/{ordner:path}/pruefen/{n}", response_model=BefundeAntwort)

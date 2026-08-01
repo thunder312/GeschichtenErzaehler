@@ -120,6 +120,25 @@ def test_zustand_zusammenfassen_mit_unbekannten_woertern():
     assert automatik.zustand_zusammenfassen(status) == "abgeschlossen_mit_resten"
 
 
+def test_zustand_zusammenfassen_resten_bestaetigt_gilt_als_sauber():
+    """Per "Pruefung abschliessen"-Button quittierte Reste sollen die
+    Projektliste nicht mehr dauerhaft als "Reste pruefen" anzeigen, obwohl
+    das Protokoll des Laufs selbst unveraendert bleibt."""
+    status = {
+        "gestartet_am": "irgendwann", "laeuft": False, "fehler": None, "abgeschlossen": True,
+        "resten_bestaetigt": True,
+        "protokoll": [{"art": "uebersprungen", "grund": "konflikt"}],
+    }
+    assert automatik.zustand_zusammenfassen(status) == "abgeschlossen_sauber"
+
+
+def test_reste_vorhanden_erkennt_uebersprungene_und_unbekannte_woerter():
+    assert automatik.reste_vorhanden({"protokoll": [{"art": "uebersprungen"}]}) is True
+    assert automatik.reste_vorhanden({"protokoll": [{"art": "rechtschreibung", "unbekannte_woerter": ["X"]}]}) is True
+    assert automatik.reste_vorhanden({"protokoll": [{"art": "angewendet"}]}) is False
+    assert automatik.reste_vorhanden({"protokoll": []}) is False
+
+
 def test_zustand_zusammenfassen_gestoppt_vor_abschluss():
     """Ein per Stop-Klick (oder Absturz) unterbrochener, noch nicht
     abgeschlossener Lauf soll NICHT als "abgeschlossen_*" in der

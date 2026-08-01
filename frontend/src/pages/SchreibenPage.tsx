@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, schreibenWebSocketUrl } from "../api/client";
 import type {
+  AutomatikProtokollEintrag,
   AutomatikStatus,
   AutomatikVerlaufEintrag,
   BefundeAntwort,
@@ -19,6 +20,15 @@ interface SchreibenPageProps {
   projekt: ProjektDetail | null;
   sshZielId: string;
   onKapitelGeschrieben: () => void;
+}
+
+/** Dieselbe Regel wie app/core/automatik.py:reste_vorhanden() - fuer die
+ * Sichtbarkeit des "Prüfung abschließen"-Buttons (nur zeigen, wenn es
+ * ueberhaupt etwas zu bestaetigen gibt). */
+function hatReste(protokoll: AutomatikProtokollEintrag[]): boolean {
+  return protokoll.some(
+    (eintrag) => eintrag.art === "uebersprungen" || (eintrag.art === "rechtschreibung" && !!eintrag.unbekannte_woerter?.length),
+  );
 }
 
 function formatDauer(sekunden: number): string {
@@ -139,6 +149,11 @@ export function SchreibenPage({
 
   async function automatikStoppen() {
     await api.automatikStoppen(ordner);
+    setAutomatikStatus(await api.automatikStatus(ordner));
+  }
+
+  async function automatikResteBestaetigen() {
+    await api.automatikResteBestaetigen(ordner);
     setAutomatikStatus(await api.automatikStatus(ordner));
   }
 
@@ -499,6 +514,15 @@ export function SchreibenPage({
               ))}
             </ul>
             <p className="mt-2">Reste findest du wie gewohnt im Tab "Prüfen &amp; Anwenden".</p>
+            {hatReste(automatikStatus.protokoll) && (
+              automatikStatus.resten_bestaetigt ? (
+                <p className="mt-2 text-accent-light">✅ Prüfung als abgeschlossen bestätigt.</p>
+              ) : (
+                <Button variant="secondary" className="mt-2" onClick={automatikResteBestaetigen}>
+                  Prüfung abschließen
+                </Button>
+              )
+            )}
           </details>
         )}
 

@@ -46,9 +46,11 @@ def status_lesen(projekt_root: Path) -> dict[str, Any]:
             "stop_angefordert": False,
             "abgeschlossen": False,
             "fehler": None,
+            "resten_bestaetigt": False,
         }
     status = json.loads(pfad.read_text(encoding="utf-8"))
     status.setdefault("aktueller_durchlauf", None)
+    status.setdefault("resten_bestaetigt", False)
     return status
 
 
@@ -102,8 +104,11 @@ def zustand_zusammenfassen(status: dict[str, Any]) -> str | None:
       als fertig anzeigen.
     - "abgeschlossen_mit_resten": fertig, aber Protokoll enthaelt
       uebersprungene Funde (Konflikt/nicht gefunden) oder unbekannte
-      Woerter - manuelle Durchsicht im Tab "Pruefen & Anwenden" noetig
-    - "abgeschlossen_sauber": fertig, nichts uebrig"""
+      Woerter - manuelle Durchsicht im Tab "Pruefen & Anwenden" noetig, ODER
+      per "Pruefung abschliessen"-Button (siehe reste_bestaetigen()) noch
+      nicht als erledigt bestaetigt
+    - "abgeschlossen_sauber": fertig, nichts uebrig (oder Reste wurden
+      manuell als erledigt bestaetigt)"""
     if status.get("gestartet_am") is None:
         return None
     if status.get("laeuft"):
@@ -112,12 +117,22 @@ def zustand_zusammenfassen(status: dict[str, Any]) -> str | None:
         return "fehler"
     if not status.get("abgeschlossen"):
         return "gestoppt"
-    reste = any(
+    if reste_vorhanden(status) and not status.get("resten_bestaetigt"):
+        return "abgeschlossen_mit_resten"
+    return "abgeschlossen_sauber"
+
+
+def reste_vorhanden(status: dict[str, Any]) -> bool:
+    """True, wenn das Protokoll des letzten Laufs uebersprungene Funde
+    (Konflikt/nicht gefunden) oder unbekannte Woerter enthaelt - unabhaengig
+    davon, ob das per "Pruefung abschliessen" (resten_bestaetigt) schon
+    quittiert wurde. Siehe zustand_zusammenfassen() fuer die kombinierte
+    Sicht, die BEIDES beruecksichtigt."""
+    return any(
         eintrag.get("art") == "uebersprungen"
         or (eintrag.get("art") == "rechtschreibung" and eintrag.get("unbekannte_woerter"))
         for eintrag in status.get("protokoll", [])
     )
-    return "abgeschlossen_mit_resten" if reste else "abgeschlossen_sauber"
 
 
 def befunde_anwenden(text: str, befunde: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:

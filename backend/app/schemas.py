@@ -208,6 +208,10 @@ class AutomatikStatusAntwort(BaseModel):
     # Frontend dieselbe Regel nicht duplizieren muss: True, wenn ein Lauf
     # gestartet wurde, der weder laeuft noch sauber abgeschlossen ist.
     fortsetzbar: bool = False
+    # Per POST .../automatik/resten-bestaetigen gesetzt - siehe
+    # app/core/automatik.py:zustand_zusammenfassen fuer die Wirkung auf den
+    # Projektlisten-Badge.
+    resten_bestaetigt: bool = False
 
 
 class AutomatikVerlaufEintrag(BaseModel):

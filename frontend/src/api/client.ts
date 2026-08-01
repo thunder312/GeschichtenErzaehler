@@ -168,6 +168,9 @@ export const api = {
   automatikVerlauf: (ordner: string) =>
     anfrage<AutomatikVerlaufEintrag[]>(`/api/projects/${ordner}/automatik/verlauf`),
 
+  automatikResteBestaetigen: (ordner: string) =>
+    anfrage<{ resten_bestaetigt: boolean }>(`/api/projects/${ordner}/automatik/resten-bestaetigen`, { method: "POST" }),
+
   sshZiele: () => anfrage<SSHZiel[]>("/api/ssh-targets"),
 
   sshZielAnlegen: (daten: SSHZielEingabe) =>

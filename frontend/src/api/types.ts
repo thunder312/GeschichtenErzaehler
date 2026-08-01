@@ -162,6 +162,7 @@ export interface AutomatikStatus {
   abgeschlossen: boolean;
   fehler: string | null;
   fortsetzbar: boolean;
+  resten_bestaetigt: boolean;
 }
 
 // Ein Eintrag pro bisherigem Automatik-Lauf dieses Projekts (dauerhaftes

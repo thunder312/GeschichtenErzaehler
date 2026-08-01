@@ -261,3 +261,52 @@ def test_automatik_stop_setzt_flag_und_bricht_vor_naechstem_kapitel_ab(client, p
     r2 = client.get(f"/api/projects/{projekt_mit_kapitelplan}/kapitel/2")
     assert r1.status_code == 200 and r1.text.strip()
     assert r2.status_code == 404
+
+
+def test_automatik_resten_bestaetigen_aendert_projektlisten_badge(client, projekt_mit_kapitelplan):
+    """Nachdem die im Protokoll verbliebenen Reste (uebersprungene Funde)
+    ueber den neuen Endpunkt quittiert wurden, soll die Projektliste nicht
+    mehr "abgeschlossen_mit_resten" zeigen, obwohl das Protokoll selbst
+    unveraendert bleibt (siehe app/core/automatik.py:reste_vorhanden)."""
+    from app.core import automatik
+    from app.services import projekt_pfad
+
+    settings = app.dependency_overrides[get_settings]()
+    projekt_root = projekt_pfad(settings, "daniel", projekt_mit_kapitelplan)
+    status = automatik.status_lesen(projekt_root)
+    status.update({
+        "gestartet_am": "2026-01-01 10:00", "laeuft": False, "abgeschlossen": True, "fehler": None,
+        "protokoll": [{"art": "uebersprungen", "grund": "konflikt"}],
+    })
+    automatik.status_schreiben(projekt_root, status)
+
+    def zustand_in_projektliste() -> str | None:
+        projekte = client.get("/api/projects").json()
+        projekt = next(p for p in projekte if p["ordner"] == projekt_mit_kapitelplan)
+        return projekt["automatik_zustand"]
+
+    assert zustand_in_projektliste() == "abgeschlossen_mit_resten"
+    vorher = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert vorher["resten_bestaetigt"] is False
+
+    r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/resten-bestaetigen")
+    assert r.status_code == 200
+    assert r.json()["resten_bestaetigt"] is True
+
+    nachher = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert nachher["resten_bestaetigt"] is True
+    assert zustand_in_projektliste() == "abgeschlossen_sauber"
+
+
+def test_automatik_resten_bestaetigen_waehrend_lauf_liefert_409(client, projekt_mit_kapitelplan):
+    from app.core import automatik
+    from app.services import projekt_pfad
+
+    settings = app.dependency_overrides[get_settings]()
+    projekt_root = projekt_pfad(settings, "daniel", projekt_mit_kapitelplan)
+    status = automatik.status_lesen(projekt_root)
+    status["laeuft"] = True
+    automatik.status_schreiben(projekt_root, status)
+
+    r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/resten-bestaetigen")
+    assert r.status_code == 409
