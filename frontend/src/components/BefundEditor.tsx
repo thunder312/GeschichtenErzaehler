@@ -1,6 +1,6 @@
 import { Editor } from "@monaco-editor/react";
 import type { editor as MonacoEditorNS } from "monaco-editor";
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { Befund } from "../api/types";
 import { installBefundReview } from "./befundReview";
 import { BefundListe } from "./BefundListe";
@@ -13,6 +13,26 @@ interface BefundEditorProps {
   befunde: Befund[];
   onKapiteltextChange: (text: string) => void;
   height?: string;
+  /** Default true: rendert intern eine BefundListe rechts daneben (Original-
+   * Verhalten, ein Editor pro Kapitel). Bei false wird NUR der Editor
+   * gerendert (volle Breite) - die Elternkomponente rendert dann selbst
+   * eine gemeinsame Liste ueber mehrere BefundEditor-Instanzen hinweg und
+   * steuert sie ueber das per ref exponierte Handle (springeZu/uebernehmen/
+   * uebernehmenMehrere) sowie onOrphan/onUebernommenChange - siehe
+   * PruefenAnwendenPage: EIN durchgehender Text ueber alle Kapitel, EINE
+   * Fundliste daneben, statt eines Blocks je Kapitel. */
+  zeigeListe?: boolean;
+  onOrphan?: (befundId: string) => void;
+  onUebernommenChange?: (befundId: string) => void;
+}
+
+/** Von aussen aufrufbar (siehe PruefenAnwendenPage: eine uebergreifende
+ * Fund-Uebersicht ueber alle Kapitel springt per Klick in den passenden,
+ * an anderer Stelle der Seite gerenderten BefundEditor-Block). */
+export interface BefundEditorHandle {
+  springeZu: (befund: Befund) => void;
+  uebernehmen: (befundId: string) => void;
+  uebernehmenMehrere: (befundIds: string[]) => void;
 }
 
 /** Einzelner (nicht Diff-)Monaco-Editor ueber dem Kapiteltext, in dem jeder
@@ -23,7 +43,10 @@ interface BefundEditorProps {
  * Klick (Widget im Editor ODER Button in der Liste) uebernommen werden
  * kann: reiner Text-Ersatz im Browser, kein weiterer KI-Aufruf. Ersetzt die
  * alte Vorher/Nachher-Git-Diff-Ansicht (frueher MergeEditor.tsx). */
-export function BefundEditor({ kapiteltext, befunde, onKapiteltextChange, height = "520px" }: BefundEditorProps) {
+export const BefundEditor = forwardRef<BefundEditorHandle, BefundEditorProps>(function BefundEditor(
+  { kapiteltext, befunde, onKapiteltextChange, height = "520px", zeigeListe = true, onOrphan, onUebernommenChange },
+  ref,
+) {
   const editorRef = useRef<TextEditor | null>(null);
   const reviewRef = useRef<Review | null>(null);
   const [aktiveId, setAktiveId] = useState<string | null>(null);
@@ -62,32 +85,57 @@ export function BefundEditor({ kapiteltext, befunde, onKapiteltextChange, height
     editor.setSelection(bereich);
   }
 
+  useImperativeHandle(ref, () => ({
+    springeZu: aufFundSpringen,
+    uebernehmen: (befundId: string) => reviewRef.current?.uebernehmen(befundId),
+    uebernehmenMehrere: (befundIds: string[]) => reviewRef.current?.uebernehmenMehrere(befundIds),
+  }), []);
+
+  const editorNode = (
+    <div className="overflow-hidden rounded-xl border border-border">
+      <Editor
+        height={height}
+        language="markdown"
+        value={kapiteltext}
+        theme="vs-dark"
+        onChange={(value) => {
+          // Nur ECHTE Aenderungen weiterreichen: @monaco-editor/react feuert
+          // onChange auch, wenn WIR selbst `kapiteltext` von aussen aendern
+          // (z.B. PruefenAnwendenPage haengt beim Laden eines weiteren
+          // Kapitels Text an) - ohne diesen Vergleich wuerde das einen
+          // Endlos-Kreislauf ausloesen: value-Prop aendert sich -> onChange
+          // feuert -> onKapiteltextChange setzt State -> value-Prop aendert
+          // sich erneut -> ...
+          if (value !== undefined && value !== kapiteltext) onKapiteltextChange(value);
+        }}
+        onMount={(editor, monaco) => {
+          editorRef.current = editor;
+          reviewRef.current = installBefundReview(editor, monaco, {
+            onVerwaist: (id) => {
+              setOrphanIds((bisher) => new Set(bisher).add(id));
+              onOrphan?.(id);
+            },
+            onUebernommen: (id) => {
+              setUebernommenIds((bisher) => new Set(bisher).add(id));
+              onUebernommenChange?.(id);
+            },
+          });
+          reviewRef.current.setzeBefunde(befunde);
+        }}
+        options={{
+          wordWrap: "on",
+          minimap: { enabled: false },
+          fontSize: 14,
+        }}
+      />
+    </div>
+  );
+
+  if (!zeigeListe) return editorNode;
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
-      <div className="overflow-hidden rounded-xl border border-border">
-        <Editor
-          height={height}
-          language="markdown"
-          value={kapiteltext}
-          theme="vs-dark"
-          onChange={(value) => {
-            if (value !== undefined) onKapiteltextChange(value);
-          }}
-          onMount={(editor, monaco) => {
-            editorRef.current = editor;
-            reviewRef.current = installBefundReview(editor, monaco, {
-              onVerwaist: (id) => setOrphanIds((bisher) => new Set(bisher).add(id)),
-              onUebernommen: (id) => setUebernommenIds((bisher) => new Set(bisher).add(id)),
-            });
-            reviewRef.current.setzeBefunde(befunde);
-          }}
-          options={{
-            wordWrap: "on",
-            minimap: { enabled: false },
-            fontSize: 14,
-          }}
-        />
-      </div>
+      {editorNode}
       <div className="max-h-[520px] overflow-auto pr-1">
         <BefundListe
           befunde={befunde}
@@ -101,4 +149,4 @@ export function BefundEditor({ kapiteltext, befunde, onKapiteltextChange, height
       </div>
     </div>
   );
-}
+});

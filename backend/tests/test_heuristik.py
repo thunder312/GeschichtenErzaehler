@@ -112,3 +112,21 @@ def test_hunspell_unbekannte_woerter_liefert_none_bei_fehlendem_tool():
         raise FileNotFoundError()
 
     assert h.hunspell_unbekannte_woerter("Text", exec_fn=wirft_fehlend) is None
+
+
+def test_wort_position_finden_liefert_erste_fundstelle():
+    text = "Der Baum stand am Rand. Ein Schmettelving flog vorbei zum Schmettelving."
+    start, end = h.wort_position_finden(text, "Schmettelving")
+    assert text[start:end] == "Schmettelving"
+    assert start == text.index("Schmettelving")
+
+
+def test_wort_position_finden_nur_als_eigenes_wort():
+    text = "Der Baumstamm lag im Wald, kein Baum weit und breit."
+    start, end = h.wort_position_finden(text, "Baum")
+    assert text[start:end] == "Baum"
+    assert text[:start] == "Der Baumstamm lag im Wald, kein "
+
+
+def test_wort_position_finden_ohne_treffer():
+    assert h.wort_position_finden("Der Baum stand still.", "Schmettelving") is None

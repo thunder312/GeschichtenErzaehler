@@ -1,8 +1,9 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function Card({ children, className = "", id }: { children: ReactNode; className?: string; id?: string }) {
   return (
     <div
+      id={id}
       className={`rounded-2xl border border-border bg-surface p-4 shadow-sm shadow-black/20 transition-colors ${className}`}
     >
       {children}

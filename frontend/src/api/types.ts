@@ -123,6 +123,10 @@ export interface BefundeAntwort {
 export interface RechtschreibWort {
   wort: string;
   satz: string | null;
+  // Zeichen-Offsets der ersten Fundstelle im vollen Kapiteltext, fuer den
+  // Sprung-zur-Stelle-Klick - siehe app/core/heuristik.py:wort_position_finden.
+  start: number | null;
+  end: number | null;
 }
 
 export interface RechtschreibAntwort {

@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { Editor } from "@monaco-editor/react";
+import type { editor as MonacoEditorNS } from "monaco-editor";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { ProjektDetail, RechtschreibWort } from "../api/types";
-import { Button, Card, CardTitle, Input, Label } from "../components/ui";
-import { useAktivitaet } from "../context/AktivitaetContext";
-import { useLetztesKapitelSync } from "../utils/useLetztesKapitelSync";
+import { Button, Card, CardTitle } from "../components/ui";
+
+type TextEditor = MonacoEditorNS.IStandaloneCodeEditor;
 
 interface RechtschreibungPageProps {
   ordner: string;
@@ -11,136 +13,328 @@ interface RechtschreibungPageProps {
   sshZielId: string;
 }
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+interface KapitelBlock {
+  kapiteltext: string;
+  woerter: RechtschreibWort[] | null;
+  hunspellVerfuegbar: boolean;
+  geladen: boolean;
+  laedt: boolean;
+  fehler: string | null;
 }
 
-/** Hebt das gefundene Wort innerhalb seines Satzkontexts hervor, damit man
- * es nicht erst im Fliesstext suchen muss. */
-function satzMitHervorhebung(satz: string, wort: string) {
-  const teile = satz.split(new RegExp(`(\\b${escapeRegExp(wort)}\\b)`, "gi"));
-  return teile.map((teil, i) =>
-    teil.toLowerCase() === wort.toLowerCase() ? (
-      <mark key={i} className="rounded bg-violet-400/30 px-0.5 text-violet-100">
-        {teil}
-      </mark>
-    ) : (
-      <span key={i}>{teil}</span>
-    ),
-  );
+interface Spanne {
+  start: number;
+  end: number;
 }
 
-export function RechtschreibungPage({
-  ordner,
-  projekt,
-  sshZielId,
-}: RechtschreibungPageProps) {
-  const [n, setN] = useState(projekt?.kapitel.at(-1) ?? 1);
-  const [woerter, setWoerter] = useState<RechtschreibWort[] | null>(null);
-  const [hunspellVerfuegbar, setHunspellVerfuegbar] = useState(true);
-  const [ersatzWerte, setErsatzWerte] = useState<Record<string, string>>({});
-  const [laedt, setLaedt] = useState(false);
-  const [fehler, setFehler] = useState<string | null>(null);
-  const { starten, beenden } = useAktivitaet();
-  useLetztesKapitelSync(projekt, setN);
+const kapitelUeberschrift = (n: number) => `## Kapitel ${n}`;
+const KAPITEL_MARKER_MUSTER = /^## Kapitel (\d+)\s*$/gm;
 
-  // Beim Wechsel auf ein anderes Kapitel die Wortliste des vorherigen
-  // Kapitels verwerfen - sonst wirkten Woerter aus einem frueheren Kapitel
-  // so, als gehoerten sie zum gerade angezeigten.
+function splitteNachKapitel(text: string): Map<number, string> {
+  const treffer = [...text.matchAll(KAPITEL_MARKER_MUSTER)];
+  const ergebnis = new Map<number, string>();
+  for (let i = 0; i < treffer.length; i++) {
+    const n = Number(treffer[i][1]);
+    const startInhalt = treffer[i].index! + treffer[i][0].length;
+    const endeInhalt = i + 1 < treffer.length ? treffer[i + 1].index! : text.length;
+    ergebnis.set(n, text.slice(startInhalt, endeInhalt).trim());
+  }
+  return ergebnis;
+}
+
+interface KapitelTextEditorHandle {
+  springeZu: (start: number, end: number) => void;
+}
+
+/** Schlichter (Decoration-freier) Editor fuer den gesamten, ueber alle
+ * Kapitel durchlaufenden Text - Rechtschreibung markiert nichts dauerhaft
+ * im Text, springt per Klick in der Wortliste nur an die Stelle und
+ * markiert sie kurz per Auswahl, damit direkt weitergetippt werden kann. */
+const KapitelTextEditor = forwardRef<KapitelTextEditorHandle, { text: string; onChange: (text: string) => void }>(
+  function KapitelTextEditor({ text, onChange }, ref) {
+    const editorRef = useRef<TextEditor | null>(null);
+
+    useImperativeHandle(ref, () => ({
+      springeZu: (start, end) => {
+        const editor = editorRef.current;
+        const model = editor?.getModel();
+        if (!editor || !model) return;
+        const von = model.getPositionAt(start);
+        const bis = model.getPositionAt(end);
+        const bereich = {
+          startLineNumber: von.lineNumber, startColumn: von.column,
+          endLineNumber: bis.lineNumber, endColumn: bis.column,
+        };
+        editor.revealRangeInCenter(bereich);
+        editor.setSelection(bereich);
+        editor.focus();
+      },
+    }), []);
+
+    return (
+      <div className="overflow-hidden rounded-xl border border-border">
+        <Editor
+          height="75vh"
+          language="markdown"
+          value={text}
+          theme="vs-dark"
+          onChange={(value) => {
+            // Nur ECHTE Aenderungen weiterreichen - sonst Endlos-Kreislauf,
+            // wenn `text` von aussen aktualisiert wird (siehe BefundEditor.tsx).
+            if (value !== undefined && value !== text) onChange(value);
+          }}
+          onMount={(editor) => {
+            editorRef.current = editor;
+          }}
+          options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
+        />
+      </div>
+    );
+  },
+);
+
+export function RechtschreibungPage({ ordner, projekt, sshZielId }: RechtschreibungPageProps) {
+  const [bloecke, setBloecke] = useState<Record<number, KapitelBlock>>({});
+  const [kombiniert, setKombiniert] = useState("");
+  const [spannen, setSpannen] = useState<Record<number, Spanne>>({});
+  const [speichertLaedt, setSpeichertLaedt] = useState(false);
+  const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
+  const editorRef = useRef<KapitelTextEditorHandle | null>(null);
+  const kapitelNummern = useMemo(() => [...(projekt?.kapitel ?? [])].sort((a, b) => a - b), [projekt?.kapitel]);
+  const geladenRef = useRef<Set<number>>(new Set());
+  const angehaengtRef = useRef<Set<number>>(new Set());
+
   useEffect(() => {
-    setWoerter(null);
-    setErsatzWerte({});
-    setFehler(null);
-  }, [ordner, n]);
+    geladenRef.current = new Set();
+    angehaengtRef.current = new Set();
+    setBloecke({});
+    setKombiniert("");
+    setSpannen({});
+    setGespeichertHinweis(null);
+  }, [ordner]);
 
-  async function rechtschreibungPruefen() {
-    setLaedt(true);
-    setFehler(null);
-    starten(`Prüft Kapitel ${n} per hunspell auf unbekannte Wörter...`);
+  async function pruefeKapitel(n: number) {
+    setBloecke((b) => ({
+      ...b,
+      [n]: { kapiteltext: b[n]?.kapiteltext ?? "", woerter: null, hunspellVerfuegbar: true, geladen: b[n]?.geladen ?? false, laedt: true, fehler: null },
+    }));
     try {
-      const antwort = await api.rechtschreibung(ordner, n, sshZielId || null);
-      setWoerter(antwort.unbekannte_woerter);
-      setHunspellVerfuegbar(antwort.hunspell_verfuegbar);
+      const [kapiteltext, antwort] = await Promise.all([api.kapitel(ordner, n), api.rechtschreibung(ordner, n, sshZielId || null)]);
+      setBloecke((b) => ({
+        ...b,
+        [n]: {
+          kapiteltext,
+          woerter: antwort.unbekannte_woerter,
+          hunspellVerfuegbar: antwort.hunspell_verfuegbar,
+          geladen: true,
+          laedt: false,
+          fehler: null,
+        },
+      }));
     } catch (e) {
-      setFehler(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLaedt(false);
-      beenden();
+      setBloecke((b) => ({
+        ...b,
+        [n]: { ...b[n], laedt: false, fehler: e instanceof Error ? e.message : String(e) },
+      }));
     }
   }
 
-  async function ersetzenUndSpeichern() {
-    const eintraege = Object.entries(ersatzWerte).filter(([, ersatz]) => ersatz.trim() !== "");
-    if (eintraege.length === 0) return;
-    let text = await api.kapitel(ordner, n);
-    for (const [wort, ersatz] of eintraege) {
-      text = text.replace(new RegExp(`\\b${wort}\\b`, "g"), ersatz);
+  useEffect(() => {
+    const neue = kapitelNummern.filter((n) => !geladenRef.current.has(n));
+    if (neue.length === 0) return;
+    for (const n of neue) geladenRef.current.add(n);
+    // ALLE Fetches dieser Charge parallel starten, aber erst GEMEINSAM in
+    // EINEM setBloecke() uebernehmen, wenn alle fertig sind - sonst wuerde
+    // das Anhaengen an den kombinierten Text (naechster Effekt) in der
+    // REIHENFOLGE passieren, in der die Netzwerk-Antworten zufaellig
+    // eintreffen, statt in numerischer Kapitel-Reihenfolge. Bewusst NICHT
+    // ueber pruefeKapitel() (das schreibt sofort je Kapitel einzeln), das
+    // bleibt fuer "Alle erneut pruefen" reserviert, wo die Reihenfolge
+    // egal ist (die Kapitel sind zu dem Zeitpunkt schon angehaengt).
+    let abgebrochen = false;
+    Promise.all(
+      neue.map(async (n) => {
+        try {
+          const [kapiteltext, antwort] = await Promise.all([api.kapitel(ordner, n), api.rechtschreibung(ordner, n, sshZielId || null)]);
+          return { n, kapiteltext, woerter: antwort.unbekannte_woerter, hunspellVerfuegbar: antwort.hunspell_verfuegbar, fehler: null as string | null };
+        } catch (e) {
+          return { n, kapiteltext: "", woerter: null, hunspellVerfuegbar: true, fehler: e instanceof Error ? e.message : String(e) };
+        }
+      }),
+    ).then((ergebnisse) => {
+      if (abgebrochen) return;
+      setBloecke((bisher) => {
+        const kopie = { ...bisher };
+        for (const r of ergebnisse) {
+          kopie[r.n] = {
+            kapiteltext: r.kapiteltext, woerter: r.woerter, hunspellVerfuegbar: r.hunspellVerfuegbar,
+            geladen: r.fehler === null, laedt: false, fehler: r.fehler,
+          };
+        }
+        return kopie;
+      });
+    });
+    return () => {
+      abgebrochen = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordner, kapitelNummern]);
+
+  // Haengt jedes frisch geprüfte Kapitel an den EINEN gemeinsamen Text an -
+  // bewusst ANHAENGEN statt Neuaufbau, damit ungespeicherte Aenderungen an
+  // bereits geladenen Kapiteln erhalten bleiben.
+  useEffect(() => {
+    const neue = kapitelNummern.filter((n) => bloecke[n]?.geladen && !angehaengtRef.current.has(n));
+    if (neue.length === 0) return;
+    setKombiniert((bisherigerText) => {
+      let text = bisherigerText;
+      const frischeSpannen: Record<number, Spanne> = {};
+      for (const n of neue) {
+        const block = bloecke[n]!;
+        if (text) text += "\n\n";
+        text += `${kapitelUeberschrift(n)}\n\n`;
+        const start = text.length;
+        text += block.kapiteltext;
+        frischeSpannen[n] = { start, end: text.length };
+        angehaengtRef.current.add(n);
+      }
+      setSpannen((bisherigeSpannen) => ({ ...bisherigeSpannen, ...frischeSpannen }));
+      return text;
+    });
+  }, [bloecke, kapitelNummern]);
+
+  async function alleErneutPruefen() {
+    await Promise.all(kapitelNummern.map((n) => pruefeKapitel(n)));
+  }
+
+  async function speichern() {
+    setSpeichertLaedt(true);
+    setGespeichertHinweis(null);
+    try {
+      const segmente = splitteNachKapitel(kombiniert);
+      const geaendert: number[] = [];
+      for (const n of kapitelNummern) {
+        const segment = segmente.get(n);
+        if (segment === undefined || segment === bloecke[n]?.kapiteltext) continue;
+        await api.kapitelSchreiben(ordner, n, segment);
+        geaendert.push(n);
+      }
+      if (geaendert.length > 0) {
+        setBloecke((b) => {
+          const kopie = { ...b };
+          for (const n of geaendert) kopie[n] = { ...kopie[n], kapiteltext: segmente.get(n)! };
+          return kopie;
+        });
+        setGespeichertHinweis(`Gespeichert (Kapitel ${geaendert.join(", ")}).`);
+      } else {
+        setGespeichertHinweis("Keine Änderungen.");
+      }
+    } finally {
+      setSpeichertLaedt(false);
     }
-    await api.kapitelSchreiben(ordner, n, text);
-    setErsatzWerte({});
-    setWoerter(null);
+  }
+
+  const hatUngespeicherteAenderungen = useMemo(() => {
+    const segmente = splitteNachKapitel(kombiniert);
+    for (const n of kapitelNummern) {
+      const segment = segmente.get(n);
+      if (segment !== undefined && segment !== bloecke[n]?.kapiteltext) return true;
+    }
+    return false;
+  }, [kombiniert, bloecke, kapitelNummern]);
+
+  const alleWoerter = useMemo(() => {
+    const liste: { kapitel: number; wort: RechtschreibWort; start: number | null; end: number | null }[] = [];
+    for (const n of kapitelNummern) {
+      const block = bloecke[n];
+      const spanne = spannen[n];
+      if (!block?.woerter || !spanne) continue;
+      for (const wort of block.woerter) {
+        liste.push({
+          kapitel: n,
+          wort,
+          start: wort.start !== null ? spanne.start + wort.start : null,
+          end: wort.end !== null ? spanne.start + wort.end : null,
+        });
+      }
+    }
+    return liste;
+  }, [bloecke, spannen, kapitelNummern]);
+
+  const hunspellFehlt = kapitelNummern.some((n) => bloecke[n]?.geladen && !bloecke[n].hunspellVerfuegbar);
+
+  function springeZuWort(start: number | null, end: number | null) {
+    if (start === null || end === null) return;
+    editorRef.current?.springeZu(start, end);
   }
 
   return (
     <div className="space-y-6 p-6">
       <Card>
-        <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <Label>Kapitelnummer</Label>
-            <Input type="number" min={1} value={n} onChange={(e) => setN(Number(e.target.value))} className="w-28" />
-          </div>
-          <Button onClick={rechtschreibungPruefen} disabled={laedt}>
-            {laedt ? "Prüft..." : "Wörterbuch-Prüfung (hunspell)"}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <CardTitle>📖 Rechtschreibung (hunspell)</CardTitle>
+          <Button onClick={alleErneutPruefen} disabled={kapitelNummern.length === 0} variant="secondary">
+            Alle erneut prüfen
           </Button>
         </div>
-        {fehler && <p className="mt-2 text-sm text-red-400">{fehler}</p>}
+        <p className="text-xs text-text-muted">
+          Prüft jedes bisher geschriebene Kapitel gegen ein echtes deutsches Wörterbuch (ergänzt die
+          Sprachmodell-Prüfung um erfundene, aber grammatisch plausible Wörter). Ein Klick auf ein Wort springt
+          direkt an die Fundstelle im Text rechts - dort einfach direkt ausbessern und speichern. Eigennamen und
+          Fachbegriffe tauchen zwangsläufig mit auf, kein Fehler.
+        </p>
+        {hunspellFehlt && (
+          <p className="mt-2 text-sm text-amber-300">
+            hunspell ist auf dem angesprochenen Ziel nicht verfügbar - für lokale Windows-Entwicklung ein
+            SSH-Ziel mit installiertem hunspell auswählen.
+          </p>
+        )}
       </Card>
 
-      {woerter && (
+      {kapitelNummern.length === 0 ? (
         <Card>
-          <CardTitle>📖 Unbekannte Wörter</CardTitle>
-          {!hunspellVerfuegbar && (
-            <p className="mb-2 text-sm text-amber-300">
-              hunspell ist auf dem angesprochenen Ziel nicht verfügbar - für lokale Windows-Entwicklung ein
-              SSH-Ziel mit installiertem hunspell auswählen.
-            </p>
-          )}
-          {woerter.length === 0 ? (
-            <p className="text-sm text-text-muted">Keine unbekannten Wörter gefunden.</p>
-          ) : (
-            <div className="space-y-2">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="text-xs font-medium uppercase tracking-wider text-text-muted">
-                    <th className="pb-2 pr-[50px] text-left">Wort</th>
-                    <th className="pb-2 pr-4 text-left">Satzkontext</th>
-                    <th className="w-64 pb-2 text-left">Ersatzwort</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {woerter.map((w) => (
-                    <tr key={w.wort} className="border-b border-border last:border-0">
-                      <td className="whitespace-nowrap py-2 pr-[50px] align-middle font-mono text-sm">{w.wort}</td>
-                      <td className="py-2 pr-4 align-middle text-sm leading-relaxed text-text-muted">
-                        {w.satz ? satzMitHervorhebung(w.satz, w.wort) : "(kein Satzkontext gefunden)"}
-                      </td>
-                      <td className="w-64 py-2 align-middle">
-                        <Input
-                          placeholder="leer = behalten"
-                          value={ersatzWerte[w.wort] ?? ""}
-                          onChange={(e) => setErsatzWerte((bisher) => ({ ...bisher, [w.wort]: e.target.value }))}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <Button onClick={ersetzenUndSpeichern} className="mt-2">
-                Ersetzungen übernehmen &amp; speichern
+          <p className="text-sm text-text-muted">Noch keine Kapitel geschrieben - siehe Tab „Schreiben".</p>
+        </Card>
+      ) : !kombiniert ? (
+        <Card>
+          <p className="text-sm text-text-muted">Lädt...</p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
+          <div className="space-y-3">
+            <div className="flex items-center justify-end gap-3">
+              {hatUngespeicherteAenderungen && <span className="text-xs text-text-muted">Noch nicht gespeicherte Änderungen</span>}
+              {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
+              <Button onClick={speichern} disabled={speichertLaedt || !hatUngespeicherteAenderungen}>
+                {speichertLaedt ? "Speichert..." : "Speichern"}
               </Button>
             </div>
-          )}
-        </Card>
+            <KapitelTextEditor ref={editorRef} text={kombiniert} onChange={setKombiniert} />
+          </div>
+          <div className="max-h-[75vh] space-y-1 overflow-auto pr-1">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wider text-text-muted">
+              Unbekannte Wörter ({alleWoerter.length})
+            </p>
+            {alleWoerter.length === 0 ? (
+              <p className="text-sm text-text-muted">Keine unbekannten Wörter in den bisher geschriebenen Kapiteln.</p>
+            ) : (
+              <ul className="space-y-1">
+                {alleWoerter.map(({ kapitel, wort, start, end }, i) => (
+                  <li
+                    key={`${kapitel}-${wort.wort}-${i}`}
+                    onClick={() => springeZuWort(start, end)}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-2 py-1.5 text-sm hover:bg-surface-hover"
+                  >
+                    <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-text-muted">
+                      Kapitel {kapitel}
+                    </span>
+                    <span className="font-mono">{wort.wort}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,13 +1,13 @@
 import type { Befund, BefundKategorie } from "../api/types";
 
-const KATEGORIE_LABEL: Record<BefundKategorie, string> = {
+export const KATEGORIE_LABEL: Record<BefundKategorie, string> = {
   anachronismus: "Anachronismus",
   stimmigkeit: "Stimmigkeit",
   kontinuitaet: "Kontinuität",
   lektorat: "Lektorat",
 };
 
-const KATEGORIE_CHIP: Record<BefundKategorie, string> = {
+export const KATEGORIE_CHIP: Record<BefundKategorie, string> = {
   anachronismus: "border-amber-400/40 bg-amber-400/15 text-amber-200",
   stimmigkeit: "border-violet-400/40 bg-violet-400/15 text-violet-200",
   kontinuitaet: "border-sky-400/40 bg-sky-400/15 text-sky-200",
@@ -33,6 +33,11 @@ interface BefundListeProps {
    * viele kleine Einzelfunde pro Kapitel (Endungen, Kommata, Tippfehler),
    * anders als die meist wenigen Funde der anderen Kategorien. */
   onUebernehmenAlle?: (befunde: Befund[]) => void;
+  /** Nur uebergeben, wenn die Liste Funde ueber MEHRERE Kapitel hinweg
+   * zeigt (siehe PruefenAnwendenPage: EINE gemeinsame Liste fuer den
+   * gesamten, ueber alle Kapitel durchlaufenden Editor) - liefert je Fund
+   * die Kapitelnummer fuer ein kleines Badge vor den Kategorie-Chips. */
+  kapitelVon?: (befund: Befund) => number;
 }
 
 function kannUebernommenWerden(befund: Befund, verwaist: boolean, uebernommen: boolean): boolean {
@@ -47,6 +52,7 @@ export function BefundListe({
   uebernommenIds,
   onUebernehmen,
   onUebernehmenAlle,
+  kapitelVon,
 }: BefundListeProps) {
   if (befunde.length === 0) {
     return <p className="text-sm text-text-muted">Keine Befunde.</p>;
@@ -88,6 +94,11 @@ export function BefundListe({
             }`}
           >
             <div className="mb-1 flex flex-wrap items-center gap-1.5">
+              {kapitelVon && (
+                <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-text-muted">
+                  Kapitel {kapitelVon(befund)}
+                </span>
+              )}
               {befund.kategorien.map((k) => (
                 <span key={k} className={`rounded-full border px-2 py-0.5 text-xs font-medium ${KATEGORIE_CHIP[k]}`}>
                   {KATEGORIE_LABEL[k]}

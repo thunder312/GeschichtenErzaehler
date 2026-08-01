@@ -223,6 +223,15 @@ class AutomatikVerlaufEintrag(BaseModel):
 class RechtschreibWort(BaseModel):
     wort: str
     satz: str | None
+    # Zeichen-Offsets der ERSTEN Fundstelle im vollen Kapiteltext (nicht nur
+    # im gekuerzten `satz`) - erlaubt dem Frontend, per Klick direkt an die
+    # Stelle im editierbaren Kapiteltext zu springen, analog zu Befund.start/
+    # end (siehe app/core/fundstellen.py). None nur, falls das Wort trotz
+    # hunspell-Fund im Text nicht als eigenes Wort wiedergefunden wird
+    # (sollte praktisch nicht vorkommen, da hunspell direkt gegen denselben
+    # Text prueft).
+    start: int | None = None
+    end: int | None = None
 
 
 class RechtschreibAntwort(BaseModel):

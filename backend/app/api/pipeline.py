@@ -1094,7 +1094,12 @@ def rechtschreibung(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
     unbekannt = h.hunspell_unbekannte_woerter(text, exec_fn=_hunspell_exec_fn(settings, ssh_ziel_id))
     if unbekannt is None:
         return RechtschreibAntwort(unbekannte_woerter=[], hunspell_verfuegbar=False)
-    woerter_mit_satz = [
-        RechtschreibWort(wort=w, satz=h.satz_mit_wort_finden(text, w)) for w in unbekannt
-    ]
+    woerter_mit_satz = []
+    for w in unbekannt:
+        position = h.wort_position_finden(text, w)
+        woerter_mit_satz.append(RechtschreibWort(
+            wort=w, satz=h.satz_mit_wort_finden(text, w),
+            start=position[0] if position else None,
+            end=position[1] if position else None,
+        ))
     return RechtschreibAntwort(unbekannte_woerter=woerter_mit_satz, hunspell_verfuegbar=True)

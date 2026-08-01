@@ -27,6 +27,20 @@ function formatDauer(sekunden: number): string {
   return std > 0 ? `${std} Std. ${min} Min.` : `${min} Min.`;
 }
 
+/** Kurzer, lesbarer Text fuer die globale Fusszeile (StatusFooter) waehrend
+ * der Automatikmodus im Hintergrund laeuft. */
+function automatikAktionsText(status: AutomatikStatus): string {
+  const kapitel = status.aktuelles_kapitel != null
+    ? ` Kapitel ${status.aktuelles_kapitel}${status.gesamt_kapitel != null ? `/${status.gesamt_kapitel}` : ""}`
+    : "";
+  if (status.phase === "schreiben") return `Automatikmodus: schreibt${kapitel}...`;
+  if (status.phase === "pruefen") {
+    const durchlauf = status.aktueller_durchlauf != null ? `, Durchlauf ${status.aktueller_durchlauf}` : "";
+    return `Automatikmodus: prüft${kapitel}${durchlauf}...`;
+  }
+  return "Automatikmodus läuft...";
+}
+
 export function SchreibenPage({
   ordner,
   projekt,
@@ -55,6 +69,7 @@ export function SchreibenPage({
   const [automatikFehler, setAutomatikFehler] = useState<string | null>(null);
   const [automatikVerlauf, setAutomatikVerlauf] = useState<AutomatikVerlaufEintrag[]>([]);
   const automatikLiefZuvorRef = useRef(false);
+  const automatikAktivitaetTextRef = useRef<string | null>(null);
 
   function automatikVerlaufLaden() {
     api
@@ -84,6 +99,23 @@ export function SchreibenPage({
           // jedem 4-Sekunden-Tick.
           if (automatikLiefZuvorRef.current && !status.laeuft) automatikVerlaufLaden();
           automatikLiefZuvorRef.current = status.laeuft;
+
+          // Spiegelt den Automatikmodus-Fortschritt in die globale
+          // Fusszeile (StatusFooter) - sonst zeigt die immer "Bereit",
+          // waehrend im Hintergrund ein stundenlanger Lauf werkelt. Nur bei
+          // TEXT-Aenderung neu "starten()" (das setzt die Sekunden-Uhr in
+          // der Fusszeile auf 0 zurueck) statt bei jedem 4-Sekunden-Tick,
+          // damit man sieht, wie lange der aktuelle Schritt schon laeuft.
+          if (status.laeuft) {
+            const text = automatikAktionsText(status);
+            if (automatikAktivitaetTextRef.current !== text) {
+              automatikAktivitaetTextRef.current = text;
+              aktivitaetStarten(text);
+            }
+          } else if (automatikAktivitaetTextRef.current !== null) {
+            automatikAktivitaetTextRef.current = null;
+            aktivitaetBeenden();
+          }
         })
         .catch(() => {});
     }

@@ -308,6 +308,17 @@ def hunspell_unbekannte_woerter(text: str, exec_fn: ExecFn | None = None) -> lis
     return [w for w in unbekannt if len(w) > 2]
 
 
+def wort_position_finden(text: str, wort: str) -> tuple[int, int] | None:
+    """Zeichen-Offsets (start, end) der ERSTEN Fundstelle von `wort` als
+    eigenes Wort in `text`, oder None. Fuer den Sprung-zur-Stelle-Klick im
+    Frontend (siehe RechtschreibWort.start/end) - im Unterschied zu
+    fundstellen.finde_fundstelle() genuegt hier ein simpler Wortgrenzen-
+    Abgleich, da hunspell-Woerter (anders als LLM-Zitate) immer exakt
+    denselben Text widerspiegeln, gegen den geprueft wurde."""
+    treffer = re.search(r"\b" + re.escape(wort) + r"\b", text)
+    return (treffer.start(), treffer.end()) if treffer else None
+
+
 def satz_mit_wort_finden(text: str, wort: str, max_laenge: int = 220) -> str | None:
     """Fuer die interaktive Rechtschreib-Durchsicht: Satz mit Kontext um den
     Fund herum, gekuerzt auf max_laenge Zeichen."""
