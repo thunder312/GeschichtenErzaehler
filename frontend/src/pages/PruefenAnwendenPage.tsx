@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { Befund, BefundeAntwort, ProjektDetail } from "../api/types";
+import type { AutomatikStatus, Befund, BefundeAntwort, ProjektDetail } from "../api/types";
 import { BefundEditor, type BefundEditorHandle } from "../components/BefundEditor";
 import { BefundListe } from "../components/BefundListe";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { Button, Card, CardTitle } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
+import { hatReste } from "../utils/automatik";
 
 interface PruefenAnwendenPageProps {
   ordner: string;
@@ -53,6 +54,8 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
   const [uebernommenIds, setUebernommenIds] = useState<Set<string>>(new Set());
   const [speichertLaedt, setSpeichertLaedt] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
+  const [automatikStatus, setAutomatikStatus] = useState<AutomatikStatus | null>(null);
+  const [resteWirdBestaetigt, setResteWirdBestaetigt] = useState(false);
   const editorRef = useRef<BefundEditorHandle | null>(null);
   const { starten, beenden } = useAktivitaet();
   const kapitelNummern = useMemo(() => [...(projekt?.kapitel ?? [])].sort((a, b) => a - b), [projekt?.kapitel]);
@@ -67,6 +70,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
     setKombiniert("");
     setSpannen({});
     setGespeichertHinweis(null);
+    api.automatikStatus(ordner).then(setAutomatikStatus).catch(() => setAutomatikStatus(null));
   }, [ordner]);
 
   // Laedt jedes bislang unbekannte Kapitel GENAU EINMAL.
@@ -210,6 +214,16 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
     }
   }
 
+  async function pruefungAbschliessen() {
+    setResteWirdBestaetigt(true);
+    try {
+      await api.automatikResteBestaetigen(ordner);
+      setAutomatikStatus(await api.automatikStatus(ordner));
+    } finally {
+      setResteWirdBestaetigt(false);
+    }
+  }
+
   function aufFundKlicken(befund: Befund) {
     setAktiveId(befund.id);
     editorRef.current?.springeZu(befund);
@@ -265,6 +279,17 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
             <>
               {hatUngespeicherteAenderungen && <span className="text-xs text-text-muted">Noch nicht gespeicherte Änderungen</span>}
               {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
+              {automatikStatus &&
+                !automatikStatus.laeuft &&
+                automatikStatus.abgeschlossen &&
+                hatReste(automatikStatus.protokoll) &&
+                (automatikStatus.resten_bestaetigt ? (
+                  <span className="text-xs text-accent-light">✅ Prüfung als abgeschlossen bestätigt.</span>
+                ) : (
+                  <Button variant="secondary" onClick={pruefungAbschliessen} disabled={resteWirdBestaetigt}>
+                    {resteWirdBestaetigt ? "Bestätigt..." : "Prüfung abschließen"}
+                  </Button>
+                ))}
               <Button onClick={speichern} disabled={speichertLaedt || !hatUngespeicherteAenderungen}>
                 {speichertLaedt ? "Speichert..." : "Speichern"}
               </Button>

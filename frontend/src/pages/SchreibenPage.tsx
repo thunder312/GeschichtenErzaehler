@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, schreibenWebSocketUrl } from "../api/client";
 import type {
-  AutomatikProtokollEintrag,
   AutomatikStatus,
   AutomatikVerlaufEintrag,
   BefundeAntwort,
@@ -14,6 +13,7 @@ import { CollapsibleCard } from "../components/CollapsibleCard";
 import { FindingsList } from "../components/FindingsList";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
+import { hatReste } from "../utils/automatik";
 import { alsDateiHerunterladen } from "../utils/download";
 
 interface SchreibenPageProps {
@@ -21,15 +21,6 @@ interface SchreibenPageProps {
   projekt: ProjektDetail | null;
   sshZielId: string;
   onKapitelGeschrieben: () => void;
-}
-
-/** Dieselbe Regel wie app/core/automatik.py:reste_vorhanden() - fuer die
- * Sichtbarkeit des "Prüfung abschließen"-Buttons (nur zeigen, wenn es
- * ueberhaupt etwas zu bestaetigen gibt). */
-function hatReste(protokoll: AutomatikProtokollEintrag[]): boolean {
-  return protokoll.some(
-    (eintrag) => eintrag.art === "uebersprungen" || (eintrag.art === "rechtschreibung" && !!eintrag.unbekannte_woerter?.length),
-  );
 }
 
 function formatDauer(sekunden: number): string {
@@ -150,11 +141,6 @@ export function SchreibenPage({
 
   async function automatikStoppen() {
     await api.automatikStoppen(ordner);
-    setAutomatikStatus(await api.automatikStatus(ordner));
-  }
-
-  async function automatikResteBestaetigen() {
-    await api.automatikResteBestaetigen(ordner);
     setAutomatikStatus(await api.automatikStatus(ordner));
   }
 
@@ -516,15 +502,14 @@ export function SchreibenPage({
                   </li>
                 ))}
               </ul>
-              <p>Reste findest du wie gewohnt im Tab "Prüfen &amp; Anwenden".</p>
-              {hatReste(automatikStatus.protokoll) && (
-                automatikStatus.resten_bestaetigt ? (
-                  <p className="text-accent-light">✅ Prüfung als abgeschlossen bestätigt.</p>
-                ) : (
-                  <Button variant="secondary" onClick={automatikResteBestaetigen}>
-                    Prüfung abschließen
-                  </Button>
-                )
+              <p>
+                Reste findest du wie gewohnt im Tab "Prüfen &amp; Anwenden"
+                {hatReste(automatikStatus.protokoll) && !automatikStatus.resten_bestaetigt && (
+                  <> - dort auch der Button "Prüfung abschließen".</>
+                )}
+              </p>
+              {hatReste(automatikStatus.protokoll) && automatikStatus.resten_bestaetigt && (
+                <p className="text-accent-light">✅ Prüfung als abgeschlossen bestätigt.</p>
               )}
             </div>
           </CollapsibleCard>
