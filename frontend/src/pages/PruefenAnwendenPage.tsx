@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import type { Befund, BefundeAntwort, ProjektDetail } from "../api/types";
 import { BefundEditor, type BefundEditorHandle } from "../components/BefundEditor";
 import { BefundListe } from "../components/BefundListe";
+import { CollapsibleCard } from "../components/CollapsibleCard";
 import { Button, Card, CardTitle } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 
@@ -258,15 +259,19 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
           <p className="text-sm text-text-muted">Lädt...</p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
-          <div className="space-y-3">
-            <div className="flex items-center justify-end gap-3">
+        <CollapsibleCard
+          title="📄 Kapiteltexte & Funde"
+          aktionen={
+            <>
               {hatUngespeicherteAenderungen && <span className="text-xs text-text-muted">Noch nicht gespeicherte Änderungen</span>}
               {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
               <Button onClick={speichern} disabled={speichertLaedt || !hatUngespeicherteAenderungen}>
                 {speichertLaedt ? "Speichert..." : "Speichern"}
               </Button>
-            </div>
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[2fr_1fr]">
             <BefundEditor
               ref={editorRef}
               kapiteltext={kombiniert}
@@ -277,20 +282,20 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
               onOrphan={(id) => setOrphanIds((s) => new Set(s).add(id))}
               onUebernommenChange={(id) => setUebernommenIds((s) => new Set(s).add(id))}
             />
+            <div className="max-h-[75vh] overflow-auto pr-1">
+              <BefundListe
+                befunde={shiftedBefunde}
+                aktiveId={aktiveId}
+                onSelect={aufFundKlicken}
+                orphanIds={orphanIds}
+                uebernommenIds={uebernommenIds}
+                kapitelVon={(befund) => kapitelVonId.get(befund.id) ?? 0}
+                onUebernehmen={(befund) => editorRef.current?.uebernehmen(befund.id)}
+                onUebernehmenAlle={(alle) => editorRef.current?.uebernehmenMehrere(alle.map((b) => b.id))}
+              />
+            </div>
           </div>
-          <div className="max-h-[75vh] overflow-auto pr-1">
-            <BefundListe
-              befunde={shiftedBefunde}
-              aktiveId={aktiveId}
-              onSelect={aufFundKlicken}
-              orphanIds={orphanIds}
-              uebernommenIds={uebernommenIds}
-              kapitelVon={(befund) => kapitelVonId.get(befund.id) ?? 0}
-              onUebernehmen={(befund) => editorRef.current?.uebernehmen(befund.id)}
-              onUebernehmenAlle={(alle) => editorRef.current?.uebernehmenMehrere(alle.map((b) => b.id))}
-            />
-          </div>
-        </div>
+        </CollapsibleCard>
       )}
     </div>
   );

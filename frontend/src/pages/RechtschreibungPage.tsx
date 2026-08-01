@@ -3,6 +3,7 @@ import type { editor as MonacoEditorNS } from "monaco-editor";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { ProjektDetail, RechtschreibWort } from "../api/types";
+import { CollapsibleCard } from "../components/CollapsibleCard";
 import { Button, Card, CardTitle } from "../components/ui";
 
 type TextEditor = MonacoEditorNS.IStandaloneCodeEditor;
@@ -300,41 +301,45 @@ export function RechtschreibungPage({ ordner, projekt, sshZielId }: Rechtschreib
           <p className="text-sm text-text-muted">Lädt...</p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
-          <div className="space-y-3">
-            <div className="flex items-center justify-end gap-3">
+        <CollapsibleCard
+          title="📄 Kapiteltexte & Wörter"
+          aktionen={
+            <>
               {hatUngespeicherteAenderungen && <span className="text-xs text-text-muted">Noch nicht gespeicherte Änderungen</span>}
               {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
               <Button onClick={speichern} disabled={speichertLaedt || !hatUngespeicherteAenderungen}>
                 {speichertLaedt ? "Speichert..." : "Speichern"}
               </Button>
-            </div>
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[2fr_1fr]">
             <KapitelTextEditor ref={editorRef} text={kombiniert} onChange={setKombiniert} />
+            <div className="max-h-[75vh] space-y-1 overflow-auto pr-1">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wider text-text-muted">
+                Unbekannte Wörter ({alleWoerter.length})
+              </p>
+              {alleWoerter.length === 0 ? (
+                <p className="text-sm text-text-muted">Keine unbekannten Wörter in den bisher geschriebenen Kapiteln.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {alleWoerter.map(({ kapitel, wort, start, end }, i) => (
+                    <li
+                      key={`${kapitel}-${wort.wort}-${i}`}
+                      onClick={() => springeZuWort(start, end)}
+                      className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-2 py-1.5 text-sm hover:bg-surface-hover"
+                    >
+                      <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-text-muted">
+                        Kapitel {kapitel}
+                      </span>
+                      <span className="font-mono">{wort.wort}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
-          <div className="max-h-[75vh] space-y-1 overflow-auto pr-1">
-            <p className="mb-1 text-xs font-medium uppercase tracking-wider text-text-muted">
-              Unbekannte Wörter ({alleWoerter.length})
-            </p>
-            {alleWoerter.length === 0 ? (
-              <p className="text-sm text-text-muted">Keine unbekannten Wörter in den bisher geschriebenen Kapiteln.</p>
-            ) : (
-              <ul className="space-y-1">
-                {alleWoerter.map(({ kapitel, wort, start, end }, i) => (
-                  <li
-                    key={`${kapitel}-${wort.wort}-${i}`}
-                    onClick={() => springeZuWort(start, end)}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-2 py-1.5 text-sm hover:bg-surface-hover"
-                  >
-                    <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-text-muted">
-                      Kapitel {kapitel}
-                    </span>
-                    <span className="font-mono">{wort.wort}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        </CollapsibleCard>
       )}
     </div>
   );

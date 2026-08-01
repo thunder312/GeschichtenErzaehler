@@ -2,6 +2,7 @@ import Editor from "@monaco-editor/react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { ProjektDetail } from "../api/types";
+import { CollapsibleCard } from "../components/CollapsibleCard";
 import { Badge, Button, Card, CardTitle } from "../components/ui";
 
 // Anzeige-Mapping der intern aus dem Gerüst erkannten Content-Stufe (siehe
@@ -39,13 +40,11 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   const [verbotslisteHinweis, setVerbotslisteHinweis] = useState<string | null>(null);
 
   const [architektenGespraech, setArchitektenGespraech] = useState<string | null>(null);
-  const [architektenGespraechOffen, setArchitektenGespraechOffen] = useState(false);
 
   useEffect(() => {
     setInhalt(projekt?.geruest ?? "");
     setVerbotslisteInhalt(projekt?.verbotsliste ?? "");
     setArchitektenGespraech(null);
-    setArchitektenGespraechOffen(false);
     api
       .architektenGespraech(ordner)
       .then(setArchitektenGespraech)
@@ -82,11 +81,11 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[2fr_1fr]">
-      <Card className="p-0">
-        <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-          <h2 className="font-heading text-lg font-semibold tracking-wide text-text">🗺️ geruest.md</h2>
-          <div className="flex items-center gap-3">
+    <div className="grid grid-cols-1 items-start gap-6 p-6 lg:grid-cols-[2fr_1fr]">
+      <CollapsibleCard
+        title="🗺️ geruest.md"
+        aktionen={
+          <>
             {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
             <Button variant="secondary" onClick={onInterviewStarten}>
               Interview neu führen
@@ -94,8 +93,9 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
             <Button onClick={speichern} disabled={wirdGespeichert}>
               {wirdGespeichert ? "Speichert..." : "Speichern"}
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      >
         <Editor
           height="560px"
           defaultLanguage="markdown"
@@ -104,7 +104,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
           theme="vs-dark"
           options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
         />
-      </Card>
+      </CollapsibleCard>
 
       <div className="space-y-6">
         <Card>
@@ -163,16 +163,17 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
           )}
         </Card>
 
-        <Card className="p-0">
-          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-            <h2 className="font-heading text-lg font-semibold tracking-wide text-text">🚫 verbotsliste.md</h2>
-            <div className="flex items-center gap-3">
+        <CollapsibleCard
+          title="🚫 verbotsliste.md"
+          aktionen={
+            <>
               {verbotslisteHinweis && <span className="text-xs text-accent-light">{verbotslisteHinweis}</span>}
               <Button onClick={verbotslisteSpeichern} disabled={verbotslisteWirdGespeichert}>
                 {verbotslisteWirdGespeichert ? "Speichert..." : "Speichern"}
               </Button>
-            </div>
-          </div>
+            </>
+          }
+        >
           <Editor
             height="320px"
             defaultLanguage="markdown"
@@ -181,25 +182,14 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
             theme="vs-dark"
             options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 13 }}
           />
-        </Card>
+        </CollapsibleCard>
 
         {architektenGespraech && (
-          <Card>
-            <div className="flex items-center justify-between">
-              <CardTitle className="mb-0">📜 Architekten-Gespräch</CardTitle>
-              <button
-                onClick={() => setArchitektenGespraechOffen((bisher) => !bisher)}
-                className="text-xs text-accent-light hover:underline"
-              >
-                {architektenGespraechOffen ? "Ausblenden" : "Anzeigen"}
-              </button>
-            </div>
-            {architektenGespraechOffen && (
-              <pre className="mt-3 max-h-[400px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-text">
-                {architektenGespraech}
-              </pre>
-            )}
-          </Card>
+          <CollapsibleCard title="📜 Architekten-Gespräch" defaultOffen={false}>
+            <pre className="max-h-[400px] overflow-auto whitespace-pre-wrap p-4 text-sm text-text">
+              {architektenGespraech}
+            </pre>
+          </CollapsibleCard>
         )}
       </div>
     </div>

@@ -10,6 +10,7 @@ import type {
   SchreibenNachricht,
 } from "../api/types";
 import { BefundListe } from "../components/BefundListe";
+import { CollapsibleCard } from "../components/CollapsibleCard";
 import { FindingsList } from "../components/FindingsList";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
@@ -496,40 +497,42 @@ export function SchreibenPage({
         )}
 
         {!automatikStatus?.laeuft && automatikStatus?.abgeschlossen && (
-          <details className="mt-3 text-xs text-text-muted">
-            <summary className="cursor-pointer text-text">
-              Protokoll des letzten Laufs ({automatikStatus.protokoll.length} Einträge)
-            </summary>
-            <ul className="mt-2 max-h-64 space-y-1 overflow-auto">
-              {automatikStatus.protokoll.map((eintrag, i) => (
-                <li key={i}>
-                  Kapitel {eintrag.kapitel}:{" "}
-                  {eintrag.art === "angewendet"
-                    ? "✅ angewendet"
-                    : eintrag.art === "rechtschreibung"
-                      ? `📝 ${eintrag.unbekannte_woerter?.length ?? 0} unbekannte(s) Wort/Wörter`
-                      : `⏭️ übersprungen (${eintrag.grund})`}
-                  {eintrag.fundstelle && <> – „{eintrag.fundstelle}“</>}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2">Reste findest du wie gewohnt im Tab "Prüfen &amp; Anwenden".</p>
-            {hatReste(automatikStatus.protokoll) && (
-              automatikStatus.resten_bestaetigt ? (
-                <p className="mt-2 text-accent-light">✅ Prüfung als abgeschlossen bestätigt.</p>
-              ) : (
-                <Button variant="secondary" className="mt-2" onClick={automatikResteBestaetigen}>
-                  Prüfung abschließen
-                </Button>
-              )
-            )}
-          </details>
+          <CollapsibleCard
+            title={`Protokoll des letzten Laufs (${automatikStatus.protokoll.length})`}
+            defaultOffen={false}
+            className="mt-3"
+          >
+            <div className="space-y-2 p-4 text-xs text-text-muted">
+              <ul className="max-h-64 space-y-1 overflow-auto">
+                {automatikStatus.protokoll.map((eintrag, i) => (
+                  <li key={i}>
+                    Kapitel {eintrag.kapitel}:{" "}
+                    {eintrag.art === "angewendet"
+                      ? "✅ angewendet"
+                      : eintrag.art === "rechtschreibung"
+                        ? `📝 ${eintrag.unbekannte_woerter?.length ?? 0} unbekannte(s) Wort/Wörter`
+                        : `⏭️ übersprungen (${eintrag.grund})`}
+                    {eintrag.fundstelle && <> – „{eintrag.fundstelle}“</>}
+                  </li>
+                ))}
+              </ul>
+              <p>Reste findest du wie gewohnt im Tab "Prüfen &amp; Anwenden".</p>
+              {hatReste(automatikStatus.protokoll) && (
+                automatikStatus.resten_bestaetigt ? (
+                  <p className="text-accent-light">✅ Prüfung als abgeschlossen bestätigt.</p>
+                ) : (
+                  <Button variant="secondary" onClick={automatikResteBestaetigen}>
+                    Prüfung abschließen
+                  </Button>
+                )
+              )}
+            </div>
+          </CollapsibleCard>
         )}
 
         {automatikVerlauf.length > 0 && (
-          <details className="mt-3 text-xs text-text-muted">
-            <summary className="cursor-pointer text-text">Lauf-Historie ({automatikVerlauf.length})</summary>
-            <ul className="mt-2 max-h-64 space-y-1 overflow-auto">
+          <CollapsibleCard title={`Lauf-Historie (${automatikVerlauf.length})`} defaultOffen={false} className="mt-3">
+            <ul className="max-h-64 space-y-1 overflow-auto p-4 text-xs text-text-muted">
               {[...automatikVerlauf].reverse().map((eintrag, i) => (
                 <li key={i}>
                   {eintrag.datum}: {eintrag.von.slice(11)}–{eintrag.bis.slice(11)} Uhr (
@@ -544,7 +547,7 @@ export function SchreibenPage({
                 </li>
               ))}
             </ul>
-          </details>
+          </CollapsibleCard>
         )}
       </Card>
     </div>

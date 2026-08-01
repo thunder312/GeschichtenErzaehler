@@ -1,6 +1,7 @@
 import Editor from "@monaco-editor/react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { CollapsibleCard } from "../components/CollapsibleCard";
 import { Button, Card, CardTitle } from "../components/ui";
 
 interface PersonasPageProps {
@@ -60,7 +61,7 @@ export function PersonasPage({ ordner }: PersonasPageProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[1fr_3fr]">
+    <div className="grid grid-cols-1 items-start gap-6 p-6 lg:grid-cols-[1fr_3fr]">
       <Card>
         <CardTitle>🎭 Personas</CardTitle>
         <ul className="space-y-1">
@@ -81,18 +82,17 @@ export function PersonasPage({ ordner }: PersonasPageProps) {
         </ul>
       </Card>
 
-      <Card className="p-0">
-        <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-          <h2 className="font-heading text-lg font-semibold tracking-wide text-text">
-            {ausgewaehlt ? (BESCHRIFTUNG[ausgewaehlt] ?? ausgewaehlt) : "Persona wählen"}
-          </h2>
-          <div className="flex items-center gap-3">
+      <CollapsibleCard
+        title={ausgewaehlt ? (BESCHRIFTUNG[ausgewaehlt] ?? ausgewaehlt) : "Persona wählen"}
+        aktionen={
+          <>
             {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
             <Button onClick={speichern} disabled={wirdGespeichert || wirdGeladen || !ausgewaehlt}>
               {wirdGespeichert ? "Speichert..." : "Speichern"}
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      >
         <Editor
           height="640px"
           defaultLanguage="markdown"
@@ -101,7 +101,7 @@ export function PersonasPage({ ordner }: PersonasPageProps) {
           theme="vs-dark"
           options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
         />
-      </Card>
+      </CollapsibleCard>
     </div>
   );
 }

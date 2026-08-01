@@ -29,11 +29,11 @@
 - [x] KI-Konfiguration: Wenn es Änderungen auf dem KI-Server bezüglich der Verfügbaren KIs gibt, muss das von der Software erkannt werden. Es muss der Architekt benachrichtigt werden, damit er fehlende KIs nicht mehr abfrägt oder vorschlägt. Könnte man einen Prüflauf- in den Admin-Einstellungen einrichten, die das automatisch korrigiert?
 - [x] Unnützes Wissen scheint nach meiner Wahrnehmung nicht zufällig zu sein. Bestimmte Fakten kommen recht oft.
 - [ ] größeres Feature: Aus dem Geruest.md ein passendes Deckblattbild erstellen lassen. Welche KI wäre da gut und kann ich sowas lokal haben?.
-- [ ] Prüfen & Anwenden zeigt alle (bis jetzt geschriebenen) Kapitel und die Fehler mit Kapitel und Zeile.
-  - [ ] Rechtschreibung macht das genauso. Dabei kann die Spalte Satzkontext entfallen. Auch das Textfeld für Ersatzwort entfällt. Ein Klick auf das Wort springt gleich zu der Stelle der Geschichte und dann direkt im Text ausgebessert werden.
-  - [ ] Der Kapitel-Spinner kann so in beiden Tabs entfallen.
-- [ ] Status in der Fusszeile aktualisieren. Es zeigt bereit, während Aktionen laufen (zum Beispiel im Auto-Modus). Es soll die aktuelle Aktion anzeigen. Animiere auch die Staus-Leute entsprechend.
-- [ ] Container allgemein einklappbar machen, wie Architekten-Gespräch-Container.
+- [x] Prüfen & Anwenden zeigt alle (bis jetzt geschriebenen) Kapitel und die Fehler mit Kapitel und Zeile.
+  - [x] Rechtschreibung macht das genauso. Dabei kann die Spalte Satzkontext entfallen. Auch das Textfeld für Ersatzwort entfällt. Ein Klick auf das Wort springt gleich zu der Stelle der Geschichte und dann direkt im Text ausgebessert werden.
+  - [x] Der Kapitel-Spinner kann so in beiden Tabs entfallen.
+- [x] Status in der Fusszeile aktualisieren. Es zeigt bereit, während Aktionen laufen (zum Beispiel im Auto-Modus). Es soll die aktuelle Aktion anzeigen. Animiere auch die Staus-Leute entsprechend.
+- [x] Container allgemein einklappbar machen, wie Architekten-Gespräch-Container.
 - [ ] freien Test-User anlegen, falls nicht vorhanden. Dieser User benutzt immer den jugendfreien Modus. Der Architekt fragt nicht danach. Unpassende Eingaben des Users sollen gefiltert werden und durch harmlose Aktionen inner Bereich des Jugendschutzes ersetzt werden. EInfache Küsse und Umarmungen. Den freien Account mit User/Pass im Login-Screen vermerken.
 # Bugs
 - [x] eventuell funktioniert das fort schreiben der Tabs nicht richtig, ich hatte 2-mal Kapitel 3, kein Kapitel 4. Muss nochmal verifiziert werden. 
