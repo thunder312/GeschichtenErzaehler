@@ -18,10 +18,15 @@ from pathlib import Path
 from typing import Any
 
 AUTOMATIK_STATUS_DATEINAME = "automatik_status.json"
+AUTOMATIK_VERLAUF_DATEINAME = "automatik_verlauf.json"
 
 
 def _automatik_status_datei(projekt_root: Path) -> Path:
     return projekt_root / "projekt" / AUTOMATIK_STATUS_DATEINAME
+
+
+def _automatik_verlauf_datei(projekt_root: Path) -> Path:
+    return projekt_root / "projekt" / AUTOMATIK_VERLAUF_DATEINAME
 
 
 def status_lesen(projekt_root: Path) -> dict[str, Any]:
@@ -35,19 +40,49 @@ def status_lesen(projekt_root: Path) -> dict[str, Any]:
             "phase": None,
             "aktuelles_kapitel": None,
             "gesamt_kapitel": None,
+            "aktueller_durchlauf": None,
             "log": [],
             "protokoll": [],
             "stop_angefordert": False,
             "abgeschlossen": False,
             "fehler": None,
         }
-    return json.loads(pfad.read_text(encoding="utf-8"))
+    status = json.loads(pfad.read_text(encoding="utf-8"))
+    status.setdefault("aktueller_durchlauf", None)
+    return status
 
 
 def status_schreiben(projekt_root: Path, status: dict[str, Any]) -> None:
     pfad = _automatik_status_datei(projekt_root)
     pfad.parent.mkdir(parents=True, exist_ok=True)
     pfad.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def fortsetzbar(status: dict[str, Any]) -> bool:
+    """Ein Lauf ist fortsetzbar, wenn schon einmal gestartet wurde, er aber
+    weder gerade laeuft noch sauber abgeschlossen ist (also nach einem
+    Fehler oder einem Stop-Wunsch abgebrochen wurde) - siehe
+    app/api/pipeline.py:_automatik_lauf fuer die Wiederaufnahme selbst."""
+    return bool(status.get("gestartet_am")) and not status.get("laeuft") and not status.get("abgeschlossen")
+
+
+def verlauf_lesen(projekt_root: Path) -> list[dict[str, Any]]:
+    """Liste aller bisherigen Automatik-Laeufe dieses Projekts (neueste
+    zuletzt) - unabhaengig vom aktuellen Status, der nur den LETZTEN Lauf
+    zeigt. Dient als dauerhaftes Protokoll ueber Nacht laufender Automatik-
+    Durchgaenge (Datum, Status, Laufzeit, Zeitraum), siehe verlauf_eintrag_anhaengen()."""
+    pfad = _automatik_verlauf_datei(projekt_root)
+    if not pfad.exists():
+        return []
+    return json.loads(pfad.read_text(encoding="utf-8"))
+
+
+def verlauf_eintrag_anhaengen(projekt_root: Path, eintrag: dict[str, Any]) -> None:
+    eintraege = verlauf_lesen(projekt_root)
+    eintraege.append(eintrag)
+    pfad = _automatik_verlauf_datei(projekt_root)
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    pfad.write_text(json.dumps(eintraege, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def zustand_zusammenfassen(status: dict[str, Any]) -> str | None:
@@ -58,6 +93,13 @@ def zustand_zusammenfassen(status: dict[str, Any]) -> str | None:
     - None: noch nie gestartet
     - "laeuft": aktuell aktiv
     - "fehler": abgebrochen mit Fehler
+    - "gestoppt": per Benutzeranforderung angehalten, BEVOR alle Kapitel
+      durchgelaufen sind - wie "fehler" per fortsetzbar() ueber den
+      "Fortsetzen"-Button wieder aufnehmbar, siehe app/api/pipeline.py:
+      _automatik_lauf. Bewusst NICHT unter "abgeschlossen_*" einsortiert,
+      auch wenn das Protokoll bereits Eintraege enthaelt - sonst wuerde die
+      Projektliste einen unterbrochenen, noch fortsetzbaren Lauf faelschlich
+      als fertig anzeigen.
     - "abgeschlossen_mit_resten": fertig, aber Protokoll enthaelt
       uebersprungene Funde (Konflikt/nicht gefunden) oder unbekannte
       Woerter - manuelle Durchsicht im Tab "Pruefen & Anwenden" noetig
@@ -68,6 +110,8 @@ def zustand_zusammenfassen(status: dict[str, Any]) -> str | None:
         return "laeuft"
     if status.get("fehler"):
         return "fehler"
+    if not status.get("abgeschlossen"):
+        return "gestoppt"
     reste = any(
         eintrag.get("art") == "uebersprungen"
         or (eintrag.get("art") == "rechtschreibung" and eintrag.get("unbekannte_woerter"))

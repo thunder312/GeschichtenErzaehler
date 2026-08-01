@@ -8,6 +8,7 @@ import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../compone
 function AutomatikBadge({ zustand }: { zustand: AutomatikZustand }) {
   if (zustand === "laeuft") return <Badge tone="amber">🤖 Automatik läuft</Badge>;
   if (zustand === "fehler") return <Badge tone="amber">⚠️ Automatik-Fehler</Badge>;
+  if (zustand === "gestoppt") return <Badge tone="amber">⏸️ Automatik angehalten</Badge>;
   if (zustand === "abgeschlossen_mit_resten") return <Badge tone="amber">⚠️ Automatik fertig – Reste prüfen</Badge>;
   if (zustand === "abgeschlossen_sauber") return <Badge tone="green">✅ Automatik fertig</Badge>;
   return null;

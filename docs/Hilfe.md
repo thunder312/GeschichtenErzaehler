@@ -81,3 +81,30 @@ dem Zielrechner läuft.
 die laufende Anfrage genauso ab wie ein Verbindungsverlust (siehe oben) —
 nichts Halbfertiges bleibt zurück, der Schritt muss nur erneut gestartet
 werden.
+
+---
+
+## 4. Automatikmodus: wenn ein Lauf unterbrochen wird
+
+Der **Automatikmodus** (unten im Tab Schreiben) schreibt alle fehlenden
+Kapitel am Stück und wendet danach für jedes Kapitel automatisch alle
+eindeutigen Prüfer-Korrekturen an — läuft im Hintergrund auf dem Server,
+auch bei geschlossenem Browser. Gerade bei einem entfernten KI-Ziel per
+SSH-Tunnel (z. B. ein eigener Rechner zuhause) kann die Verbindung
+mittendrin abreißen — nachts z. B. durch die tägliche Zwangstrennung
+mancher Internet-Anschlüsse. Der Lauf bricht dann sauber mit einer
+Fehlermeldung ab, **nichts geht verloren**: alle bis dahin geschriebenen
+Kapitel und bereits angewendeten Korrekturen bleiben erhalten.
+
+In diesem Fall **nicht erneut „Automatikmodus starten“ klicken** — das
+würde die Prüfphase wieder komplett von Kapitel 1 an durchgehen und
+bereits erledigte Kapitel unnötig noch einmal prüfen. Stattdessen
+erscheint anstelle dessen (bzw. zusätzlich dazu) ein **„Fortsetzen“**-
+Button, direkt daneben steht, wo genau der Lauf aufgehört hat (Kapitel,
+Phase, Durchlauf). Ein Klick darauf setzt exakt dort fort. Dasselbe gilt,
+wenn du selbst über „Stoppen“ mittendrin abgebrochen hast.
+
+Über **„Lauf-Historie“** im selben Bereich lassen sich alle bisherigen
+Automatik-Läufe dieses Projekts nachschlagen (Datum, Zeitraum, Laufzeit,
+Status) — praktisch, um am nächsten Morgen nachzuvollziehen, wie lange ein
+über Nacht laufender Durchgang gebraucht hat und ob er sauber durchlief.

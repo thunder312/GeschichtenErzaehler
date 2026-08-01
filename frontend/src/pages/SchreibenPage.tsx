@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { api, schreibenWebSocketUrl } from "../api/client";
-import type { AutomatikStatus, BefundeAntwort, Finding, ProjektDetail, SchreibenNachricht } from "../api/types";
+import type {
+  AutomatikStatus,
+  AutomatikVerlaufEintrag,
+  BefundeAntwort,
+  Finding,
+  ProjektDetail,
+  SchreibenNachricht,
+} from "../api/types";
 import { BefundListe } from "../components/BefundListe";
 import { FindingsList } from "../components/FindingsList";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
@@ -12,6 +19,12 @@ interface SchreibenPageProps {
   projekt: ProjektDetail | null;
   sshZielId: string;
   onKapitelGeschrieben: () => void;
+}
+
+function formatDauer(sekunden: number): string {
+  const std = Math.floor(sekunden / 3600);
+  const min = Math.round((sekunden % 3600) / 60);
+  return std > 0 ? `${std} Std. ${min} Min.` : `${min} Min.`;
 }
 
 export function SchreibenPage({
@@ -40,6 +53,15 @@ export function SchreibenPage({
   const [automatikStatus, setAutomatikStatus] = useState<AutomatikStatus | null>(null);
   const [automatikMaxDurchlaeufe, setAutomatikMaxDurchlaeufe] = useState(3);
   const [automatikFehler, setAutomatikFehler] = useState<string | null>(null);
+  const [automatikVerlauf, setAutomatikVerlauf] = useState<AutomatikVerlaufEintrag[]>([]);
+  const automatikLiefZuvorRef = useRef(false);
+
+  function automatikVerlaufLaden() {
+    api
+      .automatikVerlauf(ordner)
+      .then(setAutomatikVerlauf)
+      .catch(() => {});
+  }
 
   // Pollt den Automatikmodus-Status, solange dieser Tab offen ist - der Lauf
   // selbst haengt NICHT an dieser Verbindung (Hintergrund-Job auf dem
@@ -47,11 +69,21 @@ export function SchreibenPage({
   // nur den jeweils aktuellen Stand an.
   useEffect(() => {
     let abgebrochen = false;
+    automatikLiefZuvorRef.current = false;
+    automatikVerlaufLaden();
     function laden() {
       api
         .automatikStatus(ordner)
         .then((status) => {
-          if (!abgebrochen) setAutomatikStatus(status);
+          if (abgebrochen) return;
+          setAutomatikStatus(status);
+          // Sobald ein Lauf zu Ende geht (egal ob abgeschlossen, mit
+          // Fehler oder gestoppt), ist ein neuer Eintrag in der
+          // Verlaufsdatei dazugekommen (siehe app/core/automatik.py:
+          // verlauf_eintrag_anhaengen) - genau dann neu laden statt bei
+          // jedem 4-Sekunden-Tick.
+          if (automatikLiefZuvorRef.current && !status.laeuft) automatikVerlaufLaden();
+          automatikLiefZuvorRef.current = status.laeuft;
         })
         .catch(() => {});
     }
@@ -63,10 +95,10 @@ export function SchreibenPage({
     };
   }, [ordner]);
 
-  async function automatikStarten() {
+  async function automatikStarten(fortsetzen = false) {
     setAutomatikFehler(null);
     try {
-      await api.automatikStarten(ordner, automatikMaxDurchlaeufe, sshZielId || null);
+      await api.automatikStarten(ordner, automatikMaxDurchlaeufe, sshZielId || null, fortsetzen);
       setAutomatikStatus(await api.automatikStatus(ordner));
     } catch (e) {
       setAutomatikFehler(e instanceof Error ? e.message : String(e));
@@ -358,6 +390,7 @@ export function SchreibenPage({
                   {automatikStatus.gesamt_kapitel != null && <>/{automatikStatus.gesamt_kapitel}</>}
                 </>
               )}
+              {automatikStatus.aktueller_durchlauf != null && <> · Durchlauf {automatikStatus.aktueller_durchlauf}</>}
             </p>
             <div className="max-h-40 overflow-auto rounded-lg bg-bg p-2 font-mono text-xs text-text-muted">
               {automatikStatus.log.length === 0 ? (
@@ -371,19 +404,42 @@ export function SchreibenPage({
             </Button>
           </div>
         ) : (
-          <div className="flex flex-wrap items-end gap-3">
-            <div>
-              <Label>Max. Durchläufe je Kapitel</Label>
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                value={automatikMaxDurchlaeufe}
-                onChange={(e) => setAutomatikMaxDurchlaeufe(Number(e.target.value))}
-                className="w-24"
-              />
+          <div className="space-y-3">
+            {automatikStatus?.fortsetzbar && (
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+                <p className="text-sm text-text">
+                  Letzter Lauf wurde unterbrochen bei: <strong>Kapitel {automatikStatus.aktuelles_kapitel}</strong>
+                  {automatikStatus.gesamt_kapitel != null && <>/{automatikStatus.gesamt_kapitel}</>}
+                  {", "}Phase <strong>{automatikStatus.phase}</strong>
+                  {automatikStatus.aktueller_durchlauf != null && (
+                    <>
+                      {" "}
+                      · Durchlauf <strong>{automatikStatus.aktueller_durchlauf}</strong>
+                    </>
+                  )}
+                  {automatikStatus.gestartet_am && <> (gestartet {automatikStatus.gestartet_am})</>}.
+                </p>
+                <Button className="mt-2" onClick={() => automatikStarten(true)}>
+                  Fortsetzen
+                </Button>
+              </div>
+            )}
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <Label>Max. Durchläufe je Kapitel</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={automatikMaxDurchlaeufe}
+                  onChange={(e) => setAutomatikMaxDurchlaeufe(Number(e.target.value))}
+                  className="w-24"
+                />
+              </div>
+              <Button variant={automatikStatus?.fortsetzbar ? "secondary" : "primary"} onClick={() => automatikStarten(false)}>
+                Automatikmodus starten
+              </Button>
             </div>
-            <Button onClick={automatikStarten}>Automatikmodus starten</Button>
           </div>
         )}
 
@@ -411,6 +467,27 @@ export function SchreibenPage({
               ))}
             </ul>
             <p className="mt-2">Reste findest du wie gewohnt im Tab "Prüfen &amp; Anwenden".</p>
+          </details>
+        )}
+
+        {automatikVerlauf.length > 0 && (
+          <details className="mt-3 text-xs text-text-muted">
+            <summary className="cursor-pointer text-text">Lauf-Historie ({automatikVerlauf.length})</summary>
+            <ul className="mt-2 max-h-64 space-y-1 overflow-auto">
+              {[...automatikVerlauf].reverse().map((eintrag, i) => (
+                <li key={i}>
+                  {eintrag.datum}: {eintrag.von.slice(11)}–{eintrag.bis.slice(11)} Uhr (
+                  {formatDauer(eintrag.dauer_sekunden)}) ·{" "}
+                  {eintrag.status === "abgeschlossen"
+                    ? "✅ abgeschlossen"
+                    : eintrag.status === "fehler"
+                      ? "❌ Fehler"
+                      : "⏹️ gestoppt"}
+                  {eintrag.fortgesetzt && " (Fortsetzung)"}
+                  {eintrag.fehler && <> – {eintrag.fehler}</>}
+                </li>
+              ))}
+            </ul>
           </details>
         )}
       </Card>

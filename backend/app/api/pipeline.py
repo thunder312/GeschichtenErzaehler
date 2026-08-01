@@ -45,6 +45,7 @@ from app.core.textutil import woerter
 from app.schemas import (
     AutomatikStartAnfrage,
     AutomatikStatusAntwort,
+    AutomatikVerlaufEintrag,
     Befund,
     BefundeAntwort,
     Benutzer,
@@ -744,17 +745,31 @@ def _automatik_stop_angefordert(status: dict, projekt_root: Path) -> bool:
     return aktuell
 
 
+def _automatik_status_schreiben(status: dict, projekt_root: Path) -> None:
+    """Ersetzt INNERHALB von _automatik_lauf() jedes automatik.status_
+    schreiben() (bis auf den initialen Reset ganz am Anfang eines Laufs):
+    ein per /automatik/stop-Endpunkt in der Datei gesetztes stop_angefordert
+    wuerde sonst von hier aus mit dem noch veralteten In-Memory-Wert wieder
+    auf False ueberschrieben, wenn der Klick zwischen zwei _automatik_stop_
+    angefordert()-Aufrufen liegt (z.B. WAEHREND eines einzelnen Pruef-
+    Durchlaufs, nicht nur zwischen Kapiteln). Odert deshalb IMMER mit dem
+    aktuellen Datei-Stand - einmal gesetzt, kann das Flag dadurch nicht mehr
+    verloren gehen, ganz gleich an welcher Stelle im Ablauf geklickt wurde."""
+    status["stop_angefordert"] = status.get("stop_angefordert") or automatik.status_lesen(projekt_root)["stop_angefordert"]
+    automatik.status_schreiben(projekt_root, status)
+
+
 def _automatik_on_event(status: dict, projekt_root: Path) -> OnEvent:
     async def _on_event(payload: dict) -> None:
         zeile = _automatik_log_zeile(payload)
         if zeile:
             status["log"].append(zeile)
-            automatik.status_schreiben(projekt_root, status)
+            _automatik_status_schreiben(status, projekt_root)
     return _on_event
 
 
 async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: str | None,
-                           max_durchlaeufe: int) -> None:
+                           max_durchlaeufe: int, fortsetzen: bool = False) -> None:
     """Hintergrund-Job (siehe automatik_start(), per FastAPI BackgroundTasks
     gestartet - laeuft unabhaengig von einer offenen Browser-Verbindung
     weiter): schreibt zuerst alle fehlenden Kapitel, wendet dann pro
@@ -762,16 +777,42 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
     app/core/automatik.py:befunde_anwenden - alles ausser Konflikt/nicht
     gefunden), wiederholt das je Kapitel bis zu `max_durchlaeufe` mal oder
     bis nichts mehr angewendet wird, und listet abschliessend unbekannte
-    Woerter (hunspell) OHNE Auto-Korrektur im Protokoll."""
+    Woerter (hunspell) OHNE Auto-Korrektur im Protokoll.
+
+    `fortsetzen=True` (Button "Fortsetzen" im Frontend statt "Automatikmodus
+    starten"): Phase 1 ueberspringt bereits geschriebene Kapitel ohnehin
+    schon anhand vorhandener Dateien - der einzige Fall, den ein normaler
+    Neustart NICHT von selbst richtig macht, ist Phase 2, die sonst immer
+    wieder bei Kapitel 1 anfaengt. Bei fortsetzen=True wird deshalb der
+    genaue Unterbrechungspunkt (Kapitel + Durchlauf) aus dem VORHERIGEN
+    Status gelesen und Phase 2 steigt dort direkt wieder ein, statt bereits
+    fertig geprüfte/korrigierte Kapitel erneut abzuklappern."""
     projekt = projekt_root / "projekt"
+    vorheriger_status = automatik.status_lesen(projekt_root)
+    fortsetzen_ab_kapitel: int | None = None
+    fortsetzen_ab_durchlauf = 1
+    if fortsetzen and automatik.fortsetzbar(vorheriger_status) and vorheriger_status.get("phase") == "pruefen" \
+            and vorheriger_status.get("aktuelles_kapitel"):
+        fortsetzen_ab_kapitel = vorheriger_status["aktuelles_kapitel"]
+        fortsetzen_ab_durchlauf = vorheriger_status.get("aktueller_durchlauf") or 1
+
     status = automatik.status_lesen(projekt_root)
     status.update({
         "laeuft": True, "gestartet_am": time.strftime("%Y-%m-%d %H:%M"),
         "phase": "schreiben", "aktuelles_kapitel": None, "gesamt_kapitel": None,
-        "log": [], "protokoll": [], "stop_angefordert": False,
+        "aktueller_durchlauf": None,
+        "log": list(vorheriger_status.get("log", [])) if fortsetzen_ab_kapitel else [],
+        "protokoll": list(vorheriger_status.get("protokoll", [])) if fortsetzen_ab_kapitel else [],
+        "stop_angefordert": False,
         "abgeschlossen": False, "fehler": None,
     })
+    if fortsetzen_ab_kapitel:
+        status["log"].append(
+            f"--- Fortgesetzt ab Kapitel {fortsetzen_ab_kapitel}, Durchlauf "
+            f"{fortsetzen_ab_durchlauf} ---"
+        )
     automatik.status_schreiben(projekt_root, status)
+    start_zeit = time.time()
 
     try:
         geruest_text = pd.lies(pd.geruest_datei(projekt))
@@ -782,11 +823,15 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                 "braucht eine geplante Gesamtzahl an Kapiteln."
             )
         status["gesamt_kapitel"] = letztes
-        automatik.status_schreiben(projekt_root, status)
+        _automatik_status_schreiben(status, projekt_root)
         on_event = _automatik_on_event(status, projekt_root)
 
         with ollama_basis_url(settings, ssh_ziel_id) as base_url:
-            # Phase 1: fehlende Kapitel der Reihe nach schreiben.
+            # Phase 1: fehlende Kapitel der Reihe nach schreiben. Anhand der
+            # vorhandenen Dateien statt eines expliziten Flags - dadurch
+            # macht das auch ein einfacher Neustart (fortsetzen=False) nach
+            # einem waehrend des Schreibens abgebrochenen Lauf automatisch
+            # richtig, ganz ohne die Unterscheidung hier zu brauchen.
             start_n = 1
             while start_n <= letztes and pd.kapitel_datei(projekt, start_n).exists():
                 start_n += 1
@@ -798,13 +843,19 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                 status["phase"] = "schreiben"
                 status["aktuelles_kapitel"] = n
                 status["log"].append(f"Schreibe Kapitel {n}/{letztes}...")
-                automatik.status_schreiben(projekt_root, status)
+                _automatik_status_schreiben(status, projekt_root)
                 await _kapitel_schreiben_kern(settings, projekt_root, base_url, n, "", ssh_ziel_id, on_event)
 
             # Phase 2: jedes Kapitel pruefen und Korrekturen anwenden -
             # auch bereits vorher manuell geschriebene, nicht nur die
-            # gerade in Phase 1 neu entstandenen.
+            # gerade in Phase 1 neu entstandenen. Bei einer Fortsetzung
+            # werden Kapitel VOR dem Unterbrechungspunkt uebersprungen, da
+            # deren Korrekturen im vorigen Lauf bereits vollstaendig
+            # angewendet wurden (das Protokoll dafuer wurde oben schon
+            # uebernommen).
             for n in range(1, letztes + 1):
+                if fortsetzen_ab_kapitel and n < fortsetzen_ab_kapitel:
+                    continue
                 if not pd.kapitel_datei(projekt, n).exists():
                     continue
                 if _automatik_stop_angefordert(status, projekt_root):
@@ -813,11 +864,39 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
 
                 status["phase"] = "pruefen"
                 status["aktuelles_kapitel"] = n
-                automatik.status_schreiben(projekt_root, status)
+                _automatik_status_schreiben(status, projekt_root)
 
-                durchlauf = 0
+                # Nur beim ERSTEN in dieser Phase-2-Runde bearbeiteten Kapitel
+                # (also genau dem, bei dem der vorige Lauf unterbrochen wurde)
+                # beim vermerkten Durchlauf weitermachen statt bei 1 - dieser
+                # Durchlauf selbst war beim Absturz garantiert noch nicht
+                # abgeschlossen (befunde_anwenden() und damit das Speichern
+                # der Korrekturen passiert erst NACH dem jetzt wiederholten
+                # _pruefe_kapitel-Aufruf), ein erneuter Versuch dupliziert
+                # also nichts.
+                durchlauf = (fortsetzen_ab_durchlauf if n == fortsetzen_ab_kapitel and fortsetzen_ab_kapitel else 1) - 1
                 while True:
                     durchlauf += 1
+                    # Schon HIER setzen, nicht erst nach dem Stop-Check unten:
+                    # steht ein Stop an, soll fortsetzen_ab_durchlauf beim
+                    # naechsten Lauf genau bei DIESEM (noch nicht begonnenen)
+                    # Durchlauf weitermachen, statt den bereits abgeschlossenen
+                    # vorigen unnoetig zu wiederholen.
+                    status["aktueller_durchlauf"] = durchlauf
+                    # Frisch von der Platte pruefen (nicht nur beim
+                    # Kapitelwechsel oben): sonst kann ein "Stoppen"-Klick
+                    # WAEHREND eines laufenden Durchlaufs verloren gehen - der
+                    # naechste status_schreiben() weiter unten wuerde sonst
+                    # den extern gesetzten Flag mit dem veralteten
+                    # In-Memory-Wert (noch False) wieder ueberschreiben, bevor
+                    # die Schleife hier je wieder danach schaut.
+                    if _automatik_stop_angefordert(status, projekt_root):
+                        status["log"].append(
+                            f"Gestoppt (Benutzeranforderung) während Kapitel {n}, vor Durchlauf {durchlauf}."
+                        )
+                        _automatik_status_schreiben(status, projekt_root)
+                        return
+                    _automatik_status_schreiben(status, projekt_root)
                     kapiteltext = pd.lies(pd.kapitel_datei(projekt, n))
                     befunde_antwort = await _pruefe_kapitel(settings, projekt, base_url, n, kapiteltext)
                     befunde_dicts = [b.model_dump() for b in befunde_antwort.befunde]
@@ -832,7 +911,7 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                         f"Kapitel {n}, Durchlauf {durchlauf}: {angewendet} Korrektur(en) "
                         f"angewendet, {len(protokoll_eintraege) - angewendet} übersprungen."
                     )
-                    automatik.status_schreiben(projekt_root, status)
+                    _automatik_status_schreiben(status, projekt_root)
 
                     if korrigiert != kapiteltext:
                         pd.schreib(pd.kapitel_datei(projekt, n), korrigiert)
@@ -840,6 +919,7 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                     if angewendet == 0 or durchlauf >= max_durchlaeufe:
                         break
 
+                status["aktueller_durchlauf"] = None
                 finaler_text = pd.lies(pd.kapitel_datei(projekt, n))
                 unbekannt = h.hunspell_unbekannte_woerter(
                     finaler_text, exec_fn=_hunspell_exec_fn(settings, ssh_ziel_id),
@@ -852,7 +932,7 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                         f"Kapitel {n}: {len(unbekannt)} unbekannte(s) Wort/Wörter (hunspell) "
                         f"- keine automatische Korrektur, siehe Protokoll."
                     )
-                automatik.status_schreiben(projekt_root, status)
+                _automatik_status_schreiben(status, projekt_root)
 
         status["phase"] = "abgeschlossen"
         status["abgeschlossen"] = True
@@ -864,6 +944,21 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
     finally:
         status["laeuft"] = False
         automatik.status_schreiben(projekt_root, status)
+        if status.get("abgeschlossen"):
+            lauf_status = "abgeschlossen"
+        elif status.get("fehler"):
+            lauf_status = "fehler"
+        else:
+            lauf_status = "gestoppt"
+        automatik.verlauf_eintrag_anhaengen(projekt_root, {
+            "datum": status["gestartet_am"].split(" ")[0],
+            "von": status["gestartet_am"],
+            "bis": time.strftime("%Y-%m-%d %H:%M"),
+            "dauer_sekunden": round(time.time() - start_zeit),
+            "status": lauf_status,
+            "fehler": status.get("fehler"),
+            "fortgesetzt": bool(fortsetzen_ab_kapitel),
+        })
 
 
 @router.post("/{ordner:path}/automatik/start")
@@ -875,7 +970,9 @@ async def automatik_start(ordner: str, anfrage: AutomatikStartAnfrage,
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     if automatik.status_lesen(projekt_root)["laeuft"]:
         raise HTTPException(409, "Automatikmodus läuft für dieses Projekt bereits.")
-    background_tasks.add_task(_automatik_lauf, settings, projekt_root, ssh_ziel_id, anfrage.max_durchlaeufe)
+    background_tasks.add_task(
+        _automatik_lauf, settings, projekt_root, ssh_ziel_id, anfrage.max_durchlaeufe, anfrage.fortsetzen,
+    )
     return {"gestartet": True}
 
 
@@ -883,7 +980,18 @@ async def automatik_start(ordner: str, anfrage: AutomatikStartAnfrage,
 def automatik_status(ordner: str, settings: Settings = Depends(get_settings),
                       benutzer: Benutzer = Depends(get_current_user)):
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
-    return AutomatikStatusAntwort(**automatik.status_lesen(projekt_root))
+    status = automatik.status_lesen(projekt_root)
+    return AutomatikStatusAntwort(**status, fortsetzbar=automatik.fortsetzbar(status))
+
+
+@router.get("/{ordner:path}/automatik/verlauf", response_model=list[AutomatikVerlaufEintrag])
+def automatik_verlauf(ordner: str, settings: Settings = Depends(get_settings),
+                       benutzer: Benutzer = Depends(get_current_user)):
+    """Dauerhaftes Protokoll aller bisherigen Automatik-Laeufe dieses
+    Projekts (siehe app/core/automatik.py:verlauf_eintrag_anhaengen) -
+    unabhaengig vom aktuellen Status, der nur den letzten Lauf zeigt."""
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    return automatik.verlauf_lesen(projekt_root)
 
 
 @router.post("/{ordner:path}/automatik/stop")

@@ -106,6 +106,121 @@ def test_automatik_start_verweigert_zweiten_gleichzeitigen_lauf(client, projekt_
     assert r.status_code == 409
 
 
+def test_automatik_start_haengt_verlauf_eintrag_an(client, projekt_mit_kapitelplan):
+    r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 1})
+    assert r.status_code == 200
+
+    verlauf = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/verlauf").json()
+    assert len(verlauf) == 1
+    assert verlauf[0]["status"] == "abgeschlossen"
+    assert verlauf[0]["fortgesetzt"] is False
+    assert verlauf[0]["dauer_sekunden"] >= 0
+
+
+def test_automatik_fortsetzen_ueberspringt_bereits_geprueftes_kapitel(client, projekt_mit_kapitelplan, monkeypatch):
+    """Reproduziert die Zwangstrennungs-Situation, die zu diesem Feature
+    fuehrte: Kapitel 2 scheitert im ERSTEN Pruef-Durchlauf der Phase 2
+    (simulierter Verbindungsabbruch) - der Aufruf davor (waehrend Phase 1,
+    direkt nach dem Schreiben von Kapitel 2, siehe _kapitel_schreiben_kern)
+    laeuft absichtlich noch durch, damit beide Kapiteldateien wie im echten
+    Vorfall bereits vollstaendig auf der Platte liegen, wenn der Fehler
+    passiert. Ein Fortsetzen-Lauf darf Kapitel 1 NICHT erneut pruefen,
+    sondern muss direkt bei Kapitel 2 weitermachen."""
+    urspruengliche_pruefung = pipeline._pruefe_kapitel
+    aufrufe: list[int] = []
+
+    async def _pruefung_die_bei_kapitel_2_im_zweiten_versuch_scheitert(settings_, projekt, base_url, n, kapiteltext):
+        aufrufe.append(n)
+        if n == 2 and aufrufe.count(2) == 2:
+            raise pipeline.OllamaFehler("Simulierter Verbindungsabbruch")
+        return await urspruengliche_pruefung(settings_, projekt, base_url, n, kapiteltext)
+
+    monkeypatch.setattr(pipeline, "_pruefe_kapitel", _pruefung_die_bei_kapitel_2_im_zweiten_versuch_scheitert)
+
+    r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 1})
+    assert r.status_code == 200
+    status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert status["fehler"] is not None
+    assert status["phase"] == "pruefen"
+    assert status["aktuelles_kapitel"] == 2
+    assert status["aktueller_durchlauf"] == 1
+    assert status["fortsetzbar"] is True
+    # Phase 1 (Schreiben inkl. eingebauter Erstpruefung) fuer beide Kapitel,
+    # dann Phase 2: Kapitel 1 Durchlauf 1 (ok), Kapitel 2 Durchlauf 1 (Fehler).
+    assert aufrufe == [1, 2, 1, 2]
+    r1 = client.get(f"/api/projects/{projekt_mit_kapitelplan}/kapitel/1")
+    r2 = client.get(f"/api/projects/{projekt_mit_kapitelplan}/kapitel/2")
+    assert r1.status_code == 200 and r2.status_code == 200
+
+    r2 = client.post(
+        f"/api/projects/{projekt_mit_kapitelplan}/automatik/start",
+        json={"max_durchlaeufe": 1, "fortsetzen": True},
+    )
+    assert r2.status_code == 200
+    status2 = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert status2["abgeschlossen"] is True
+    assert status2["fehler"] is None
+    assert status2["fortsetzbar"] is False
+    # Beim Fortsetzen kommt nur EIN weiterer Aufruf fuer Kapitel 2 dazu -
+    # weder Kapitel 1 noch ein weiterer Schreib-Durchgang wird wiederholt.
+    assert aufrufe == [1, 2, 1, 2, 2]
+
+    verlauf = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/verlauf").json()
+    assert [e["status"] for e in verlauf] == ["fehler", "abgeschlossen"]
+    assert verlauf[1]["fortgesetzt"] is True
+
+
+def test_automatik_stop_waehrend_durchlauf_wird_nicht_verloren(client, projekt_mit_kapitelplan, monkeypatch):
+    """Regression: ein Stop-Klick WAEHREND eines laufenden Pruef-Durchlaufs
+    (nicht nur zwischen zwei Kapiteln) darf nicht durch den naechsten
+    status_schreiben()-Aufruf mit dem veralteten In-Memory-Wert von
+    "stop_angefordert" wieder ueberschrieben werden - sonst wuerde ein
+    mitten in Kapitel 1 geklickter Stop stillschweigend ignoriert und die
+    Automatik wuerde bis zum Ende durchlaufen."""
+    from app.core import automatik
+    from app.services import projekt_pfad
+
+    settings = app.dependency_overrides[get_settings]()
+    projekt_root = projekt_pfad(settings, "daniel", projekt_mit_kapitelplan)
+
+    aufrufe: list[int] = []
+
+    async def _fake_pruefung(settings_, projekt, base_url, n, kapiteltext):
+        # Bewusst KEIN echter Aufruf/Dateischreiben (pd.schreib sichert eine
+        # vorhandene Fassung ueber einen Sekunden-genauen Zeitstempel als
+        # .bak - bei mehreren Aufrufen fuer dasselbe Kapitel INNERHALB
+        # derselben Sekunde, wie hier durch die gemockten, verzoegerungsfreien
+        # LLM-Aufrufe moeglich, wuerde das zu einem echten, aber fuer diesen
+        # Test irrelevanten FileExistsError-Kollisionsrisiko fuehren).
+        aufrufe.append(n)
+        if n == 1 and aufrufe.count(1) == 2:
+            status = automatik.status_lesen(projekt_root)
+            status["stop_angefordert"] = True
+            automatik.status_schreiben(projekt_root, status)
+        return pipeline.BefundeAntwort(kapitel=n, erzeugt_am="x", jahr=None, befunde=[], quelltext_sha256=None)
+
+    monkeypatch.setattr(pipeline, "_pruefe_kapitel", _fake_pruefung)
+    # Erzwingt mehrere Durchlaeufe (sonst wuerde die Schleife nach Durchlauf 1
+    # schon wegen "0 Korrekturen angewendet" von selbst enden, ohne dass der
+    # Stop ueberhaupt noetig waere, um den Fehler zu zeigen).
+    monkeypatch.setattr(
+        automatik, "befunde_anwenden",
+        lambda text, befunde: (text, [{"art": "angewendet", "grund": None, "fundstelle": "x", "vorschlag": "y"}]),
+    )
+
+    r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 5})
+    assert r.status_code == 200
+
+    status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert status["abgeschlossen"] is False
+    assert any("Gestoppt" in zeile and "Durchlauf 2" in zeile for zeile in status["log"])
+    # Phase 1 schreibt zuerst BEIDE Kapitel (Aufrufe fuer 1 und 2), danach
+    # beginnt Phase 2 bei Kapitel 1: Durchlauf 1 laeuft noch durch, Durchlauf
+    # 2 wird durch den Stop verhindert - Kapitel 2s Pruef-Phase wird gar
+    # nicht erst erreicht.
+    assert aufrufe == [1, 2, 1]
+
+
 def test_automatik_stop_setzt_flag_und_bricht_vor_naechstem_kapitel_ab(client, projekt_mit_kapitelplan, monkeypatch):
     """_automatik_lauf() setzt "stop_angefordert" beim Start selbst auf
     False zurueck (frischer Lauf) - ein vorab gesetztes Flag wuerde also

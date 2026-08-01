@@ -8,7 +8,7 @@ export interface EpocheKurz {
 // Siehe app/core/automatik.py:zustand_zusammenfassen() für die Bedeutung
 // der einzelnen Werte - null heißt: Automatikmodus wurde für dieses
 // Projekt noch nie gestartet.
-export type AutomatikZustand = "laeuft" | "fehler" | "abgeschlossen_mit_resten" | "abgeschlossen_sauber" | null;
+export type AutomatikZustand = "laeuft" | "fehler" | "gestoppt" | "abgeschlossen_mit_resten" | "abgeschlossen_sauber" | null;
 
 export interface ProjektKurz {
   ordner: string;
@@ -151,11 +151,26 @@ export interface AutomatikStatus {
   phase: string | null;
   aktuelles_kapitel: number | null;
   gesamt_kapitel: number | null;
+  aktueller_durchlauf: number | null;
   log: string[];
   protokoll: AutomatikProtokollEintrag[];
   stop_angefordert: boolean;
   abgeschlossen: boolean;
   fehler: string | null;
+  fortsetzbar: boolean;
+}
+
+// Ein Eintrag pro bisherigem Automatik-Lauf dieses Projekts (dauerhaftes
+// Protokoll, unabhaengig vom aktuellen Status) - siehe
+// app/core/automatik.py:verlauf_eintrag_anhaengen.
+export interface AutomatikVerlaufEintrag {
+  datum: string;
+  von: string;
+  bis: string;
+  dauer_sekunden: number;
+  status: "abgeschlossen" | "fehler" | "gestoppt";
+  fehler: string | null;
+  fortgesetzt: boolean;
 }
 
 export interface FundusImportAntwort {

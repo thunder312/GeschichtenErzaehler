@@ -1,5 +1,6 @@
 import type {
   AutomatikStatus,
+  AutomatikVerlaufEintrag,
   BefundeAntwort,
   Benutzer,
   BenutzerAnlegenEingabe,
@@ -152,10 +153,10 @@ export const api = {
       `/api/projects/${ordner}/rechtschreibung/${n}${sshQuery(sshZielId)}`,
     ),
 
-  automatikStarten: (ordner: string, maxDurchlaeufe: number, sshZielId?: string | null) =>
+  automatikStarten: (ordner: string, maxDurchlaeufe: number, sshZielId?: string | null, fortsetzen = false) =>
     anfrage<{ gestartet: boolean }>(
       `/api/projects/${ordner}/automatik/start${sshQuery(sshZielId)}`,
-      { method: "POST", body: JSON.stringify({ max_durchlaeufe: maxDurchlaeufe }) },
+      { method: "POST", body: JSON.stringify({ max_durchlaeufe: maxDurchlaeufe, fortsetzen }) },
     ),
 
   automatikStatus: (ordner: string) =>
@@ -163,6 +164,9 @@ export const api = {
 
   automatikStoppen: (ordner: string) =>
     anfrage<{ stop_angefordert: boolean }>(`/api/projects/${ordner}/automatik/stop`, { method: "POST" }),
+
+  automatikVerlauf: (ordner: string) =>
+    anfrage<AutomatikVerlaufEintrag[]>(`/api/projects/${ordner}/automatik/verlauf`),
 
   sshZiele: () => anfrage<SSHZiel[]>("/api/ssh-targets"),
 

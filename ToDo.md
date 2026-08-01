@@ -12,7 +12,6 @@
 - [x] KI-Ziele mit Favorit-Haken (genau 1 Favorit möglich) erweitern. -> Wenn gesetzt, immer im Dropdown im Kopfbereich vorausgewählt und NICHT mehr "Lokal / Standard-Ollama".
 - [x] integriere eine Readme Datei über einen Button im Kopfbereich. Inhalt vgl. Bedienungsanleitung.md unter /docs . Öffne schön formatiert in einem neuen Browser-Tab
 - [x] Hilfe-System für Anwender (schreibe ein Hilfefile, dass 1. den Ablauf einer neuen Geschichte erklärt und 2. mögliche Fehler z.B.: Asynchronität behandelt den Umgang damit. Binde einen Button in die Kopfzeile ein, mit dem man den Text in einem eigenen Browser-Tab öffnen kann. Natürlich schön formatiert.)
-- [ ] KI-Fehler-Logging (Schreibe ein Protokoll, was die KI am Backend macht, auch Fehler. Speichere das Protokoll zu Geschichte dazu. Wenn Teile der Geschichte neu geschrieben werden, ergänze das Protokoll)
 - [x] Gebe im Fußbereich Auskunft, was die KI gerade macht, um dem Anwender sicherheit zu geben, dass nichts abgestürzt ist. Besonders beim prüfen des Kapitels ist da warten ohne Rückmeldung unangenehm aufgefallen.
 - [x] Zeit-Überbrückung mit Benutzer-Unterhaltung (docs/unnützesWissen.csv in DB anlegen und in einem zentralen Overlay anzeigen, während die KI arbeitet). Beginne nach 20 Sekunden damit, wchsle alle 20 Sekunden die Nachricht und schliesse das Overlay, wenn die KI fertig ist.
 - [x] Implementiere im Export-Tab auch einen PDF Export. Entwerfe hierfür auch ein entsprechendes PDF-Template, das etwas verspielt ist, wie ein hochwertiges Buch.
@@ -30,6 +29,10 @@
 - [x] KI-Konfiguration: Wenn es Änderungen auf dem KI-Server bezüglich der Verfügbaren KIs gibt, muss das von der Software erkannt werden. Es muss der Architekt benachrichtigt werden, damit er fehlende KIs nicht mehr abfrägt oder vorschlägt. Könnte man einen Prüflauf- in den Admin-Einstellungen einrichten, die das automatisch korrigiert?
 - [x] Unnützes Wissen scheint nach meiner Wahrnehmung nicht zufällig zu sein. Bestimmte Fakten kommen recht oft.
 - [ ] größeres Feature: Aus dem Geruest.md ein passendes Deckblattbild erstellen lassen. Welche KI wäre da gut und kann ich sowas lokal haben?.
+- [ ] Prüfen & Anwenden zeigt alle (bis jetzt geschriebenen) Kapitel und die Fehler mit Kapitel und Zeile.
+  - [ ] Rechtschreibung macht das genauso. Dabei kann die Spalte Satzkontext entfallen. Auch das Textfeld für Ersatzwort entfällt. Ein Klick auf das Wort springt gleich zu der Stelle der Geschichte und dann direkt im Text ausgebessert werden.
+  - [ ] Der Kapitel-Spinner kann so in beiden Tabs entfallen.
+- [ ] Status in der Fusszeile aktualisieren. Es zeigt bereit, während Aktionen laufen (zum Beispiel im Auto-Modus). Es soll die aktuelle Aktion anzeigen. Animiere auch die Staus-Leute entsprechend.
 - 
 # Bugs
 - [x] eventuell funktioniert das fort schreiben der Tabs nicht richtig, ich hatte 2-mal Kapitel 3, kein Kapitel 4. Muss nochmal verifiziert werden. 

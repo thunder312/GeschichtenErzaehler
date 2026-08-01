@@ -186,6 +186,10 @@ class BefundeAntwort(BaseModel):
 
 class AutomatikStartAnfrage(BaseModel):
     max_durchlaeufe: int = Field(default=3, ge=1, le=10)
+    # True = Button "Fortsetzen": Phase 2 (Pruefen/Korrigieren) steigt beim
+    # zuletzt vermerkten Kapitel/Durchlauf wieder ein statt bei Kapitel 1
+    # neu zu beginnen - siehe app/api/pipeline.py:_automatik_lauf.
+    fortsetzen: bool = False
 
 
 class AutomatikStatusAntwort(BaseModel):
@@ -194,11 +198,26 @@ class AutomatikStatusAntwort(BaseModel):
     phase: str | None
     aktuelles_kapitel: int | None
     gesamt_kapitel: int | None
+    aktueller_durchlauf: int | None
     log: list[str]
     protokoll: list[dict]
     stop_angefordert: bool
     abgeschlossen: bool
     fehler: str | None
+    # Server-seitig berechnet (app/core/automatik.py:fortsetzbar), damit das
+    # Frontend dieselbe Regel nicht duplizieren muss: True, wenn ein Lauf
+    # gestartet wurde, der weder laeuft noch sauber abgeschlossen ist.
+    fortsetzbar: bool = False
+
+
+class AutomatikVerlaufEintrag(BaseModel):
+    datum: str
+    von: str
+    bis: str
+    dauer_sekunden: int
+    status: str
+    fehler: str | None = None
+    fortgesetzt: bool = False
 
 
 class RechtschreibWort(BaseModel):

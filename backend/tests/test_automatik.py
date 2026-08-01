@@ -98,7 +98,7 @@ def test_zustand_zusammenfassen_fehler():
 
 def test_zustand_zusammenfassen_sauber_abgeschlossen():
     status = {
-        "gestartet_am": "irgendwann", "laeuft": False, "fehler": None,
+        "gestartet_am": "irgendwann", "laeuft": False, "fehler": None, "abgeschlossen": True,
         "protokoll": [{"art": "angewendet"}, {"art": "rechtschreibung", "unbekannte_woerter": []}],
     }
     assert automatik.zustand_zusammenfassen(status) == "abgeschlossen_sauber"
@@ -106,7 +106,7 @@ def test_zustand_zusammenfassen_sauber_abgeschlossen():
 
 def test_zustand_zusammenfassen_mit_uebersprungenen_resten():
     status = {
-        "gestartet_am": "irgendwann", "laeuft": False, "fehler": None,
+        "gestartet_am": "irgendwann", "laeuft": False, "fehler": None, "abgeschlossen": True,
         "protokoll": [{"art": "angewendet"}, {"art": "uebersprungen", "grund": "konflikt"}],
     }
     assert automatik.zustand_zusammenfassen(status) == "abgeschlossen_mit_resten"
@@ -114,10 +114,23 @@ def test_zustand_zusammenfassen_mit_uebersprungenen_resten():
 
 def test_zustand_zusammenfassen_mit_unbekannten_woertern():
     status = {
-        "gestartet_am": "irgendwann", "laeuft": False, "fehler": None,
+        "gestartet_am": "irgendwann", "laeuft": False, "fehler": None, "abgeschlossen": True,
         "protokoll": [{"art": "rechtschreibung", "unbekannte_woerter": ["Foobar"]}],
     }
     assert automatik.zustand_zusammenfassen(status) == "abgeschlossen_mit_resten"
+
+
+def test_zustand_zusammenfassen_gestoppt_vor_abschluss():
+    """Ein per Stop-Klick (oder Absturz) unterbrochener, noch nicht
+    abgeschlossener Lauf soll NICHT als "abgeschlossen_*" in der
+    Projektliste auftauchen, auch wenn das Protokoll schon Eintraege
+    enthaelt - sonst wuerde ein ueber "Fortsetzen" noch weiterzufuehrender
+    Lauf faelschlich als fertig wirken."""
+    status = {
+        "gestartet_am": "irgendwann", "laeuft": False, "fehler": None, "abgeschlossen": False,
+        "protokoll": [{"art": "angewendet"}],
+    }
+    assert automatik.zustand_zusammenfassen(status) == "gestoppt"
 
 
 def test_status_schreiben_und_lesen_roundtrip(tmp_path):
@@ -132,3 +145,51 @@ def test_status_schreiben_und_lesen_roundtrip(tmp_path):
     assert gelesen["laeuft"] is True
     assert gelesen["aktuelles_kapitel"] == 3
     assert gelesen["log"] == ["Kapitel 3 wird geschrieben..."]
+
+
+def test_status_lesen_ergaenzt_aktueller_durchlauf_bei_alten_dateien(tmp_path):
+    """Status-Dateien aus der Zeit vor diesem Feld duerfen nicht mit einem
+    KeyError/ValidationError abgewiesen werden."""
+    import json
+    pfad = tmp_path / "projekt" / automatik.AUTOMATIK_STATUS_DATEINAME
+    pfad.parent.mkdir(parents=True)
+    alt = automatik.status_lesen(tmp_path)
+    del alt["aktueller_durchlauf"]
+    pfad.write_text(json.dumps(alt), encoding="utf-8")
+
+    gelesen = automatik.status_lesen(tmp_path)
+    assert gelesen["aktueller_durchlauf"] is None
+
+
+def test_fortsetzbar_nie_gestartet():
+    status = {"gestartet_am": None, "laeuft": False, "abgeschlossen": False}
+    assert automatik.fortsetzbar(status) is False
+
+
+def test_fortsetzbar_waehrend_lauf():
+    status = {"gestartet_am": "irgendwann", "laeuft": True, "abgeschlossen": False}
+    assert automatik.fortsetzbar(status) is False
+
+
+def test_fortsetzbar_nach_sauberem_abschluss():
+    status = {"gestartet_am": "irgendwann", "laeuft": False, "abgeschlossen": True}
+    assert automatik.fortsetzbar(status) is False
+
+
+def test_fortsetzbar_nach_fehler_oder_stop():
+    status = {"gestartet_am": "irgendwann", "laeuft": False, "abgeschlossen": False}
+    assert automatik.fortsetzbar(status) is True
+
+
+def test_verlauf_ohne_datei_ist_leer(tmp_path):
+    assert automatik.verlauf_lesen(tmp_path) == []
+
+
+def test_verlauf_eintrag_anhaengen_und_lesen(tmp_path):
+    automatik.verlauf_eintrag_anhaengen(tmp_path, {"status": "abgeschlossen", "dauer_sekunden": 10})
+    automatik.verlauf_eintrag_anhaengen(tmp_path, {"status": "fehler", "dauer_sekunden": 5})
+
+    eintraege = automatik.verlauf_lesen(tmp_path)
+    assert len(eintraege) == 2
+    assert eintraege[0]["status"] == "abgeschlossen"
+    assert eintraege[1]["status"] == "fehler"

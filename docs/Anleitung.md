@@ -26,6 +26,11 @@ nutzt, gilt stattdessen `Bedienungsanleitung.md`).
 > offenen Fehlern. Beim letzten laut Gerüst geplanten Kapitel fügt „Stand
 > erzeugen“ außerdem automatisch alle Kapitel zu `gesamt.md` zusammen.
 
+> **Abkürzung für „Kapitel schreiben“ bis „Sichere Korrekturen
+> übernehmen“:** Der **Automatikmodus** (unten im Tab Schreiben) erledigt
+> beide Schritte für alle noch fehlenden Kapitel am Stück, siehe Abschnitt
+> 7 unten.
+
 ---
 
 ## 1. Die fünf KI-Rollen
@@ -167,7 +172,37 @@ Einsatz noch recherchiert werden.
 
 ---
 
-## 7. KI-Ziele und Einstellungen
+## 7. Automatikmodus (alle Kapitel am Stück)
+
+Unten im Tab **Schreiben** schreibt der **Automatikmodus** alle laut
+Gerüst noch fehlenden Kapitel hintereinander und wendet danach für jedes
+Kapitel automatisch alle eindeutigen Prüfer-Korrekturen an (bis zu der
+eingestellten Zahl **„Max. Durchläufe je Kapitel“**). Widersprüchliche
+Vorschläge, nicht auffindbare Stellen und unbekannte Wörter werden dabei
+**nicht** automatisch entschieden — die bleiben wie gewohnt im Tab
+**Prüfen & Anwenden** bzw. **Rechtschreibung** zur manuellen Durchsicht
+liegen. Der Lauf arbeitet im Hintergrund auf dem Server weiter, auch wenn
+du den Tab schließt oder den Browser zumachst — beim nächsten Öffnen zeigt
+der Fortschrittsbalken wieder den aktuellen Stand.
+
+**Wird der Lauf unterbrochen** (Verbindungsabbruch zum KI-Ziel, Fehler,
+oder weil du selbst „Stoppen“ geklickt hast), merkt sich das Programm
+exakt, bei welchem Kapitel und welchem Prüf-Durchlauf das passiert ist.
+Statt danach erneut „Automatikmodus starten“ zu klicken — das würde die
+Prüfphase wieder komplett bei Kapitel 1 beginnen und bereits erledigte
+Kapitel unnötig ein zweites Mal prüfen — erscheint in diesem Fall ein
+eigener **„Fortsetzen“**-Button mit der genauen Fundstelle daneben
+(„Kapitel 6/10, Phase prüfen · Durchlauf 2“). Er setzt den Lauf exakt an
+dieser Stelle fort.
+
+Unter **„Lauf-Historie“** lässt sich außerdem jeder bisherige
+Automatik-Lauf dieses Projekts nachschlagen — Datum, Zeitraum, Laufzeit
+und ob er sauber abgeschlossen, mit Fehler abgebrochen oder gestoppt
+wurde.
+
+---
+
+## 8. KI-Ziele und Einstellungen
 
 Im Tab **KI-Ziele** hinterlegst du, wo Ollama läuft: lokal, direkt per
 Netzwerk-Adresse, oder über einen SSH-Tunnel auf einem entfernten Rechner.
