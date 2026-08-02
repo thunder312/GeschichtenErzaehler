@@ -71,6 +71,23 @@ def jahr_erkennen(geruest: str) -> str:
     return treffer.group(1) if treffer else "unbekannt"
 
 
+def jahr_fuer_kapitel_erkennen(geruest: str, n: int) -> str:
+    """Wie jahr_erkennen(), sucht das 'Jahr: ...' aber zuerst NUR im
+    Kapitelplan-Block von Kapitel n, bevor auf das globale Jahr
+    zurueckgefallen wird. Noetig fuer Zeitsprung-Projekte (siehe
+    app/core/epoche.py:zeitsprung_dateien_zusammenfuehren): dort hat jedes
+    Kapitel je nach Epoche ("Epoche: A"/"Epoche: B") eine eigene Zeitangabe -
+    ohne diese Funktion wuerde der Anachronismus-Pruefer immer nur das
+    globale Jahr des Geruests sehen und z.B. in einem Gegenwarts-Kapitel
+    faelschlich nach historischen Anachronismen suchen."""
+    block = kapitel_block_erkennen(geruest, n)
+    if block:
+        treffer = re.search(r"Jahr\s*[:\-]?\s*(\d{1,5})", block, re.IGNORECASE)
+        if treffer:
+            return treffer.group(1)
+    return jahr_erkennen(geruest)
+
+
 def jugendschutz_stufe_erkennen(geruest: str) -> str:
     """Unbekannt oder nicht gefunden -> 'voll' (sicherer Standard fuer
     Bestandsprojekte ohne diese Frage)."""

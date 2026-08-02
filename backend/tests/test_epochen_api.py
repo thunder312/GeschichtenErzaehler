@@ -116,3 +116,21 @@ def test_epoche_erstellen_ohne_genre_hat_kein_genre_in_liste(client):
     liste = client.get("/api/projects/epochen").json()
     eintrag = next(e for e in liste if e["name"] == "Viktorianisches-England")
     assert eintrag["genre"] is None
+
+
+def test_epoche_loeschen_entfernt_ordner_aus_bibliothek(client, tmp_path):
+    client.post("/api/epochen", json=_reale_epoche())
+    ziel = tmp_path / "epochen" / "Viktorianisches-England"
+    assert ziel.is_dir()
+
+    r = client.delete("/api/epochen/Viktorianisches-England")
+    assert r.status_code == 204
+    assert not ziel.exists()
+
+    liste = client.get("/api/projects/epochen").json()
+    assert not any(e["name"] == "Viktorianisches-England" for e in liste)
+
+
+def test_epoche_loeschen_unbekannter_ordner_gibt_404(client):
+    r = client.delete("/api/epochen/Nicht-Vorhanden")
+    assert r.status_code == 404

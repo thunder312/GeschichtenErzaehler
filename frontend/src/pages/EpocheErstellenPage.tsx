@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../api/client";
+import type { EpocheKurz } from "../api/types";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 
 interface EpocheErstellenAnfrage {
@@ -57,6 +60,40 @@ export function EpocheErstellenPage() {
     null,
   );
 
+  const [epochen, setEpochen] = useState<EpocheKurz[]>([]);
+  const [epochenLaden, setEpochenLaden] = useState(true);
+  const [loeschenAnfrage, setLoeschenAnfrage] = useState<EpocheKurz | null>(null);
+  const [wirdGeloescht, setWirdGeloescht] = useState<string | null>(null);
+  const [loeschenFehler, setLoeschenFehler] = useState<string | null>(null);
+
+  function epochenNeuLaden() {
+    setEpochenLaden(true);
+    api
+      .epochen()
+      .then(setEpochen)
+      .finally(() => setEpochenLaden(false));
+  }
+
+  useEffect(() => {
+    epochenNeuLaden();
+  }, []);
+
+  async function epocheLoeschenBestaetigt() {
+    if (!loeschenAnfrage) return;
+    const name = loeschenAnfrage.name;
+    setWirdGeloescht(name);
+    setLoeschenFehler(null);
+    try {
+      await api.epocheLoeschen(name);
+      setLoeschenAnfrage(null);
+      epochenNeuLaden();
+    } catch (e) {
+      setLoeschenFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWirdGeloescht(null);
+    }
+  }
+
   function feld<K extends keyof EpocheErstellenAnfrage>(name: K, wert: EpocheErstellenAnfrage[K]) {
     setFormular((bisher) => ({ ...bisher, [name]: wert }));
   }
@@ -85,6 +122,7 @@ export function EpocheErstellenPage() {
       }
       setErgebnis(await antwort.json());
       setFormular(LEERES_FORMULAR);
+      epochenNeuLaden();
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
@@ -119,6 +157,40 @@ export function EpocheErstellenPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
+      <Card>
+        <CardTitle>📜 Vorhandene Epochen</CardTitle>
+        {loeschenFehler && <p className="mb-3 text-sm text-red-400">{loeschenFehler}</p>}
+        {epochenLaden ? (
+          <p className="text-sm text-text-muted">Lädt...</p>
+        ) : epochen.length === 0 ? (
+          <p className="text-sm text-text-muted">Noch keine Epoche angelegt.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {epochen.map((e) => (
+              <li key={e.name} className="flex items-center gap-3 px-1 py-2 text-sm">
+                <button
+                  onClick={() => setLoeschenAnfrage(e)}
+                  disabled={wirdGeloescht === e.name}
+                  title={`Epoche "${e.name}" löschen`}
+                  aria-label={`Epoche "${e.name}" löschen`}
+                  className="shrink-0 text-sm leading-none text-red-400/60 transition-colors hover:text-red-400 disabled:opacity-40"
+                >
+                  ✕
+                </button>
+                <div>
+                  <div className="font-medium text-text">{e.name}</div>
+                  {e.genre && <div className="text-xs text-text-muted">{e.genre}</div>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-3 text-xs text-text-muted">
+          Löscht nur die zentrale Epoche aus der Bibliothek - bereits damit angelegte Projekte behalten ihre
+          eigenen Kopien der Personas/Verbotsliste und sind davon nicht betroffen.
+        </p>
+      </Card>
+
       <Card>
         <CardTitle>🏛️ Neue Epoche / neues Setting anlegen</CardTitle>
         <p className="mb-4 text-sm text-text-muted">
@@ -260,6 +332,17 @@ export function EpocheErstellenPage() {
           </Button>
         </div>
       </Card>
+
+      {loeschenAnfrage && (
+        <ConfirmDialog
+          titel="Epoche löschen?"
+          beschreibung={`"${loeschenAnfrage.name}" wird unwiderruflich aus der Epochen-Bibliothek entfernt. Bereits angelegte Projekte mit dieser Epoche sind nicht betroffen, da sie eigene Kopien der Dateien besitzen.`}
+          bestaetigenText="Endgültig löschen"
+          wirdAusgefuehrt={wirdGeloescht === loeschenAnfrage.name}
+          onBestaetigen={epocheLoeschenBestaetigt}
+          onAbbrechen={() => setLoeschenAnfrage(null)}
+        />
+      )}
     </div>
   );
 }

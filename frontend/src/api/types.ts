@@ -14,6 +14,9 @@ export interface ProjektKurz {
   ordner: string;
   titel: string | null;
   epoche: string | null;
+  // Nur gesetzt bei einem Zeitsprung-Projekt (zweite, per Zeitsprung
+  // erreichte Epoche) - siehe ProjektAnlegenAnfrage.zweite_epoche.
+  zweite_epoche?: string | null;
   anzahl_kapitel: number;
   letztes_geplantes_kapitel: number | null;
   automatik_zustand: AutomatikZustand;
@@ -22,6 +25,7 @@ export interface ProjektKurz {
 export interface ProjektDetail {
   ordner: string;
   epoche: string | null;
+  zweite_epoche?: string | null;
   geruest: string | null;
   verbotsliste: string | null;
   kapitel: number[];

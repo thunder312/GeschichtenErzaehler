@@ -44,6 +44,32 @@ def test_jahr_erkennen_unbekannt_ohne_treffer():
     assert g.jahr_erkennen("Kein Datum hier.") == "unbekannt"
 
 
+ZEITSPRUNG_GERUEST = """
+# STORY-GERUEST
+
+## Rahmen
+Jahr: 1150
+Jugendschutz-Stufe: Voll
+Autor-Modell: Hermes3
+Automatische Fortsetzung: Aus
+
+## Kapitelplan
+Kapitel 1: Markttag im Dorf. Epoche: Mittelalter. Jahr: 1150. Zielwortzahl: 1.500 Woerter.
+Kapitel zwei: Zeitsprung nach Gegenwart ueber das Amulett. Epoche: Gegenwart. Jahr: 2024. Zielwortzahl: 1.600 Woerter.
+Kapitel 3: Rueckkehr ins Mittelalter. Epoche: Mittelalter. Jahr: 1150. Zielwortzahl: 1.400 Woerter.
+"""
+
+
+def test_jahr_fuer_kapitel_erkennen_liest_pro_kapitel_bei_zeitsprung():
+    assert g.jahr_fuer_kapitel_erkennen(ZEITSPRUNG_GERUEST, 1) == "1150"
+    assert g.jahr_fuer_kapitel_erkennen(ZEITSPRUNG_GERUEST, 2) == "2024"
+    assert g.jahr_fuer_kapitel_erkennen(ZEITSPRUNG_GERUEST, 3) == "1150"
+
+
+def test_jahr_fuer_kapitel_erkennen_faellt_ohne_kapitel_jahr_auf_global_zurueck():
+    assert g.jahr_fuer_kapitel_erkennen(BEISPIEL_GERUEST, 2) == "1815"
+
+
 def test_jugendschutz_stufe_erkennen():
     assert g.jugendschutz_stufe_erkennen(BEISPIEL_GERUEST) == "angedeutet"
     assert g.jugendschutz_stufe_erkennen("Jugendschutz-Stufe: Jugendfrei") == "jugendfrei"

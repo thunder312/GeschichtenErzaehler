@@ -4,6 +4,8 @@ Dateien unter der zentralen Epochen-Bibliothek an - siehe
 app/core/epoche.py fuer die Vorlagen-Generatoren."""
 from __future__ import annotations
 
+import shutil
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.config import Settings, get_settings
@@ -45,3 +47,16 @@ def epoche_erstellen(anfrage: EpocheErstellenAnfrage, settings: Settings = Depen
         (ziel / ".genre").write_text(anfrage.genre.strip(), encoding="utf-8")
 
     return EpocheErstellenAntwort(name=anfrage.name, ordner=ordner_name, dateien=dateien)
+
+
+@router.delete("/{ordner}", status_code=204)
+def epoche_loeschen(ordner: str, settings: Settings = Depends(get_settings)):
+    """Loescht die zentrale Epoche komplett aus der Bibliothek - betrifft nur
+    settings.epochen_dir, NICHT bereits angelegte Projekte: deren personas/
+    und projekt/verbotsliste.md sind eigene Kopien (siehe
+    app/core/projekt_dateien.py:projekt_anlegen), die beim Anlegen einmalig
+    aus der Epoche kopiert wurden und seither unabhaengig von ihr existieren."""
+    ziel = settings.epochen_dir / ordner
+    if not ziel.is_dir():
+        raise HTTPException(404, f"Epoche '{ordner}' nicht gefunden.")
+    shutil.rmtree(ziel)

@@ -54,15 +54,19 @@ function sshQuery(sshZielId?: string | null): string {
 export const api = {
   epochen: () => anfrage<EpocheKurz[]>("/api/projects/epochen"),
 
+  epocheLoeschen: (ordner: string) =>
+    anfrage<void>(`/api/epochen/${encodeURIComponent(ordner)}`, { method: "DELETE" }),
+
   projekte: () => anfrage<ProjektKurz[]>("/api/projects"),
 
-  projektAnlegen: (titel: string, epoche: string) =>
+  projektAnlegen: (titel: string, epoche: string, zweiteEpoche?: string | null) =>
     anfrage<ProjektKurz>("/api/projects", {
       method: "POST",
       // Leerer Titel ist erlaubt - das Backend legt dann einen Platzhalter-
       // Ordner "neu" an, der benannt wird, sobald das Architekten-Interview
-      // einen Titel liefert.
-      body: JSON.stringify({ titel, epoche }),
+      // einen Titel liefert. zweite_epoche ist optional (Zeitsprung-Projekt,
+      // siehe app/core/epoche.py:zeitsprung_dateien_zusammenfuehren).
+      body: JSON.stringify({ titel, epoche, zweite_epoche: zweiteEpoche || null }),
     }),
 
   projekt: (ordner: string) => anfrage<ProjektDetail>(`/api/projects/${ordner}`),

@@ -77,6 +77,7 @@ def _projekt_kurz(pfad, wurzel, settings: Settings) -> ProjektKurz:
         ordner=pfad.relative_to(wurzel).as_posix(),
         titel=titel,
         epoche=pd.epoche_von_projekt(pfad),
+        zweite_epoche=pd.zweite_epoche_von_projekt(pfad),
         anzahl_kapitel=len(pd.vorhandene_kapitel(projekt_unterordner)),
         letztes_geplantes_kapitel=g.letztes_geplantes_kapitel(geruest_text) if geruest_text else None,
         automatik_zustand=automatik.zustand_zusammenfassen(automatik.status_lesen(pfad)),
@@ -115,12 +116,21 @@ def projekt_anlegen(anfrage: ProjektAnlegenAnfrage, settings: Settings = Depends
     epoche_ordner = settings.epochen_dir / anfrage.epoche
     if not epoche_ordner.is_dir():
         raise HTTPException(404, f"Epoche '{anfrage.epoche}' nicht gefunden.")
+    zweite_epoche_ordner = None
+    zweite_epoche_name = anfrage.zweite_epoche.strip() if anfrage.zweite_epoche else None
+    if zweite_epoche_name:
+        if zweite_epoche_name == anfrage.epoche:
+            raise HTTPException(422, "Zweite Epoche muss sich von der ersten unterscheiden.")
+        zweite_epoche_ordner = settings.epochen_dir / zweite_epoche_name
+        if not zweite_epoche_ordner.is_dir():
+            raise HTTPException(404, f"Zweite Epoche '{zweite_epoche_name}' nicht gefunden.")
     # Ohne Titel (ergibt sich oft erst aus dem Architekten-Interview) einen
     # Platzhalter-Ordner "neu" anlegen - projektordner_umbenennen() benennt
     # ihn automatisch um, sobald das Interview einen Titel liefert.
     basis_titel = anfrage.titel.strip() or "neu"
     ziel = neuer_projekt_pfad(settings, benutzer.username, basis_titel, anfrage.epoche)
-    pd.projekt_anlegen(ziel, epoche_ordner, settings.shared_personas_dir, anfrage.epoche)
+    pd.projekt_anlegen(ziel, epoche_ordner, settings.shared_personas_dir, anfrage.epoche,
+                        zweite_epoche_ordner, zweite_epoche_name)
     return _projekt_kurz(ziel, projekte_wurzel(settings, benutzer.username), settings)
 
 
@@ -151,6 +161,7 @@ def projekt_lesen(ordner: str, settings: Settings = Depends(get_settings),
     return ProjektDetail(
         ordner=ordner,
         epoche=pd.epoche_von_projekt(pfad),
+        zweite_epoche=pd.zweite_epoche_von_projekt(pfad),
         geruest=geruest_text or None,
         verbotsliste=verbotsliste_text or None,
         kapitel=kapitel,

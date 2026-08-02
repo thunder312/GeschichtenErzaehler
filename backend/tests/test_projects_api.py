@@ -194,6 +194,52 @@ def test_projekt_mit_epoche_unterordner_geruest_lesen_und_schreiben(client):
     assert "Der Sturm" in r2.json()["geruest"]
 
 
+def test_projekt_anlegen_mit_zweiter_epoche_setzt_zeitsprung_marker(client, tmp_path):
+    r = client.post("/api/projects", json={
+        "titel": "Der Sprung durch die Zeit", "epoche": "Mittelalter", "zweite_epoche": "Zukunft",
+    })
+    assert r.status_code == 201
+    daten = r.json()
+    assert daten["epoche"] == "Mittelalter"
+    assert daten["zweite_epoche"] == "Zukunft"
+
+    r2 = client.get(f"/api/projects/{daten['ordner']}")
+    assert r2.json()["epoche"] == "Mittelalter"
+    assert r2.json()["zweite_epoche"] == "Zukunft"
+
+    personas = tmp_path / "projects" / "daniel" / daten["ordner"] / "personas"
+    for datei in ("architekt.txt", "autor.txt", "pruefer_anachronismus.txt"):
+        inhalt = (personas / datei).read_text(encoding="utf-8")
+        assert "ZEITSPRUNG" in inhalt
+        assert "Zukunft" in inhalt
+
+    verbotsliste = (tmp_path / "projects" / "daniel" / daten["ordner"] / "projekt" / "verbotsliste.md").read_text(
+        encoding="utf-8",
+    )
+    assert "Epoche: Mittelalter" in verbotsliste
+    assert "Epoche: Zukunft" in verbotsliste
+
+
+def test_projekt_anlegen_ohne_zweite_epoche_hat_keinen_zeitsprung_marker(client, projekt, tmp_path):
+    assert not (tmp_path / "projects" / "daniel" / projekt / ".epoche_zweite").exists()
+    r = client.get(f"/api/projects/{projekt}")
+    assert r.json()["zweite_epoche"] is None
+
+
+def test_projekt_anlegen_mit_gleicher_zweiter_epoche_wird_abgelehnt(client):
+    r = client.post("/api/projects", json={
+        "titel": "X", "epoche": "Regency", "zweite_epoche": "Regency",
+    })
+    assert r.status_code == 422
+
+
+def test_projekt_anlegen_mit_unbekannter_zweiter_epoche_gibt_404(client):
+    r = client.post("/api/projects", json={
+        "titel": "X", "epoche": "Regency", "zweite_epoche": "Nicht-Vorhanden",
+    })
+    assert r.status_code == 404
+
+
 def test_projekt_ohne_epoche_unterordner_bleibt_flach(client, tmp_path):
     r = client.post("/api/projects", json={"titel": "Der Sturm", "epoche": "Regency"})
     assert r.json()["ordner"] == "Der-Sturm"

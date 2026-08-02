@@ -18,6 +18,7 @@ import shutil
 import time
 from pathlib import Path
 
+from app.core import epoche as _epoche
 from app.core import geruest as _geruest
 from app.core.textutil import woerter
 
@@ -96,9 +97,17 @@ def persona_lesen(projekt: Path, name: str) -> str:
 
 
 def projekt_anlegen(ziel: Path, epoche_ordner: Path, gemeinsame_personas_ordner: Path,
-                     epoche_name: str) -> None:
+                     epoche_name: str, zweite_epoche_ordner: Path | None = None,
+                     zweite_epoche_name: str | None = None) -> None:
     """Legt personas/ + projekt/ in ziel an, analog zu novelle.py's
-    _projekt_befuellen(). ziel muss bereits existieren oder wird erzeugt."""
+    _projekt_befuellen(). ziel muss bereits existieren oder wird erzeugt.
+
+    Mit zweite_epoche_ordner/zweite_epoche_name (Zeitsprung-Projekt, siehe
+    app/core/epoche.py:zeitsprung_dateien_zusammenfuehren) werden Architekt-/
+    Autor-/Anachronismus-Persona und Verbotsliste im Anschluss um eine
+    Referenz auf die zweite Epoche erweitert - beide Epochen bleiben dabei
+    unveraendert in der zentralen Bibliothek, nur die frisch kopierten
+    Projekt-Dateien werden angereichert."""
     ziel.mkdir(parents=True, exist_ok=True)
     personas_ziel = ziel / "personas"
     personas_ziel.mkdir(exist_ok=True)
@@ -113,15 +122,41 @@ def projekt_anlegen(ziel: Path, epoche_ordner: Path, gemeinsame_personas_ordner:
         if quelle.exists():
             shutil.copy(quelle, personas_ziel / datei)
 
+    verbotsliste_ziel = ziel / "projekt" / "verbotsliste.md"
     verbotsliste_quelle = epoche_ordner / "verbotsliste.md"
     if verbotsliste_quelle.exists():
-        shutil.copy(verbotsliste_quelle, ziel / "projekt" / "verbotsliste.md")
+        shutil.copy(verbotsliste_quelle, verbotsliste_ziel)
+
+    if zweite_epoche_ordner is not None and zweite_epoche_name is not None:
+        primaer_dateien = {datei: lies(personas_ziel / datei, pflicht=False, ersatz="")
+                            for datei in EPOCHE_PERSONA_DATEIEN}
+        primaer_dateien["verbotsliste.md"] = lies(verbotsliste_ziel, pflicht=False, ersatz="")
+        sekundaer_dateien = {datei: lies(zweite_epoche_ordner / datei, pflicht=False, ersatz="")
+                             for datei in EPOCHE_PERSONA_DATEIEN}
+        sekundaer_dateien["verbotsliste.md"] = lies(zweite_epoche_ordner / "verbotsliste.md", pflicht=False, ersatz="")
+
+        zusammengefuehrt = _epoche.zeitsprung_dateien_zusammenfuehren(
+            epoche_name, primaer_dateien, zweite_epoche_name, sekundaer_dateien,
+        )
+        for datei in EPOCHE_PERSONA_DATEIEN:
+            if zusammengefuehrt.get(datei):
+                (personas_ziel / datei).write_text(zusammengefuehrt[datei].strip() + "\n", encoding="utf-8")
+        if zusammengefuehrt.get("verbotsliste.md"):
+            verbotsliste_ziel.write_text(zusammengefuehrt["verbotsliste.md"].strip() + "\n", encoding="utf-8")
+
+        (ziel / ".epoche_zweite").write_text(zweite_epoche_name, encoding="utf-8")
 
     (ziel / ".epoche").write_text(epoche_name, encoding="utf-8")
 
 
 def epoche_von_projekt(ziel: Path) -> str | None:
     marker = ziel / ".epoche"
+    return marker.read_text(encoding="utf-8").strip() if marker.exists() else None
+
+
+def zweite_epoche_von_projekt(ziel: Path) -> str | None:
+    """Siehe projekt_anlegen() - nur gesetzt bei einem Zeitsprung-Projekt."""
+    marker = ziel / ".epoche_zweite"
     return marker.read_text(encoding="utf-8").strip() if marker.exists() else None
 
 

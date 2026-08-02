@@ -509,3 +509,142 @@ def epoche_dateien_erzeugen(a: EpocheAntworten) -> dict[str, str]:
         "pruefer_anachronismus.txt": pruefer_vorlage(a).strip() + "\n",
         "verbotsliste.md": verbotsliste_vorlage(a).strip() + "\n",
     }
+
+
+def _zeitsprung_architekt_block(primaer_name: str, sekundaer_name: str, sekundaer_architekt: str) -> str:
+    return f'''
+
+## ZEITSPRUNG-ERWEITERUNG: Zwei Epochen in dieser Geschichte
+Diese Geschichte spielt nicht nur in "{primaer_name}" (oben beschrieben),
+sondern wechselt per Zeitsprung (Zeitreise-Gerät, Ritual, Fluch, Portal
+o.ä.) auch in eine zweite Epoche: "{sekundaer_name}". Die vollständige
+Architekten-Persona dieser zweiten Epoche folgt weiter unten als Referenz -
+übernimm daraus Beschreibung, Zeitraum, Gesellschaftsordnung, Statusregel
+und Anrede-Konventionen für alle Kapitel, die in "{sekundaer_name}" spielen.
+Ihre eigenen Interviewfragen und ihr eigenes Ausgabeformat gelten NICHT -
+für das gesamte Interview und das Geruest gilt ausschließlich das oben für
+"{primaer_name}" beschriebene Format.
+
+Zusätzliche Interviewfragen (direkt nach der bisherigen Frage 15, vor der
+abschließenden Zusammenfassung, fortlaufend nummeriert):
+16. Auslöser des Zeitsprungs: Was oder wer löst den Wechsel zwischen
+    "{primaer_name}" und "{sekundaer_name}" aus? Einmaliger Sprung oder
+    mehrfaches Hin und Her?
+17. Welche Figur(en) springen zwischen den Epochen, welche bleiben jeweils
+    in ihrer eigenen Zeit zurück?
+18. In welcher Epoche beginnt die Geschichte, nach welchem Kapitel erfolgt
+    der erste Sprung, gibt es weitere Sprünge?
+
+Zusätzliche Pflichtangabe im Kapitelplan: JEDER Kapitel-Eintrag bekommt neben
+den bisherigen Angaben eine eigene Zeile "Epoche: {primaer_name}" oder
+"Epoche: {sekundaer_name}", wörtlich so, dazu die für DIESE Epoche gültige
+Zeitangabe (ebenfalls wörtlich mit dem Wort "Jahr" davor, siehe Regeln weiter
+oben) - Prüfer und automatische Fortsetzung lesen dieses Feld pro Kapitel aus
+und wenden je nach Epoche unterschiedliche Regeln an. Ein Zeitsprung selbst
+bekommt einen eigenen Satz im Ereignis-Feld des betroffenen Kapitels (z.B.
+"Zeitsprung nach {sekundaer_name} über [Mechanismus]").
+
+=== REFERENZ: Architekten-Persona von "{sekundaer_name}" ===
+{sekundaer_architekt}
+=== ENDE REFERENZ ===
+'''
+
+
+def _zeitsprung_autor_block(primaer_name: str, sekundaer_name: str, sekundaer_autor: str) -> str:
+    return f'''
+
+## ZEITSPRUNG: Zweite Epoche in dieser Geschichte
+Neben "{primaer_name}" (oben beschrieben) spielt diese Geschichte per
+Zeitsprung auch in "{sekundaer_name}". Ist ein zu schreibendes Kapitel laut
+Geruest als "Epoche: {sekundaer_name}" markiert, gilt für Ort, Gesellschafts-
+ordnung und Anrede-Konventionen dieses Kapitels NICHT das oben beschriebene
+Setting, sondern das folgende (Referenz aus der eigenen Autor-Persona von
+"{sekundaer_name}"). Ton, Formatregeln und die Phasenpflicht bei
+Vereinigungsszenen weiter oben gelten dagegen unverändert in JEDEM Kapitel,
+unabhängig von der Epoche.
+
+=== REFERENZ: Autor-Persona von "{sekundaer_name}" ===
+{sekundaer_autor}
+=== ENDE REFERENZ ===
+'''
+
+
+def _zeitsprung_pruefer_block(primaer_name: str, sekundaer_name: str, sekundaer_pruefer: str) -> str:
+    return f'''
+
+## ZEITSPRUNG: Zweite Epoche in dieser Geschichte
+Neben "{primaer_name}" (oben beschrieben) spielt diese Geschichte per
+Zeitsprung auch in "{sekundaer_name}". Ist das dir vorgelegte Kapitel laut
+Geruest als "Epoche: {sekundaer_name}" markiert, prüfst du NICHT nach der
+obigen Checkliste, sondern nach der folgenden (Referenz aus dem eigenen
+Prüfer von "{sekundaer_name}"). Das gemeinsame JSON-Ausgabeformat und die
+Stimmigkeits-Kriterien S1 bis S4 weiter oben gelten unverändert für beide
+Epochen.
+
+=== REFERENZ: Anachronismus-Prüfer von "{sekundaer_name}" ===
+{sekundaer_pruefer}
+=== ENDE REFERENZ ===
+'''
+
+
+def _zeitsprung_verbotsliste(primaer_name: str, primaer_verbotsliste: str,
+                              sekundaer_name: str, sekundaer_verbotsliste: str) -> str:
+    return f'''# Verbotsliste (Zeitsprung: {primaer_name} + {sekundaer_name})
+
+Diese Geschichte spielt in zwei Epochen. Welcher Abschnitt gilt, richtet
+sich danach, in welcher Epoche laut Kapitelplan im Geruest ("Epoche: ...")
+das jeweils geprüfte Kapitel spielt.
+
+## Epoche: {primaer_name}
+{primaer_verbotsliste}
+
+## Epoche: {sekundaer_name}
+{sekundaer_verbotsliste}
+'''
+
+
+def zeitsprung_dateien_zusammenfuehren(
+    primaer_name: str, primaer_dateien: dict[str, str],
+    sekundaer_name: str, sekundaer_dateien: dict[str, str],
+) -> dict[str, str]:
+    """Erweitert die (bereits kopierten) Personas/Verbotsliste einer primären
+    Epoche um eine Zeitsprung-Referenz auf eine zweite, bereits existierende
+    Epoche (z.B. "Mittelalter" + "Gegenwart" für eine Zeitreise-Geschichte
+    per Gerät). Bewusst KEIN Versuch, aus den gespeicherten Textdateien
+    strukturierte Felder (beschreibung/zeitraum/...) zurueckzugewinnen -
+    beide Epochen koennen seit ihrer Erstellung frei von Hand ueberarbeitet
+    worden sein. Stattdessen wird die komplette Persona/Verbotsliste der
+    zweiten Epoche als klar abgegrenzter Referenzblock angehaengt; das
+    Ergebnis ist wie jede Epoche-Kopie ein Rohentwurf, der ueber den
+    Personas-Tab des Projekts von Hand weiter verfeinert werden kann."""
+    ergebnis = dict(primaer_dateien)
+
+    architekt = primaer_dateien.get("architekt.txt")
+    sekundaer_architekt = sekundaer_dateien.get("architekt.txt")
+    if architekt and sekundaer_architekt:
+        ergebnis["architekt.txt"] = architekt.rstrip("\n") + _zeitsprung_architekt_block(
+            primaer_name, sekundaer_name, sekundaer_architekt.strip(),
+        )
+
+    autor = primaer_dateien.get("autor.txt")
+    sekundaer_autor = sekundaer_dateien.get("autor.txt")
+    if autor and sekundaer_autor:
+        ergebnis["autor.txt"] = autor.rstrip("\n") + _zeitsprung_autor_block(
+            primaer_name, sekundaer_name, sekundaer_autor.strip(),
+        )
+
+    pruefer = primaer_dateien.get("pruefer_anachronismus.txt")
+    sekundaer_pruefer = sekundaer_dateien.get("pruefer_anachronismus.txt")
+    if pruefer and sekundaer_pruefer:
+        ergebnis["pruefer_anachronismus.txt"] = pruefer.rstrip("\n") + _zeitsprung_pruefer_block(
+            primaer_name, sekundaer_name, sekundaer_pruefer.strip(),
+        )
+
+    verbotsliste = primaer_dateien.get("verbotsliste.md")
+    sekundaer_verbotsliste = sekundaer_dateien.get("verbotsliste.md")
+    if verbotsliste and sekundaer_verbotsliste:
+        ergebnis["verbotsliste.md"] = _zeitsprung_verbotsliste(
+            primaer_name, verbotsliste.strip(), sekundaer_name, sekundaer_verbotsliste.strip(),
+        )
+
+    return ergebnis

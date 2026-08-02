@@ -32,6 +32,7 @@ export function ProjektePage({
   const [epochen, setEpochen] = useState<EpocheKurz[]>([]);
   const [titel, setTitel] = useState("");
   const [epoche, setEpoche] = useState("");
+  const [zweiteEpoche, setZweiteEpoche] = useState("");
   const [fehler, setFehler] = useState<string | null>(null);
   const [wirdAngelegt, setWirdAngelegt] = useState(false);
   const [wirdGeloescht, setWirdGeloescht] = useState<string | null>(null);
@@ -103,6 +104,10 @@ export function ProjektePage({
   function epocheAuswaehlen(name: string) {
     setEpoche(name);
     window.localStorage.setItem("letzte-epoche", name);
+    // Zweite Epoche muss sich von der ersten unterscheiden (siehe Backend-
+    // Validierung in app/api/projects.py) - bei Kollision zuruecksetzen,
+    // statt den Nutzer erst beim Absenden mit einem Fehler zu konfrontieren.
+    if (zweiteEpoche === name) setZweiteEpoche("");
   }
 
   async function anlegen() {
@@ -110,8 +115,9 @@ export function ProjektePage({
     setWirdAngelegt(true);
     setFehler(null);
     try {
-      const neues = await api.projektAnlegen(titel.trim(), epoche);
+      const neues = await api.projektAnlegen(titel.trim(), epoche, zweiteEpoche);
       setTitel("");
+      setZweiteEpoche("");
       onProjekteGeaendert();
       onProjektAuswaehlen(neues.ordner);
     } catch (e) {
@@ -191,7 +197,8 @@ export function ProjektePage({
                     <AutomatikBadge zustand={p.automatik_zustand} />
                   </div>
                   <div className="text-xs text-text-muted">
-                    {p.epoche ?? "unbekannte Epoche"} · {p.anzahl_kapitel} Kapitel
+                    {p.epoche ?? "unbekannte Epoche"}
+                    {p.zweite_epoche ? ` ↔ ${p.zweite_epoche} (Zeitsprung)` : ""} · {p.anzahl_kapitel} Kapitel
                     {p.letztes_geplantes_kapitel ? ` von ${p.letztes_geplantes_kapitel} geplant` : ""}
                   </div>
                 </div>
@@ -222,6 +229,24 @@ export function ProjektePage({
                 </option>
               ))}
             </Select>
+          </div>
+          <div>
+            <Label>Zeitsprung: zweite Epoche (optional)</Label>
+            <Select value={zweiteEpoche} onChange={(e) => setZweiteEpoche(e.target.value)}>
+              <option value="">Keine - nur eine Epoche</option>
+              {epochen
+                .filter((e) => e.name !== epoche)
+                .map((e) => (
+                  <option key={e.name} value={e.name}>
+                    {e.genre ? `${e.name} (${e.genre})` : e.name}
+                  </option>
+                ))}
+            </Select>
+            <p className="mt-1 text-xs text-text-muted">
+              Für Geschichten mit Zeitsprung (Zeitreise-Gerät, Ritual, o.ä.) zwischen zwei Epochen. Architekt,
+              Autor und Prüfer bekommen dann beide Settings und fragen im Interview zusätzlich nach dem
+              Zeitsprung-Mechanismus.
+            </p>
           </div>
           {fehler && <p className="text-sm text-red-400">{fehler}</p>}
           <Button onClick={anlegen} disabled={wirdAngelegt || !epoche}>

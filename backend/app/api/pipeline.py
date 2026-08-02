@@ -65,6 +65,27 @@ logger = logging.getLogger(__name__)
 FORTSETZEN_SCHWELLE = 0.70
 FORTSETZEN_MAX_VERSUCHE = 3
 
+# Konservativere Sampling-Parameter NUR fuer die Fortsetzungsversuche
+# (siehe _bei_bedarf_fortsetzen), ueberschreiben die Autor-Rollen-Werte aus
+# rollen.py fuer genau diesen Aufruf (chat_stream()'s `ueberschreibe`-Param).
+# Grund: Die Architekten-Persona selbst warnt bei dieser Option ausdruecklich
+# ("Frage 4b" in app/core/epoche.py), dass automatische Fortsetzung haeufig
+# zu sinnfreien/widerspruechlichen Texten fuehrt, weil das Modell "auf
+# Krampf" auf die Zielwortzahl hinschreibt statt die Szene organisch zu
+# Ende zu erzaehlen. Niedrigere temperature/top_p und ein enger top_k halten
+# das Modell naeher an der wahrscheinlichsten Fortsetzung statt an einer
+# freien, abschweifenden Erfindung; der leicht hoehere repeat_penalty wirkt
+# zusaetzlich den formelhaften Wiederholungsschleifen entgegen, die gerade
+# bei mehreren Fortsetzungsversuchen hintereinander beobachtet wurden (siehe
+# heuristik.py:interne_wiederholung_abschneiden als bestehendes Sicherheits-
+# netz dagegen).
+FORTSETZEN_OPTIONEN_UEBERSCHREIBE = {
+    "temperature": 0.45,
+    "top_p": 0.85,
+    "top_k": 40,
+    "repeat_penalty": 1.15,
+}
+
 
 async def _sammle_stream(
     settings: Settings, base_url: str, rolle: str, system: str, user: str,
@@ -301,6 +322,7 @@ async def _bei_bedarf_fortsetzen(
             f"auch wenn im bisherigen Text ein anderer Sprachanteil "
             f"vorkommen sollte.\n\n"
             f"{STUFE_DIREKTIVEN[stufe]}{aktueller_hinweis}{zusatz_block}",
+            ueberschreibe=FORTSETZEN_OPTIONEN_UEBERSCHREIBE,
             modell_override=rollen_modell_override(settings, autor_rolle),
         ):
             if event.typ == "error":
@@ -373,7 +395,7 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
     verbote = pd.lies(pd.verbotsliste_datei(projekt), pflicht=False, ersatz="")
     vorher = pd.lies(pd.stand_datei(projekt, n - 1), pflicht=False,
                       ersatz="(Kein vorheriger Stand vorhanden. Dies ist das erste Kapitel.)")
-    jahr = g.jahr_erkennen(geruest_text)
+    jahr = g.jahr_fuer_kapitel_erkennen(geruest_text, n)
 
     # Anachronismus/Kontinuitaet/Lektor bekommen weiterhin je EINEN Aufruf
     # mit dem ganzen Kapitel. Satzbau bekommt dagegen mehrere Aufrufe, je

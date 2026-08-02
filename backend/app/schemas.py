@@ -37,6 +37,9 @@ class ProjektKurz(BaseModel):
     ordner: str
     titel: str | None = None
     epoche: str | None = None
+    # Nur gesetzt bei einem Zeitsprung-Projekt (siehe ProjektAnlegenAnfrage.
+    # zweite_epoche) - zweite, per Zeitsprung erreichte Epoche.
+    zweite_epoche: str | None = None
     anzahl_kapitel: int
     letztes_geplantes_kapitel: int | None = None
     # None = Automatikmodus nie gestartet. Siehe app/core/automatik.py:
@@ -50,11 +53,16 @@ class ProjektAnlegenAnfrage(BaseModel):
     # ersatzweise den Platzhalter-Ordnernamen "neu" verwendet.
     titel: str = ""
     epoche: str
+    # Optional: zweite, bereits existierende Epoche fuer eine Zeitsprung-
+    # Geschichte (Zeitreise-Geraet, Ritual, o.ae.) - siehe
+    # app/core/epoche.py:zeitsprung_dateien_zusammenfuehren.
+    zweite_epoche: str | None = None
 
 
 class ProjektDetail(BaseModel):
     ordner: str
     epoche: str | None
+    zweite_epoche: str | None = None
     geruest: str | None
     verbotsliste: str | None
     kapitel: list[int]
