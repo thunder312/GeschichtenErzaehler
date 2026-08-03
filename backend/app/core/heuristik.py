@@ -56,6 +56,44 @@ def sprachdrift_pruefen(text: str, schwelle: float = 0.03) -> list[Finding]:
     return []
 
 
+# Dieselbe Wortliste wie ENGLISCHE_SIGNALWOERTER, aber OHNE "was"/"her" -
+# beides sind auch gueltige, haeufige deutsche Woerter (was = what, her =
+# hierher), die bei einer satzweisen Pruefung ohne die Verduennung durch
+# die Prozent-Schwelle von sprachdrift_pruefen() zu vielen Fehlalarmen
+# fuehren wuerden.
+_ENGLISCHE_WOERTER_EINDEUTIG = re.compile(
+    r"\b(the|and|were|with|his|that|this|they|their|had|from|"
+    r"which|would|could|should|what|when|where|because|you|your)\b",
+    re.IGNORECASE,
+)
+
+
+def sprachdrift_lokal_pruefen(text: str) -> list[Finding]:
+    """Ergaenzt sprachdrift_pruefen() um eine satzweise Pruefung: ein
+    einzelner englischer Satzfetzen mitten in einem sonst vollstaendig
+    deutschen, mehrere tausend Woerter langen Kapitel faellt bei der
+    Prozent-Schwelle unter den Tisch, weil er im Vergleich zur
+    Kapitellaenge verschwindend gering ist (beobachtet: "Diesmal because
+    of love." blieb in einem sonst deutschen Kapitel unbemerkt stehen).
+    Prueft deshalb JEDEN Satz einzeln gegen eine auf eindeutig englische
+    Woerter verengte Liste, statt ueber das ganze Kapitel zu mitteln."""
+    saetze = re.split(r"(?<=[.!?])\s+", text)
+    findings = []
+    for satz in saetze:
+        treffer = sorted(set(m.lower() for m in _ENGLISCHE_WOERTER_EINDEUTIG.findall(satz)))
+        if not treffer:
+            continue
+        ausschnitt = satz.strip()
+        if len(ausschnitt) > 140:
+            ausschnitt = ausschnitt[:137] + "…"
+        findings.append(Finding(
+            "sprachdrift_lokal",
+            f"Möglicher englischer Satzfetzen mitten im deutschen Text "
+            f"({', '.join(treffer)}): „{ausschnitt}“",
+        ))
+    return findings
+
+
 # ---------------------------------------------------------------------------
 # Ich-Perspektive-Drift
 # ---------------------------------------------------------------------------
@@ -305,6 +343,7 @@ def alle_nachbearbeitungs_checks(text: str, geruest: str, stufe: str) -> list[Fi
     sie novelle.py am Ende von cmd_schreiben/cmd_lektorieren aufruft."""
     findings: list[Finding] = []
     findings += sprachdrift_pruefen(text)
+    findings += sprachdrift_lokal_pruefen(text)
     findings += erzaehlperspektive_pruefen(text, geruest)
     findings += anredeform_pruefen(text)
     findings += ausweichformulierungen_pruefen(text)

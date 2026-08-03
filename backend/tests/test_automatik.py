@@ -64,6 +64,35 @@ def test_befunde_anwenden_ueberspringt_ohne_vorschlag():
     assert protokoll[0]["grund"] == "kein_vorschlag"
 
 
+def test_befunde_anwenden_ueberspringt_verdaechtig_langen_vorschlag():
+    """Regression: ein 'vorschlag', der viel laenger ist als die kurze
+    fundstelle, sieht eher nach einem liegen gebliebenen Redaktions-
+    kommentar oder dupliziertem Text aus als nach einer echten Korrektur -
+    siehe automatik.py:_vorschlag_verdaechtig."""
+    text = "Ein Satz."
+    kommentar = (
+        "Dieser Abschnitt sollte gekuerzt oder zusammengefasst werden, um "
+        "die Wiederholung zu vermeiden."
+    )
+    befunde = [_befund("Satz", 4, 8, kommentar)]
+    neuer_text, protokoll = automatik.befunde_anwenden(text, befunde)
+    assert neuer_text == text
+    assert protokoll[0]["grund"] == "verdaechtiger_vorschlag"
+
+
+def test_befunde_anwenden_wendet_kurze_kasuskorrektur_trotz_geringem_wortueberlapp_an():
+    """Gegenprobe zum Test oben: eine normale, kurze Genus-/Kasus-Korrektur
+    (hier 'kein' -> 'keine') darf NICHT als verdaechtig blockiert werden,
+    nur weil sie wenig woertliche Ueberlappung mit der fundstelle hat."""
+    text = "Es gab kein Ressourcenverschwendung."
+    start = text.index("kein Ressourcenverschwendung")
+    ende = start + len("kein Ressourcenverschwendung")
+    befunde = [_befund("kein Ressourcenverschwendung", start, ende, "keine Ressourcenverschwendung")]
+    neuer_text, protokoll = automatik.befunde_anwenden(text, befunde)
+    assert neuer_text == "Es gab keine Ressourcenverschwendung."
+    assert protokoll[0]["art"] == "angewendet"
+
+
 def test_befunde_anwenden_fund_am_textanfang_und_ende():
     text = "AAA Mitte ZZZ"
     befunde = [

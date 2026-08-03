@@ -13,6 +13,29 @@ def test_sprachdrift_pruefen_kein_fund_bei_deutschem_text():
     assert h.sprachdrift_pruefen(text) == []
 
 
+def test_sprachdrift_lokal_pruefen_erkennt_einzelnen_satzfetzen_in_langem_kapitel():
+    """Regression: ein einzelner englischer Satz mitten in einem sonst
+    langen deutschen Kapitel faellt bei sprachdrift_pruefen()s Prozent-
+    Schwelle nicht auf (siehe 'Diesmal because of love.'-Vorfall)."""
+    lange_umgebung = "Der Baum stand still im Wind und schwieg. " * 100
+    text = lange_umgebung + "Diesmal because of love. " + lange_umgebung
+    assert h.sprachdrift_pruefen(text) == []
+    findings = h.sprachdrift_lokal_pruefen(text)
+    assert len(findings) == 1
+    assert findings[0].code == "sprachdrift_lokal"
+    assert "because" in findings[0].meldung
+
+
+def test_sprachdrift_lokal_pruefen_ignoriert_deutsche_woerter_was_und_her():
+    text = "Sie fragte, was er meinte, und er kam sofort her zu ihr."
+    assert h.sprachdrift_lokal_pruefen(text) == []
+
+
+def test_sprachdrift_lokal_pruefen_kein_fund_bei_deutschem_text():
+    text = "Der Wald war still und die Voegel sangen leise im Wind."
+    assert h.sprachdrift_lokal_pruefen(text) == []
+
+
 def test_erzaehlperspektive_ignoriert_ich_in_woertlicher_rede():
     geruest = "Erzaehlperspektive: Dritte Person"
     text = 'Sie sagte: „Ich gehe jetzt nach Hause, mein Freund wartet."'
