@@ -18,10 +18,12 @@ interface BefundListeProps {
   befunde: Befund[];
   aktiveId?: string | null;
   onSelect?: (befund: Befund) => void;
-  /** Fundstelle wurde nach dem Pruef-Lauf durch eine ueberlappende manuelle
-   * Bearbeitung im Editor entfernt (siehe befundReview.ts) - eigenes Badge,
-   * getrennt von "gefunden" (das bezieht sich auf den Zustand direkt NACH
-   * dem Pruef-Lauf, bevor ueberhaupt editiert wurde). */
+  /** Fundstelle wurde nach dem Pruef-Lauf durch eine ueberlappende Aenderung
+   * im Editor entfernt (siehe befundReview.ts:pruefeVerwaist) - z.B. weil
+   * eine vorige Automatik-Korrektur genau diese Stelle bereits ersetzt hat.
+   * Diese Funde werden komplett ausgeblendet statt nur markiert (getrennt
+   * von "gefunden", das sich auf den Zustand direkt NACH dem Pruef-Lauf
+   * bezieht, bevor ueberhaupt editiert wurde). */
   orphanIds?: Set<string>;
   uebernommenIds?: Set<string>;
   /** Nur uebergeben, wenn ein Ein-Klick-Apply-Button in der Liste angeboten
@@ -40,8 +42,8 @@ interface BefundListeProps {
   kapitelVon?: (befund: Befund) => number;
 }
 
-function kannUebernommenWerden(befund: Befund, verwaist: boolean, uebernommen: boolean): boolean {
-  return befund.gefunden && !befund.konflikt && !!befund.vorschlag && !verwaist && !uebernommen;
+function kannUebernommenWerden(befund: Befund, uebernommen: boolean): boolean {
+  return befund.gefunden && !befund.konflikt && !!befund.vorschlag && !uebernommen;
 }
 
 export function BefundListe({
@@ -54,18 +56,35 @@ export function BefundListe({
   onUebernehmenAlle,
   kapitelVon,
 }: BefundListeProps) {
-  if (befunde.length === 0) {
-    return <p className="text-sm text-text-muted">Keine Befunde.</p>;
+  // Verwaiste Funde (Fundstelle stimmt nicht mehr mit dem aktuellen Text
+  // ueberein, siehe befundReview.ts:pruefeVerwaist) sind i.d.R. bereits
+  // durch eine automatische Korrektur behoben - als weiterhin "offen"
+  // gelistet waeren sie nur verwirrend, da fuer sie ohnehin keine Aktion
+  // mehr moeglich ist. Komplett ausgeblendet statt nur markiert.
+  const versteckteAnzahl = orphanIds ? befunde.filter((b) => orphanIds.has(b.id)).length : 0;
+  const sichtbareBefunde = orphanIds ? befunde.filter((b) => !orphanIds.has(b.id)) : befunde;
+
+  if (sichtbareBefunde.length === 0) {
+    return (
+      <p className="text-sm text-text-muted">
+        {versteckteAnzahl > 0
+          ? `Keine offenen Befunde mehr (${versteckteAnzahl} bereits erledigt, Text wurde inzwischen geändert).`
+          : "Keine Befunde."}
+      </p>
+    );
   }
 
-  const lektoratSammelbar = befunde.filter(
-    (b) =>
-      b.kategorien.includes("lektorat") &&
-      kannUebernommenWerden(b, orphanIds?.has(b.id) ?? false, uebernommenIds?.has(b.id) ?? false),
+  const lektoratSammelbar = sichtbareBefunde.filter(
+    (b) => b.kategorien.includes("lektorat") && kannUebernommenWerden(b, uebernommenIds?.has(b.id) ?? false),
   );
 
   return (
     <div className="space-y-2">
+      {versteckteAnzahl > 0 && (
+        <p className="text-xs text-text-muted">
+          {versteckteAnzahl} weitere(r) Fund/Funde ausgeblendet (bereits erledigt, Text wurde inzwischen geändert).
+        </p>
+      )}
       {onUebernehmenAlle && lektoratSammelbar.length > 1 && (
         <button
           type="button"
@@ -76,10 +95,9 @@ export function BefundListe({
         </button>
       )}
       <ul className="space-y-2">
-      {befunde.map((befund) => {
-        const verwaist = orphanIds?.has(befund.id) ?? false;
+      {sichtbareBefunde.map((befund) => {
         const uebernommen = uebernommenIds?.has(befund.id) ?? false;
-        const kannUebernehmen = !!onUebernehmen && kannUebernommenWerden(befund, verwaist, uebernommen);
+        const kannUebernehmen = !!onUebernehmen && kannUebernommenWerden(befund, uebernommen);
 
         return (
           <li
@@ -115,11 +133,6 @@ export function BefundListe({
               {!befund.gefunden && (
                 <span className="rounded-full border border-border px-2 py-0.5 text-xs text-text-muted">
                   Stelle im Text nicht gefunden
-                </span>
-              )}
-              {verwaist && (
-                <span className="rounded-full border border-border px-2 py-0.5 text-xs text-text-muted">
-                  Stelle wurde durch eine Bearbeitung entfernt
                 </span>
               )}
               {uebernommen && (

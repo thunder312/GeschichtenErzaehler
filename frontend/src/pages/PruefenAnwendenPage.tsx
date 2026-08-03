@@ -76,8 +76,31 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
     setKombiniert("");
     setSpannen({});
     setGespeichertHinweis(null);
-    api.automatikStatus(ordner).then(setAutomatikStatus).catch(() => setAutomatikStatus(null));
   }, [ordner, reloadToken]);
+
+  // Pollt den Automatikmodus-Status unabhaengig vom Reset oben, damit z.B.
+  // der "Prüfung abschließen"-Button sofort erscheint, sobald ein im
+  // Hintergrund laufender Automatik-Lauf fertig wird, waehrend der Nutzer
+  // schon auf diesem Tab ist - ohne Reload oder erneuten Tab-Wechsel noetig
+  // (SchreibenPage.tsx pollt fuer ihre eigene Anzeige nach demselben Muster,
+  // haelt aber ihren eigenen State - kein gemeinsamer Cache).
+  useEffect(() => {
+    let abgebrochen = false;
+    function laden() {
+      api
+        .automatikStatus(ordner)
+        .then((status) => {
+          if (!abgebrochen) setAutomatikStatus(status);
+        })
+        .catch(() => {});
+    }
+    laden();
+    const intervall = setInterval(laden, 4000);
+    return () => {
+      abgebrochen = true;
+      clearInterval(intervall);
+    };
+  }, [ordner]);
 
   // Laedt jedes bislang unbekannte Kapitel GENAU EINMAL.
   useEffect(() => {
