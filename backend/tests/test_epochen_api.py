@@ -134,3 +134,93 @@ def test_epoche_loeschen_entfernt_ordner_aus_bibliothek(client, tmp_path):
 def test_epoche_loeschen_unbekannter_ordner_gibt_404(client):
     r = client.delete("/api/epochen/Nicht-Vorhanden")
     assert r.status_code == 404
+
+
+def test_epoche_dateien_auflisten_liefert_alle_vier(client):
+    client.post("/api/epochen", json=_reale_epoche())
+    r = client.get("/api/epochen/Viktorianisches-England/dateien")
+    assert r.status_code == 200
+    assert set(r.json()) == {"architekt.txt", "autor.txt", "pruefer_anachronismus.txt", "verbotsliste.md"}
+
+
+def test_epoche_dateien_auflisten_unbekannte_epoche_gibt_404(client):
+    r = client.get("/api/epochen/Nicht-Vorhanden/dateien")
+    assert r.status_code == 404
+
+
+def test_epoche_datei_lesen_liefert_inhalt(client):
+    angelegt = client.post("/api/epochen", json=_reale_epoche()).json()
+    r = client.get("/api/epochen/Viktorianisches-England/dateien/autor.txt")
+    assert r.status_code == 200
+    assert r.text == angelegt["dateien"]["autor.txt"]
+
+
+def test_epoche_datei_lesen_unbekannter_dateiname_gibt_404(client):
+    client.post("/api/epochen", json=_reale_epoche())
+    r = client.get("/api/epochen/Viktorianisches-England/dateien/nicht_erlaubt.txt")
+    assert r.status_code == 404
+
+
+def test_epoche_datei_schreiben_persistiert_aenderung(client, tmp_path):
+    client.post("/api/epochen", json=_reale_epoche())
+    r = client.put(
+        "/api/epochen/Viktorianisches-England/dateien/verbotsliste.md",
+        json={"inhalt": "- Nachbearbeitete Verbotsliste"},
+    )
+    assert r.status_code == 200
+
+    ziel = tmp_path / "epochen" / "Viktorianisches-England" / "verbotsliste.md"
+    assert ziel.read_text(encoding="utf-8") == "- Nachbearbeitete Verbotsliste"
+
+    gelesen = client.get("/api/epochen/Viktorianisches-England/dateien/verbotsliste.md")
+    assert gelesen.text == "- Nachbearbeitete Verbotsliste"
+
+
+def test_epoche_datei_schreiben_unbekannte_epoche_gibt_404(client):
+    r = client.put("/api/epochen/Nicht-Vorhanden/dateien/autor.txt", json={"inhalt": "x"})
+    assert r.status_code == 404
+
+
+def test_epoche_datei_schreiben_wirkt_sich_nicht_auf_bereits_angelegtes_projekt_aus(client, tmp_path):
+    """Bestaetigt dieselbe Entkopplung wie bei epoche_loeschen(): ein
+    Projekt haelt eine eigene Kopie der Persona-Datei, die von einer
+    spaeteren Bearbeitung der zentralen Epoche unberuehrt bleibt."""
+    client.post("/api/epochen", json=_reale_epoche())
+    projekt = client.post(
+        "/api/projects", json={"titel": "Testgeschichte", "epoche": "Viktorianisches-England"},
+    ).json()
+    projekt_autor_vorher = (tmp_path / "projects" / "daniel" / projekt["ordner"] / "personas" / "autor.txt").read_text(
+        encoding="utf-8",
+    )
+
+    client.put("/api/epochen/Viktorianisches-England/dateien/autor.txt", json={"inhalt": "Komplett neuer Autor-Text"})
+
+    projekt_autor_nachher = (tmp_path / "projects" / "daniel" / projekt["ordner"] / "personas" / "autor.txt").read_text(
+        encoding="utf-8",
+    )
+    assert projekt_autor_nachher == projekt_autor_vorher
+    assert projekt_autor_nachher != "Komplett neuer Autor-Text"
+
+
+def test_epoche_genre_schreiben_setzt_und_ueberschreibt(client):
+    client.post("/api/epochen", json=_reale_epoche())
+    r = client.put("/api/epochen/Viktorianisches-England/genre", json={"genre": "Krimi"})
+    assert r.status_code == 200
+    assert r.json()["genre"] == "Krimi"
+
+    liste = client.get("/api/projects/epochen").json()
+    eintrag = next(e for e in liste if e["name"] == "Viktorianisches-England")
+    assert eintrag["genre"] == "Krimi"
+
+    r2 = client.put("/api/epochen/Viktorianisches-England/genre", json={"genre": "Dark Fantasy"})
+    assert r2.json()["genre"] == "Dark Fantasy"
+
+
+def test_epoche_genre_schreiben_mit_leerem_wert_entfernt_marker(client, tmp_path):
+    client.post("/api/epochen", json=_reale_epoche(genre="Krimi"))
+    marker = tmp_path / "epochen" / "Viktorianisches-England" / ".genre"
+    assert marker.exists()
+
+    r = client.put("/api/epochen/Viktorianisches-England/genre", json={"genre": ""})
+    assert r.json()["genre"] is None
+    assert not marker.exists()

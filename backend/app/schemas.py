@@ -33,6 +33,14 @@ class EpocheErstellenAntwort(BaseModel):
     dateien: dict[str, str]
 
 
+class EpocheDateiSchreibenAnfrage(BaseModel):
+    inhalt: str
+
+
+class EpocheGenreAnfrage(BaseModel):
+    genre: str = ""
+
+
 class ProjektKurz(BaseModel):
     ordner: str
     titel: str | None = None

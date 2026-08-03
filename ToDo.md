@@ -38,6 +38,9 @@
 # Bugs
 - [x] eventuell funktioniert das fort schreiben der Tabs nicht richtig, ich hatte 2-mal Kapitel 3, kein Kapitel 4. Muss nochmal verifiziert werden. 
 - [x] Die Speicherort-Logik und der Ordnername mus nochmal verifiziert werden.
+- [x] Epochen sollen bearbeitbar sein
+- [x] Neu angelegte Epochen sollen sofort im Dropdown für neue Geschichten auftauchen.
+- 
 
 # Deployment
 - [x] Implementiere einen User-Zugang mit Accounts. Benutze hierfür die bestehende DB. Hier im Entwickler-/Test-System kann der Login inaktiv sein, um es bequem zu halten. Aktiv ist es nur solange bis es erfolgreich implementiert und getestet ist.

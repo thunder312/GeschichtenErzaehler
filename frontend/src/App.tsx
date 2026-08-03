@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api/client";
-import type { ProjektDetail, ProjektKurz, SSHZiel } from "./api/types";
+import type { EpocheKurz, ProjektDetail, ProjektKurz, SSHZiel } from "./api/types";
 import { AboutDialog } from "./components/AboutDialog";
 import { TabBar } from "./components/TabBar";
 import { ArchitektInterviewPage } from "./pages/ArchitektInterviewPage";
@@ -26,6 +26,7 @@ import { Button, Select } from "./components/ui";
 function App() {
   const { benutzer, ladend, logout } = useAuth();
   const [projekte, setProjekte] = useState<ProjektKurz[]>([]);
+  const [epochen, setEpochen] = useState<EpocheKurz[]>([]);
   const [sshZiele, setSshZiele] = useState<SSHZiel[]>([]);
   const [aktuellesProjekt, setAktuellesProjekt] = useState<string | null>(null);
   const [projektDetail, setProjektDetail] = useState<ProjektDetail | null>(null);
@@ -45,6 +46,17 @@ function App() {
     api.projekte().then(setProjekte);
   }, []);
 
+  // Zentral hier geladen (statt in ProjektePage/EpocheErstellenPage je
+  // einmal einzeln) - beide Stellen riefen bisher unabhaengig api.epochen()
+  // NUR beim eigenen Mount auf: eine in EpocheErstellenPage neu angelegte
+  // oder geloeschte Epoche tauchte im "Neues Projekt"-Dropdown von
+  // ProjektePage deshalb erst nach einem harten Reload auf, weil dessen
+  // eigener einmaliger Fetch laengst vorbei war (siehe onEpochenGeaendert
+  // unten - dasselbe Prop-Callback-Muster wie onProjekteGeaendert).
+  const epochenLaden = useCallback(() => {
+    api.epochen().then(setEpochen);
+  }, []);
+
   const sshZieleLaden = useCallback(() => {
     api.sshZiele().then(setSshZiele);
   }, []);
@@ -59,8 +71,9 @@ function App() {
     // sonst ins Leere (401), bevor ueberhaupt eine Session existiert.
     if (!benutzer) return;
     projekteLaden();
+    epochenLaden();
     sshZieleLaden();
-  }, [benutzer, projekteLaden, sshZieleLaden]);
+  }, [benutzer, projekteLaden, epochenLaden, sshZieleLaden]);
 
   useEffect(() => {
     projektDetailLaden();
@@ -213,6 +226,7 @@ function App() {
         <div className={activeTab === "projekte" ? "" : "hidden"}>
           <ProjektePage
             projekte={projekte}
+            epochen={epochen}
             aktuellesProjekt={aktuellesProjekt}
             onProjekteGeaendert={projekteLaden}
             onProjektAuswaehlen={projektAuswaehlen}
@@ -287,7 +301,7 @@ function App() {
         )}
 
         <div className={activeTab === "epoche" ? "" : "hidden"}>
-          <EpocheErstellenPage />
+          <EpocheErstellenPage epochen={epochen} onEpochenGeaendert={epochenLaden} />
         </div>
 
         <div className={activeTab === "fundus" ? "" : "hidden"}>

@@ -1,3 +1,4 @@
+import Editor from "@monaco-editor/react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { EpocheKurz } from "../api/types";
@@ -45,14 +46,160 @@ function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   );
 }
 
+const EPOCHE_DATEI_BESCHRIFTUNG: Record<string, string> = {
+  "architekt.txt": "🗺️ Architekt",
+  "autor.txt": "✍️ Autor",
+  "pruefer_anachronismus.txt": "🔍 Anachronismus- & Stimmigkeits-Prüfer",
+  "verbotsliste.md": "🚫 Verbotsliste",
+};
+
+/** Editor fuer den Rohentwurf EINER zentralen Epoche (die vier Dateien aus
+ * app/core/epoche.py:epoche_dateien_erzeugen plus das optionale Genre) -
+ * anders als PersonasPage.tsx wirken Aenderungen hier NICHT nur auf ein
+ * einzelnes Projekt, sondern auf die Bibliothek selbst, aus der zukuenftig
+ * angelegte Projekte ihre Kopie ziehen (siehe app/api/epochen.py). */
+function EpocheBearbeiten({
+  ordner,
+  genre,
+  onEpochenGeaendert,
+}: {
+  ordner: string;
+  genre: string | null;
+  onEpochenGeaendert: () => void;
+}) {
+  const [dateinamen, setDateinamen] = useState<string[]>([]);
+  const [ausgewaehlt, setAusgewaehlt] = useState<string | null>(null);
+  const [inhalt, setInhalt] = useState("");
+  const [wirdGeladen, setWirdGeladen] = useState(true);
+  const [wirdGespeichert, setWirdGespeichert] = useState(false);
+  const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
+
+  const [genreEntwurf, setGenreEntwurf] = useState(genre ?? "");
+  const [genreWirdGespeichert, setGenreWirdGespeichert] = useState(false);
+  const [genreGespeichertHinweis, setGenreGespeichertHinweis] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.epocheDateienAuflisten(ordner).then((liste) => {
+      setDateinamen(liste);
+      if (liste.length > 0) setAusgewaehlt(liste[0]);
+    });
+  }, [ordner]);
+
+  useEffect(() => {
+    if (!ausgewaehlt) return;
+    setWirdGeladen(true);
+    setGespeichertHinweis(null);
+    api.epocheDateiLesen(ordner, ausgewaehlt).then((text) => {
+      setInhalt(text);
+      setWirdGeladen(false);
+    });
+  }, [ordner, ausgewaehlt]);
+
+  async function dateiSpeichern() {
+    if (!ausgewaehlt) return;
+    setWirdGespeichert(true);
+    setGespeichertHinweis(null);
+    try {
+      await api.epocheDateiSchreiben(ordner, ausgewaehlt, inhalt);
+      setGespeichertHinweis("Gespeichert.");
+    } finally {
+      setWirdGespeichert(false);
+    }
+  }
+
+  async function genreSpeichern() {
+    setGenreWirdGespeichert(true);
+    setGenreGespeichertHinweis(null);
+    try {
+      await api.epocheGenreSchreiben(ordner, genreEntwurf);
+      setGenreGespeichertHinweis("Gespeichert.");
+      onEpochenGeaendert();
+    } finally {
+      setGenreWirdGespeichert(false);
+    }
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-4 border-t border-border bg-bg/40 p-4 lg:grid-cols-[1fr_2fr]">
+      <div className="space-y-4">
+        <div>
+          <Label>Genre-Prägung</Label>
+          <div className="flex gap-2">
+            <Input
+              value={genreEntwurf}
+              onChange={(e) => setGenreEntwurf(e.target.value)}
+              placeholder="z.B. Krimi, Dark Fantasy"
+            />
+            <Button variant="secondary" onClick={genreSpeichern} disabled={genreWirdGespeichert}>
+              {genreWirdGespeichert ? "..." : "OK"}
+            </Button>
+          </div>
+          {genreGespeichertHinweis && <p className="mt-1 text-xs text-accent-light">{genreGespeichertHinweis}</p>}
+        </div>
+        <div>
+          <Label>Dateien</Label>
+          <ul className="space-y-1">
+            {dateinamen.map((name) => (
+              <li key={name}>
+                <button
+                  onClick={() => setAusgewaehlt(name)}
+                  className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                    ausgewaehlt === name
+                      ? "bg-accent-soft text-accent-light"
+                      : "text-text-muted hover:bg-surface-hover hover:text-text"
+                  }`}
+                >
+                  {EPOCHE_DATEI_BESCHRIFTUNG[name] ?? name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-medium text-text">
+            {ausgewaehlt ? (EPOCHE_DATEI_BESCHRIFTUNG[ausgewaehlt] ?? ausgewaehlt) : "Datei wählen"}
+          </span>
+          <div className="flex items-center gap-2">
+            {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
+            <Button onClick={dateiSpeichern} disabled={wirdGespeichert || wirdGeladen || !ausgewaehlt}>
+              {wirdGespeichert ? "Speichert..." : "Speichern"}
+            </Button>
+          </div>
+        </div>
+        <Editor
+          height="440px"
+          defaultLanguage="markdown"
+          value={inhalt}
+          onChange={(v) => setInhalt(v ?? "")}
+          theme="vs-dark"
+          options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface EpocheErstellenPageProps {
+  epochen: EpocheKurz[];
+  onEpochenGeaendert: () => void;
+}
+
 /** Reines Frageformular (kein LLM-Aufruf) zum Anlegen einer neuen Epoche/
  * eines neuen Settings unter der zentralen Epochen-Bibliothek - portiert
  * aus pre-GUI/novelle.py's cmd_epoche_erstellen(). Das Ergebnis ist
  * bewusst ein ROHENTWURF: verbotsliste.md und pruefer_anachronismus.txt
  * brauchen danach noch echte Recherche (siehe Bedienungsanleitung
- * Abschnitt 10) - am einfachsten ueber ein neues Projekt mit dieser Epoche
- * und den bereits vorhandenen Personas-/Verbotsliste-Editoren. */
-export function EpocheErstellenPage() {
+ * Abschnitt 10) - direkt hier ueber "Bearbeiten" bei der jeweiligen Epoche
+ * (siehe EpocheBearbeiten oben), alternativ ueber ein neues Projekt mit
+ * dieser Epoche und den Personas-/Verbotsliste-Editoren dort (wirkt dann
+ * aber nur auf die Kopie dieses einen Projekts, nicht auf die Bibliothek).
+ * `epochen` kommt von App.tsx (zusammen mit `onEpochenGeaendert`), damit
+ * eine hier neu angelegte oder geloeschte Epoche sofort auch im "Neues
+ * Projekt"-Dropdown von ProjektePage auftaucht, ohne Reload. */
+export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErstellenPageProps) {
   const [formular, setFormular] = useState<EpocheErstellenAnfrage>(LEERES_FORMULAR);
   const [wirdAngelegt, setWirdAngelegt] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
@@ -60,23 +207,10 @@ export function EpocheErstellenPage() {
     null,
   );
 
-  const [epochen, setEpochen] = useState<EpocheKurz[]>([]);
-  const [epochenLaden, setEpochenLaden] = useState(true);
   const [loeschenAnfrage, setLoeschenAnfrage] = useState<EpocheKurz | null>(null);
   const [wirdGeloescht, setWirdGeloescht] = useState<string | null>(null);
   const [loeschenFehler, setLoeschenFehler] = useState<string | null>(null);
-
-  function epochenNeuLaden() {
-    setEpochenLaden(true);
-    api
-      .epochen()
-      .then(setEpochen)
-      .finally(() => setEpochenLaden(false));
-  }
-
-  useEffect(() => {
-    epochenNeuLaden();
-  }, []);
+  const [bearbeiteOrdner, setBearbeiteOrdner] = useState<string | null>(null);
 
   async function epocheLoeschenBestaetigt() {
     if (!loeschenAnfrage) return;
@@ -86,7 +220,8 @@ export function EpocheErstellenPage() {
     try {
       await api.epocheLoeschen(name);
       setLoeschenAnfrage(null);
-      epochenNeuLaden();
+      if (bearbeiteOrdner === name) setBearbeiteOrdner(null);
+      onEpochenGeaendert();
     } catch (e) {
       setLoeschenFehler(e instanceof Error ? e.message : String(e));
     } finally {
@@ -122,7 +257,7 @@ export function EpocheErstellenPage() {
       }
       setErgebnis(await antwort.json());
       setFormular(LEERES_FORMULAR);
-      epochenNeuLaden();
+      onEpochenGeaendert();
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
@@ -146,8 +281,8 @@ export function EpocheErstellenPage() {
             <li>pruefer_anachronismus.txt</li>
           </ul>
           <p className="mb-4 text-sm text-text-muted">
-            Am einfachsten testest und verfeinerst du sie, indem du ein neues Projekt mit dieser Epoche
-            anlegst und die Dateien über die Tabs "Personas" bzw. "Architekt / Gerüst" bearbeitest.
+            Am einfachsten verfeinerst du sie direkt hier: Klick unten in der Liste "Vorhandene Epochen" auf
+            "Bearbeiten" bei <strong className="text-text">{ergebnis.name}</strong>.
           </p>
           <Button onClick={() => setErgebnis(null)}>Weitere Epoche anlegen</Button>
         </Card>
@@ -160,27 +295,40 @@ export function EpocheErstellenPage() {
       <Card>
         <CardTitle>📜 Vorhandene Epochen</CardTitle>
         {loeschenFehler && <p className="mb-3 text-sm text-red-400">{loeschenFehler}</p>}
-        {epochenLaden ? (
-          <p className="text-sm text-text-muted">Lädt...</p>
-        ) : epochen.length === 0 ? (
+        {epochen.length === 0 ? (
           <p className="text-sm text-text-muted">Noch keine Epoche angelegt.</p>
         ) : (
           <ul className="divide-y divide-border">
             {epochen.map((e) => (
-              <li key={e.name} className="flex items-center gap-3 px-1 py-2 text-sm">
-                <button
-                  onClick={() => setLoeschenAnfrage(e)}
-                  disabled={wirdGeloescht === e.name}
-                  title={`Epoche "${e.name}" löschen`}
-                  aria-label={`Epoche "${e.name}" löschen`}
-                  className="shrink-0 text-sm leading-none text-red-400/60 transition-colors hover:text-red-400 disabled:opacity-40"
-                >
-                  ✕
-                </button>
-                <div>
-                  <div className="font-medium text-text">{e.name}</div>
-                  {e.genre && <div className="text-xs text-text-muted">{e.genre}</div>}
+              <li key={e.name}>
+                <div className="flex items-center gap-3 px-1 py-2 text-sm">
+                  <button
+                    onClick={() => setLoeschenAnfrage(e)}
+                    disabled={wirdGeloescht === e.name}
+                    title={`Epoche "${e.name}" löschen`}
+                    aria-label={`Epoche "${e.name}" löschen`}
+                    className="shrink-0 text-sm leading-none text-red-400/60 transition-colors hover:text-red-400 disabled:opacity-40"
+                  >
+                    ✕
+                  </button>
+                  <div className="flex-1">
+                    <div className="font-medium text-text">{e.name}</div>
+                    {e.genre && <div className="text-xs text-text-muted">{e.genre}</div>}
+                  </div>
+                  <button
+                    onClick={() => setBearbeiteOrdner((bisher) => (bisher === e.name ? null : e.name))}
+                    className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                      bearbeiteOrdner === e.name
+                        ? "border-accent bg-accent-soft text-accent-light"
+                        : "border-border text-text-muted hover:bg-surface-hover hover:text-text"
+                    }`}
+                  >
+                    {bearbeiteOrdner === e.name ? "Schließen" : "✏️ Bearbeiten"}
+                  </button>
                 </div>
+                {bearbeiteOrdner === e.name && (
+                  <EpocheBearbeiten key={e.name} ordner={e.name} genre={e.genre} onEpochenGeaendert={onEpochenGeaendert} />
+                )}
               </li>
             ))}
           </ul>

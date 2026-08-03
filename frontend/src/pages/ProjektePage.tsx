@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { api } from "../api/client";
 import type { AutomatikZustand, EpocheKurz, ProjektKurz } from "../api/types";
@@ -16,6 +16,7 @@ function AutomatikBadge({ zustand }: { zustand: AutomatikZustand }) {
 
 interface ProjektePageProps {
   projekte: ProjektKurz[];
+  epochen: EpocheKurz[];
   aktuellesProjekt: string | null;
   onProjekteGeaendert: () => void;
   onProjektAuswaehlen: (ordner: string) => void;
@@ -24,12 +25,12 @@ interface ProjektePageProps {
 
 export function ProjektePage({
   projekte,
+  epochen,
   aktuellesProjekt,
   onProjekteGeaendert,
   onProjektAuswaehlen,
   onProjektGeloescht,
 }: ProjektePageProps) {
-  const [epochen, setEpochen] = useState<EpocheKurz[]>([]);
   const [titel, setTitel] = useState("");
   const [epoche, setEpoche] = useState("");
   const [zweiteEpoche, setZweiteEpoche] = useState("");
@@ -42,7 +43,7 @@ export function ProjektePage({
   const [sortierungAbsteigend, setSortierungAbsteigend] = useState(false);
 
   // Nur tatsaechlich vorkommende Epochen zur Auswahl anbieten, nicht alle
-  // jemals angelegten (siehe api.epochen() unten fuer "Neues Projekt") -
+  // jemals angelegten (siehe `epochen`-Prop unten fuer "Neues Projekt") -
   // ein Filter auf eine Epoche ohne eigene Projekte waere sinnlos.
   const vorhandeneEpochen = useMemo(() => {
     const gefunden = new Set(projekte.map((p) => p.epoche).filter((e): e is string => !!e));
@@ -65,19 +66,23 @@ export function ProjektePage({
     return sortiert;
   }, [projekte, suchtext, epocheFilter, sortierungAbsteigend]);
 
+  // Vorbelegung nur EINMAL setzen, sobald die (von App.tsx geladene) Liste
+  // erstmals nicht leer ist - nicht bei jeder spaeteren Aenderung von
+  // `epochen` (z.B. weil im Tab "Epoche erstellen" eine neue Epoche
+  // hinzukam), sonst wuerde eine bereits laufende manuelle Auswahl hier
+  // unerwartet ueberschrieben.
+  const vorbelegungGesetzt = useRef(false);
   useEffect(() => {
-    api.epochen().then((liste) => {
-      setEpochen(liste);
-      if (liste.length === 0) return;
-      // Zuletzt gewaehlte Epoche vorbelegen statt immer die alphabetisch
-      // erste - sonst landet ein neues Projekt leicht in der falschen
-      // Epoche, wenn man sich beim erneuten Oeffnen der Seite auf die
-      // zuletzt benutzte Epoche verlaesst, ohne die Auswahl zu pruefen.
-      const letzte = window.localStorage.getItem("letzte-epoche");
-      const vorbelegung = letzte && liste.some((e) => e.name === letzte) ? letzte : liste[0].name;
-      setEpoche(vorbelegung);
-    });
-  }, []);
+    if (vorbelegungGesetzt.current || epochen.length === 0) return;
+    vorbelegungGesetzt.current = true;
+    // Zuletzt gewaehlte Epoche vorbelegen statt immer die alphabetisch
+    // erste - sonst landet ein neues Projekt leicht in der falschen
+    // Epoche, wenn man sich beim erneuten Oeffnen der Seite auf die
+    // zuletzt benutzte Epoche verlaesst, ohne die Auswahl zu pruefen.
+    const letzte = window.localStorage.getItem("letzte-epoche");
+    const vorbelegung = letzte && epochen.some((e) => e.name === letzte) ? letzte : epochen[0].name;
+    setEpoche(vorbelegung);
+  }, [epochen]);
 
   function loeschenAnfordern(ereignis: MouseEvent, p: ProjektKurz) {
     // Verhindert, dass der Klick auf das "X" zusaetzlich den Zeilen-Klick-

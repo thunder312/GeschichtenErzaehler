@@ -57,6 +57,24 @@ export const api = {
   epocheLoeschen: (ordner: string) =>
     anfrage<void>(`/api/epochen/${encodeURIComponent(ordner)}`, { method: "DELETE" }),
 
+  epocheDateienAuflisten: (ordner: string) =>
+    anfrage<string[]>(`/api/epochen/${encodeURIComponent(ordner)}/dateien`),
+
+  epocheDateiLesen: (ordner: string, name: string) =>
+    anfrage<string>(`/api/epochen/${encodeURIComponent(ordner)}/dateien/${name}`),
+
+  epocheDateiSchreiben: (ordner: string, name: string, inhalt: string) =>
+    anfrage<{ gespeichert: boolean }>(
+      `/api/epochen/${encodeURIComponent(ordner)}/dateien/${name}`,
+      { method: "PUT", body: JSON.stringify({ inhalt }) },
+    ),
+
+  epocheGenreSchreiben: (ordner: string, genre: string) =>
+    anfrage<{ genre: string | null }>(
+      `/api/epochen/${encodeURIComponent(ordner)}/genre`,
+      { method: "PUT", body: JSON.stringify({ genre }) },
+    ),
+
   projekte: () => anfrage<ProjektKurz[]>("/api/projects"),
 
   projektAnlegen: (titel: string, epoche: string, zweiteEpoche?: string | null) =>
