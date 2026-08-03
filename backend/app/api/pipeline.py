@@ -20,9 +20,10 @@ import asyncio
 import functools
 import hashlib
 import logging
+import re
 import time
 from pathlib import Path
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, TypeVar
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
@@ -783,6 +784,95 @@ def _automatik_status_schreiben(status: dict, projekt_root: Path) -> None:
     automatik.status_schreiben(projekt_root, status)
 
 
+T = TypeVar("T")
+
+# Nach einem Fehlschlag (z.B. 502/503 - siehe Vorfall 2026-08-02, wo ein
+# unerreichbares Ollama den Lauf stundenlang mit "fehler" pausiert liess,
+# obwohl der Container kurz danach schon wieder lief) wird nicht sofort
+# aufgegeben: bis zu AUTOMATIK_RETRY_VERSUCHE weitere Versuche im Abstand
+# von AUTOMATIK_RETRY_WARTEZEIT_SEK, also 5/10/15 Minuten NACH dem ersten
+# Fehlschlag. Erst wenn auch der letzte Versuch scheitert, pausiert der Lauf
+# wie bisher ueber den bestehenden Fehler-Pfad in _automatik_lauf().
+AUTOMATIK_RETRY_VERSUCHE = 3
+AUTOMATIK_RETRY_WARTEZEIT_SEK = 5 * 60
+
+
+class _AutomatikGestoppt(Exception):
+    """Interne Steuer-Exception, NICHT von OllamaFehler/HTTPException
+    abgeleitet: signalisiert einen waehrend der Wartezeit zwischen zwei
+    Retry-Versuchen (siehe _automatik_mit_retry) per /automatik/stop
+    angeforderten Abbruch. Getrennt von echten Fehlern, damit
+    _automatik_lauf() ihn wie einen regulaeren Stop behandelt (Status
+    "gestoppt", kein status["fehler"]), nicht wie einen gescheiterten Lauf."""
+
+
+def _automatik_fehler_nummer(e: Exception) -> str:
+    """Extrahiert einen Fehlercode fuers Frontend (kompakte Fortsetzen-
+    Zeile): HTTPException traegt ihn direkt (z.B. 502 aus _sammle_stream,
+    siehe dort), bei OllamaFehler-Meldungen wie "Ollama antwortet mit HTTP
+    502: ..." steckt er im Text. Ohne erkennbaren Code (z.B. "Ollama nicht
+    erreichbar" oder "Leere Antwort") faellt es auf den Exception-Namen
+    zurueck, statt nichts anzuzeigen."""
+    status_code = getattr(e, "status_code", None)
+    if status_code:
+        return str(status_code)
+    treffer = re.search(r"\bHTTP (\d{3})\b", str(e))
+    if treffer:
+        return treffer.group(1)
+    return type(e).__name__
+
+
+async def _automatik_warte_oder_stop(sekunden: float, status: dict, projekt_root: Path) -> bool:
+    """Wartet `sekunden` in kurzen Schritten statt einem einzigen
+    asyncio.sleep, damit ein waehrenddessen per /automatik/stop gesetztes
+    Flag nicht erst nach der vollen Wartezeit bemerkt wird. Gibt True
+    zurueck, wenn zwischenzeitlich gestoppt wurde."""
+    schritt = 10.0
+    verstrichen = 0.0
+    while verstrichen < sekunden:
+        if _automatik_stop_angefordert(status, projekt_root):
+            return True
+        await asyncio.sleep(min(schritt, sekunden - verstrichen))
+        verstrichen += schritt
+    return _automatik_stop_angefordert(status, projekt_root)
+
+
+async def _automatik_mit_retry(
+    schritt_fn: Callable[[], Awaitable[T]], status: dict, projekt_root: Path, beschreibung: str,
+) -> T:
+    """Fuehrt schritt_fn() aus und haengt bei einem Fehler bis zu
+    AUTOMATIK_RETRY_VERSUCHE weitere Versuche an (siehe Modul-Kommentar bei
+    AUTOMATIK_RETRY_VERSUCHE). Der Lauf gilt waehrend der Wartezeit
+    weiterhin als "laeuft" (Stoppen-Button bleibt wirksam, siehe
+    _automatik_warte_oder_stop). Scheitert auch der letzte Versuch, wird
+    dessen Exception unveraendert weitergereicht, damit der bestehende
+    Fehler-Pfad in _automatik_lauf() greift; wird waehrend einer Wartezeit
+    gestoppt, wird stattdessen _AutomatikGestoppt geworfen."""
+    for versuch in range(AUTOMATIK_RETRY_VERSUCHE + 1):
+        try:
+            ergebnis = await schritt_fn()
+            if versuch > 0:
+                status["log"].append(f"{beschreibung}: Wiederholung erfolgreich (Versuch {versuch + 1}).")
+                _automatik_status_schreiben(status, projekt_root)
+            return ergebnis
+        except Exception as e:
+            if versuch >= AUTOMATIK_RETRY_VERSUCHE:
+                raise
+            minuten = AUTOMATIK_RETRY_WARTEZEIT_SEK // 60
+            status["log"].append(
+                f"Fehler bei {beschreibung}: {e} - erneuter Versuch "
+                f"{versuch + 1}/{AUTOMATIK_RETRY_VERSUCHE} in {minuten} Minuten."
+            )
+            _automatik_status_schreiben(status, projekt_root)
+            if await _automatik_warte_oder_stop(AUTOMATIK_RETRY_WARTEZEIT_SEK, status, projekt_root):
+                status["log"].append(
+                    f"Gestoppt (Benutzeranforderung) während Warten auf Wiederholung bei {beschreibung}."
+                )
+                _automatik_status_schreiben(status, projekt_root)
+                raise _AutomatikGestoppt() from e
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
 def _automatik_on_event(status: dict, projekt_root: Path) -> OnEvent:
     async def _on_event(payload: dict) -> None:
         zeile = _automatik_log_zeile(payload)
@@ -830,6 +920,7 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
         "stop_angefordert": False,
         "abgeschlossen": False, "fehler": None,
         "resten_bestaetigt": False,
+        "fehler_schritt": None,
     })
     if fortsetzen_ab_kapitel:
         status["log"].append(
@@ -868,8 +959,13 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                 status["phase"] = "schreiben"
                 status["aktuelles_kapitel"] = n
                 status["log"].append(f"Schreibe Kapitel {n}/{letztes}...")
+                status["fehler_schritt"] = {"kapitel": n, "phase": "schreiben", "durchlauf": None}
                 _automatik_status_schreiben(status, projekt_root)
-                await _kapitel_schreiben_kern(settings, projekt_root, base_url, n, "", ssh_ziel_id, on_event)
+                await _automatik_mit_retry(
+                    lambda n=n: _kapitel_schreiben_kern(settings, projekt_root, base_url, n, "", ssh_ziel_id, on_event),
+                    status, projekt_root, f"Schreiben von Kapitel {n}",
+                )
+                status["fehler_schritt"] = None
 
             # Phase 2: jedes Kapitel pruefen und Korrekturen anwenden -
             # auch bereits vorher manuell geschriebene, nicht nur die
@@ -923,7 +1019,12 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                         return
                     _automatik_status_schreiben(status, projekt_root)
                     kapiteltext = pd.lies(pd.kapitel_datei(projekt, n))
-                    befunde_antwort = await _pruefe_kapitel(settings, projekt, base_url, n, kapiteltext)
+                    status["fehler_schritt"] = {"kapitel": n, "phase": "pruefen", "durchlauf": durchlauf}
+                    befunde_antwort = await _automatik_mit_retry(
+                        lambda n=n, kapiteltext=kapiteltext: _pruefe_kapitel(settings, projekt, base_url, n, kapiteltext),
+                        status, projekt_root, f"Prüfung von Kapitel {n}, Durchlauf {durchlauf}",
+                    )
+                    status["fehler_schritt"] = None
                     befunde_dicts = [b.model_dump() for b in befunde_antwort.befunde]
                     korrigiert, protokoll_eintraege = automatik.befunde_anwenden(kapiteltext, befunde_dicts)
                     for eintrag in protokoll_eintraege:
@@ -946,9 +1047,17 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
 
                 status["aktueller_durchlauf"] = None
                 finaler_text = pd.lies(pd.kapitel_datei(projekt, n))
-                unbekannt = h.hunspell_unbekannte_woerter(
-                    finaler_text, exec_fn=_hunspell_exec_fn(settings, ssh_ziel_id),
+                status["fehler_schritt"] = {"kapitel": n, "phase": "rechtschreibung", "durchlauf": None}
+
+                async def _hunspell_schritt(finaler_text=finaler_text) -> list[str] | None:
+                    return h.hunspell_unbekannte_woerter(
+                        finaler_text, exec_fn=_hunspell_exec_fn(settings, ssh_ziel_id),
+                    )
+
+                unbekannt = await _automatik_mit_retry(
+                    _hunspell_schritt, status, projekt_root, f"Rechtschreibprüfung Kapitel {n}",
                 )
+                status["fehler_schritt"] = None
                 if unbekannt:
                     status["protokoll"].append({
                         "art": "rechtschreibung", "kapitel": n, "unbekannte_woerter": unbekannt,
@@ -962,10 +1071,14 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
         status["phase"] = "abgeschlossen"
         status["abgeschlossen"] = True
         status["log"].append("Automatikmodus abgeschlossen.")
+    except _AutomatikGestoppt:
+        pass  # Log-Zeile bereits in _automatik_mit_retry gesetzt; kein status["fehler"].
     except Exception as e:
         logger.exception("Automatikmodus: Fehler in Projekt %s", projekt_root)
         status["fehler"] = str(e)
         status["log"].append(f"Fehler: {e}")
+        if status.get("fehler_schritt"):
+            status["fehler_schritt"]["fehler_nummer"] = _automatik_fehler_nummer(e)
     finally:
         status["laeuft"] = False
         automatik.status_schreiben(projekt_root, status)

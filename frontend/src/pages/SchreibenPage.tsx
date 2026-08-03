@@ -440,22 +440,17 @@ export function SchreibenPage({
         ) : (
           <div className="space-y-3">
             {automatikStatus?.fortsetzbar && (
-              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
-                <p className="text-sm text-text">
-                  Letzter Lauf wurde unterbrochen bei: <strong>Kapitel {automatikStatus.aktuelles_kapitel}</strong>
-                  {automatikStatus.gesamt_kapitel != null && <>/{automatikStatus.gesamt_kapitel}</>}
-                  {", "}Phase <strong>{automatikStatus.phase}</strong>
-                  {automatikStatus.aktueller_durchlauf != null && (
-                    <>
-                      {" "}
-                      · Durchlauf <strong>{automatikStatus.aktueller_durchlauf}</strong>
-                    </>
-                  )}
-                  {automatikStatus.gestartet_am && <> (gestartet {automatikStatus.gestartet_am})</>}.
-                </p>
-                <Button className="mt-2" onClick={() => automatikStarten(true)}>
-                  Fortsetzen
-                </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button onClick={() => automatikStarten(true)}>Fortsetzen</Button>
+                {automatikStatus.fehler_schritt && (
+                  <p className="text-sm text-text-muted">
+                    {automatikStatus.fehler_schritt.fehler_nummer ?? "Fehler"}: versuchter Schritt war: Kapitel{" "}
+                    {automatikStatus.fehler_schritt.kapitel}, Phase {automatikStatus.fehler_schritt.phase}
+                    {automatikStatus.fehler_schritt.durchlauf != null && (
+                      <>, Durchlauf {automatikStatus.fehler_schritt.durchlauf}</>
+                    )}
+                  </p>
+                )}
               </div>
             )}
             <div className="flex flex-wrap items-end gap-3">

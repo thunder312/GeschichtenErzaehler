@@ -167,6 +167,15 @@ export interface AutomatikStatus {
   fehler: string | null;
   fortsetzbar: boolean;
   resten_bestaetigt: boolean;
+  // Nur gesetzt, wenn der letzte Lauf nach ausgeschoepften 502/503-Retries
+  // pausiert wurde (siehe app/api/pipeline.py:_automatik_mit_retry) - fuer
+  // die kompakte Fortsetzen-Zeile.
+  fehler_schritt: {
+    kapitel: number;
+    phase: string;
+    durchlauf: number | null;
+    fehler_nummer?: string;
+  } | null;
 }
 
 // Ein Eintrag pro bisherigem Automatik-Lauf dieses Projekts (dauerhaftes

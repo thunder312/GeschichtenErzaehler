@@ -220,6 +220,11 @@ class AutomatikStatusAntwort(BaseModel):
     # app/core/automatik.py:zustand_zusammenfassen fuer die Wirkung auf den
     # Projektlisten-Badge.
     resten_bestaetigt: bool = False
+    # Nur gesetzt, wenn der letzte Lauf nach ausgeschoepften 502/503-Retries
+    # (siehe app/api/pipeline.py:_automatik_mit_retry) pausiert wurde -
+    # Kapitel/Phase/Durchlauf des zuletzt gescheiterten Schritts plus
+    # extrahierter Fehlercode, fuers Frontend (kompakte Fortsetzen-Zeile).
+    fehler_schritt: dict | None = None
 
 
 class AutomatikVerlaufEintrag(BaseModel):

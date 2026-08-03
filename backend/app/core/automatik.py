@@ -47,10 +47,15 @@ def status_lesen(projekt_root: Path) -> dict[str, Any]:
             "abgeschlossen": False,
             "fehler": None,
             "resten_bestaetigt": False,
+            "fehler_schritt": None,
         }
     status = json.loads(pfad.read_text(encoding="utf-8"))
     status.setdefault("aktueller_durchlauf", None)
     status.setdefault("resten_bestaetigt", False)
+    # Erst mit den 502/503-Retries (siehe app/api/pipeline.py:
+    # _automatik_mit_retry) eingefuehrt - setdefault fuer Status-Dateien
+    # aelterer, noch laufender/pausierter Automatik-Laeufe.
+    status.setdefault("fehler_schritt", None)
     return status
 
 

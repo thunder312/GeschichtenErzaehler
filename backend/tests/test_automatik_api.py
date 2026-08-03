@@ -119,23 +119,32 @@ def test_automatik_start_haengt_verlauf_eintrag_an(client, projekt_mit_kapitelpl
 
 def test_automatik_fortsetzen_ueberspringt_bereits_geprueftes_kapitel(client, projekt_mit_kapitelplan, monkeypatch):
     """Reproduziert die Zwangstrennungs-Situation, die zu diesem Feature
-    fuehrte: Kapitel 2 scheitert im ERSTEN Pruef-Durchlauf der Phase 2
+    fuehrte: Kapitel 2 scheitert PERSISTENT (auch alle Retries, siehe
+    AUTOMATIK_RETRY_VERSUCHE) im ERSTEN Pruef-Durchlauf der Phase 2
     (simulierter Verbindungsabbruch) - der Aufruf davor (waehrend Phase 1,
     direkt nach dem Schreiben von Kapitel 2, siehe _kapitel_schreiben_kern)
     laeuft absichtlich noch durch, damit beide Kapiteldateien wie im echten
     Vorfall bereits vollstaendig auf der Platte liegen, wenn der Fehler
     passiert. Ein Fortsetzen-Lauf darf Kapitel 1 NICHT erneut pruefen,
     sondern muss direkt bei Kapitel 2 weitermachen."""
+    # Retry-Wartezeit auf 0 fuer den Test (sonst wuerde ein Fehlschlag echte
+    # 5/10/15 Minuten Wartezeit ausloesen, siehe _automatik_mit_retry).
+    monkeypatch.setattr(pipeline, "AUTOMATIK_RETRY_WARTEZEIT_SEK", 0)
+
     urspruengliche_pruefung = pipeline._pruefe_kapitel
     aufrufe: list[int] = []
+    # Scheitert ab dem ZWEITEN Aufruf fuer Kapitel 2 (also ab Phase 2) und
+    # bleibt es fuer den ganzen ersten Lauf inkl. aller Retries - bis der
+    # Fortsetzen-Lauf die Verbindung "repariert".
+    zustand = {"scheitert": True}
 
-    async def _pruefung_die_bei_kapitel_2_im_zweiten_versuch_scheitert(settings_, projekt, base_url, n, kapiteltext):
+    async def _pruefung_die_bei_kapitel_2_ab_phase_2_scheitert(settings_, projekt, base_url, n, kapiteltext):
         aufrufe.append(n)
-        if n == 2 and aufrufe.count(2) == 2:
+        if n == 2 and zustand["scheitert"] and aufrufe.count(2) >= 2:
             raise pipeline.OllamaFehler("Simulierter Verbindungsabbruch")
         return await urspruengliche_pruefung(settings_, projekt, base_url, n, kapiteltext)
 
-    monkeypatch.setattr(pipeline, "_pruefe_kapitel", _pruefung_die_bei_kapitel_2_im_zweiten_versuch_scheitert)
+    monkeypatch.setattr(pipeline, "_pruefe_kapitel", _pruefung_die_bei_kapitel_2_ab_phase_2_scheitert)
 
     r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 1})
     assert r.status_code == 200
@@ -145,13 +154,19 @@ def test_automatik_fortsetzen_ueberspringt_bereits_geprueftes_kapitel(client, pr
     assert status["aktuelles_kapitel"] == 2
     assert status["aktueller_durchlauf"] == 1
     assert status["fortsetzbar"] is True
+    assert status["fehler_schritt"] == {
+        "kapitel": 2, "phase": "pruefen", "durchlauf": 1, "fehler_nummer": "OllamaFehler",
+    }
     # Phase 1 (Schreiben inkl. eingebauter Erstpruefung) fuer beide Kapitel,
-    # dann Phase 2: Kapitel 1 Durchlauf 1 (ok), Kapitel 2 Durchlauf 1 (Fehler).
-    assert aufrufe == [1, 2, 1, 2]
+    # dann Phase 2: Kapitel 1 Durchlauf 1 (ok), Kapitel 2 Durchlauf 1 - erster
+    # Versuch plus AUTOMATIK_RETRY_VERSUCHE weitere, alle scheitern.
+    assert aufrufe == [1, 2, 1] + [2] * (pipeline.AUTOMATIK_RETRY_VERSUCHE + 1)
     r1 = client.get(f"/api/projects/{projekt_mit_kapitelplan}/kapitel/1")
     r2 = client.get(f"/api/projects/{projekt_mit_kapitelplan}/kapitel/2")
     assert r1.status_code == 200 and r2.status_code == 200
 
+    aufrufe.clear()
+    zustand["scheitert"] = False  # "Server ist wieder erreichbar" fuer den Fortsetzen-Lauf.
     r2 = client.post(
         f"/api/projects/{projekt_mit_kapitelplan}/automatik/start",
         json={"max_durchlaeufe": 1, "fortsetzen": True},
@@ -161,13 +176,52 @@ def test_automatik_fortsetzen_ueberspringt_bereits_geprueftes_kapitel(client, pr
     assert status2["abgeschlossen"] is True
     assert status2["fehler"] is None
     assert status2["fortsetzbar"] is False
+    assert status2["fehler_schritt"] is None
     # Beim Fortsetzen kommt nur EIN weiterer Aufruf fuer Kapitel 2 dazu -
     # weder Kapitel 1 noch ein weiterer Schreib-Durchgang wird wiederholt.
-    assert aufrufe == [1, 2, 1, 2, 2]
+    assert aufrufe == [2]
 
     verlauf = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/verlauf").json()
     assert [e["status"] for e in verlauf] == ["fehler", "abgeschlossen"]
     assert verlauf[1]["fortgesetzt"] is True
+
+
+def test_automatik_wiederholt_bei_serverfehler_und_gibt_dann_auf(client, projekt_mit_kapitelplan, monkeypatch):
+    """Kernverhalten des Vorfalls vom 2026-08-02 (stundenlange 502-
+    Aussetzer, siehe Bedienungsanleitung): ein Ollama-Fehler beim Schreiben
+    eines Kapitels darf nicht sofort zum Abbruch fuehren, sondern erst nach
+    AUTOMATIK_RETRY_VERSUCHE weiteren, erfolglosen Versuchen. Erholt sich
+    die Verbindung rechtzeitig (hier: beim letzten erlaubten Versuch),
+    laeuft der Automatikmodus normal weiter, ohne dass status["fehler"]
+    jemals gesetzt wird."""
+    monkeypatch.setattr(pipeline, "AUTOMATIK_RETRY_WARTEZEIT_SEK", 0)
+
+    urspruenglicher_kern = pipeline._kapitel_schreiben_kern
+    versuche_kapitel_1 = {"n": 0}
+
+    async def _kern_der_bei_kapitel_1_erst_beim_letzten_versuch_klappt(
+        settings_, projekt_root_, base_url, n, zusatzhinweis, ssh_ziel_id, on_event,
+    ):
+        if n == 1:
+            versuche_kapitel_1["n"] += 1
+            if versuche_kapitel_1["n"] <= pipeline.AUTOMATIK_RETRY_VERSUCHE:
+                raise pipeline.OllamaFehler("Ollama nicht erreichbar unter http://127.0.0.1:18321: HTTP 502")
+        return await urspruenglicher_kern(settings_, projekt_root_, base_url, n, zusatzhinweis, ssh_ziel_id, on_event)
+
+    monkeypatch.setattr(pipeline, "_kapitel_schreiben_kern", _kern_der_bei_kapitel_1_erst_beim_letzten_versuch_klappt)
+
+    r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 1})
+    assert r.status_code == 200
+
+    status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert status["fehler"] is None
+    assert status["abgeschlossen"] is True
+    assert versuche_kapitel_1["n"] == pipeline.AUTOMATIK_RETRY_VERSUCHE + 1
+    # Ein Fehler-Log pro gescheitertem Versuch, plus eine Erfolgsmeldung fuer
+    # die Wiederholung.
+    fehler_zeilen = [z for z in status["log"] if z.startswith("Fehler bei Schreiben von Kapitel 1")]
+    assert len(fehler_zeilen) == pipeline.AUTOMATIK_RETRY_VERSUCHE
+    assert any("Wiederholung erfolgreich" in z for z in status["log"])
 
 
 def test_automatik_stop_waehrend_durchlauf_wird_nicht_verloren(client, projekt_mit_kapitelplan, monkeypatch):

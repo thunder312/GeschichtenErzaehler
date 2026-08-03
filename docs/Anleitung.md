@@ -185,15 +185,22 @@ liegen. Der Lauf arbeitet im Hintergrund auf dem Server weiter, auch wenn
 du den Tab schließt oder den Browser zumachst — beim nächsten Öffnen zeigt
 der Fortschrittsbalken wieder den aktuellen Stand.
 
-**Wird der Lauf unterbrochen** (Verbindungsabbruch zum KI-Ziel, Fehler,
+**Bei einem Verbindungsabbruch zum KI-Ziel** (z. B. Ollama kurzzeitig nicht
+erreichbar) gibt der Automatikmodus nicht sofort auf: er versucht denselben
+Schritt bis zu dreimal erneut, im Abstand von 5 Minuten (also 5, 10 und 15
+Minuten nach dem ersten Fehlschlag). Der Lauf gilt währenddessen weiter als
+aktiv, der „Stoppen“-Button bleibt wirksam. Erst wenn auch der letzte
+Versuch scheitert, pausiert der Lauf.
+
+**Wird der Lauf unterbrochen** (nach ausgeschöpften Wiederholungsversuchen,
 oder weil du selbst „Stoppen“ geklickt hast), merkt sich das Programm
 exakt, bei welchem Kapitel und welchem Prüf-Durchlauf das passiert ist.
 Statt danach erneut „Automatikmodus starten“ zu klicken — das würde die
 Prüfphase wieder komplett bei Kapitel 1 beginnen und bereits erledigte
 Kapitel unnötig ein zweites Mal prüfen — erscheint in diesem Fall ein
-eigener **„Fortsetzen“**-Button mit der genauen Fundstelle daneben
-(„Kapitel 6/10, Phase prüfen · Durchlauf 2“). Er setzt den Lauf exakt an
-dieser Stelle fort.
+eigener **„Fortsetzen“**-Button mit einem kurzen Hinweis daneben, z. B.
+„502: versuchter Schritt war: Kapitel 6, Phase pruefen, Durchlauf 2“. Er
+setzt den Lauf exakt an dieser Stelle fort.
 
 Unter **„Lauf-Historie“** lässt sich außerdem jeder bisherige
 Automatik-Lauf dieses Projekts nachschlagen — Datum, Zeitraum, Laufzeit
