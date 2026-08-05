@@ -327,7 +327,7 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
                   </button>
                 </div>
                 {bearbeiteOrdner === e.name && (
-                  <EpocheBearbeiten key={e.name} ordner={e.name} genre={e.genre} onEpochenGeaendert={onEpochenGeaendert} />
+                  <EpocheBearbeiten key={e.name} ordner={e.name} genre={e.genre ?? null} onEpochenGeaendert={onEpochenGeaendert} />
                 )}
               </li>
             ))}
