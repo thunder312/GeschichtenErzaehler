@@ -13,6 +13,7 @@ const LEERES_FORMULAR: SSHZielEingabe = {
   private_key_pem: "",
   private_key_passphrase: "",
   remote_ollama_port: 11434,
+  bildki_port: null,
 };
 
 interface SshZielePageProps {
@@ -55,6 +56,7 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
       private_key_pem: "",
       private_key_passphrase: "",
       remote_ollama_port: z.remote_ollama_port,
+      bildki_port: z.bildki_port,
     });
     setBearbeiteId(z.id);
     setBearbeiteUrsprungAuthMethod(z.auth_method);
@@ -174,6 +176,7 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
                           </>
                         )}{" "}
                         · <Badge>{z.auth_method === "direct" ? "direkt, kein SSH" : z.auth_method}</Badge>
+                        {z.bildki_port != null && <Badge>🎨 Bild-Port {z.bildki_port}</Badge>}
                       </div>
                     </div>
                   </div>
@@ -334,6 +337,18 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
               />
             </div>
           )}
+
+          <div>
+            <Label>Bild-Generierung Port (optional, sd-server)</Label>
+            <Input
+              type="number"
+              min={1}
+              max={65535}
+              value={formular.bildki_port ?? ""}
+              placeholder="leer = keine Bildgenerierung auf diesem Ziel"
+              onChange={(e) => feld("bildki_port", e.target.value ? Number(e.target.value) : null)}
+            />
+          </div>
 
           {geheimnisUnveraendert && (
             <p className="text-xs text-text-muted">

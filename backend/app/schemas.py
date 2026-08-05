@@ -104,6 +104,10 @@ class SSHZielAnlegenAnfrage(BaseModel):
     private_key_pem: str | None = None
     private_key_passphrase: str | None = None
     remote_ollama_port: int = Field(default=11434, ge=1, le=65535)
+    # Port eines auf demselben Host laufenden sd-server (Bildgenerierung,
+    # siehe app/core/bild_generierung.py) - None bedeutet: dieses KI-Ziel
+    # bietet keine Bildgenerierung an.
+    bildki_port: int | None = Field(default=None, ge=1, le=65535)
 
 
 class SSHZielAntwort(BaseModel):
@@ -114,6 +118,7 @@ class SSHZielAntwort(BaseModel):
     username: str
     auth_method: str
     remote_ollama_port: int
+    bildki_port: int | None = None
     favorit: bool
     created_at: str
     updated_at: str
@@ -262,6 +267,14 @@ class RechtschreibWort(BaseModel):
 class RechtschreibAntwort(BaseModel):
     unbekannte_woerter: list[RechtschreibWort]
     hunspell_verfuegbar: bool
+
+
+class CoverPromptAntwort(BaseModel):
+    prompt: str
+
+
+class CoverGenerierenAnfrage(BaseModel):
+    prompt: str = Field(min_length=1)
 
 
 class EinstellungenAntwort(BaseModel):

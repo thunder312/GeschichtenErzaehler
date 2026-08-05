@@ -4,9 +4,11 @@ einen SSH-Tunnel angesprochen wird.
 """
 from __future__ import annotations
 
+import dataclasses
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import HTTPException
 
@@ -160,6 +162,39 @@ def ollama_basis_url(settings: Settings, ssh_ziel_id: str | None):
     ziel = ssh_ziel_aus_db(settings, ssh_ziel_id)
     try:
         with ssh_manager.tunnel(ziel) as t:
+            yield t.base_url
+    except ssh_manager.SSHVerbindungsFehler as e:
+        raise HTTPException(502, f"SSH-Verbindung fehlgeschlagen: {e}") from e
+
+
+@contextmanager
+def bild_basis_url(settings: Settings, ziel_id: str):
+    """Liefert eine base_url fuer app/core/bild_generierung.py - Pendant zu
+    ollama_basis_url() fuer den sd-server-Container, der auf demselben Host
+    wie das gewaehlte Text-KI-Ziel laeuft, aber auf einem eigenen Port
+    (bildki_port, siehe app/db.py). Anders als bei Ollama gibt es hier KEIN
+    implizites lokales Standardziel - ohne konfigurierten bildki_port ist
+    Bildgenerierung fuer dieses KI-Ziel schlicht nicht verfuegbar."""
+    row = db.ssh_ziel_lesen(settings.database_path, ziel_id)
+    if row is None:
+        raise HTTPException(404, "KI-Ziel nicht gefunden.")
+    if row["bildki_port"] is None:
+        raise HTTPException(
+            400, "Für dieses KI-Ziel ist keine Bildgenerierung konfiguriert "
+                 "(Bild-Port fehlt, siehe Tab \"KI-Ziele\")."
+        )
+
+    if row["auth_method"] == "direct":
+        teile = urlsplit(row["host"])
+        host_ohne_port = (teile.hostname or teile.netloc.split(":")[0])
+        neuer_netloc = f"{host_ohne_port}:{row['bildki_port']}"
+        yield urlunsplit((teile.scheme, neuer_netloc, "", "", ""))
+        return
+
+    ziel = ssh_ziel_aus_db(settings, ziel_id)
+    bild_ziel = dataclasses.replace(ziel, remote_ollama_port=row["bildki_port"])
+    try:
+        with ssh_manager.tunnel(bild_ziel) as t:
             yield t.base_url
     except ssh_manager.SSHVerbindungsFehler as e:
         raise HTTPException(502, f"SSH-Verbindung fehlgeschlagen: {e}") from e

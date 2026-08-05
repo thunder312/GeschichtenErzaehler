@@ -85,6 +85,7 @@ def anlegen(anfrage: SSHZielAnlegenAnfrage, settings: Settings = Depends(get_set
         username=anfrage.username, auth_method=anfrage.auth_method,
         geheimnis=_geheimnis_aus_anfrage(anfrage),
         remote_ollama_port=anfrage.remote_ollama_port,
+        bildki_port=anfrage.bildki_port,
     )
     row = db.ssh_ziel_lesen(settings.database_path, ziel_id)
     return SSHZielAntwort(**{k: row[k] for k in row.keys() if k != "secret_encrypted"})
@@ -121,6 +122,7 @@ def aktualisieren(ziel_id: str, anfrage: SSHZielAnlegenAnfrage,
         name=anfrage.name, host=anfrage.host, port=anfrage.port,
         username=anfrage.username, auth_method=anfrage.auth_method,
         geheimnis=geheimnis, remote_ollama_port=anfrage.remote_ollama_port,
+        bildki_port=anfrage.bildki_port,
     )
     row = db.ssh_ziel_lesen(settings.database_path, ziel_id)
     return SSHZielAntwort(**{k: row[k] for k in row.keys() if k != "secret_encrypted"})

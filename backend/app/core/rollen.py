@@ -181,6 +181,27 @@ ROLLEN: dict[str, dict] = {
             "seed": 42,
         },
     },
+    # Fasst ein deutsches geruest.md zu einem kurzen, stichwortartigen
+    # englischen Bildprompt fuer die Deckblatt-Generierung zusammen (siehe
+    # app/core/bild_generierung.py). Bewusst niedrige Temperatur/kein
+    # "think": das Modell soll nah am Gerüst bleiben statt kreativ
+    # abzuweichen, und die Ausgabe ist kurz genug, dass ein Denkanteil nur
+    # Zeit kostet, ohne die Qualitaet des Prompts zu verbessern.
+    "cover_prompt": {
+        "modell": "gemma4",
+        "think": False,
+        "optionen": {
+            "temperature": 0.3,
+            "top_p": 0.8,
+            "min_p": 0.05,
+            "top_k": 40,
+            "repeat_penalty": 1.1,
+            "repeat_last_n": 64,
+            "num_ctx": 16384,
+            "num_predict": 300,
+            "seed": 42,
+        },
+    },
 }
 
 GESAMT_NUM_CTX = 24576

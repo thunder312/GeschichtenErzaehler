@@ -47,6 +47,10 @@ export interface SSHZiel {
   username: string;
   auth_method: AuthMethod;
   remote_ollama_port: number;
+  // Port eines sd-server-Containers auf demselben Host (Bildgenerierung,
+  // siehe api.coverPromptVorschlagen/coverGenerieren) - null = dieses
+  // KI-Ziel bietet keine Bildgenerierung an.
+  bildki_port: number | null;
   favorit: boolean;
   created_at: string;
   updated_at: string;
@@ -62,6 +66,7 @@ export interface SSHZielEingabe {
   private_key_pem?: string;
   private_key_passphrase?: string;
   remote_ollama_port: number;
+  bildki_port?: number | null;
 }
 
 export interface SSHTestErgebnis {

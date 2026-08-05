@@ -50,6 +50,10 @@ def geruest_datei(projekt: Path) -> Path:
     return projekt / "geruest.md"
 
 
+def cover_datei(projekt: Path) -> Path:
+    return projekt / "cover.png"
+
+
 def verbotsliste_datei(projekt: Path) -> Path:
     return projekt / "verbotsliste.md"
 

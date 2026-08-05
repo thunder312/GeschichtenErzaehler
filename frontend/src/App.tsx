@@ -287,6 +287,7 @@ function App() {
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
                 sshZielId={sshZielId}
+                sshZiele={sshZiele}
                 onGeaendert={() => {
                   projektDetailLaden();
                   projekteLaden();

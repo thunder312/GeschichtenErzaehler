@@ -227,3 +227,19 @@ def test_favorit_entfernen(client):
 def test_favorit_setzen_fuer_unbekanntes_ziel_gibt_404(client):
     r = client.put("/api/ssh-targets/unbekannt/favorit", json={"favorit": True})
     assert r.status_code == 404
+
+
+def test_bildki_port_ist_anfangs_none(client):
+    r = client.post("/api/ssh-targets", json=_passwort_ziel())
+    assert r.json()["bildki_port"] is None
+
+
+def test_bildki_port_wird_gespeichert_und_bleibt_bei_update_erhalten(client):
+    ziel_id = client.post("/api/ssh-targets", json=_passwort_ziel(bildki_port=7860)).json()["id"]
+    assert client.get("/api/ssh-targets").json()[0]["bildki_port"] == 7860
+
+    r = client.put(f"/api/ssh-targets/{ziel_id}", json=_passwort_ziel(
+        name="Umbenannt", password=None, bildki_port=7860,
+    ))
+    assert r.status_code == 200
+    assert r.json()["bildki_port"] == 7860

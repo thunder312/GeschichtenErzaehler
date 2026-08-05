@@ -12,8 +12,9 @@ from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.lib.pagesizes import A5
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen.canvas import Canvas
-from reportlab.platypus import BaseDocTemplate, Frame, PageBreak, PageTemplate, Paragraph, Spacer
+from reportlab.platypus import BaseDocTemplate, Frame, Image, PageBreak, PageTemplate, Paragraph, Spacer
 
 from app.core.geruest import titel_erkennen, titelseite_erzeugen
 
@@ -79,19 +80,30 @@ def _escape(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def _seitenzahl_zeichnen(canvas: Canvas, dokument) -> None:
-    if dokument.page <= 1:
-        return  # keine Seitenzahl auf der Titelseite
-    canvas.saveState()
-    canvas.setFont("Times-Italic", 9)
-    canvas.setFillColor(colors.HexColor("#6b5a4a"))
-    breite, _ = A5
-    canvas.drawCentredString(breite / 2, 1.4 * cm, str(dokument.page - 1))
-    canvas.restoreState()
+def _seitenzahl_zeichner(seiten_ohne_nummer: int):
+    """Baut den onPage-Callback fuer die Seitenzahl. seiten_ohne_nummer ist
+    1 (nur Titelseite) oder 2 (Cover + Titelseite, siehe cover_bytes-Parameter
+    von buch_pdf_erzeugen) - die Zaehlung der sichtbaren Seitenzahlen (Kapitel
+    1 = "1") bleibt so unabhaengig davon, ob ein Cover vorangestellt ist."""
+    def zeichnen(canvas: Canvas, dokument) -> None:
+        if dokument.page <= seiten_ohne_nummer:
+            return
+        canvas.saveState()
+        canvas.setFont("Times-Italic", 9)
+        canvas.setFillColor(colors.HexColor("#6b5a4a"))
+        breite, _ = A5
+        canvas.drawCentredString(breite / 2, 1.4 * cm, str(dokument.page - seiten_ohne_nummer))
+        canvas.restoreState()
+    return zeichnen
 
 
-def buch_pdf_erzeugen(geruest_text: str, epoche: str | None, kapitel: list[tuple[int, str]]) -> bytes:
-    """kapitel: Liste von (Kapitelnummer, Kapiteltext), in Lesereihenfolge."""
+def buch_pdf_erzeugen(geruest_text: str, epoche: str | None, kapitel: list[tuple[int, str]],
+                       cover_bytes: bytes | None = None) -> bytes:
+    """kapitel: Liste von (Kapitelnummer, Kapiteltext), in Lesereihenfolge.
+    cover_bytes: optionales, per Bildgenerierung erzeugtes Deckblattbild
+    (siehe app/core/bild_generierung.py) - wird als eigene Seite vor der
+    bisherigen Titelseite eingefuegt. None (Standard) erzeugt weiterhin ein
+    PDF ohne Bildseite, unveraendert zum bisherigen Verhalten."""
     titel = titel_erkennen(geruest_text) or "Ohne Titel"
     titelseite = titelseite_erzeugen(geruest_text, epoche)
     untertitel_treffer = _UNTERTITEL_ZEILE_RE.search(titelseite)
@@ -106,7 +118,10 @@ def buch_pdf_erzeugen(geruest_text: str, epoche: str | None, kapitel: list[tuple
         title=titel, author="Geschichten Erzähler",
     )
     rahmen = Frame(dokument.leftMargin, dokument.bottomMargin, dokument.width, dokument.height, id="inhalt")
-    dokument.addPageTemplates([PageTemplate(id="seite", frames=[rahmen], onPage=_seitenzahl_zeichnen)])
+    seiten_ohne_nummer = 2 if cover_bytes else 1
+    dokument.addPageTemplates(
+        [PageTemplate(id="seite", frames=[rahmen], onPage=_seitenzahl_zeichner(seiten_ohne_nummer))]
+    )
 
     akzent = colors.HexColor("#7a4a2f")
     dunkel = colors.HexColor("#2b2118")
@@ -143,6 +158,21 @@ def buch_pdf_erzeugen(geruest_text: str, epoche: str | None, kapitel: list[tuple
     )
 
     inhalt: list = []
+
+    if cover_bytes:
+        # Seitenfuellend, aber seitenverhaeltnistreu skaliert (das Bild ist
+        # quadratisch, der Seiteninhaltsbereich nicht - eine Streckung auf
+        # exakt dokument.width x dokument.height wuerde es verzerren).
+        bild_breite, bild_hoehe = ImageReader(io.BytesIO(cover_bytes)).getSize()
+        skalierung = min(dokument.width / bild_breite, dokument.height / bild_hoehe)
+        cover = Image(
+            io.BytesIO(cover_bytes),
+            width=bild_breite * skalierung,
+            height=bild_hoehe * skalierung,
+        )
+        cover.hAlign = "CENTER"
+        inhalt.append(cover)
+        inhalt.append(PageBreak())
 
     inhalt.append(Spacer(1, 4.2 * cm))
     inhalt.append(Paragraph(ZIERZEICHEN, zierstil))

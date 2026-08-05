@@ -47,6 +47,33 @@ def test_export_pdf_liefert_gueltiges_pdf(client, projekt_mit_kapiteln):
     assert r.content.startswith(b"%PDF")
 
 
+def test_export_pdf_mit_cover_fuegt_bildseite_ein(client, projekt_mit_kapiteln, tmp_path):
+    import io
+
+    from PIL import Image as PILImage
+
+    projekt_pfad = tmp_path / "projects" / "daniel" / projekt_mit_kapiteln / "projekt"
+    puffer = io.BytesIO()
+    PILImage.new("RGB", (256, 256), color="blue").save(puffer, format="PNG")
+    pd.cover_datei(projekt_pfad).write_bytes(puffer.getvalue())
+
+    mit_cover = client.get(f"/api/projects/{projekt_mit_kapiteln}/export/pdf")
+    assert mit_cover.status_code == 200
+    assert mit_cover.content.startswith(b"%PDF")
+
+    # Grobe Regression-Absicherung, dass das Cover tatsaechlich eine
+    # zusaetzliche Seite einfuegt, ohne den PDF-Inhalt komplett zu parsen.
+    pd.cover_datei(projekt_pfad).unlink()
+    ohne_cover = client.get(f"/api/projects/{projekt_mit_kapiteln}/export/pdf")
+    assert len(mit_cover.content) != len(ohne_cover.content)
+
+
+def test_export_pdf_ohne_cover_bleibt_unveraendert(client, projekt_mit_kapiteln):
+    r = client.get(f"/api/projects/{projekt_mit_kapiteln}/export/pdf")
+    assert r.status_code == 200
+    assert r.content.startswith(b"%PDF")
+
+
 def test_export_pdf_ohne_kapitel_liefert_404(client):
     r = client.post("/api/projects", json={"titel": "Leeres Projekt", "epoche": "Regency"})
     ordner = r.json()["ordner"]

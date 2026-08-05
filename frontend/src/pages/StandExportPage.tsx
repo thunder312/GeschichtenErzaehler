@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { ProjektDetail } from "../api/types";
-import { Badge, Button, Card, CardTitle, Input, Label } from "../components/ui";
+import type { ProjektDetail, SSHZiel } from "../api/types";
+import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { alsDateiHerunterladen } from "../utils/download";
 import { useLetztesKapitelSync } from "../utils/useLetztesKapitelSync";
@@ -10,6 +10,7 @@ interface StandExportPageProps {
   ordner: string;
   projekt: ProjektDetail | null;
   sshZielId: string;
+  sshZiele: SSHZiel[];
   onGeaendert: () => void;
 }
 
@@ -17,6 +18,7 @@ export function StandExportPage({
   ordner,
   projekt,
   sshZielId,
+  sshZiele,
   onGeaendert,
 }: StandExportPageProps) {
   const [n, setN] = useState(projekt?.kapitel.at(-1) ?? 1);
@@ -30,9 +32,63 @@ export function StandExportPage({
   const [gesamtDateiname, setGesamtDateiname] = useState("");
   const [ladenExport, setLadenExport] = useState(false);
 
+  const bildZiele = sshZiele.filter((z) => z.bildki_port != null);
+  const [bildZielId, setBildZielId] = useState("");
+  const [coverPrompt, setCoverPrompt] = useState("");
+  const [coverVorhanden, setCoverVorhanden] = useState(false);
+  const [coverVersion, setCoverVersion] = useState(0);
+  const [ladenCoverPrompt, setLadenCoverPrompt] = useState(false);
+  const [ladenCoverBild, setLadenCoverBild] = useState(false);
+  const [coverFehler, setCoverFehler] = useState<string | null>(null);
+
   const [fehler, setFehler] = useState<string | null>(null);
   const { starten, beenden } = useAktivitaet();
   useLetztesKapitelSync(projekt, setN);
+
+  useEffect(() => {
+    if (bildZiele.length > 0 && !bildZielId) {
+      setBildZielId(bildZiele[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sshZiele]);
+
+  useEffect(() => {
+    setCoverVorhanden(false);
+    fetch(api.coverUrl(ordner), { credentials: "same-origin" })
+      .then((r) => setCoverVorhanden(r.ok))
+      .catch(() => setCoverVorhanden(false));
+  }, [ordner, coverVersion]);
+
+  async function coverPromptVorschlagen() {
+    setLadenCoverPrompt(true);
+    setCoverFehler(null);
+    starten("Fasst Gerüst zu einem Bildprompt zusammen...");
+    try {
+      const antwort = await api.coverPromptVorschlagen(ordner, sshZielId || null);
+      setCoverPrompt(antwort.prompt);
+    } catch (e) {
+      setCoverFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLadenCoverPrompt(false);
+      beenden();
+    }
+  }
+
+  async function coverGenerieren() {
+    if (!bildZielId || !coverPrompt.trim()) return;
+    setLadenCoverBild(true);
+    setCoverFehler(null);
+    starten("Generiert Titelbild (kann bis zu einer Minute dauern)...");
+    try {
+      await api.coverGenerieren(ordner, coverPrompt.trim(), bildZielId);
+      setCoverVersion((v) => v + 1);
+    } catch (e) {
+      setCoverFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLadenCoverBild(false);
+      beenden();
+    }
+  }
 
   async function standErzeugen() {
     setLadenStand(true);
@@ -116,6 +172,60 @@ export function StandExportPage({
             </pre>
           </div>
         )}
+      </Card>
+
+      <Card>
+        <CardTitle>🎨 Titelbild</CardTitle>
+        {bildZiele.length === 0 ? (
+          <p className="text-sm text-text-muted">
+            Kein KI-Ziel mit konfigurierter Bildgenerierung vorhanden. Unter "KI-Ziele" bei einem
+            Ziel den Bild-Port hinterlegen, um diese Funktion zu nutzen.
+          </p>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <Label>Bild-KI-Ziel</Label>
+                <Select value={bildZielId} onChange={(e) => setBildZielId(e.target.value)} className="w-56">
+                  {bildZiele.map((z) => (
+                    <option key={z.id} value={z.id}>
+                      {z.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <Button onClick={coverPromptVorschlagen} variant="secondary" disabled={ladenCoverPrompt}>
+                {ladenCoverPrompt ? "Erzeugt Vorschlag..." : "Prompt vorschlagen"}
+              </Button>
+            </div>
+            <div className="mt-4">
+              <Label>Bildprompt (Englisch, editierbar)</Label>
+              <textarea
+                value={coverPrompt}
+                onChange={(e) => setCoverPrompt(e.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none transition-colors focus:border-accent"
+                placeholder="Erst 'Prompt vorschlagen' klicken oder direkt selbst einen Bildprompt eingeben..."
+              />
+            </div>
+            <div className="mt-3 flex items-center gap-4">
+              <Button onClick={coverGenerieren} disabled={ladenCoverBild || !coverPrompt.trim()}>
+                {ladenCoverBild ? "Generiert Bild..." : coverVorhanden ? "Bild neu generieren" : "Bild generieren"}
+              </Button>
+            </div>
+            {coverVorhanden && (
+              <div className="mt-4 max-w-xs">
+                <img
+                  key={coverVersion}
+                  src={`${api.coverUrl(ordner)}?v=${coverVersion}`}
+                  alt="Generiertes Titelbild"
+                  className="w-full rounded-lg border border-border"
+                />
+              </div>
+            )}
+          </>
+        )}
+        {coverFehler && <p className="mt-2 text-sm text-red-400">{coverFehler}</p>}
       </Card>
 
       <Card>

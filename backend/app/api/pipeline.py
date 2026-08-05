@@ -31,11 +31,13 @@ from pydantic import ValidationError
 from app.auth import get_current_user, get_current_user_ws
 from app.config import Settings, get_settings
 from app.core import automatik
+from app.core import bild_generierung
 from app.core import geruest as g
 from app.core import heuristik as h
 from app.core import projekt_dateien as pd
 from app.core import ssh_manager
 from app.core.befunde_merge import RoherBefund, befunde_zusammenfuehren
+from app.core.bild_generierung import BildGenerierungFehler
 from app.core.fundstellen import finde_fundstelle
 from app.core.ollama_client import OllamaFehler, chat_stream
 from app.core.ollama_client import sammle_antwort as _sammle_antwort
@@ -50,10 +52,12 @@ from app.schemas import (
     Befund,
     BefundeAntwort,
     Benutzer,
+    CoverGenerierenAnfrage,
+    CoverPromptAntwort,
     RechtschreibAntwort,
     RechtschreibWort,
 )
-from app.services import ollama_basis_url, projekt_pfad, rollen_modell_override, ssh_ziel_aus_db
+from app.services import bild_basis_url, ollama_basis_url, projekt_pfad, rollen_modell_override, ssh_ziel_aus_db
 
 OnEvent = Callable[[dict], Awaitable[None]]
 
@@ -1204,7 +1208,9 @@ def export_pdf(ordner: str, settings: Settings = Depends(get_settings),
     geruest_text = pd.lies(pd.geruest_datei(projekt), pflicht=False, ersatz="")
     epoche = pd.epoche_von_projekt(projekt_root)
     kapitel = [(pd.kapitelnummer_aus_dateiname(p), pd.lies(p)) for p in kapitel_dateien]
-    pdf_bytes = buch_pdf_erzeugen(geruest_text, epoche, kapitel)
+    cover_datei = pd.cover_datei(projekt)
+    cover_bytes = cover_datei.read_bytes() if cover_datei.exists() else None
+    pdf_bytes = buch_pdf_erzeugen(geruest_text, epoche, kapitel, cover_bytes=cover_bytes)
     # ordner kann bei aktivierten Epoche-Unterordnern einen "/" enthalten
     # (z.B. "Mittelalter/Im-Feuer-gestaehlt") - als Dateiname nur den
     # eigentlichen Projektnamen verwenden, kein "/" im Dateinamen.
@@ -1214,6 +1220,63 @@ def export_pdf(ordner: str, settings: Settings = Depends(get_settings),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{dateiname}.pdf"'},
     )
+
+
+@router.post("/{ordner:path}/cover/prompt-vorschlagen", response_model=CoverPromptAntwort)
+async def cover_prompt_vorschlagen(ordner: str, ssh_ziel_id: str | None = Query(None),
+                                    settings: Settings = Depends(get_settings),
+                                    benutzer: Benutzer = Depends(get_current_user)):
+    """Fasst geruest.md per Text-KI-Ziel (ssh_ziel_id, wie bei /pruefen und
+    /stand) zu einem englischen Bildprompt zusammen - siehe
+    app/core/geruest.py:COVER_PROMPT_SYSTEM. Liefert nur den Prompt-Text,
+    generiert noch KEIN Bild (siehe cover_generieren())."""
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    projekt = projekt_root / "projekt"
+    geruest_text = pd.lies(pd.geruest_datei(projekt), pflicht=False, ersatz="")
+    if not geruest_text:
+        raise HTTPException(404, "Kein Gerüst gefunden.")
+    with ollama_basis_url(settings, ssh_ziel_id) as base_url:
+        modell = rollen_modell_override(settings, "cover_prompt")
+        try:
+            prompt, _meta = await _sammle_antwort(
+                base_url, "cover_prompt", g.COVER_PROMPT_SYSTEM, geruest_text,
+                modell_override=modell,
+            )
+        except OllamaFehler as e:
+            raise HTTPException(502, str(e)) from e
+    return CoverPromptAntwort(prompt=prompt.strip())
+
+
+@router.post("/{ordner:path}/cover/generieren")
+async def cover_generieren(ordner: str, anfrage: CoverGenerierenAnfrage,
+                            bild_ziel_id: str = Query(...),
+                            settings: Settings = Depends(get_settings),
+                            benutzer: Benutzer = Depends(get_current_user)):
+    """Erzeugt das eigentliche Deckblattbild ueber sd-server (siehe
+    app/core/bild_generierung.py) und speichert es als projekt/cover.png.
+    bild_ziel_id waehlt das KI-Ziel mit konfiguriertem bildki_port (siehe
+    app/services.py:bild_basis_url) - unabhaengig vom Text-KI-Ziel aus
+    cover_prompt_vorschlagen(), auch wenn in der Praxis meist dasselbe
+    KI-Ziel (Athene) beides bedient."""
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    projekt = projekt_root / "projekt"
+    with bild_basis_url(settings, bild_ziel_id) as base_url:
+        try:
+            bild_bytes = await bild_generierung.generiere_cover(base_url, anfrage.prompt)
+        except BildGenerierungFehler as e:
+            raise HTTPException(502, str(e)) from e
+    pd.cover_datei(projekt).write_bytes(bild_bytes)
+    return {"gespeichert": True}
+
+
+@router.get("/{ordner:path}/cover")
+def cover_lesen(ordner: str, settings: Settings = Depends(get_settings),
+                 benutzer: Benutzer = Depends(get_current_user)):
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    cover_datei = pd.cover_datei(projekt_root / "projekt")
+    if not cover_datei.exists():
+        raise HTTPException(404, "Kein Titelbild vorhanden.")
+    return Response(content=cover_datei.read_bytes(), media_type="image/png")
 
 
 @router.post("/{ordner:path}/zusammenfassen")

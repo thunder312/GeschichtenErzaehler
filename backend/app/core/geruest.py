@@ -173,3 +173,26 @@ def titelseite_erzeugen(geruest: str, epoche: str | None) -> str:
 def letztes_geplantes_kapitel(geruest: str) -> int | None:
     plan = kapitelplan_erkennen(geruest)
     return max(plan.keys()) if plan else None
+
+
+# System-Prompt fuer die "cover_prompt"-Persona (siehe app/core/rollen.py) -
+# wandelt ein deutsches geruest.md in einen kurzen, stichwortartigen
+# englischen Bildprompt fuer die Deckblatt-Generierung um (siehe
+# app/core/bild_generierung.py). Fest formuliert statt aus einer Persona-
+# Datei geladen, weil er epochenunabhaengig ist (anders als die
+# Autor-/Architekt-Personas in personas/, die je Epoche unterschiedlich
+# sind, siehe app/core/projekt_dateien.py:EPOCHE_PERSONA_DATEIEN).
+COVER_PROMPT_SYSTEM = (
+    "Du bist ein Prompt-Ingenieur fuer ein Bildgenerierungsmodell "
+    "(Stable Diffusion). Du bekommst das Gerüst einer Geschichte (Titel, "
+    "Rahmen/Setting, Epoche/Jahr, Hauptfiguren, Konflikt) auf Deutsch. "
+    "Fasse daraus einen kurzen, stichwortartigen Bildprompt AUF ENGLISCH "
+    "fuer ein Buchcover zusammen: Szene, Schauplatz, Stimmung/Lichtstimmung, "
+    "Bildstil (z.B. 'painterly illustration', 'epic', 'cinematic lighting'). "
+    "Regeln: KEINE Eigennamen von Figuren (das Modell kann damit nichts "
+    "anfangen), KEIN Text/Schriftzug im Bild (das Modell kann keinen "
+    "lesbaren Text rendern), keine expliziten/sexuellen Inhalte unabhaengig "
+    "von der Content-Stufe der Geschichte. Antworte NUR mit dem fertigen "
+    "Prompt als eine einzige Zeile kommagetrennter Stichworte, ohne "
+    "Erklaerung, ohne Anführungszeichen."
+)

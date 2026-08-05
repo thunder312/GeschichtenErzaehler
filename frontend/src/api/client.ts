@@ -155,6 +155,20 @@ export const api = {
 
   exportPdfUrl: (ordner: string) => `/api/projects/${ordner}/export/pdf`,
 
+  coverPromptVorschlagen: (ordner: string, sshZielId?: string | null) =>
+    anfrage<{ prompt: string }>(
+      `/api/projects/${ordner}/cover/prompt-vorschlagen${sshQuery(sshZielId)}`,
+      { method: "POST" },
+    ),
+
+  coverGenerieren: (ordner: string, prompt: string, bildZielId: string) =>
+    anfrage<{ gespeichert: boolean }>(
+      `/api/projects/${ordner}/cover/generieren?bild_ziel_id=${encodeURIComponent(bildZielId)}`,
+      { method: "POST", body: JSON.stringify({ prompt }) },
+    ),
+
+  coverUrl: (ordner: string) => `/api/projects/${ordner}/cover`,
+
   anleitungUrl: () => "/api/docs/anleitung",
 
   hilfeUrl: () => "/api/docs/hilfe",
