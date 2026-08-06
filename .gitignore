@@ -34,3 +34,11 @@ Thumbs.db
 # --- Env ---
 .env
 .env.local
+
+# --- Epoche "Jetzt-2026..." ---
+# Ordnername endet auf Punkte. Git for Windows lehnt Pfade mit
+# abschliessenden Punkten/Leerzeichen aus Sicherheitsgruenden grundsaetzlich
+# ab (auch "git add" schlaegt fehl) - auf dem Linux-Produktivserver kein
+# Problem, dort laeuft der Ordner unveraendert weiter. Lokal bewusst
+# ungetrackt, Referenzkopie des Inhalts liegt in docs/epochen-entwuerfe/.
+backend/app/data/epochen/Jetzt-2026.../
