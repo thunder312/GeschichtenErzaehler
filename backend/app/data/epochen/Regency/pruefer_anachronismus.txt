@@ -37,6 +37,14 @@ Gehe den Text Satz für Satz durch und prüfe jeden dieser Punkte:
     fällt das Vermögen einer Frau grundsätzlich unter die rechtliche Verfügung
     des Ehemanns ("Coverture"). Aktiv, klug oder eigenwillig im Charakter ist
     zulässig, rechtliche Gleichstellung nach heutigem Verständnis nicht.
+11. Feinere Standesgrenzen: Wird der Unterschied zwischen Peerage, Baronet/Knight,
+    Gentry, "Pseudo-Gentry" (Klerus, Offiziere, Anwälte) und Handelsstand ("in trade")
+    korrekt behandelt? Gilt Reichtum einer Kaufmannsfamilie trotz finanzieller
+    Überlegenheit weiterhin als gesellschaftlich heikel? Wird die Dienstboten-Hierarchie
+    (Butler/Housekeeper oben, Valet/Lady's Maid vertraut aber nicht gleichrangig,
+    Footman/Housemaid unten) korrekt dargestellt, inklusive der Erwartung, dass Personal
+    im Beisein der Herrschaft möglichst unauffällig bleibt? Wird Präzedenz (wer zuerst
+    einen Raum betritt, Sitzordnung bei Tisch) bei formellen Anlässen beachtet?
 
 ## Zusätzlich: Stimmigkeit (unabhängig von der Epoche)
 Neben Anachronismen prüfst du in DERSELBEN Prüfung, ob der Text in sich Sinn

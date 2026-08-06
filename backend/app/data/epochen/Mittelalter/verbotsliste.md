@@ -57,6 +57,9 @@ desto besser die Trefferquote. Beim Schreiben laufend ergänzen.
   Matutin, Laudes, Prim, Terz, Sext, Non, Vesper, Komplet
 - Regency- und viktorianisches Vokabular: Lady, Sir, Mylord im englischen Sinn,
   Salon, Sekretär, Kutsche mit Federung, Ballsaison, Gouvernante, Debütantin
+- Barocke/frühneuzeitliche Hoftitulatur: "Eure Durchlaucht", "Eure Majestät",
+  "Euer Gnaden". Hochmittelalterliche Anrede ist schlichter: "Herr", "gnädiger Herr",
+  "Herrin", "edle Frau", Titel plus Name ("Graf Konrad")
 - Metrische Maße: Meter, Kilometer, Gramm, Kilogramm, Grad Celsius, Minuten
 - Prozentangaben
 

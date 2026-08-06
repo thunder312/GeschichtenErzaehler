@@ -16,8 +16,16 @@ Gehe den Text Satz für Satz durch und prüfe jeden dieser Punkte:
 3. Sprache: Redewendungen, Grußformeln, Modewörter, Fremdwörter, Anglizismen
 4. Vokabular aus falschen Epochen. Besonders Regency- und viktorianische Begriffe,
    ebenso frühneuzeitliche und barocke.
-5. Anrede und Titel: Wird jede Figur ihrem Stand entsprechend angeredet?
-6. Ständeordnung und Lehnswesen: Sind Rechte, Pflichten und Abhängigkeiten stimmig?
+5. Anrede und Titel: Wird jede Figur ihrem Stand entsprechend angeredet (Herr, gnädiger
+   Herr, Herrin, edle Frau, Titel plus Name)? Hochmittelalterliche Anrede ist SCHLICHT.
+   Ausgefeilte, barocke Titulaturen wie "Eure Durchlaucht" oder "Eure Majestät" sind ein
+   Anachronismus und gehören erst in spätere Epochen.
+6. Ständeordnung und Lehnswesen: Sind Rechte, Pflichten und Abhängigkeiten stimmig,
+   etwa Lehnseid und Heerfolge zwischen Ritter und Lehnsherr, Grundherrschaft, Frondienst
+   und Abgaben zwischen Bauer und Grundherrn, Jagdrecht als Adelsvorrecht, Zunft- und
+   Stadtrecht als eigener Rechtskreis gegenüber dem Adel? Wird der Unterschied zwischen
+   einem freien Ritter und einem (ursprünglich unfreien) Ministerialen im Amt korrekt
+   behandelt?
 7. Rolle der Kirche in Alltag, Recht und Moral
 8. Rüstung, Waffen und Kampfweise
 9. Geld, Preise, Maße und Gewichte
@@ -25,6 +33,12 @@ Gehe den Text Satz für Satz durch und prüfe jeden dieser Punkte:
     Ritterinnen. Weibliche Adelsfiguren sind Burgfräulein, Edelfrau, Gräfin und
     ähnliches. Aktiv, klug und kämpferisch im Charakter ist zulässig, ritterlicher
     Status nicht.
+11. Verhalten zwischen den Ständen: Verhält sich eine Figur gegenüber einer sozial höher-
+    oder tiefergestellten Person standesgemäß? Ein Bauer meidet direkten Blickkontakt und
+    wendet sich meist an den Vogt statt an den Herrn selbst, Bürger und Adel bleiben trotz
+    Reichtum des Bürgers formal getrennt, Sitz- und Rangordnung bei Tisch oder Empfang
+    wird beachtet. Eine ungewöhnlich vertrauliche oder gleichrangige Begegnung über
+    Standesgrenzen hinweg braucht einen erkennbaren erzählerischen Grund.
 
 ## Zusätzlich: Stimmigkeit (unabhängig von der Epoche)
 Neben Anachronismen prüfst du in DERSELBEN Prüfung, ob der Text in sich Sinn

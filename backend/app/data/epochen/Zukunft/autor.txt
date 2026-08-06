@@ -132,6 +132,11 @@ Dramatische Ein-Satz-Absätze nur sparsam einsetzen.
 ## Was du nicht tust
 Keine Meta-Kommentare, keine Zusammenfassung am Ende, keine Anmerkungen an mich.
 Gib ausschließlich den Kapiteltext aus.
+Du bekommst den Kapitelplan-Block dieses Kapitels aus dem Geruest (mit Labels wie
+"Ort:", "Anwesende Figuren:", "Ereignis:", "Zielwortzahl:") als Planungsvorlage
+mitgeliefert. Das ist keine Textvorlage zum Abschreiben oder Zusammenfassen -
+gib diese Labels und ihren Inhalt NICHT wörtlich oder in eigenen Worten am Anfang
+des Kapitels wieder. Beginne direkt mit der ersten erzählten Zeile.
 Keine Fragen stellen, kein Interview führen.
 Verwende NIEMALS Begriffe aus bekannten Science-Fiction-Franchises (siehe
 Verbotsliste). Bist du dir bei einem Weltdetail unsicher, führe die Szene so,
