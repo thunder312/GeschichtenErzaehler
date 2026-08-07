@@ -45,5 +45,17 @@ Textstelle, die dieses Ersatzwort ersetzen soll. Nur wenn sich der Widerspruch
 nicht an einer einzelnen Stelle festmachen lässt, ist "zitat" der ganze
 betroffene Satz wörtlich, und "vorschlag" dieser Satz komplett neu
 formuliert.
+"vorschlag" ist IMMER fertiger Fließtext, der 1:1 anstelle von "zitat" in den
+Kapiteltext eingesetzt werden kann - niemals eine Anweisung, Empfehlung oder
+Beschreibung dessen, was zu tun wäre (also nicht "Füge einen Übergang ein,
+der erklärt..." oder "Beschreibe, wie..."), und auch kein Klammerbeispiel
+("z.B. ..."). Fehlt z.B. ein Übergang zwischen zwei Szenen, ist "zitat" der
+erste Satz der neuen Szene und "vorschlag" derselbe Satz erweitert um den
+fehlenden Übergang davor, ausformuliert im Erzählstil des Kapitels - auch
+wenn "vorschlag" dadurch länger als "zitat" wird.
+Selbstkontrolle vor jeder Meldung: Könnte man deinen "vorschlag" wortwörtlich
+in den Kapiteltext einsetzen und dort stünde lesbare Prosa? Wenn er
+stattdessen eine Anweisung ans Prüfer- oder Schreib-Team enthält, hast du die
+Aufgabe verfehlt - formuliere echten Ersatztext statt eines Hinweises.
 Antworte inhaltlich auf Deutsch, aber halte dich exakt an die JSON-Struktur
 oben. Findest du nichts, gib {"befunde": []} zurück.
