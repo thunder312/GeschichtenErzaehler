@@ -56,6 +56,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
   const [automatikStatus, setAutomatikStatus] = useState<AutomatikStatus | null>(null);
   const [resteWirdBestaetigt, setResteWirdBestaetigt] = useState(false);
+  const [bulkPruefungLaeuft, setBulkPruefungLaeuft] = useState(false);
   // Erhoeht sich bei jedem Klick auf "Neu laden" - steht bewusst in den
   // Dependency-Arrays der beiden Lade-Effekte weiter unten, damit ein Reload
   // AUCH DANN neu laedt, wenn sich weder ordner noch kapitelNummern geaendert
@@ -200,9 +201,12 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
     return false;
   }, [kombiniert, bloecke, kapitelNummern]);
 
-  async function pruefen(n: number) {
+  async function pruefen(n: number, fortschritt?: string) {
     setBloecke((b) => ({ ...b, [n]: { ...b[n], ladenPruefen: true, fehler: null } }));
-    starten(`Prüft Kapitel ${n} auf Anachronismen, Stimmigkeit, Kontinuität & Lektorat...`);
+    starten(
+      `Prüft Kapitel ${n} auf Anachronismen, Stimmigkeit, Kontinuität & Lektorat...` +
+        (fortschritt ? ` (${fortschritt})` : ""),
+    );
     try {
       const antwort = await api.pruefen(ordner, n, sshZielId || null);
       setBloecke((b) => ({ ...b, [n]: { ...b[n], befunde: antwort, ladenPruefen: false } }));
@@ -213,6 +217,26 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
       }));
     } finally {
       beenden();
+    }
+  }
+
+  // Prueft nacheinander (bewusst NICHT parallel - ein einzelner Kapitel-Check
+  // feuert bereits 4+ LLM-Aufrufe, mehrere Kapitel gleichzeitig wuerden den
+  // meist recht schwachbrüstigen Ollama-Host ueberlasten) alle Kapitel, deren
+  // Funde entweder veraltet sind (Text seit letzter Pruefung geaendert) oder
+  // die noch nie geprueft wurden (befunde === null).
+  const veralteteKapitel = kapitelNummern.filter((n) => !bloecke[n]?.befunde || bloecke[n]?.befunde?.veraltet);
+
+  async function alleVeraltetenPruefen() {
+    const ziel = veralteteKapitel;
+    if (ziel.length === 0 || bulkPruefungLaeuft) return;
+    setBulkPruefungLaeuft(true);
+    try {
+      for (let i = 0; i < ziel.length; i++) {
+        await pruefen(ziel[i], `${i + 1}/${ziel.length}`);
+      }
+    } finally {
+      setBulkPruefungLaeuft(false);
     }
   }
 
@@ -282,6 +306,22 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
           bearbeiten, dann speichern - beim Speichern wird der Text anhand der „## Kapitel N"-Überschriften
           wieder auf die einzelnen Kapitel aufgeteilt.
         </p>
+
+        {kapitelNummern.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <Button
+              variant="secondary"
+              onClick={alleVeraltetenPruefen}
+              disabled={veralteteKapitel.length === 0 || bulkPruefungLaeuft}
+            >
+              {bulkPruefungLaeuft
+                ? "Prüft..."
+                : veralteteKapitel.length === 0
+                  ? "Alle Kapitel aktuell geprüft"
+                  : `Alle veralteten Kapitel prüfen (${veralteteKapitel.length})`}
+            </Button>
+          </div>
+        )}
 
         {kapitelNummern.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
