@@ -39,6 +39,50 @@ def test_verlauf_zu_text_verbindet_mit_leerzeile():
     assert arch.verlauf_zu_text(["Ich: Hallo", "Du: Frage 1"]) == "Ich: Hallo\n\nDu: Frage 1"
 
 
+_BEISPIEL_VERLAUF = [
+    "Ich: Lass uns anfangen. Stelle mir die ersten Fragen.",  # verlauf[0]
+    "Du: Frage 1 von 15: ...",                                # verlauf[1] = nachrichten[0]
+    "Ich: Kurz, 2 Kapitel",                                   # verlauf[2] = nachrichten[1]
+    "Du: Frage 2 von 15: ...",                                # verlauf[3] = nachrichten[2]
+    "Ich: Voll explizit",                                     # verlauf[4] = nachrichten[3]
+    "Du: Frage 3 von 15: ...",                                # verlauf[5], noch offene Frage
+]
+# nachrichten = verlauf[1:-1] (siehe ArchitektInterviewPage.tsx), also
+# nachrichten[i] == verlauf[i + 1]. In diesem Beispiel sind das die eigenen
+# Antworten an nachrichten-Index 1 ("Kurz, 2 Kapitel") und 3 ("Voll explizit").
+
+
+def test_verlauf_gekuerzt_ab_schneidet_alles_ab_der_bearbeiteten_antwort_weg():
+    gekuerzt = arch.verlauf_gekuerzt_ab(_BEISPIEL_VERLAUF, 3)
+    assert gekuerzt == _BEISPIEL_VERLAUF[:4]
+
+
+def test_verlauf_gekuerzt_ab_bearbeitet_frueheste_eigene_antwort():
+    gekuerzt = arch.verlauf_gekuerzt_ab(_BEISPIEL_VERLAUF, 1)
+    assert gekuerzt == _BEISPIEL_VERLAUF[:2]
+
+
+def test_verlauf_gekuerzt_ab_liefert_none_bei_zu_grossem_index():
+    assert arch.verlauf_gekuerzt_ab(_BEISPIEL_VERLAUF, 99) is None
+
+
+def test_verlauf_gekuerzt_ab_liefert_none_bei_negativem_index():
+    assert arch.verlauf_gekuerzt_ab(_BEISPIEL_VERLAUF, -1) is None
+
+
+def test_verlauf_gekuerzt_ab_liefert_none_wenn_index_auf_architekt_frage_zeigt():
+    # nachrichten-Index 0 und 2 zeigen auf "Du: ..."-Fragen, keine eigenen
+    # Antworten - duerfen nicht bearbeitbar sein.
+    assert arch.verlauf_gekuerzt_ab(_BEISPIEL_VERLAUF, 0) is None
+    assert arch.verlauf_gekuerzt_ab(_BEISPIEL_VERLAUF, 2) is None
+
+
+def test_verlauf_gekuerzt_ab_veraendert_originalliste_nicht():
+    original = list(_BEISPIEL_VERLAUF)
+    arch.verlauf_gekuerzt_ab(_BEISPIEL_VERLAUF, 1)
+    assert _BEISPIEL_VERLAUF == original
+
+
 def test_ausgangslage_erkennen_extrahiert_abschnitt():
     geruest = (
         "# STORY-GERUEST\n\n"

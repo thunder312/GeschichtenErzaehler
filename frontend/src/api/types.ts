@@ -275,6 +275,7 @@ export type SchreibenNachricht =
 // WebSocket-Nachrichten von /api/projects/{ordner}/ws/architekt
 export type ArchitektNachricht =
   | { phase: "fortgesetzt"; verlauf: string[] }
+  | { phase: "zurueckgesetzt"; verlauf: string[] }
   | { phase: "frage"; typ: "start" }
   | { phase: "frage"; typ: "denkt_nach" }
   | { phase: "frage"; typ: "fertig"; text: string }

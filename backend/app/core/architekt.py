@@ -51,6 +51,29 @@ def verlauf_zu_text(verlauf: list[str]) -> str:
     return "\n\n".join(verlauf)
 
 
+def verlauf_gekuerzt_ab(verlauf: list[str], bearbeite_ab: int) -> list[str] | None:
+    """"Schritte zurueckgehen" bzw. eine fruehere Antwort bearbeiten: kuerzt
+    den Verlauf auf den Stand VOR der
+    eigenen Antwort an Frontend-Index `bearbeite_ab` (siehe ArchitektInterviewPage.tsx:
+    Index in `nachrichten`, das den synthetischen ersten Verlauf-Eintrag und
+    die noch offene letzte Frage NICHT mitzaehlt, siehe dortiger Kommentar zu
+    "fortgesetzt"). Alle danach gestellten Fragen/Antworten werden verworfen,
+    der Aufrufer haengt die bearbeitete Antwort selbst wieder an (per _zug()) -
+    das genuegt, damit der Architekt beim naechsten Zug die naechste Frage
+    zwangslaeufig neu stellt, ohne dass die Persona einen Sonderfall dafuer
+    braucht (siehe Modul-Kommentar oben: jeder Zug bekommt ohnehin den
+    kompletten Verlauf neu geschickt).
+    None bei ungueltigem Index (ausserhalb des Bereichs, oder zeigt nicht auf
+    eine eigene "Ich: "-Antwort) - der Aufrufer muss das als Fehler behandeln,
+    NICHT den Verlauf trotzdem veraendern."""
+    if bearbeite_ab < 0:
+        return None
+    ziel_index = bearbeite_ab + 1  # +1: synthetischer erster Verlauf-Eintrag
+    if not (0 <= ziel_index < len(verlauf)) or not verlauf[ziel_index].startswith("Ich: "):
+        return None
+    return verlauf[:ziel_index]
+
+
 def ausgangslage_erkennen(geruest: str) -> str | None:
     """Extrahiert '## Ausgangslage vor Kapitel eins' aus dem fertigen
     Geruest, falls die Architekt-Persona ihn produziert hat. Wird zu

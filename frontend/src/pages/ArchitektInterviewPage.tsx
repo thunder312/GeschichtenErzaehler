@@ -34,6 +34,20 @@ function optionenErkennen(text: string): Antwortoption[] {
   return treffer;
 }
 
+/** Wandelt einen rohen Backend-Verlauf ("Ich: ..."/"Du: ..."-Zeilen) in
+ * Chat-Eintraege um - gemeinsam genutzt fuer "fortgesetzt" (Verlauf endet
+ * immer mit der noch offenen Frage, siehe backend/app/api/architekt.py)
+ * und "zurueckgesetzt" (Verlauf endet stattdessen mit der gerade bearbeiteten
+ * eigenen Antwort, die naechste Frage kommt erst noch per "frage"/"fertig") -
+ * die Aufrufer schneiden den jeweils passenden Rand vorher selbst zu. */
+function verlaufZuChat(verlauf: string[]): ChatEintrag[] {
+  return verlauf.map((zeile): ChatEintrag => {
+    if (zeile.startsWith("Ich: ")) return { rolle: "ich", text: zeile.slice("Ich: ".length) };
+    if (zeile.startsWith("Du: ")) return { rolle: "architekt", text: zeile.slice("Du: ".length) };
+    return { rolle: "architekt", text: zeile };
+  });
+}
+
 /** Geführtes Architekten-Interview - ersetzt den frueheren Rohtext-Editor
  * fuer ein noch leeres Gerüst. Portiert aus pre-GUI/novelle.py's
  * cmd_architekt(): ein echtes Mehrschritt-Gespraech ueber WebSocket, bei
@@ -58,6 +72,12 @@ export function ArchitektInterviewPage({
   const [fortsetzbar, setFortsetzbar] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const [verbindungVerloren, setVerbindungVerloren] = useState(false);
+  // Index (in `nachrichten`) der eigenen Antwort, die gerade bearbeitet
+  // wird - null ausserhalb des Bearbeiten-Modus. Ermoeglicht "Schritte
+  // zurueckgehen": eine frühere eigene Antwort korrigieren oder um eine neue
+  // Idee erweitern, wodurch alle seither gestellten Fragen/Antworten
+  // verworfen werden und der Architekt ab dort neu weiterfragt.
+  const [bearbeiteIndex, setBearbeiteIndex] = useState<number | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const chatEndeRef = useRef<HTMLDivElement>(null);
   // true, sobald das Gespraech ueber eine reguläre Nachricht (abgeschlossen,
@@ -108,12 +128,16 @@ export function ArchitektInterviewPage({
         // (die gerade noch offene Frage) werden ausgelassen - Ersterer wird
         // auch beim frischen Start nie als eigene Chat-Blase gezeigt,
         // Letzterer kommt gleich danach ganz normal per "frage"/"fertig".
-        const bisherige = nachricht.verlauf.slice(1, -1).map((zeile): ChatEintrag => {
-          if (zeile.startsWith("Ich: ")) return { rolle: "ich", text: zeile.slice("Ich: ".length) };
-          if (zeile.startsWith("Du: ")) return { rolle: "architekt", text: zeile.slice("Du: ".length) };
-          return { rolle: "architekt", text: zeile };
-        });
-        setNachrichten(bisherige);
+        setNachrichten(verlaufZuChat(nachricht.verlauf.slice(1, -1)));
+      }
+      if (nachricht.phase === "zurueckgesetzt") {
+        // Antwort auf eine "bearbeite_ab"-Anfrage (siehe senden()):
+        // der Verlauf endet hier mit der gerade bearbeiteten eigenen
+        // Antwort, NICHT mit einer offenen Frage - nur den synthetischen
+        // ersten Eintrag abschneiden, den Rest komplett uebernehmen. Die
+        // naechste Frage kommt gleich danach ganz normal per "frage"/"fertig".
+        setNachrichten(verlaufZuChat(nachricht.verlauf.slice(1)));
+        setBearbeiteIndex(null);
       }
       if (nachricht.phase === "frage" && nachricht.typ === "start") {
         setWartetAufAntwort(true);
@@ -172,11 +196,38 @@ export function ArchitektInterviewPage({
   function senden() {
     const text = eingabe.trim();
     if (!text || !socketRef.current || wartetAufAntwort) return;
-    setNachrichten((bisher) => [...bisher, { rolle: "ich", text }]);
-    socketRef.current.send(JSON.stringify({ eingabe: text }));
+    if (bearbeiteIndex !== null) {
+      // Optimistisch schon hier auf den Stand vor der bearbeiteten Antwort
+      // kuerzen und die neue Antwort anhaengen - fuehlt sich sofort
+      // reaktionsschnell an. Die serverseitige "zurueckgesetzt"-Antwort
+      // bestaetigt denselben Zustand gleich danach (siehe socket.onmessage).
+      const index = bearbeiteIndex;
+      setNachrichten((bisher) => [...bisher.slice(0, index), { rolle: "ich", text }]);
+      socketRef.current.send(JSON.stringify({ eingabe: text, bearbeite_ab: bearbeiteIndex }));
+    } else {
+      setNachrichten((bisher) => [...bisher, { rolle: "ich", text }]);
+      socketRef.current.send(JSON.stringify({ eingabe: text }));
+    }
     setEingabe("");
     setWartetAufAntwort(true);
     aktivitaetStarten("Architekt denkt nach...");
+  }
+
+  /** Startet den Bearbeiten-Modus fuer eine frühere eigene Antwort (Klick auf
+   * "Bearbeiten" an einer "ich"-Chat-Blase) - laedt ihren Text ins Eingabefeld,
+   * `senden()` schickt ihn beim naechsten Absenden als Korrektur statt als
+   * neue Antwort auf die aktuell offene Frage. */
+  function bearbeiten(index: number) {
+    if (wartetAufAntwort || abgeschlossen || beendetOhneSpeichern || pausiert || verbindungVerloren) return;
+    const eintrag = nachrichten[index];
+    if (!eintrag || eintrag.rolle !== "ich") return;
+    setBearbeiteIndex(index);
+    setEingabe(eintrag.text);
+  }
+
+  function bearbeitenAbbrechen() {
+    setBearbeiteIndex(null);
+    setEingabe("");
   }
 
   function beenden() {
@@ -197,8 +248,13 @@ export function ArchitektInterviewPage({
   const kannAntworten =
     !wartetAufAntwort && !abgeschlossen && !beendetOhneSpeichern && !pausiert && !verbindungVerloren;
   const letzteNachricht = nachrichten.at(-1);
+  // Waehrend eine frühere Antwort bearbeitet wird, gehoeren die Schnellwahl-
+  // Optionen der aktuell noch offenen (aber gleich verworfenen) Frage nicht
+  // hierher - sie wuerden sonst das Bearbeiten-Feld ueberschreiben.
   const optionen =
-    kannAntworten && letzteNachricht?.rolle === "architekt" ? optionenErkennen(letzteNachricht.text) : [];
+    kannAntworten && bearbeiteIndex === null && letzteNachricht?.rolle === "architekt"
+      ? optionenErkennen(letzteNachricht.text)
+      : [];
 
   if (!gestartet) {
     return (
@@ -226,11 +282,23 @@ export function ArchitektInterviewPage({
       <Card className="flex-1 overflow-y-auto">
         <div className="space-y-4">
           {nachrichten.map((eintrag, i) => (
-            <div key={i} className={`flex ${eintrag.rolle === "ich" ? "justify-end" : "justify-start"}`}>
+            <div
+              key={i}
+              className={`group flex items-start gap-1.5 ${eintrag.rolle === "ich" ? "justify-end" : "justify-start"}`}
+            >
+              {eintrag.rolle === "ich" && kannAntworten && bearbeiteIndex === null && (
+                <button
+                  onClick={() => bearbeiten(i)}
+                  title="Diese Antwort bearbeiten und Interview ab hier neu fortsetzen"
+                  className="mt-2.5 shrink-0 text-xs text-text-muted opacity-0 transition-opacity hover:text-accent-light group-hover:opacity-100"
+                >
+                  ✏️
+                </button>
+              )}
               <div
                 className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm ${
                   eintrag.rolle === "ich"
-                    ? "bg-accent-soft text-accent-light"
+                    ? `bg-accent-soft text-accent-light ${i === bearbeiteIndex ? "ring-2 ring-accent" : ""}`
                     : "bg-surface-hover text-text"
                 }`}
               >
@@ -293,31 +361,44 @@ export function ArchitektInterviewPage({
       )}
 
       {!abgeschlossen && !beendetOhneSpeichern && !pausiert && !verbindungVerloren && (
-        <div className="flex gap-2">
-          <textarea
-            className="flex-1 resize-none rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none transition-colors focus:border-accent"
-            rows={2}
-            value={eingabe}
-            onChange={(e) => setEingabe(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                senden();
-              }
-            }}
-            placeholder="Deine Antwort... (Enter zum Senden, Umschalt+Enter für neue Zeile)"
-            disabled={wartetAufAntwort}
-          />
-          <div className="flex flex-col gap-2">
-            <Button onClick={senden} disabled={wartetAufAntwort || !eingabe.trim()}>
-              Senden
-            </Button>
-            <Button onClick={spaeterFortsetzen} variant="secondary" disabled={wartetAufAntwort}>
-              Später fortsetzen
-            </Button>
-            <Button onClick={beenden} variant="secondary" disabled={wartetAufAntwort}>
-              Beenden
-            </Button>
+        <div className="flex flex-col gap-2">
+          {bearbeiteIndex !== null && (
+            <div className="flex items-center justify-between rounded-lg border border-accent-soft bg-accent-soft/20 px-3 py-1.5 text-xs text-accent-light">
+              <span>✏️ Antwort wird bearbeitet – alle danach gestellten Fragen werden verworfen.</span>
+              <button onClick={bearbeitenAbbrechen} className="ml-2 shrink-0 underline hover:no-underline">
+                Abbrechen
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <textarea
+              className="flex-1 resize-none rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none transition-colors focus:border-accent"
+              rows={2}
+              value={eingabe}
+              onChange={(e) => setEingabe(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  senden();
+                }
+                if (e.key === "Escape" && bearbeiteIndex !== null) {
+                  bearbeitenAbbrechen();
+                }
+              }}
+              placeholder="Deine Antwort... (Enter zum Senden, Umschalt+Enter für neue Zeile)"
+              disabled={wartetAufAntwort}
+            />
+            <div className="flex flex-col gap-2">
+              <Button onClick={senden} disabled={wartetAufAntwort || !eingabe.trim()}>
+                {bearbeiteIndex !== null ? "Antwort ändern" : "Senden"}
+              </Button>
+              <Button onClick={spaeterFortsetzen} variant="secondary" disabled={wartetAufAntwort}>
+                Später fortsetzen
+              </Button>
+              <Button onClick={beenden} variant="secondary" disabled={wartetAufAntwort}>
+                Beenden
+              </Button>
+            </div>
           </div>
         </div>
       )}

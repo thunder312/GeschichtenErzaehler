@@ -256,7 +256,26 @@ async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | Non
 
                 nachricht = await websocket.receive_json()
                 eingabe = (nachricht.get("eingabe") or "").strip()
-                if not eingabe or eingabe.lower() in ("ende", "exit", "quit"):
+                bearbeite_ab = nachricht.get("bearbeite_ab")
+
+                if bearbeite_ab is not None:
+                    # Nutzer bearbeitet eine FRUEHERE eigene Antwort (siehe
+                    # ArchitektInterviewPage.tsx) statt die aktuell offene
+                    # Frage zu beantworten - "Schritte zurueckgehen" ist hier
+                    # kein eigener Zustand, sondern schlicht: verlauf auf den
+                    # Stand VOR der bearbeiteten Antwort zurueckstutzen (siehe
+                    # arch.verlauf_gekuerzt_ab) und mit dem neuen Text genau
+                    # wie eine normale Antwort weiterfuehren.
+                    gekuerzt = eingabe and arch.verlauf_gekuerzt_ab(verlauf, bearbeite_ab)
+                    if not gekuerzt:
+                        await websocket.send_json({
+                            "phase": "fehler", "typ": "error",
+                            "text": "Ungültiger Bearbeitungsversuch - bitte Seite neu laden.",
+                        })
+                        break
+                    verlauf[:] = gekuerzt
+                    await websocket.send_json({"phase": "zurueckgesetzt", "verlauf": list(verlauf)})
+                elif not eingabe or eingabe.lower() in ("ende", "exit", "quit"):
                     _verlauf_loeschen(projekt_root)
                     await websocket.send_json({"phase": "beendet_ohne_speichern"})
                     break
