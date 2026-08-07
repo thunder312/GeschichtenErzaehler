@@ -130,6 +130,19 @@ def test_vorschlag_verdaechtig_erkennt_informellen_fuege_ein_imperativ():
     assert vorschlag_verdaechtig(fundstelle, vorschlag) is True
 
 
+def test_vorschlag_verdaechtig_erkennt_fuege_ein_bei_grossem_wortabstand():
+    """Regression: derselbe Vorfall nochmal, diesmal mit einem Abstand von
+    ueber 40 Zeichen zwischen 'Fuege' und dem abgetrennten 'ein' - ein
+    frueheres, zu enges 20-Zeichen-Fenster hat das nicht erkannt."""
+    fundstelle = "Katush: Auf der Baustelle des Tempels, körperlich müde, aber mit einem Gefühl der ständigen Unterordnung."
+    vorschlag = (
+        "Füge Katush entweder in das neue Kapitel ein (z.B. als Beobachter, der aus "
+        "der Ferne sichtbar ist) oder entferne jegliche Verweise auf ihn aus dem "
+        "Stand, wenn er nicht mehr relevant ist."
+    )
+    assert vorschlag_verdaechtig(fundstelle, vorschlag) is True
+
+
 def test_vorschlag_verdaechtig_laesst_echte_kurzkorrektur_durch():
     assert vorschlag_verdaechtig("Luxor", "Memphis") is False
     assert vorschlag_verdaechtig(

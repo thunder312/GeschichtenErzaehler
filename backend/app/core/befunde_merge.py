@@ -34,8 +34,15 @@ _ANWEISUNGS_MUSTER = re.compile(
     r"\b("
     r"ersetzen sie|w[äa]hlen sie|erg[äa]nzen sie|f[üu]gen sie|beschreiben sie|"
     r"formulieren sie|streichen sie|[äa]ndern sie|geben sie an|"
-    r"f[üu]ge(?:n)?\s+\S+.{0,20}\bein\b|"
+    # Trennbares Verb "einfuegen" im Imperativ ("Fuege ... ein") - der
+    # Abstand zwischen Verbstamm und abgetrenntem Praefix kann bei
+    # laengeren Saetzen weit ueber die anfaengliche 20-Zeichen-Grenze
+    # hinausgehen (realer Vorfall: "Fuege Katush entweder in das neue
+    # Kapitel ein (z.B. ...)" - ueber 40 Zeichen dazwischen), deshalb
+    # grosszuegiges Fenster statt knapper Grenze.
+    r"f[üu]ge(?:n)?\s+\S+.{0,150}\bein\b|"
     r"w[äa]hle(?:n)?\s+ein(?:e[nrs]?)?\b|"
+    r"\bentferne\s+(?:jegliche|alle|diese[nr]?|die|den|das)\b|"
     r"muss(?:te|ten)?\s+.{0,60}\bkorrigiert werden\b|"
     r"sollte(?:n)?\s+.{0,60}\bwerden\b|"
     r"\bbitte\s+(?:eine?|der|die|das)\b"
