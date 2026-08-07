@@ -3,6 +3,7 @@ from pathlib import Path
 from app.api.pipeline import (
     _anachronismus_roh_befunde,
     _ist_echte_korrektur,
+    _kontinuitaet_roh_befunde,
     _lektor_roh_befunde,
     _ohne_eigene_duplikate,
     _satzbau_roh_befunde,
@@ -150,6 +151,55 @@ def test_anachronismus_behaelt_fund_ohne_vorschlag():
     ergebnis = _anachronismus_roh_befunde(kapiteltext, antwort_json)
 
     assert len(ergebnis) == 1
+
+
+def test_anachronismus_nullt_anweisung_statt_fund_zu_verwerfen():
+    """Regression zum echten Produktiv-Vorfall Schatten-ueber-Luxor...md:
+    eine Anweisung ans Team ('Ersetzen Sie...') darf nicht als 'vorschlag'
+    durchgereicht werden (sonst landet sie 1:1 im Kapiteltext, siehe
+    automatik.befunde_anwenden) - der Fund selbst (die Problembeschreibung)
+    bleibt aber erhalten, nur ohne Uebernehmen-Option."""
+    kapiteltext = "Luxor: Ein Fluestern gegen das Gesetz der Goetter"
+    antwort_json = (
+        '{"befunde": [{"kategorie": "anachronismus", "fundstelle": "Luxor: Ein Fluestern gegen das Gesetz der Goetter", '
+        '"problem": "Luxor war im Alten Reich kein Machtzentrum.", "sicherheit": "hoch", '
+        '"vorschlag": "Ersetzen Sie \'Luxor\' durch \'Memphis\' oder einen generischen Begriff wie \'dem koeniglichen Palast\'."}]}'
+    )
+
+    ergebnis = _anachronismus_roh_befunde(kapiteltext, antwort_json)
+
+    assert len(ergebnis) == 1
+    assert ergebnis[0].vorschlag is None
+    assert ergebnis[0].beschreibung == "Luxor war im Alten Reich kein Machtzentrum."
+
+
+def test_kontinuitaet_nullt_muss_korrigiert_werden_anweisung():
+    kapiteltext = "Eine Geschichte aus dem Altes-Aegypten in der Zeit des Alten Reiches"
+    antwort_json = (
+        '{"befunde": [{"zitat": "Eine Geschichte aus dem Altes-Aegypten in der Zeit des Alten Reiches", '
+        '"widerspruch": "Stand nennt Mittleres Reich.", "beleg": "Stand: Mittleres Reich.", '
+        '"unsicher": false, '
+        '"vorschlag": "Die Zeitperiode des Settings muss auf das Mittlere Reich korrigiert werden."}]}'
+    )
+
+    ergebnis = _kontinuitaet_roh_befunde(kapiteltext, antwort_json)
+
+    assert len(ergebnis) == 1
+    assert ergebnis[0].vorschlag is None
+
+
+def test_lektor_nullt_verdaechtigen_vorschlag():
+    kapiteltext = "bei der Baustaette. Nicht mit Respekt, nicht mit Distanz."
+    antwort_json = (
+        '{"befunde": [{"fundstelle": "bei der Baustaette. Nicht mit Respekt, nicht mit Distanz.", '
+        '"problem": "Kasus-Kongruenz", '
+        '"vorschlag": "Bitte eine Figur aus dem Alten Reich waehlen, deren Name und Titel zur Epoche passen."}]}'
+    )
+
+    ergebnis = _lektor_roh_befunde(kapiteltext, antwort_json)
+
+    assert len(ergebnis) == 1
+    assert ergebnis[0].vorschlag is None
 
 
 def test_ohne_eigene_duplikate_behaelt_erste_reihenfolge():

@@ -1,4 +1,4 @@
-from app.core.befunde_merge import RoherBefund, befunde_zusammenfuehren
+from app.core.befunde_merge import RoherBefund, befunde_zusammenfuehren, vorschlag_verdaechtig
 
 
 def test_einzelner_fund_bleibt_unveraendert():
@@ -92,3 +92,48 @@ def test_transitive_ueberlappung_wird_zu_einem_cluster():
     fund = ergebnisse[0]
     assert fund["start"] == 0 and fund["end"] == 10
     assert set(fund["kategorien"]) == {"anachronismus", "stimmigkeit", "kontinuitaet"}
+
+
+# Die folgenden vier Faelle sind woertlich (bis auf Kuerzung) die "vorschlag"-
+# Werte aus einem echten Produktiv-Vorfall (Schatten-ueber-Luxor...md): der
+# alte Pruefer-Prompt lieferte diese Anweisungen ans Schreib-/Pruef-Team statt
+# echtem Ersatztext, und da die zugehoerige fundstelle jeweils lang genug war,
+# hat sie die reine Laengen-Heuristik nicht abgefangen - sie wurden woertlich
+# in den Kapiteltext gespleisst. Regressionsschutz gegen genau dieses Muster.
+def test_vorschlag_verdaechtig_erkennt_ersetzen_sie_anweisung():
+    fundstelle = "Luxor: Ein Flüstern gegen das Gesetz der Götter"
+    vorschlag = (
+        "Ersetzen Sie 'Luxor' durch 'Memphis' oder einen generischen Begriff "
+        "wie 'dem königlichen Palast' oder 'dem Tempelkomplex'."
+    )
+    assert vorschlag_verdaechtig(fundstelle, vorschlag) is True
+
+
+def test_vorschlag_verdaechtig_erkennt_muss_korrigiert_werden():
+    fundstelle = "Eine Geschichte aus dem Altes-Aegypten in der Zeit des Alten Reiches"
+    vorschlag = "Die Zeitperiode des Settings muss auf das Mittlere Reich (ca. 2000–1700 v. Chr.) korrigiert werden."
+    assert vorschlag_verdaechtig(fundstelle, vorschlag) is True
+
+
+def test_vorschlag_verdaechtig_erkennt_bitte_waehlen_anweisung():
+    fundstelle = "bei der Baustätte"
+    vorschlag = "Bitte eine Figur aus dem Alten Reich wählen, deren Name und Titel zur Epoche passen."
+    assert vorschlag_verdaechtig(fundstelle, vorschlag) is True
+
+
+def test_vorschlag_verdaechtig_erkennt_informellen_fuege_ein_imperativ():
+    fundstelle = "Die Kammer lag still, doch nicht ruhig."
+    vorschlag = (
+        "Füge einen Übergang ein, der erklärt, wie die Figuren von der Baustelle "
+        "in die Kammer gelangen (z.B. 'Nach einem langen Tag...')."
+    )
+    assert vorschlag_verdaechtig(fundstelle, vorschlag) is True
+
+
+def test_vorschlag_verdaechtig_laesst_echte_kurzkorrektur_durch():
+    assert vorschlag_verdaechtig("Luxor", "Memphis") is False
+    assert vorschlag_verdaechtig(
+        "Die Kammer lag still, doch nicht ruhig.",
+        "Nach einem langen Tag auf der Baustelle zogen sie sich in die Kammer zurück. "
+        "Dort lag es still, doch nicht ruhig.",
+    ) is False

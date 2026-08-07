@@ -17,6 +17,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from app.core.befunde_merge import vorschlag_verdaechtig
+
 AUTOMATIK_STATUS_DATEINAME = "automatik_status.json"
 AUTOMATIK_VERLAUF_DATEINAME = "automatik_verlauf.json"
 
@@ -143,29 +145,14 @@ def reste_vorhanden(status: dict[str, Any]) -> bool:
 # Ein "vorschlag" soll laut Pruefer-Persona (siehe app/data/personas/
 # lektor.txt) NUR die korrigierte Fassung der zitierten "fundstelle" sein -
 # kein allgemeiner Hinweis. In der Praxis rutscht dem Modell trotz dieser
-# Anweisung gelegentlich ein Redaktionskommentar ("Dieser Abschnitt sollte
-# gekuerzt werden...") oder ein unbeabsichtigt dupliziertes Textstueck als
-# "vorschlag" durch, was befunde_anwenden() bislang ungeprueft direkt in
-# den Kapiteltext gespleisst hat - mit dem Ergebnis, dass Redaktionsnotizen
-# oder verdoppelte Saetze im fertigen Manuskript landeten (siehe
-# "Die-Schwerkraft-der-Erinnerung.md"-Vorfall). _vorschlag_verdaechtig()
-# faengt beide Muster ab, OHNE echte kurze Kasus-/Genus-Korrekturen
-# (typischerweise nur ein, zwei Woerter laenger als die fundstelle) zu
-# blockieren.
-_VORSCHLAG_MAX_ABSOLUT = 80
-_VORSCHLAG_MAX_VERHAELTNIS = 3
-
-
-def _vorschlag_verdaechtig(fundstelle: str, vorschlag: str) -> bool:
-    """True, wenn `vorschlag` eher nach einem liegen gebliebenen
-    Redaktionskommentar oder einem duplizierten Textfragment aussieht als
-    nach einer echten Korrektur von `fundstelle` - naemlich wenn er sowohl
-    die absolute als auch die relative zur fundstelle-Laenge gesetzte
-    Grenze sprengt. Bewusst KEIN Wortueberlapp-Check: kurze Kasus-/Genus-
-    Korrekturen (z.B. "kein" -> "keine") aendern gerade die Funktionswoerter
-    und teilen sich oft nur ein einziges Inhaltswort mit der fundstelle -
-    ein Aehnlichkeits-Check wuerde genau diese legitimen Faelle blockieren."""
-    return len(vorschlag) > max(_VORSCHLAG_MAX_ABSOLUT, len(fundstelle) * _VORSCHLAG_MAX_VERHAELTNIS)
+# Anweisung gelegentlich ein Redaktionskommentar, ein unbeabsichtigt
+# dupliziertes Textstueck oder eine woertliche Anweisung ("Ersetzen Sie...")
+# als "vorschlag" durch. befunde_anwenden() prueft deshalb JEDEN Vorschlag
+# vor dem Splicen gegen befunde_merge.vorschlag_verdaechtig() - dieselbe
+# Pruefung laeuft bereits vorgelagert in app/api/pipeline.py beim Bauen der
+# Roh-Funde (nullt den Vorschlag dort statt den Fund zu verwerfen), diese
+# Pruefung hier ist ein zweites, unabhaengiges Sicherheitsnetz direkt vor
+# dem eigentlichen Text-Splice.
 
 
 def befunde_anwenden(text: str, befunde: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
@@ -203,7 +190,7 @@ def befunde_anwenden(text: str, befunde: list[dict[str, Any]]) -> tuple[str, lis
                 "fundstelle": befund.get("fundstelle"), "vorschlag": None,
             })
             continue
-        if _vorschlag_verdaechtig(befund.get("fundstelle") or "", befund["vorschlag"]):
+        if vorschlag_verdaechtig(befund.get("fundstelle") or "", befund["vorschlag"]):
             protokoll.append({
                 "art": "uebersprungen", "grund": "verdaechtiger_vorschlag",
                 "fundstelle": befund.get("fundstelle"), "vorschlag": befund.get("vorschlag"),

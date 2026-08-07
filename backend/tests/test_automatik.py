@@ -68,7 +68,7 @@ def test_befunde_anwenden_ueberspringt_verdaechtig_langen_vorschlag():
     """Regression: ein 'vorschlag', der viel laenger ist als die kurze
     fundstelle, sieht eher nach einem liegen gebliebenen Redaktions-
     kommentar oder dupliziertem Text aus als nach einer echten Korrektur -
-    siehe automatik.py:_vorschlag_verdaechtig."""
+    siehe befunde_merge.py:vorschlag_verdaechtig."""
     text = "Ein Satz."
     kommentar = (
         "Dieser Abschnitt sollte gekuerzt oder zusammengefasst werden, um "

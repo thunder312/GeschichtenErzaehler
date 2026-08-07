@@ -36,7 +36,7 @@ from app.core import geruest as g
 from app.core import heuristik as h
 from app.core import projekt_dateien as pd
 from app.core import ssh_manager
-from app.core.befunde_merge import RoherBefund, befunde_zusammenfuehren
+from app.core.befunde_merge import RoherBefund, befunde_zusammenfuehren, vorschlag_verdaechtig
 from app.core.bild_generierung import BildGenerierungFehler
 from app.core.fundstellen import finde_fundstelle
 from app.core.ollama_client import OllamaFehler, chat_stream
@@ -157,7 +157,10 @@ def _anachronismus_roh_befunde(kapiteltext: str, antwort_text: str) -> list[Rohe
         )]
     ergebnis = []
     for eintrag in _ohne_eigene_duplikate(antwort.befunde, ("fundstelle", "vorschlag")):
-        if not _ist_echte_korrektur(eintrag.fundstelle, eintrag.vorschlag):
+        vorschlag = eintrag.vorschlag
+        if vorschlag and vorschlag_verdaechtig(eintrag.fundstelle, vorschlag):
+            vorschlag = None
+        if not _ist_echte_korrektur(eintrag.fundstelle, vorschlag):
             continue
         bereich = finde_fundstelle(kapiteltext, eintrag.fundstelle)
         ergebnis.append(RoherBefund(
@@ -165,7 +168,7 @@ def _anachronismus_roh_befunde(kapiteltext: str, antwort_text: str) -> list[Rohe
             fundstelle=eintrag.fundstelle,
             beschreibung=eintrag.problem,
             sicherheit=eintrag.sicherheit,
-            vorschlag=eintrag.vorschlag,
+            vorschlag=vorschlag,
             start=bereich[0] if bereich else None,
             end=bereich[1] if bereich else None,
         ))
@@ -184,6 +187,8 @@ def _kontinuitaet_roh_befunde(kapiteltext: str, antwort_text: str) -> list[Roher
     ergebnis = []
     for eintrag in _ohne_eigene_duplikate(antwort.befunde, ("zitat", "vorschlag")):
         vorschlag = None if eintrag.unsicher else eintrag.vorschlag
+        if vorschlag and vorschlag_verdaechtig(eintrag.zitat, vorschlag):
+            vorschlag = None
         if not _ist_echte_korrektur(eintrag.zitat, vorschlag):
             continue
         bereich = finde_fundstelle(kapiteltext, eintrag.zitat)
@@ -213,7 +218,10 @@ def _lektor_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefund
         )]
     ergebnis = []
     for eintrag in _ohne_eigene_duplikate(antwort.befunde, ("fundstelle", "vorschlag")):
-        if not _ist_echte_korrektur(eintrag.fundstelle, eintrag.vorschlag):
+        vorschlag = eintrag.vorschlag
+        if vorschlag and vorschlag_verdaechtig(eintrag.fundstelle, vorschlag):
+            vorschlag = None
+        if not _ist_echte_korrektur(eintrag.fundstelle, vorschlag):
             continue
         bereich = finde_fundstelle(kapiteltext, eintrag.fundstelle)
         ergebnis.append(RoherBefund(
@@ -226,7 +234,7 @@ def _lektor_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefund
             # "hoch", damit die Merge-Logik es wie die anderen "hoch"-Funde
             # behandelt.
             sicherheit="hoch",
-            vorschlag=eintrag.vorschlag,
+            vorschlag=vorschlag,
             start=bereich[0] if bereich else None,
             end=bereich[1] if bereich else None,
         ))
@@ -250,7 +258,10 @@ def _satzbau_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefun
         )]
     ergebnis = []
     for eintrag in _ohne_eigene_duplikate(antwort.befunde, ("fundstelle", "vorschlag")):
-        if not _ist_echte_korrektur(eintrag.fundstelle, eintrag.vorschlag):
+        vorschlag = eintrag.vorschlag
+        if vorschlag and vorschlag_verdaechtig(eintrag.fundstelle, vorschlag):
+            vorschlag = None
+        if not _ist_echte_korrektur(eintrag.fundstelle, vorschlag):
             continue
         bereich = finde_fundstelle(kapiteltext, eintrag.fundstelle)
         ergebnis.append(RoherBefund(
@@ -258,7 +269,7 @@ def _satzbau_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefun
             fundstelle=eintrag.fundstelle,
             beschreibung=eintrag.problem,
             sicherheit="hoch",
-            vorschlag=eintrag.vorschlag,
+            vorschlag=vorschlag,
             start=bereich[0] if bereich else None,
             end=bereich[1] if bereich else None,
         ))
