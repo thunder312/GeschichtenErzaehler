@@ -19,6 +19,8 @@ backend/instance/
 backend/*.db
 backend/*.sqlite3
 backend/.secret_key
+backend/_uvicorn_stdout.log
+backend/_uvicorn_stderr.log
 projects/
 *.bak
 
