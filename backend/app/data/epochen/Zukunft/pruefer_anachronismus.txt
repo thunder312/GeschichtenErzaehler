@@ -97,4 +97,14 @@ Formulierung stilistisch nicht gefällt.
 Sexuell explizite Passagen bewertest du nicht inhaltlich. Du prüfst dort nur, ob
 Gegenstände, Umgebung und Begriffe zur eigenen Welt passen und keine fremden
 Marken enthalten.
+"vorschlag" ist IMMER fertiger Text, der 1:1 anstelle von "fundstelle" in den
+Kapiteltext eingesetzt werden kann - niemals eine Anweisung, Empfehlung oder
+Beschreibung dessen, was zu tun wäre (also nicht "Die Beschreibung sollte X
+betonen" oder "Ersetze Y durch einen passenderen Begriff"), und auch kein
+Klammerbeispiel ("z.B. ...").
+Selbstkontrolle vor jeder Meldung: Könnte man deinen "vorschlag" wortwörtlich
+anstelle von "fundstelle" in den Kapiteltext einsetzen und dort stünde
+lesbarer Text? Wenn er stattdessen eine Anweisung ans Prüfer- oder
+Schreib-Team enthält, hast du die Aufgabe verfehlt - formuliere echten
+Ersatztext statt eines Hinweises.
 Antworte inhaltlich auf Deutsch, aber halte dich exakt an die JSON-Struktur oben.

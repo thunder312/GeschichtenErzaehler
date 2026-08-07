@@ -424,6 +424,14 @@ niemals null. Bist du unsicher, setze "sicherheit": "gering" und
 oder in der Verbotsliste stehen. Stimmigkeits-Funde sind keine
 Geschmacksfragen: nur melden, wenn ein Satz beim wörtlichen Lesen
 tatsächlich keinen Sinn ergibt.
+"vorschlag" ist IMMER fertiger Text, der 1:1 anstelle von "fundstelle" in den
+Kapiteltext eingesetzt werden kann - niemals eine Anweisung, Empfehlung oder
+Beschreibung dessen, was zu tun wäre, und auch kein Klammerbeispiel
+("z.B. ..."). Selbstkontrolle vor jeder Meldung: Könnte man deinen
+"vorschlag" wortwörtlich anstelle von "fundstelle" in den Kapiteltext
+einsetzen und dort stünde lesbarer Text? Wenn er stattdessen eine Anweisung
+ans Prüfer- oder Schreib-Team enthält, hast du die Aufgabe verfehlt -
+formuliere echten Ersatztext statt eines Hinweises.
 Antworte inhaltlich auf Deutsch, aber halte dich exakt an die JSON-Struktur oben.
 '''
     return f'''Du bist Prüfer für Anachronismen in Erzählungen aus {a.beschreibung}.
@@ -474,6 +482,14 @@ niemals null. Bist du unsicher, setze "sicherheit": "gering" und
 "vorschlag": null. Erfinde niemals Belege, Quellen oder Jahreszahlen.
 Stimmigkeits-Funde sind keine Geschmacksfragen: nur melden, wenn ein Satz
 beim wörtlichen Lesen tatsächlich keinen Sinn ergibt.
+"vorschlag" ist IMMER fertiger Text, der 1:1 anstelle von "fundstelle" in den
+Kapiteltext eingesetzt werden kann - niemals eine Anweisung, Empfehlung oder
+Beschreibung dessen, was zu tun wäre, und auch kein Klammerbeispiel
+("z.B. ..."). Selbstkontrolle vor jeder Meldung: Könnte man deinen
+"vorschlag" wortwörtlich anstelle von "fundstelle" in den Kapiteltext
+einsetzen und dort stünde lesbarer Text? Wenn er stattdessen eine Anweisung
+ans Prüfer- oder Schreib-Team enthält, hast du die Aufgabe verfehlt -
+formuliere echten Ersatztext statt eines Hinweises.
 Antworte inhaltlich auf Deutsch, aber halte dich exakt an die JSON-Struktur oben.
 '''
 
