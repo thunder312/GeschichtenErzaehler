@@ -30,20 +30,26 @@ import httpx
 # liegt verschachtelt unter "sample_params").
 #
 # Ohne Gegensteuerung neigt gerade das hier laufende Turbo/Distill-Modell
-# (wenige Sampling-Schritte) zu Anatomie-Artefakten wie Extra-Gliedmassen
-# und - nach Haenden das zweitschwerste fuer Diffusionsmodelle - waechsern
-# wirkenden/asymmetrischen Gesichtern. Eine rein positive/vermeidende
-# Prompt-Formulierung wie "strictly one pair of arms" oder "keine Gesichter
-# im Vordergrund" hilft kaum, weil Diffusionsmodelle Negationen im Prompt
-# nicht zuverlaessig verstehen. Bewusst als fester, immer mitgeschickter
-# Standard-Satz statt als vom User editierbares Feld: die Artefaktklasse
-# ist modellbedingt, nicht geschichtenspezifisch.
+# (wenige Sampling-Schritte) zu Anatomie-Artefakten wie Extra-Gliedmassen,
+# waechsern wirkenden/asymmetrischen Gesichtern (nach Haenden das
+# zweitschwerste fuer Diffusionsmodelle) und bei Mehrpersonen-Szenen zu
+# "Subjekt-Verdopplung" (eine Figur taucht als fast identische Kopie ein
+# zweites Mal auf). Eine rein positive/vermeidende Prompt-Formulierung wie
+# "strictly one pair of arms" oder "keine Gesichter im Vordergrund" hilft
+# kaum, weil Diffusionsmodelle Negationen im Prompt nicht zuverlaessig
+# verstehen. Bewusst als fester, immer mitgeschickter Standard-Satz statt
+# als vom User editierbares Feld: die Artefaktklasse ist modellbedingt,
+# nicht geschichtenspezifisch. "duplicate person"/"cloned figure"/"twins"
+# zielen bewusst auf IDENTISCHE Doppelgaenger, nicht auf Personenzahl
+# allgemein - echte Mehrpersonen-/Gruppenszenen sollen dadurch nicht
+# beeintraechtigt werden.
 NEGATIV_PROMPT_STANDARD = (
     "extra limbs, extra arms, extra hands, extra legs, extra fingers, "
     "fused fingers, missing fingers, deformed hands, mutated hands, "
     "malformed limbs, disfigured, duplicate body parts, bad anatomy, "
     "uncanny face, asymmetric face, deformed face, distorted face, "
     "waxy skin, empty stare, dead eyes, "
+    "duplicate person, cloned figure, twins, identical duplicate, "
     "blurry, low quality, watermark, text"
 )
 

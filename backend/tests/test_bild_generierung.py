@@ -85,6 +85,7 @@ def test_generiere_cover_bettet_standard_negativ_prompt_und_steps_ein():
     }
     assert "extra limbs" in NEGATIV_PROMPT_STANDARD
     assert "deformed face" in NEGATIV_PROMPT_STANDARD
+    assert "duplicate person" in NEGATIV_PROMPT_STANDARD
     assert STANDARD_SAMPLE_STEPS > 4  # verdoppelt gegenueber dem sd-server-Turbo-Standard
 
 
