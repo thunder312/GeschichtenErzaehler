@@ -16,7 +16,10 @@ Je Figur: Aufenthaltsort, Stand und Titel, körperlicher und seelischer Zustand,
 was sie weiß, was sie nicht weiß.
 
 ## Beziehungen
-Wer steht wie zu wem, was hat sich geändert.
+Wer steht wie zu wem, was hat sich geändert. Legt das Geruest unter
+"Anrede-Konventionen" eine Anredeform (Sie/du) je Figurenpaar fest, führe
+hier den aktuellen Stand mit (unverändert, oder ab welchem Kapitel und aus
+welchem Grund gewechselt).
 
 ## Stand der Liebeshandlung
 Welche Stufe ist erreicht: Begegnung, Annäherung, Widerstand, Geständnis,
@@ -38,7 +41,9 @@ und ihre Einrichtung.
 ## Bereits verwendete Bilder
 Metaphern und auffällige Formulierungen, die nicht wiederholt werden sollen.
 Besonders solche aus körperlichen Szenen, weil sich dort Wiederholungen am
-stärksten bemerkbar machen.
+stärksten bemerkbar machen. Auch einzelne, auffällig oft benutzte Wörter oder
+Vergleichsmuster gehören hierher, nicht nur klassische Metaphern (z.B. ein
+wiederkehrender Vergleich mit "Ritual" oder "Befehl").
 
 ## Regeln
 Nur was im Text steht. Nichts ergänzen, nichts vermuten, nichts ausschmücken.

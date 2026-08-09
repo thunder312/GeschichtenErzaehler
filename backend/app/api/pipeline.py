@@ -276,6 +276,30 @@ def _satzbau_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefun
     return ergebnis
 
 
+def _autor_system_prompt(projekt_root: Path) -> str:
+    """Haengt an die Autor-Persona optional die vom Nutzer gepflegten
+    Stilproben an (siehe app/core/projekt_dateien.py:stilproben_datei) -
+    kurze Vorbild-Ausschnitte aus Geschichten, deren Sprache/Rhythmus/Ton
+    gefallen haben, damit sich Hermes3 UND Qwen3 (beide teilen dieselbe
+    "autor"-Persona, siehe rollen.py) beim Formulieren daran orientieren
+    koennen, ohne dass dafuer ein echtes Fine-Tuning noetig waere. Leeres
+    oder fehlendes stilproben.md aendert nichts am Prompt."""
+    persona = pd.persona_lesen(projekt_root, "autor")
+    stilproben = pd.lies(pd.stilproben_datei(projekt_root / "projekt"), pflicht=False, ersatz="")
+    if not stilproben.strip():
+        return persona
+    return (
+        f"{persona}\n\n"
+        f"## Stilproben (Vorbild für Sprache, NICHT für Inhalt)\n"
+        f"Die folgenden Ausschnitte sind vom Nutzer ausgewählte Beispiele für "
+        f"Wortwahl, Satzrhythmus und Ton, die gut funktioniert haben. "
+        f"Orientiere dich beim Schreiben daran, wie hier erzählt wird. "
+        f"Übernimm NICHT die konkreten Ereignisse, Namen, Figuren oder "
+        f"Handlungen aus den Ausschnitten - dafür gelten ausschließlich "
+        f"Geruest und Stand.\n\n{stilproben}"
+    )
+
+
 async def _bei_bedarf_fortsetzen(
     on_event: OnEvent, settings: Settings, base_url: str, projekt_root: Path, n: int, text: str,
     ziel: int, geruest_text: str, vorher: str, stufe: str, zusatzhinweis: str,
@@ -323,7 +347,7 @@ async def _bei_bedarf_fortsetzen(
 
         teile: list[str] = []
         async for event in chat_stream(
-            base_url, autor_rolle, pd.persona_lesen(projekt_root, "autor"),
+            base_url, autor_rolle, _autor_system_prompt(projekt_root),
             f"=== STORY-GERUEST ===\n{geruest_text}\n\n"
             f"=== STAND NACH DEM VORIGEN KAPITEL ===\n{vorher}\n\n"
             f"=== BISHERIGER TEXT DIESES KAPITELS (Ende) ===\n...{anschluss}\n\n"
@@ -587,7 +611,7 @@ async def _kapitel_schreiben_kern(
         "modell": ROLLEN[autor_rolle]["modell"], "ziel_woerter": ziel,
     })
     async for event in chat_stream(
-        base_url, autor_rolle, pd.persona_lesen(projekt_root, "autor"), user_prompt,
+        base_url, autor_rolle, _autor_system_prompt(projekt_root), user_prompt,
         modell_override=rollen_modell_override(settings, autor_rolle),
     ):
         if event.typ == "error":
@@ -1238,9 +1262,10 @@ async def cover_prompt_vorschlagen(ordner: str, ssh_ziel_id: str | None = Query(
                                     settings: Settings = Depends(get_settings),
                                     benutzer: Benutzer = Depends(get_current_user)):
     """Fasst geruest.md per Text-KI-Ziel (ssh_ziel_id, wie bei /pruefen und
-    /stand) zu einem englischen Bildprompt zusammen - siehe
+    /stand) zu einem deutschen Bildprompt-Entwurf zusammen - siehe
     app/core/geruest.py:COVER_PROMPT_SYSTEM. Liefert nur den Prompt-Text,
-    generiert noch KEIN Bild (siehe cover_generieren())."""
+    generiert noch KEIN Bild (siehe cover_generieren(), die den Prompt vor
+    der sd-server-Anfrage erst ins Englische uebersetzt)."""
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     projekt = projekt_root / "projekt"
     geruest_text = pd.lies(pd.geruest_datei(projekt), pflicht=False, ersatz="")
@@ -1261,6 +1286,7 @@ async def cover_prompt_vorschlagen(ordner: str, ssh_ziel_id: str | None = Query(
 @router.post("/{ordner:path}/cover/generieren")
 async def cover_generieren(ordner: str, anfrage: CoverGenerierenAnfrage,
                             bild_ziel_id: str = Query(...),
+                            ssh_ziel_id: str | None = Query(None),
                             settings: Settings = Depends(get_settings),
                             benutzer: Benutzer = Depends(get_current_user)):
     """Erzeugt das eigentliche Deckblattbild ueber sd-server (siehe
@@ -1268,12 +1294,25 @@ async def cover_generieren(ordner: str, anfrage: CoverGenerierenAnfrage,
     bild_ziel_id waehlt das KI-Ziel mit konfiguriertem bildki_port (siehe
     app/services.py:bild_basis_url) - unabhaengig vom Text-KI-Ziel aus
     cover_prompt_vorschlagen(), auch wenn in der Praxis meist dasselbe
-    KI-Ziel (Athene) beides bedient."""
+    KI-Ziel (Athene) beides bedient. anfrage.prompt ist Deutsch (der User
+    tippt/korrigiert im Frontend auf Deutsch, siehe
+    g.COVER_PROMPT_SYSTEM) - wird hier per ssh_ziel_id erst ins Englische
+    uebersetzt (g.COVER_PROMPT_UEBERSETZEN_SYSTEM), bevor sd-server ihn
+    bekommt, das nur englische Prompts sauber versteht."""
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     projekt = projekt_root / "projekt"
+    with ollama_basis_url(settings, ssh_ziel_id) as text_base_url:
+        modell = rollen_modell_override(settings, "cover_prompt")
+        try:
+            prompt_englisch, _meta = await _sammle_antwort(
+                text_base_url, "cover_prompt", g.COVER_PROMPT_UEBERSETZEN_SYSTEM, anfrage.prompt,
+                modell_override=modell,
+            )
+        except OllamaFehler as e:
+            raise HTTPException(502, str(e)) from e
     with bild_basis_url(settings, bild_ziel_id) as base_url:
         try:
-            bild_bytes = await bild_generierung.generiere_cover(base_url, anfrage.prompt)
+            bild_bytes = await bild_generierung.generiere_cover(base_url, prompt_englisch.strip())
         except BildGenerierungFehler as e:
             raise HTTPException(502, str(e)) from e
     pd.cover_datei(projekt).write_bytes(bild_bytes)

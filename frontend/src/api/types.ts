@@ -28,6 +28,7 @@ export interface ProjektDetail {
   zweite_epoche?: string | null;
   geruest: string | null;
   verbotsliste: string | null;
+  stilproben: string | null;
   kapitel: number[];
   jahr: string | null;
   jugendschutz_stufe: string | null;

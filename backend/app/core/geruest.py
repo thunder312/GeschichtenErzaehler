@@ -111,6 +111,8 @@ def autor_rolle_erkennen(geruest: str) -> str:
     if not treffer:
         return "autor"
     wert = treffer.group(1).lower()
+    if "mistral" in wert:
+        return "autor_mistral"
     if "qwen" in wert:
         return "autor_qwen"
     return "autor"
@@ -177,22 +179,41 @@ def letztes_geplantes_kapitel(geruest: str) -> int | None:
 
 # System-Prompt fuer die "cover_prompt"-Persona (siehe app/core/rollen.py) -
 # wandelt ein deutsches geruest.md in einen kurzen, stichwortartigen
-# englischen Bildprompt fuer die Deckblatt-Generierung um (siehe
-# app/core/bild_generierung.py). Fest formuliert statt aus einer Persona-
-# Datei geladen, weil er epochenunabhaengig ist (anders als die
-# Autor-/Architekt-Personas in personas/, die je Epoche unterschiedlich
+# DEUTSCHEN Bildprompt-Entwurf um, den der User im Frontend ohne
+# Kunst-Vokabel-Englischkenntnisse verstehen und korrigieren kann (siehe
+# COVER_PROMPT_UEBERSETZEN_SYSTEM fuer den Schritt nach Englisch, der erst
+# unmittelbar vor der Bildgenerierung laeuft). Fest formuliert statt aus
+# einer Persona-Datei geladen, weil er epochenunabhaengig ist (anders als
+# die Autor-/Architekt-Personas in personas/, die je Epoche unterschiedlich
 # sind, siehe app/core/projekt_dateien.py:EPOCHE_PERSONA_DATEIEN).
 COVER_PROMPT_SYSTEM = (
     "Du bist ein Prompt-Ingenieur fuer ein Bildgenerierungsmodell "
     "(Stable Diffusion). Du bekommst das Gerüst einer Geschichte (Titel, "
     "Rahmen/Setting, Epoche/Jahr, Hauptfiguren, Konflikt) auf Deutsch. "
-    "Fasse daraus einen kurzen, stichwortartigen Bildprompt AUF ENGLISCH "
+    "Fasse daraus einen kurzen, stichwortartigen Bildprompt AUF DEUTSCH "
     "fuer ein Buchcover zusammen: Szene, Schauplatz, Stimmung/Lichtstimmung, "
-    "Bildstil (z.B. 'painterly illustration', 'epic', 'cinematic lighting'). "
+    "Bildstil (z.B. 'gemalte Illustration', 'episch', 'filmisches Licht'). "
     "Regeln: KEINE Eigennamen von Figuren (das Modell kann damit nichts "
     "anfangen), KEIN Text/Schriftzug im Bild (das Modell kann keinen "
     "lesbaren Text rendern), keine expliziten/sexuellen Inhalte unabhaengig "
     "von der Content-Stufe der Geschichte. Antworte NUR mit dem fertigen "
     "Prompt als eine einzige Zeile kommagetrennter Stichworte, ohne "
     "Erklaerung, ohne Anführungszeichen."
+)
+
+# System-Prompt, der den (ggf. vom User auf Deutsch getippten oder
+# korrigierten) Bildprompt unmittelbar vor der sd-server-Anfrage ins
+# Englische uebersetzt (Stable-Diffusion-Modelle sind auf englische Prompts
+# trainiert, siehe app/core/bild_generierung.py). Bewusst eine reine
+# Uebersetzung ohne inhaltliche Freiheit - der User hat die Szene bereits
+# festgelegt, das Modell soll nichts hinzuerfinden.
+COVER_PROMPT_UEBERSETZEN_SYSTEM = (
+    "Du uebersetzt einen stichwortartigen Bildprompt fuer ein "
+    "Bildgenerierungsmodell (Stable Diffusion) von Deutsch nach Englisch. "
+    "Uebersetze moeglichst woertlich, nutze dabei die im Englischen "
+    "uebliche Fachterminologie fuer Bildstil/Beleuchtung (z.B. 'painterly "
+    "illustration', 'cinematic lighting', 'epic'). Erfinde KEINE neuen "
+    "Details, aendere NICHTS am Inhalt, kuerze nichts. Antworte NUR mit "
+    "dem uebersetzten Prompt als eine einzige Zeile kommagetrennter "
+    "Stichworte, ohne Erklaerung, ohne Anführungszeichen."
 )

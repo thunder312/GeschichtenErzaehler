@@ -39,17 +39,22 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   const [verbotslisteWirdGespeichert, setVerbotslisteWirdGespeichert] = useState(false);
   const [verbotslisteHinweis, setVerbotslisteHinweis] = useState<string | null>(null);
 
+  const [stilprobenInhalt, setStilprobenInhalt] = useState(projekt?.stilproben ?? "");
+  const [stilprobenWirdGespeichert, setStilprobenWirdGespeichert] = useState(false);
+  const [stilprobenHinweis, setStilprobenHinweis] = useState<string | null>(null);
+
   const [architektenGespraech, setArchitektenGespraech] = useState<string | null>(null);
 
   useEffect(() => {
     setInhalt(projekt?.geruest ?? "");
     setVerbotslisteInhalt(projekt?.verbotsliste ?? "");
+    setStilprobenInhalt(projekt?.stilproben ?? "");
     setArchitektenGespraech(null);
     api
       .architektenGespraech(ordner)
       .then(setArchitektenGespraech)
       .catch(() => setArchitektenGespraech(null));
-  }, [projekt?.geruest, projekt?.verbotsliste, ordner]);
+  }, [projekt?.geruest, projekt?.verbotsliste, projekt?.stilproben, ordner]);
 
   async function speichern() {
     setWirdGespeichert(true);
@@ -77,6 +82,18 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
       setVerbotslisteHinweis("Gespeichert.");
     } finally {
       setVerbotslisteWirdGespeichert(false);
+    }
+  }
+
+  async function stilprobenSpeichern() {
+    setStilprobenWirdGespeichert(true);
+    setStilprobenHinweis(null);
+    try {
+      await api.stilprobenSchreiben(ordner, stilprobenInhalt);
+      onGeaendert();
+      setStilprobenHinweis("Gespeichert.");
+    } finally {
+      setStilprobenWirdGespeichert(false);
     }
   }
 
@@ -179,6 +196,33 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
             defaultLanguage="markdown"
             value={verbotslisteInhalt}
             onChange={(v) => setVerbotslisteInhalt(v ?? "")}
+            theme="vs-dark"
+            options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 13 }}
+          />
+        </CollapsibleCard>
+
+        <CollapsibleCard
+          title="✍️ stilproben.md"
+          defaultOffen={false}
+          aktionen={
+            <>
+              {stilprobenHinweis && <span className="text-xs text-accent-light">{stilprobenHinweis}</span>}
+              <Button onClick={stilprobenSpeichern} disabled={stilprobenWirdGespeichert}>
+                {stilprobenWirdGespeichert ? "Speichert..." : "Speichern"}
+              </Button>
+            </>
+          }
+        >
+          <p className="mb-3 text-sm text-text-muted">
+            Optional: ein bis drei kurze Ausschnitte (je etwa 100 bis 300 Wörter) aus Geschichten, deren Sprache,
+            Satzrhythmus und Ton dir gefallen haben. Der Autor orientiert sich beim Schreiben daran, übernimmt aber
+            NICHT die Handlung, Namen oder Figuren daraus. Leer lassen hat keinen Effekt.
+          </p>
+          <Editor
+            height="320px"
+            defaultLanguage="markdown"
+            value={stilprobenInhalt}
+            onChange={(v) => setStilprobenInhalt(v ?? "")}
             theme="vs-dark"
             options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 13 }}
           />

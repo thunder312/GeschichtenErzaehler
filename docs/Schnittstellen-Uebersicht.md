@@ -94,7 +94,8 @@ re.search(r"Jugendschutz-Stufe\s*[:\-]?\s*([A-Za-zÄÖÜäöüß/ ]+)",
 
 # Autor-Modell (Frage 3 im Architekten-Interview, siehe 5.2a):
 re.search(r"Autor-Modell\s*[:\-]?\s*([A-Za-z0-9 ]+)", geruest, re.IGNORECASE)
-# wert.lower() enthaelt "qwen" -> Rolle "autor_qwen" (qwen3:14b)
+# wert.lower() enthaelt "mistral" -> Rolle "autor_mistral" (mistral-small3.2:latest)
+# sonst wert.lower() enthaelt "qwen" -> Rolle "autor_qwen" (qwen3:14b)
 # sonst (auch wenn kein Treffer) -> Rolle "autor" (hermes3:8b) - Standard
 
 # Automatische Fortsetzung (Frage 4 im Architekten-Interview, siehe 5.4):
@@ -247,6 +248,7 @@ Modell, eigenen Denkmodus-Schalter, eigene Sampling-Parameter:
 | `lektor` | gemma4 | false | 0.15 | 16384 | 6144 | 42 |
 | `anachronismen_korrektur` | gemma4 | false | 0.1 | 16384 | 6144 | 42 |
 | `autor_qwen` (optional) | qwen3:14b | false | 0.7 | 16384 | 6144 | – |
+| `autor_mistral` (optional, nur GUI-Backend) | mistral-small3.2:latest | false | 0.7 | 16384 | 6144 | – |
 
 Vollständige Sampling-Parameter je Rolle (top_p, min_p, top_k,
 repeat_penalty, repeat_last_n, ggf. presence_penalty) stehen im Quelltext im
@@ -282,19 +284,21 @@ Wird an zwei Stellen verwendet: beim `neu`-Befehl (neuer Ordnername aus
 eingetipptem Titel) und bei der automatischen Projektordner-Umbenennung
 nach dem Architekten-Gespräch (siehe 5.16).
 
-### 5.2 Autor-Modell-Auswahl (Hermes3/Qwen3)
+### 5.2 Autor-Modell-Auswahl (Hermes3/Qwen3/Mistral)
 
 Frage 3 im Architekten-Interview legt fest, welches Modell die Geschichte
-tatsächlich schreibt. `_autor_rolle_erkennen(geruest)` liest das Feld aus
-dem Rahmen-Abschnitt:
+tatsächlich schreibt. `autor_rolle_erkennen(geruest)` (GUI-Backend:
+`app/core/geruest.py`) liest das Feld aus dem Rahmen-Abschnitt:
 
 ```python
-def _autor_rolle_erkennen(geruest: str) -> str:
+def autor_rolle_erkennen(geruest: str) -> str:
     treffer = re.search(r"Autor-Modell\s*[:\-]?\s*([A-Za-z0-9 ]+)",
                          geruest, re.IGNORECASE)
     if not treffer:
         return "autor"
     wert = treffer.group(1).lower()
+    if "mistral" in wert:
+        return "autor_mistral"
     if "qwen" in wert:
         return "autor_qwen"
     return "autor"
@@ -311,6 +315,11 @@ Vergleichsrolle für `./novelle.py testen <n>`. Im GUI-Backend ist Qwen3
 gleichberechtigt neben Hermes3 als zweite vollwertige Autor-Wahl nutzbar,
 nicht mehr nur als Test-/Vergleichsmodus - der A/B-Vergleichsbefehl selbst
 ist reine CLI-Historie und im GUI-Backend nicht nachgebaut.
+
+Die Rolle `autor_mistral` ist eine reine GUI-Backend-Erweiterung ohne
+CLI-Vorbild (kein Gegenstück in `pre-GUI/novelle.py`) - dritte gleichwertige
+Autor-Wahl neben Hermes3 und Qwen3, ausgewählt über
+"Autor-Modell: Mistral" im Gerüst.
 
 Fehlt die Angabe (ältere Projekte ohne diese Frage), lautet der Rückgabewert
 immer `"autor"` (Hermes) - unverändertes Verhalten für Bestandsprojekte.

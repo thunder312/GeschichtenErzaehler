@@ -127,6 +127,12 @@ export const api = {
       { method: "PUT", body: JSON.stringify({ inhalt }) },
     ),
 
+  stilprobenSchreiben: (ordner: string, inhalt: string) =>
+    anfrage<{ gesichert_als: string | null }>(
+      `/api/projects/${ordner}/stilproben`,
+      { method: "PUT", body: JSON.stringify({ inhalt }) },
+    ),
+
   personasAuflisten: (ordner: string) => anfrage<string[]>(`/api/projects/${ordner}/personas`),
 
   personaLesen: (ordner: string, name: string) =>
@@ -161,11 +167,14 @@ export const api = {
       { method: "POST" },
     ),
 
-  coverGenerieren: (ordner: string, prompt: string, bildZielId: string) =>
-    anfrage<{ gespeichert: boolean }>(
-      `/api/projects/${ordner}/cover/generieren?bild_ziel_id=${encodeURIComponent(bildZielId)}`,
+  coverGenerieren: (ordner: string, prompt: string, bildZielId: string, sshZielId?: string | null) => {
+    const params = new URLSearchParams({ bild_ziel_id: bildZielId });
+    if (sshZielId) params.set("ssh_ziel_id", sshZielId);
+    return anfrage<{ gespeichert: boolean }>(
+      `/api/projects/${ordner}/cover/generieren?${params.toString()}`,
       { method: "POST", body: JSON.stringify({ prompt }) },
-    ),
+    );
+  },
 
   coverUrl: (ordner: string) => `/api/projects/${ordner}/cover`,
 

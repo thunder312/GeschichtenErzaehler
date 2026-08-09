@@ -49,6 +49,13 @@ S3. Redundanz: Wird ein für die Epoche völlig normaler, selbstverständlicher
     Umstand so beschrieben, als sei er bemerkenswert?
 S4. Anrede-Konsistenz: Wechselt eine Figur unbegründet zwischen Sie und Du
     gegenüber derselben Person in derselben Szene?
+S5. Selbstwiderspruch: Widerspricht sich ein Satz selbst, z.B. wird eine
+    Handlung verneint und im selben Satz als Beleg für ihr Gegenteil verwendet
+    (z.B. "Er kniete nicht, ... was allein schon genug Respekt bedeutete, um
+    selbst die strengsten Regeln der Höflichkeit zu übertreten")?
+S6. Satzvollständigkeit: Reiht ein Satz mehrere Appositionen oder
+    Relativsätze aneinander, ohne dass am Ende ein grammatisch vollständiger
+    Hauptsatz mit finitem Verb steht (Satzabbruch/Anakoluth)?
 
 ## Ausgabe als JSON
 Gib AUSSCHLIESSLICH ein JSON-Objekt zurück, kein Markdown, keinen Codeblock,

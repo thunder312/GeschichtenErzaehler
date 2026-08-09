@@ -18,8 +18,6 @@ from reportlab.platypus import BaseDocTemplate, Frame, Image, PageBreak, PageTem
 
 from app.core.geruest import titel_erkennen, titelseite_erzeugen
 
-ZIERZEICHEN = "❦"
-
 _UNTERTITEL_ZEILE_RE = re.compile(r"^\*(.+?)\*\s*$", re.MULTILINE)
 
 # Die Kapitelueberschrift-Zeile, die JEDE Kapiteldatei einleitet (Format
@@ -135,10 +133,6 @@ def buch_pdf_erzeugen(geruest_text: str, epoche: str | None, kapitel: list[tuple
         "BuchUntertitel", fontName="Times-Italic", fontSize=12.5, leading=17,
         alignment=TA_CENTER, textColor=akzent, spaceAfter=6,
     )
-    zierstil = ParagraphStyle(
-        "Zierzeichen", fontName="Times-Roman", fontSize=16,
-        alignment=TA_CENTER, textColor=akzent, spaceBefore=10, spaceAfter=10,
-    )
     fussnotiz_stil = ParagraphStyle(
         "Fussnotiz", fontName="Times-Roman", fontSize=9.5, leading=13,
         alignment=TA_CENTER, textColor=gedaempft, spaceBefore=6,
@@ -175,18 +169,15 @@ def buch_pdf_erzeugen(geruest_text: str, epoche: str | None, kapitel: list[tuple
         inhalt.append(PageBreak())
 
     inhalt.append(Spacer(1, 4.2 * cm))
-    inhalt.append(Paragraph(ZIERZEICHEN, zierstil))
     inhalt.append(Paragraph(_escape(titel), titel_stil))
     if untertitel:
         inhalt.append(Paragraph(_escape(untertitel), untertitel_stil))
-    inhalt.append(Paragraph(ZIERZEICHEN, zierstil))
     inhalt.append(Paragraph("Erzählt von einer künstlichen Intelligenz", fussnotiz_stil))
 
     for nummer, text in kapitel:
         inhalt.append(PageBreak())
         untertitel_kapitel, absaetze = _kapitel_parsen(text)
         inhalt.append(Spacer(1, 1.6 * cm))
-        inhalt.append(Paragraph(ZIERZEICHEN, zierstil))
         inhalt.append(Paragraph(f"KAPITEL {_roemisch(nummer)}", kapitel_nummer_stil))
         if untertitel_kapitel:
             inhalt.append(Paragraph(_escape(untertitel_kapitel), kapitel_titel_stil))

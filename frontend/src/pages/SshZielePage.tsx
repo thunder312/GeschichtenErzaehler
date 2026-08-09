@@ -381,6 +381,7 @@ const PERSONA_LABELS: Record<string, string> = {
   architekt: "Architekt",
   autor: "Autor",
   autor_qwen: "Autor (Qwen3-Variante)",
+  autor_mistral: "Autor (Mistral-Variante)",
   chronist: "Chronist",
   anachronismus: "Prüfer: Anachronismus",
   kontinuitaet: "Prüfer: Kontinuität",

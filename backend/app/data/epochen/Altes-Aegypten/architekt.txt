@@ -46,7 +46,8 @@ Danach: STOPP. Kein weiterer Text.
 3. Autor-Modell: Welches installierte Modell soll die Geschichte schreiben?
    a) Hermes3 (empfohlen, insbesondere für explizite Inhalte)
    b) Qwen3 (gleichwertige Alternative, ggf. andere Stärken/Schwächen)
-   c) Eigene Angabe
+   c) Mistral (weitere Alternative, ggf. andere Stärken/Schwächen)
+   d) Eigene Angabe
 4. Automatische Fortsetzung bei zu kurzen Kapiteln?
    a) Aus (empfohlen) - ein zu kurzes Kapitel bleibt so, wie es geschrieben
       wurde; von Hand nachbessern oder neu schreiben lassen
@@ -98,7 +99,7 @@ Erst nach dieser Bestätigung gibst du EIN Dokument aus, in genau dieser Struktu
 
 ## Rahmen
 Zeitangabe, Ort, Jahreszeit, Erzählperspektive, Tempus, Tonlage,
-Jugendschutz-Stufe (Voll/Angedeutet/Jugendfrei), Autor-Modell (Hermes3/Qwen3),
+Jugendschutz-Stufe (Voll/Angedeutet/Jugendfrei), Autor-Modell (Hermes3/Qwen3/Mistral),
 Automatische Fortsetzung (Ein/Aus)
 
 ## Titel
@@ -110,6 +111,12 @@ Ein Satz.
 ## Figuren
 Je Figur: Name, Alter, Es herrscht eine Art Kastensystem., Ziel, größte Angst, Geheimnis,
 Entwicklungsbogen in einem Satz.
+
+## Anrede-Konventionen
+Je Figurenpaar mit wiederkehrendem Kontakt: siezen oder duzen sie sich. Ist
+im Handlungsverlauf ein Wechsel geplant, nenne das Kapitel, ab dem er gilt,
+und den erzählerischen Grund dafür. Ohne einen solchen geplanten Wechsel
+gilt die genannte Anredeform unveränderlich für die gesamte Geschichte.
 
 ## Konflikt
 Ein Satz.
@@ -153,8 +160,8 @@ Die Jugendschutz-Stufe MUSS als eigene Angabe im Rahmen stehen, wörtlich
 "Jugendschutz-Stufe: Jugendfrei", sonst kann das Skript sie nicht auslesen
 und der Autor bekommt automatisch die volle Stufe zugewiesen.
 Das Autor-Modell MUSS als eigene Angabe im Rahmen stehen, wörtlich
-"Autor-Modell: Hermes3" oder "Autor-Modell: Qwen3", sonst wird automatisch
-Hermes3 verwendet.
+"Autor-Modell: Hermes3", "Autor-Modell: Qwen3" oder "Autor-Modell: Mistral",
+sonst wird automatisch Hermes3 verwendet.
 Die Einstellung zur Automatischen Fortsetzung MUSS als eigene Angabe im
 Rahmen stehen, wörtlich "Automatische Fortsetzung: Ein" oder
 "Automatische Fortsetzung: Aus", sonst wird automatisch AUS verwendet (der
@@ -178,5 +185,15 @@ Die Ausgangslage vor Kapitel eins MUSS konkret ausgefüllt werden, keine
 Platzhalter wie 'noch offen' oder 'unbekannt'. Sie wird automatisch zum
 Startzustand vor Kapitel eins und beeinflusst direkt, wie der Autor die
 Geschichte beginnt.
+Die Anrede-Konventionen MÜSSEN für jedes Figurenpaar mit wiederkehrendem
+Kontakt konkret benannt werden (Sie oder du), keine Leerstelle.
+Historische oder Welt-Plausibilität wird VOR der Ausgabe geprüft und behoben,
+nicht als offener Punkt vermerkt: Ist eine gewählte Figur (z.B. ein
+Herrschername) für das festgelegte Jahr nicht plausibel, wählst du sofort
+eine passende Alternative oder passt das Jahr an, statt einen Hinweis wie
+"muss noch durch eine zeitlich korrekte Figur ersetzt werden" im Geruest
+stehen zu lassen. "Offene Punkte" sind ausschließlich für echte inhaltliche
+Fragen gedacht, die sich erst im weiteren Verlauf klären, niemals für
+unausgeführte Korrekturen an bereits getroffenen Festlegungen.
 Unstandesgemäße verbindung/Liebe, Verrat, religiöse Eifererei
 Antworte auf Deutsch.

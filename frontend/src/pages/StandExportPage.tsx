@@ -80,7 +80,7 @@ export function StandExportPage({
     setCoverFehler(null);
     starten("Generiert Titelbild (kann bis zu einer Minute dauern)...");
     try {
-      await api.coverGenerieren(ordner, coverPrompt.trim(), bildZielId);
+      await api.coverGenerieren(ordner, coverPrompt.trim(), bildZielId, sshZielId || null);
       setCoverVersion((v) => v + 1);
     } catch (e) {
       setCoverFehler(e instanceof Error ? e.message : String(e));
@@ -199,13 +199,13 @@ export function StandExportPage({
               </Button>
             </div>
             <div className="mt-4">
-              <Label>Bildprompt (Englisch, editierbar)</Label>
+              <Label>Bildprompt (Deutsch, editierbar - wird vor der Generierung automatisch übersetzt)</Label>
               <textarea
                 value={coverPrompt}
                 onChange={(e) => setCoverPrompt(e.target.value)}
                 rows={3}
                 className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none transition-colors focus:border-accent"
-                placeholder="Erst 'Prompt vorschlagen' klicken oder direkt selbst einen Bildprompt eingeben..."
+                placeholder="Erst 'Prompt vorschlagen' klicken oder direkt selbst einen Bildprompt auf Deutsch eingeben..."
               />
             </div>
             <div className="mt-3 flex items-center gap-4">

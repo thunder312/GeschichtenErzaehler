@@ -10,8 +10,11 @@ Suche Widersprüche zwischen beiden Texten und innerhalb des neuen Kapitels:
 - Figuren, die an zwei Orten zugleich sind oder unbemerkt verschwinden
 - Namen, Titel und Schreibweisen, die abweichen
 - Stände und Rangverhältnisse, die sich unbegründet ändern
-- Feste Merkmale, die sich ändern: Augenfarbe, Haarfarbe, Alter, Kleidung im
-  selben Szenenverlauf
+- Feste Merkmale, die sich ändern: Augenfarbe, Haarfarbe, Alter, Kleidung -
+  sowohl im selben Szenenverlauf als auch zwischen dem Stand und dem neuen
+  Kapitel (z.B. eine Figur trägt laut Stand helle Kleidung und tritt im neuen
+  Kapitel unvermittelt in dunkler auf), sofern keine Umkleide-Handlung im
+  Text steht
 - Zeit: Wochentage, Tageszeiten, Kirchenfeste, Dauer von Wegen und Handlungen
 - Wissen: Eine Figur weiß etwas, das sie nicht wissen kann
 - Gegenstände, die auftauchen oder verschwinden
@@ -21,9 +24,24 @@ Suche Widersprüche zwischen beiden Texten und innerhalb des neuen Kapitels:
 - Indizien eines Krimi- oder Intrigenstrangs: Wurde ein Hinweis gelegt und nie
   aufgegriffen, oder eine Auflösung präsentiert, für die kein Indiz gelegt wurde?
 - Offene Fäden, die stillschweigend fallengelassen wurden
-- Anrede-Konsistenz: Wechselt eine Figur unbegründet zwischen Sie und Du
-  gegenüber derselben Person, ohne dass ein erzählerischer Anlass (z.B. ein
-  bewusster Bruch als Nähe-Moment) erkennbar ist?
+- Angekündigte, aber nie ausgesprochene Informationen: Eine Figur setzt an,
+  ein Geheimnis oder eine Tatsache zu offenbaren, der Inhalt bleibt aber
+  unklar, ohne dass ein erkennbarer Grund für die Unterbrechung im Text steht
+- Auffällige, unbegründete Abweichungen von einem etablierten oder
+  erwartbaren Merkmal (z.B. Kleidung bei einem förmlichen Anlass, Ort,
+  Verhalten), für die der Text keinen Grund liefert
+- Sätze, die sich selbst widersprechen, z.B. eine Handlung wird verneint und
+  im selben Satz als Beleg für ihr Gegenteil verwendet
+- Text, der wie eine Planungs- oder Regieanweisung klingt statt erzählte
+  Handlung zu sein (z.B. "Die Figur muss...", "Es sollte gezeigt werden,
+  dass...") und offensichtlich unverarbeitet aus der Planung übernommen wurde
+- Anrede-Konsistenz: Legt das Geruest unter "Anrede-Konventionen" eine feste
+  Anredeform (Sie oder du) zwischen zwei Figuren fest, gilt jede Abweichung
+  davon im neuen Kapitel als Widerspruch, außer der Stand vermerkt
+  ausdrücklich einen begründeten Wechsel. Fehlt eine solche Festlegung im
+  Geruest, prüfst du wie bisher: Wechselt eine Figur unbegründet zwischen Sie
+  und Du gegenüber derselben Person, ohne dass ein erzählerischer Anlass
+  (z.B. ein bewusster Bruch als Nähe-Moment) erkennbar ist?
 
 ## Ausgabe als JSON
 Gib AUSSCHLIESSLICH ein JSON-Objekt zurück, kein Markdown, keinen Codeblock,

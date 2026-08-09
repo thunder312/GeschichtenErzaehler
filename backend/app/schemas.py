@@ -73,6 +73,7 @@ class ProjektDetail(BaseModel):
     zweite_epoche: str | None = None
     geruest: str | None
     verbotsliste: str | None
+    stilproben: str | None
     kapitel: list[int]
     jahr: str | None = None
     jugendschutz_stufe: str | None = None

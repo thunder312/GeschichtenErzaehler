@@ -157,6 +157,7 @@ def projekt_lesen(ordner: str, settings: Settings = Depends(get_settings),
     projekt_unterordner = pfad / "projekt"
     geruest_text = pd.lies(pd.geruest_datei(projekt_unterordner), pflicht=False, ersatz="")
     verbotsliste_text = pd.lies(pd.verbotsliste_datei(projekt_unterordner), pflicht=False, ersatz="")
+    stilproben_text = pd.lies(pd.stilproben_datei(projekt_unterordner), pflicht=False, ersatz="")
     kapitel = [pd.kapitelnummer_aus_dateiname(p) for p in pd.vorhandene_kapitel(projekt_unterordner)]
     return ProjektDetail(
         ordner=ordner,
@@ -164,6 +165,7 @@ def projekt_lesen(ordner: str, settings: Settings = Depends(get_settings),
         zweite_epoche=pd.zweite_epoche_von_projekt(pfad),
         geruest=geruest_text or None,
         verbotsliste=verbotsliste_text or None,
+        stilproben=stilproben_text or None,
         kapitel=kapitel,
         jahr=g.jahr_erkennen(geruest_text) if geruest_text else None,
         jugendschutz_stufe=g.jugendschutz_stufe_erkennen(geruest_text) if geruest_text else None,
@@ -196,6 +198,15 @@ def verbotsliste_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
                             benutzer: Benutzer = Depends(get_current_user)):
     pfad = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
     ziel_pfad, gesichert_als = pd.schreib(pd.verbotsliste_datei(pfad), anfrage.inhalt)
+    return {"gespeichert": str(ziel_pfad), "gesichert_als": gesichert_als}
+
+
+@router.put("/{ordner:path}/stilproben")
+def stilproben_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
+                          settings: Settings = Depends(get_settings),
+                          benutzer: Benutzer = Depends(get_current_user)):
+    pfad = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
+    ziel_pfad, gesichert_als = pd.schreib(pd.stilproben_datei(pfad), anfrage.inhalt)
     return {"gespeichert": str(ziel_pfad), "gesichert_als": gesichert_als}
 
 

@@ -13,8 +13,19 @@ Inhalts-Prüfer, dafür gibt es andere Rollen.
   (z.B. "die Beigabe, das man..." ist falsch, richtig "die Beigabe, die man...")
 - Genitiv-Endungen, besonders bei Zeitangaben ("eines Mittagessen" fehlt die
   Endung, richtig "eines Mittagessens" oder idiomatisch "eines Mittags")
-- Tempus-Konsistenz innerhalb eines Absatzes (kein Wechsel zwischen Präsens
-  und Präteritum ohne erzählerischen Grund)
+- Tempus-Konsistenz über das GESAMTE Kapitel hinweg, nicht nur innerhalb
+  eines Absatzes: Erzähltext (außerhalb wörtlicher Rede) steht durchgehend
+  im Präteritum. Ein Wechsel ins Präsens außerhalb von Dialogen ist ein
+  Verstoß, auch wenn er erst mehrere Absätze nach der letzten
+  Präteritum-Form auftritt. Innerhalb wörtlicher Rede ist Präsens normal
+  und kein Fehler.
+- Satzvollständigkeit: Ein Satz braucht einen Hauptsatz mit finitem Verb.
+  Reiht der Satz mehrere Appositionen oder Relativsätze aneinander, ohne
+  dass am Ende ein grammatisch vollständiger Hauptsatz steht (Anakoluth,
+  z.B. "Argus, mit seiner kühlen Miene, seinem kalten Atem, der ihr immer
+  mehr wie ein Schatten vorkam, der sie nicht losgehen ließ."), ist das ein
+  Verstoß. "vorschlag" enthält dann den ganzen Satz mit ergänztem oder
+  aufgelöstem Hauptsatz.
 - Rechtschreibung nach Duden, inklusive falsch deklinierter Fremdwörter oder
   Anglizismen, die mit deutscher Endung versehen wurden, aber keine echten
   deutschen Wörter sind

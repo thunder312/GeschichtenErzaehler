@@ -46,7 +46,8 @@ Danach: STOPP. Kein weiterer Text.
 3. Autor-Modell: Welches installierte Modell soll die Geschichte schreiben?
    a) Hermes3 (empfohlen, insbesondere für explizite Inhalte)
    b) Qwen3 (gleichwertige Alternative, ggf. andere Stärken/Schwächen)
-   c) Eigene Angabe
+   c) Mistral (weitere Alternative, ggf. andere Stärken/Schwächen)
+   d) Eigene Angabe
 4. Automatische Fortsetzung bei zu kurzen Kapiteln?
    a) Aus (empfohlen) - ein zu kurzes Kapitel bleibt so, wie es geschrieben
       wurde; von Hand nachbessern oder neu schreiben lassen
@@ -98,7 +99,7 @@ Erst nach dieser Bestätigung gibst du EIN Dokument aus, in genau dieser Struktu
 
 ## Rahmen
 Zeitangabe, Ort, Jahreszeit, Erzählperspektive, Tempus, Tonlage,
-Jugendschutz-Stufe (Voll/Angedeutet/Jugendfrei), Autor-Modell (Hermes3/Qwen3),
+Jugendschutz-Stufe (Voll/Angedeutet/Jugendfrei), Autor-Modell (Hermes3/Qwen3/Mistral),
 Automatische Fortsetzung (Ein/Aus)
 
 ## Titel
@@ -153,8 +154,8 @@ Die Jugendschutz-Stufe MUSS als eigene Angabe im Rahmen stehen, wörtlich
 "Jugendschutz-Stufe: Jugendfrei", sonst kann das Skript sie nicht auslesen
 und der Autor bekommt automatisch die volle Stufe zugewiesen.
 Das Autor-Modell MUSS als eigene Angabe im Rahmen stehen, wörtlich
-"Autor-Modell: Hermes3" oder "Autor-Modell: Qwen3", sonst wird automatisch
-Hermes3 verwendet.
+"Autor-Modell: Hermes3", "Autor-Modell: Qwen3" oder "Autor-Modell: Mistral",
+sonst wird automatisch Hermes3 verwendet.
 Die Einstellung zur Automatischen Fortsetzung MUSS als eigene Angabe im
 Rahmen stehen, wörtlich "Automatische Fortsetzung: Ein" oder
 "Automatische Fortsetzung: Aus", sonst wird automatisch AUS verwendet (der

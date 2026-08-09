@@ -58,6 +58,16 @@ def verbotsliste_datei(projekt: Path) -> Path:
     return projekt / "verbotsliste.md"
 
 
+def stilproben_datei(projekt: Path) -> Path:
+    """Optionale, vom Nutzer gepflegte Sammlung kurzer Vorbild-Ausschnitte
+    (siehe app/api/pipeline.py:_autor_system_prompt) - anders als
+    verbotsliste_datei() gibt es dafuer KEINE Epoche-Vorlage zum Kopieren,
+    die Datei existiert nur, wenn der Nutzer sie ueber den Geruest-Tab
+    selbst befuellt hat. Ein leeres/fehlendes stilproben.md aendert am
+    Autor-Prompt nichts."""
+    return projekt / "stilproben.md"
+
+
 def architekt_verlauf_datei(projekt: Path) -> Path:
     """Zwischenspeicher fuer ein unterbrochenes Architekten-Gespraech (siehe
     app/api/architekt.py) - existiert nur, waehrend das Interview noch

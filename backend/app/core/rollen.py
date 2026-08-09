@@ -146,6 +146,29 @@ ROLLEN: dict[str, dict] = {
             "num_predict": 6144,
         },
     },
+    # Dritte gleichberechtigte Autor-Alternative, waehlbar ueber
+    # "Autor-Modell: Mistral" im Geruest - siehe
+    # app/core/geruest.py:autor_rolle_erkennen. Parameter vorerst identisch
+    # zur "autor_qwen"-Rolle uebernommen (konservativer repeat_penalty/
+    # repeat_last_n gegen Wiederholungsschleifen, siehe dortiger Kommentar
+    # zum Vorfall "Der-Preis-der-Wuerde-Ein-Geheimnis-in-Mayfair") - noch
+    # ungetestet mit echten Kapiteln, bei Bedarf nach den ersten
+    # Live-Laeufen nachjustieren, genau wie bei "autor_qwen" seinerzeit.
+    "autor_mistral": {
+        "modell": "mistral-small3.2:latest",
+        "think": False,
+        "optionen": {
+            "temperature": 0.7,
+            "top_p": 0.8,
+            "top_k": 20,
+            "min_p": 0.0,
+            "repeat_penalty": 1.1,
+            "repeat_last_n": 256,
+            "presence_penalty": 1.5,
+            "num_ctx": 16384,
+            "num_predict": 6144,
+        },
+    },
     # Extrahiert Figuren aus dem "## Figuren"-Abschnitt eines fertigen
     # Geruests fuer den Personen-Fundus (siehe app/core/fundus.py) - laeuft
     # nutzerweit statt projektweit, deshalb dieselben konservativen

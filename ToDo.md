@@ -35,7 +35,8 @@
 - [x] Status in der Fusszeile aktualisieren. Es zeigt bereit, während Aktionen laufen (zum Beispiel im Auto-Modus). Es soll die aktuelle Aktion anzeigen. Animiere auch die Staus-Leute entsprechend.
 - [x] Container allgemein einklappbar machen, wie Architekten-Gespräch-Container.
 - [x] Recherchiere jede auf dem Produktiv-System vorhandene Epoche und erweitere die Autoren-Vorschrift, mit viel mehr Epochen-Infos. Lege besonders viel Wert auf das Verhalten zwischen Personen aus verschiedenen Ständen. einfacher Bauer zu Adeligem, Büger zu Ritter, Ritter zu Hochadel usw. Erweitere die Informationen zu Technologie, das tägliche Leben, Krankheiten, Religion, um in den Geschichten mehr Informationen zu haben, welche die Geschichte lebendiger machen.
-- [ ] qwen3 und hermes3 Autor KI mit Kurzgeschichten trainieren?
+- [ ] Interview-Template zum offline ausfüllen. Kann man Importieren und der Interviewer fragt nur noch DInge die dynamisch aus dem importierten Template entstehen oder wo er unsicher ist.
+- [ ] Prüfen: Mit fehlt der "Alles neu testen" Button in Prod den wir implementiert hatten
 # Bugs
 - [x] eventuell funktioniert das fort schreiben der Tabs nicht richtig, ich hatte 2-mal Kapitel 3, kein Kapitel 4. Muss nochmal verifiziert werden. 
 - [x] Die Speicherort-Logik und der Ordnername mus nochmal verifiziert werden.
