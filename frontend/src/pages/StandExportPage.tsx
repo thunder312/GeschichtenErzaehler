@@ -215,12 +215,14 @@ export function StandExportPage({
             </div>
             {coverVorhanden && (
               <div className="mt-4 max-w-xs">
-                <img
-                  key={coverVersion}
-                  src={`${api.coverUrl(ordner)}?v=${coverVersion}`}
-                  alt="Generiertes Titelbild"
-                  className="w-full rounded-lg border border-border"
-                />
+                <a href={`${api.coverUrl(ordner)}?v=${coverVersion}`} target="_blank" rel="noopener noreferrer">
+                  <img
+                    key={coverVersion}
+                    src={`${api.coverUrl(ordner)}?v=${coverVersion}`}
+                    alt="Generiertes Titelbild"
+                    className="w-full cursor-zoom-in rounded-lg border border-border transition-opacity hover:opacity-90"
+                  />
+                </a>
               </div>
             )}
           </>
