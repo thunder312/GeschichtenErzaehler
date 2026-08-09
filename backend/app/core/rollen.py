@@ -225,6 +225,26 @@ ROLLEN: dict[str, dict] = {
             "seed": 42,
         },
     },
+    # Beantwortet Nutzerfragen ZU einer laufenden Geschichte (siehe
+    # app/core/geruest.py:STORY_FRAGE_SYSTEM, app/api/pipeline.py:
+    # story_frage) - niedrige Temperatur/kein "think" aus demselben Grund
+    # wie bei "cover_prompt": die Antwort soll nah am mitgelieferten
+    # Gerüst/Stand bleiben statt kreativ zu ergaenzen.
+    "story_frage": {
+        "modell": "gemma4",
+        "think": False,
+        "optionen": {
+            "temperature": 0.2,
+            "top_p": 0.85,
+            "min_p": 0.05,
+            "top_k": 40,
+            "repeat_penalty": 1.1,
+            "repeat_last_n": 64,
+            "num_ctx": 16384,
+            "num_predict": 1024,
+            "seed": 42,
+        },
+    },
 }
 
 GESAMT_NUM_CTX = 24576

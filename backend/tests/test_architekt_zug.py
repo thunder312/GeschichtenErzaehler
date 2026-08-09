@@ -51,10 +51,10 @@ def test_zug_akzeptiert_vollstaendiges_geruest_ohne_retry(settings, monkeypatch)
 
     monkeypatch.setattr(api_arch, "chat_stream", fake_chat_stream)
     ws = FakeWebSocket()
-    verlauf: list[str] = []
+    verlauf: list[str] = ["Ich: Frage 13 Antwort"]
 
     antwort, fertig = asyncio.run(
-        api_arch._zug(ws, settings, "http://fake", "persona", verlauf, "Frage 13 Antwort")
+        api_arch._zug(ws, settings, "http://fake", "persona", verlauf)
     )
 
     assert fertig is True
@@ -73,10 +73,10 @@ def test_zug_wiederholt_mit_verdoppeltem_num_predict_bei_fehlendem_kapitelplan(s
 
     monkeypatch.setattr(api_arch, "chat_stream", fake_chat_stream)
     ws = FakeWebSocket()
-    verlauf: list[str] = []
+    verlauf: list[str] = ["Ich: Frage 13 Antwort"]
 
     antwort, fertig = asyncio.run(
-        api_arch._zug(ws, settings, "http://fake", "persona", verlauf, "Frage 13 Antwort")
+        api_arch._zug(ws, settings, "http://fake", "persona", verlauf)
     )
 
     assert fertig is True
@@ -92,10 +92,10 @@ def test_zug_scheitert_sichtbar_wenn_kapitelplan_auch_nach_retry_fehlt(settings,
 
     monkeypatch.setattr(api_arch, "chat_stream", fake_chat_stream)
     ws = FakeWebSocket()
-    verlauf: list[str] = []
+    verlauf: list[str] = ["Ich: Frage 13 Antwort"]
 
     with pytest.raises(OllamaFehler):
-        asyncio.run(api_arch._zug(ws, settings, "http://fake", "persona", verlauf, "Frage 13 Antwort"))
+        asyncio.run(api_arch._zug(ws, settings, "http://fake", "persona", verlauf))
 
     # Kein "Du: ..." wurde angehaengt - die abgeschnittene Antwort darf nicht
     # als abgeschlossenes Geruest im Verlauf landen.
@@ -113,10 +113,10 @@ def test_zug_normale_frage_wird_ohne_retry_akzeptiert(settings, monkeypatch):
 
     monkeypatch.setattr(api_arch, "chat_stream", fake_chat_stream)
     ws = FakeWebSocket()
-    verlauf: list[str] = []
+    verlauf: list[str] = ["Ich: Lass uns anfangen."]
 
     antwort, fertig = asyncio.run(
-        api_arch._zug(ws, settings, "http://fake", "persona", verlauf, "Lass uns anfangen.")
+        api_arch._zug(ws, settings, "http://fake", "persona", verlauf)
     )
 
     assert fertig is False

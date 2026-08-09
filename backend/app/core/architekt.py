@@ -14,6 +14,13 @@ import time
 
 _ERSTE_FRAGE_MUSTER = re.compile(r"^\s*\d+\.\s+", re.MULTILINE)
 
+# Extrahiert die STORY-GERUEST-Struktur (inkl. Abschnitts-Platzhaltertexte
+# wie "Jahr (vierstellig), Ort, ...") aus einer Architekt-Persona, OHNE den
+# "## Regeln"-Abschnitt danach - Grundlage fuer vorlage_erzeugen(). Alle
+# Epoche-Personas folgen demselben "## Ausgabe" -> "# STORY-GERUEST" -> ...
+# -> "## Regeln"-Muster (siehe app/data/epochen/*/architekt.txt).
+_VORLAGE_MUSTER = re.compile(r"(# STORY-GERUEST.*?)\n##\s*Regeln", re.DOTALL)
+
 _AUSGANGSLAGE_MUSTER = re.compile(
     r"##\s*Ausgangslage\s+vor\s+Kapitel\s+eins\s*\n(.*?)(?=\n##\s|\Z)",
     re.IGNORECASE | re.DOTALL,
@@ -49,6 +56,46 @@ def ist_geruest_antwort(antwort: str) -> bool:
 
 def verlauf_zu_text(verlauf: list[str]) -> str:
     return "\n\n".join(verlauf)
+
+
+def vorlage_erzeugen(persona_text: str) -> str:
+    """Baut aus einer Architekt-Persona ein ausfuellbares Vorlage-Dokument
+    zum Offline-Vorbereiten (siehe app/api/architekt.py: architekt_vorlage())
+    - extrahiert die STORY-GERUEST-Struktur samt ihrer Platzhaltertexte
+    (z.B. "Jahr (vierstellig), Ort, ..."), die in jeder Epoche-Persona
+    ohnehin schon als Ausfuellhilfe formuliert ist, statt eine zweite,
+    separat zu pflegende Vorlage anzulegen. Faellt _VORLAGE_MUSTER nicht
+    (z.B. bei einer nutzerdefinierten Persona ohne dieses Muster), bleibt
+    nur die nackte Überschrift übrig - das Interview funktioniert dann
+    weiterhin normal per Fragenkatalog, nur ohne hilfreiche Platzhalter."""
+    treffer = _VORLAGE_MUSTER.search(persona_text)
+    grundgeruest = treffer.group(1).strip() if treffer else "# STORY-GERUEST"
+    return (
+        "<!-- Fülle so viel wie möglich aus, Lücken sind ok. Beim Import "
+        "dieser Datei fragt der Architekt gezielt nur noch nach dem, was "
+        "fehlt oder unklar ist - diese Kommentarzeile kann stehen bleiben. -->\n\n"
+        + grundgeruest + "\n"
+    )
+
+
+def erste_eingabe_mit_vorlage(vorlage_text: str) -> str:
+    """Ersetzt ERSTE_EINGABE (app/api/architekt.py), wenn der Nutzer ein
+    offline ausgefuelltes Vorlage-Dokument importiert hat (siehe
+    vorlage_erzeugen). Der Architekt bekommt den Text als Kontext und wird
+    angewiesen, nur noch nach fehlenden/unklaren Punkten zu fragen statt den
+    kompletten Fragenkatalog von vorne abzuarbeiten - die eigentliche
+    Ein-Frage-pro-Antwort-Regel und das STORY-GERUEST-Endsignal aus der
+    Persona bleiben dabei unveraendert in Kraft."""
+    return (
+        "Ich habe folgendes Vorlage-Dokument für diese Geschichte bereits "
+        "offline ausgefüllt:\n\n" + vorlage_text.strip() + "\n\n"
+        "Prüfe, was daraus schon eindeutig hervorgeht. Stelle mir wie "
+        "gewohnt GENAU EINE Frage nach der anderen im Multiple-Choice-"
+        "Format, aber NUR zu Punkten, die fehlen, unklar oder "
+        "widersprüchlich sind - wiederhole KEINE Frage, deren Antwort "
+        "schon eindeutig im Dokument steht. Sobald alles geklärt ist, "
+        "fasse direkt das vollständige STORY-GERUEST zusammen, wie gewohnt."
+    )
 
 
 def verlauf_gekuerzt_ab(verlauf: list[str], bearbeite_ab: int) -> list[str] | None:

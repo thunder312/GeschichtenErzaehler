@@ -81,6 +81,19 @@ def architekt_fortsetzbar(ordner: str, settings: Settings = Depends(get_settings
     return {"fortsetzbar": _verlauf_laden(projekt_root) is not None}
 
 
+@router.get("/{ordner:path}/architekt-vorlage")
+def architekt_vorlage(ordner: str, settings: Settings = Depends(get_settings),
+                       benutzer: Benutzer = Depends(get_current_user)):
+    """Liefert ein ausfuellbares Vorlage-Dokument fuer dieses Projekt zum
+    Offline-Vorbereiten des Architekten-Interviews (siehe
+    arch.vorlage_erzeugen und ArchitektInterviewPage.tsx) - basiert auf der
+    Epoche-Persona des Projekts, damit die Platzhaltertexte zur tatsaechlich
+    gewaehlten Epoche passen."""
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    persona_text = pd.persona_lesen(projekt_root, "architekt")
+    return {"vorlage": arch.vorlage_erzeugen(persona_text)}
+
+
 def _fundus_kontext(settings: Settings, benutzer: Benutzer, projekt_root) -> str:
     """Baut den einmalig an persona_text anzuhaengenden Fundus-Auszug fuer
     die aktuelle Epoche des Projekts (siehe app/core/fundus.py) - leerer
@@ -154,8 +167,15 @@ async def _einen_zug_generieren(base_url: str, settings: Settings, persona_text:
 
 
 async def _zug(websocket: WebSocket, settings: Settings, base_url: str, persona_text: str,
-                verlauf: list[str], eingabe: str) -> tuple[str, bool]:
-    verlauf.append(f"Ich: {eingabe}")
+                verlauf: list[str]) -> tuple[str, bool]:
+    """verlauf muss bereits mit der aktuellen "Ich: ..."-Zeile enden (siehe
+    Aufrufer in ws_architekt) - _zug() haengt hier nur noch die Antwort
+    ("Du: ...") an. Der Aufrufer haengt bewusst VORHER an, nicht hier: beim
+    "zurueckgesetzt"-Zweig (Schritte zurueckgehen) muss die neue eigene
+    Antwort schon im an das Frontend gesendeten Verlauf stehen, bevor
+    ueberhaupt ein neuer Zug beginnt (siehe ArchitektInterviewPage.tsx-
+    Kommentar zu "zurueckgesetzt": der Verlauf muss dort mit der gerade
+    bearbeiteten eigenen Antwort enden)."""
     await websocket.send_json({"phase": "frage", "typ": "start"})
 
     # Ein fertiges Geruest MUSS einen auswertbaren Kapitelplan enthalten -
@@ -195,8 +215,14 @@ async def _zug(websocket: WebSocket, settings: Settings, base_url: str, persona_
 
 @router.websocket("/{ordner:path}/ws/architekt")
 async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | None = None,
-                        benutzer: Benutzer = Depends(get_current_user_ws)):
-    settings = get_settings()
+                        benutzer: Benutzer = Depends(get_current_user_ws),
+                        settings: Settings = Depends(get_settings)):
+    # settings MUSS per Depends() kommen, nicht per direktem get_settings()-
+    # Aufruf: FastAPIs app.dependency_overrides (siehe Tests) greift nur bei
+    # per Depends() aufgeloesten Parametern - ein direkter Aufruf umgeht das
+    # und lieferte in Tests unbemerkt die echten Produktiv-Settings statt der
+    # tmp_path-Test-Settings (Symptom: "Projekt 'X' nicht gefunden", obwohl
+    # das Projekt gerade erst ueber denselben TestClient angelegt wurde).
     await websocket.accept()
     try:
         projekt_root = projekt_pfad(settings, benutzer.username, ordner)
@@ -216,7 +242,20 @@ async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | Non
                 await websocket.send_json({"phase": "fortgesetzt", "verlauf": verlauf})
             else:
                 verlauf = []
-                antwort, fertig = await _zug(websocket, settings, base_url, persona_text, verlauf, ERSTE_EINGABE)
+                # Bei einem frischen Start (kein gespeicherter Verlauf)
+                # wartet das Frontend absichtlich mit dem ersten Zug, bis es
+                # eine Initialnachricht geschickt hat (siehe
+                # ArchitektInterviewPage.tsx:starten) - so kann optional ein
+                # offline ausgefuelltes Vorlage-Dokument mitgegeben werden
+                # (siehe arch.erste_eingabe_mit_vorlage). Beim Fortsetzen
+                # eines gespeicherten Gespraechs (Zweig oben) entfaellt das,
+                # da dort die naechste Nachricht bereits die Antwort auf die
+                # letzte offene Frage ist.
+                erste_nachricht = await websocket.receive_json()
+                vorlage_text = (erste_nachricht.get("vorlage_text") or "").strip()
+                eingabe = arch.erste_eingabe_mit_vorlage(vorlage_text) if vorlage_text else ERSTE_EINGABE
+                verlauf.append(f"Ich: {eingabe}")
+                antwort, fertig = await _zug(websocket, settings, base_url, persona_text, verlauf)
                 _verlauf_speichern(projekt_root, verlauf)
 
             while True:
@@ -274,13 +313,16 @@ async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | Non
                         })
                         break
                     verlauf[:] = gekuerzt
+                    verlauf.append(f"Ich: {eingabe}")
                     await websocket.send_json({"phase": "zurueckgesetzt", "verlauf": list(verlauf)})
                 elif not eingabe or eingabe.lower() in ("ende", "exit", "quit"):
                     _verlauf_loeschen(projekt_root)
                     await websocket.send_json({"phase": "beendet_ohne_speichern"})
                     break
+                else:
+                    verlauf.append(f"Ich: {eingabe}")
 
-                antwort, fertig = await _zug(websocket, settings, base_url, persona_text, verlauf, eingabe)
+                antwort, fertig = await _zug(websocket, settings, base_url, persona_text, verlauf)
                 _verlauf_speichern(projekt_root, verlauf)
 
     except OllamaFehler:

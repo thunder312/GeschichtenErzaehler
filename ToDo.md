@@ -24,7 +24,7 @@
 - [x] Den Hauptbildschirm so einrichten, dass niemals gescrollt wird. Notfalls sollen die Container zu scrollen sein.
 - [x] Architektenstrand soll zwischengespeichert werden können. Und dann auch fortgesetzt werden können.
 - [x] Unnützes Wissen zufällig aus der DB holen und zur Überbrückung anzeigen.
-- [ ] KI-Integration, um während einer laufenden Geschichte Fragen zu stellen (zur Geschichte). Wünsche des Benutzers sollen gleich im nächsten Kapitel das geschrieben wird umgesetzt werden.
+- [x] KI-Integration, um während einer laufenden Geschichte Fragen zu stellen (zur Geschichte). Wünsche des Benutzers sollen gleich im nächsten Kapitel das geschrieben wird umgesetzt werden.
 - [x] Neues Feature: Personen-Fundus; bereits in einer Geschichte benutze Personen (mit ihren Eigenschaften und die Namen der Geschichten in der sie benutzt wurden) sollen automatisch an einem Ort (md-File?) gespeichert werden. Bei einer neuen Geschichte fragt der Architekt, ob bekannte Personen in der aktuellen Geschichte benutzt werden sollen. Wenn ja, fragt der Architekt, nach einer Spezifikation der Figur (Name, Alter, Stand...). Claude schlägt nun alle passenden Figuren (je nach gewählter Epoche/Genre) vor und der Benutzer kann eine oder mehrere Figuren als Haupt- oder Neben-Figur auswählen. Diese müsste VOR der Frage nach Haupt und Nebenfiguren kommen, da dies eventuell diese Frage obsolet macht. Weiterhin soll der Fundus durch den User frei in einem neuen Tab bearbeitet werden können. Es soll auch eine Import-Funktion geben, dass benutzte Personen aus vorhandenen Geschichten ausliest und sie mit allen bekannten Eigenschaften importiert. Achte auf die Trennung nach Genre/Epoche! Am Anfang des Fundus' steht ein Template-Kommentar, wie eine neue Figur definiert sein könnte. Überlege dir ein Template, das du und der Benutzer gut lesen kann. (md-Syntax?).
 - [x] KI-Konfiguration: Wenn es Änderungen auf dem KI-Server bezüglich der Verfügbaren KIs gibt, muss das von der Software erkannt werden. Es muss der Architekt benachrichtigt werden, damit er fehlende KIs nicht mehr abfrägt oder vorschlägt. Könnte man einen Prüflauf- in den Admin-Einstellungen einrichten, die das automatisch korrigiert?
 - [x] Unnützes Wissen scheint nach meiner Wahrnehmung nicht zufällig zu sein. Bestimmte Fakten kommen recht oft.
@@ -35,8 +35,8 @@
 - [x] Status in der Fusszeile aktualisieren. Es zeigt bereit, während Aktionen laufen (zum Beispiel im Auto-Modus). Es soll die aktuelle Aktion anzeigen. Animiere auch die Staus-Leute entsprechend.
 - [x] Container allgemein einklappbar machen, wie Architekten-Gespräch-Container.
 - [x] Recherchiere jede auf dem Produktiv-System vorhandene Epoche und erweitere die Autoren-Vorschrift, mit viel mehr Epochen-Infos. Lege besonders viel Wert auf das Verhalten zwischen Personen aus verschiedenen Ständen. einfacher Bauer zu Adeligem, Büger zu Ritter, Ritter zu Hochadel usw. Erweitere die Informationen zu Technologie, das tägliche Leben, Krankheiten, Religion, um in den Geschichten mehr Informationen zu haben, welche die Geschichte lebendiger machen.
-- [ ] Interview-Template zum offline ausfüllen. Kann man Importieren und der Interviewer fragt nur noch DInge die dynamisch aus dem importierten Template entstehen oder wo er unsicher ist.
-- [ ] Prüfen: Mit fehlt der "Alles neu testen" Button in Prod den wir implementiert hatten
+- [x] Interview-Template zum offline ausfüllen. Kann man Importieren und der Interviewer fragt nur noch DInge die dynamisch aus dem importierten Template entstehen oder wo er unsicher ist.
+- [x] Prüfen: Mit fehlt der "Alles neu testen" Button im Tab "Prüfen und Anwenden" in Prod
 # Bugs
 - [x] eventuell funktioniert das fort schreiben der Tabs nicht richtig, ich hatte 2-mal Kapitel 3, kein Kapitel 4. Muss nochmal verifiziert werden. 
 - [x] Die Speicherort-Logik und der Ordnername mus nochmal verifiziert werden.

@@ -49,6 +49,17 @@ _ANTWORTEN = [
 ]
 
 
+def _naechste_frage(ws):
+    """Jeder Zug (siehe _zug() in app/api/architekt.py) schickt VOR der
+    eigentlichen Frage noch ein "start"-Signal (fuer den "denkt nach..."-
+    Ladezustand im Frontend) - hier uebersprungen, damit die Tests sich auf
+    den eigentlichen Frageinhalt konzentrieren koennen."""
+    nachricht = ws.receive_json()
+    if nachricht.get("phase") == "frage" and nachricht.get("typ") == "start":
+        nachricht = ws.receive_json()
+    return nachricht
+
+
 def test_bearbeite_ab_kuerzt_verlauf_und_architekt_stellt_naechste_frage_neu(client, projekt, monkeypatch):
     kontexte: list[str] = []
 
@@ -59,16 +70,17 @@ def test_bearbeite_ab_kuerzt_verlauf_und_architekt_stellt_naechste_frage_neu(cli
     monkeypatch.setattr(api_arch, "chat_stream", fake_chat_stream)
 
     with client.websocket_connect(f"/api/projects/{projekt}/ws/architekt") as ws:
-        frage1 = ws.receive_json()
+        ws.send_json({})
+        frage1 = _naechste_frage(ws)
         assert frage1["phase"] == "frage" and frage1["typ"] == "fertig"
         assert "Frage 1" in frage1["text"]
 
         ws.send_json({"eingabe": "a) Kurz"})
-        frage2 = ws.receive_json()
+        frage2 = _naechste_frage(ws)
         assert "Frage 2" in frage2["text"]
 
         ws.send_json({"eingabe": "a) Voll"})
-        frage3 = ws.receive_json()
+        frage3 = _naechste_frage(ws)
         assert "Frage 3" in frage3["text"]
 
         # Jetzt die Antwort auf Frage 1 nachtraeglich aendern. nachrichten
@@ -88,7 +100,7 @@ def test_bearbeite_ab_kuerzt_verlauf_und_architekt_stellt_naechste_frage_neu(cli
         assert not any("a) Voll" in eintrag for eintrag in verlauf)
         assert not any("Frage 3" in eintrag for eintrag in verlauf)
 
-        neue_frage = ws.receive_json()
+        neue_frage = _naechste_frage(ws)
         assert neue_frage["phase"] == "frage" and neue_frage["typ"] == "fertig"
         assert "neu gestellt" in neue_frage["text"]
 
@@ -101,6 +113,25 @@ def test_bearbeite_ab_kuerzt_verlauf_und_architekt_stellt_naechste_frage_neu(cli
     assert "b) Mittel" in letzter_kontext
 
 
+def test_start_mit_vorlage_schickt_dokument_als_kontext(client, projekt, monkeypatch):
+    kontexte: list[str] = []
+
+    async def fake_chat_stream(base_url, rolle, persona, user, **kwargs):
+        kontexte.append(user)
+        yield ChatEvent("content", text="Frage X von 15: Passt das Jahr 1815?")
+
+    monkeypatch.setattr(api_arch, "chat_stream", fake_chat_stream)
+
+    with client.websocket_connect(f"/api/projects/{projekt}/ws/architekt") as ws:
+        ws.send_json({"vorlage_text": "# STORY-GERUEST\n\n## Rahmen\nJahr 1815"})
+        frage1 = _naechste_frage(ws)
+        assert frage1["phase"] == "frage" and frage1["typ"] == "fertig"
+        assert "Frage X" in frage1["text"]
+
+    assert "Jahr 1815" in kontexte[0]
+    assert "NUR zu Punkten" in kontexte[0]
+
+
 def test_bearbeite_ab_mit_ungueltigem_index_meldet_fehler(client, projekt, monkeypatch):
     async def fake_chat_stream(base_url, rolle, persona, user, **kwargs):
         yield ChatEvent("content", text=_ANTWORTEN[0])
@@ -108,7 +139,8 @@ def test_bearbeite_ab_mit_ungueltigem_index_meldet_fehler(client, projekt, monke
     monkeypatch.setattr(api_arch, "chat_stream", fake_chat_stream)
 
     with client.websocket_connect(f"/api/projects/{projekt}/ws/architekt") as ws:
-        frage1 = ws.receive_json()
+        ws.send_json({})
+        frage1 = _naechste_frage(ws)
         assert "Frage 1" in frage1["text"]
 
         ws.send_json({"eingabe": "irgendwas", "bearbeite_ab": 999})

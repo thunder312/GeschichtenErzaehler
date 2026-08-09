@@ -56,6 +56,8 @@ from app.schemas import (
     CoverPromptAntwort,
     RechtschreibAntwort,
     RechtschreibWort,
+    StoryFrageAnfrage,
+    StoryFrageAntwort,
 )
 from app.services import bild_basis_url, ollama_basis_url, projekt_pfad, rollen_modell_override, ssh_ziel_aus_db
 
@@ -699,8 +701,10 @@ async def _kapitel_schreiben_kern(
 @router.websocket("/{ordner:path}/ws/schreiben/{n}")
 async def ws_schreiben(websocket: WebSocket, ordner: str, n: int,
                         zusatzhinweis: str = "", ssh_ziel_id: str | None = None,
-                        benutzer: Benutzer = Depends(get_current_user_ws)):
-    settings = get_settings()
+                        benutzer: Benutzer = Depends(get_current_user_ws),
+                        settings: Settings = Depends(get_settings)):
+    # settings per Depends() statt direktem get_settings()-Aufruf - siehe
+    # gleicher Kommentar in app/api/architekt.py:ws_architekt.
     await websocket.accept()
     try:
         projekt_root = projekt_pfad(settings, benutzer.username, ordner)
@@ -1255,6 +1259,58 @@ def export_pdf(ordner: str, settings: Settings = Depends(get_settings),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{dateiname}.pdf"'},
     )
+
+
+def _neuester_stand_text(projekt: Path) -> str:
+    """Kompaktester verfuegbarer Kontext ueber den aktuellen Stand der
+    Geschichte, fuer story_frage() unten - bevorzugt den vom Chronisten
+    erzeugten Stand nach dem zuletzt geschriebenen Kapitel (siehe
+    pd.stand_datei) statt aller rohen Kapiteltexte, damit auch eine lange
+    Geschichte mit vielen Kapiteln innerhalb von num_ctx passt. Faellt auf
+    den rohen Kapiteltext zurueck, falls fuer das letzte Kapitel (noch) kein
+    Stand erzeugt wurde."""
+    kapitel_dateien = pd.vorhandene_kapitel(projekt)
+    if not kapitel_dateien:
+        return "(Noch keine Kapitel geschrieben.)"
+    letzte_nummer = max(pd.kapitelnummer_aus_dateiname(p) for p in kapitel_dateien)
+    stand = pd.lies(pd.stand_datei(projekt, letzte_nummer), pflicht=False, ersatz="")
+    if stand:
+        return stand
+    return pd.lies(pd.kapitel_datei(projekt, letzte_nummer))
+
+
+@router.post("/{ordner:path}/frage", response_model=StoryFrageAntwort)
+async def story_frage(ordner: str, anfrage: StoryFrageAnfrage, ssh_ziel_id: str | None = Query(None),
+                       settings: Settings = Depends(get_settings),
+                       benutzer: Benutzer = Depends(get_current_user)):
+    """Beantwortet eine Nutzerfrage ZU der laufenden Geschichte (z.B. "wie
+    hiess nochmal die Nebenfigur aus Kapitel 2?"), OHNE die Geschichte
+    fortzuschreiben - siehe app/core/geruest.py:STORY_FRAGE_SYSTEM. Getrennt
+    vom "Zusätzlicher Hinweis"-Feld beim Kapitel-Schreiben (das WUENSCHE für
+    das naechste Kapitel entgegennimmt, siehe ws_schreiben/
+    zusatzhinweis) - hier geht es rein um Informationsabruf ueber bereits
+    Etabliertes, ohne neuen Text zu erzeugen."""
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    projekt = projekt_root / "projekt"
+    geruest_text = pd.lies(pd.geruest_datei(projekt), pflicht=False, ersatz="")
+    if not geruest_text:
+        raise HTTPException(404, "Kein Gerüst gefunden.")
+    stand_text = _neuester_stand_text(projekt)
+    user_text = (
+        f"=== STORY-GERUEST ===\n{geruest_text}\n\n"
+        f"=== AKTUELLER STAND DER GESCHICHTE ===\n{stand_text}\n\n"
+        f"=== FRAGE ===\n{anfrage.frage.strip()}"
+    )
+    with ollama_basis_url(settings, ssh_ziel_id) as base_url:
+        modell = rollen_modell_override(settings, "story_frage")
+        try:
+            antwort, _meta = await _sammle_antwort(
+                base_url, "story_frage", g.STORY_FRAGE_SYSTEM, user_text,
+                modell_override=modell,
+            )
+        except OllamaFehler as e:
+            raise HTTPException(502, str(e)) from e
+    return StoryFrageAntwort(antwort=antwort.strip())
 
 
 @router.post("/{ordner:path}/cover/prompt-vorschlagen", response_model=CoverPromptAntwort)

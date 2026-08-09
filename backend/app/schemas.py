@@ -278,6 +278,14 @@ class CoverGenerierenAnfrage(BaseModel):
     prompt: str = Field(min_length=1)
 
 
+class StoryFrageAnfrage(BaseModel):
+    frage: str = Field(min_length=1)
+
+
+class StoryFrageAntwort(BaseModel):
+    antwort: str
+
+
 class EinstellungenAntwort(BaseModel):
     projects_dir: str
     ist_standard: bool

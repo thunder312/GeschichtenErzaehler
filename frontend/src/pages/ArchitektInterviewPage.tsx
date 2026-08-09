@@ -3,6 +3,7 @@ import { api, architektWebSocketUrl } from "../api/client";
 import type { ArchitektNachricht } from "../api/types";
 import { Button, Card } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
+import { alsDateiHerunterladen } from "../utils/download";
 
 interface ArchitektInterviewPageProps {
   ordner: string;
@@ -70,6 +71,13 @@ export function ArchitektInterviewPage({
   const [beendetOhneSpeichern, setBeendetOhneSpeichern] = useState(false);
   const [pausiert, setPausiert] = useState(false);
   const [fortsetzbar, setFortsetzbar] = useState(false);
+  // Offline ausgefuelltes Vorlage-Dokument (siehe backend architekt-vorlage/
+  // ArchitektInterviewPage-Kommentar zu starten()) - nur vor einem frischen
+  // Start relevant, macht beim Fortsetzen eines gespeicherten Gespraechs
+  // keinen Sinn (das laeuft laengst am importierten Kontext entlang weiter).
+  const [vorlageZeigen, setVorlageZeigen] = useState(false);
+  const [vorlageText, setVorlageText] = useState("");
+  const [ladenVorlage, setLadenVorlage] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const [verbindungVerloren, setVerbindungVerloren] = useState(false);
   // Index (in `nachrichten`) der eigenen Antwort, die gerade bearbeitet
@@ -120,6 +128,19 @@ export function ArchitektInterviewPage({
     socketRef.current = socket;
 
     aktivitaetStarten("Architekt denkt nach...");
+
+    socket.onopen = () => {
+      // Bei einem frischen Start wartet das Backend absichtlich auf diese
+      // Initialnachricht (siehe backend/app/api/architekt.py:ws_architekt),
+      // um optional ein offline ausgefuelltes Vorlage-Dokument entgegen-
+      // zunehmen. Beim Fortsetzen eines gespeicherten Gespraechs erwartet
+      // das Backend dagegen KEINE Initialnachricht - die naechste vom
+      // Server erwartete Nachricht ist dort direkt die Antwort auf die
+      // letzte offene Frage.
+      if (!fortsetzbar) {
+        socket.send(JSON.stringify({ vorlage_text: vorlageText.trim() || null }));
+      }
+    };
 
     socket.onmessage = (ereignis) => {
       const nachricht: ArchitektNachricht = JSON.parse(ereignis.data);
@@ -225,6 +246,22 @@ export function ArchitektInterviewPage({
     setEingabe(eintrag.text);
   }
 
+  async function vorlageHerunterladen() {
+    setLadenVorlage(true);
+    try {
+      const antwort = await api.architektVorlage(ordner);
+      alsDateiHerunterladen("architekt-vorlage.md", antwort.vorlage);
+    } finally {
+      setLadenVorlage(false);
+    }
+  }
+
+  function vorlageDateiGewaehlt(datei: File) {
+    const reader = new FileReader();
+    reader.onload = () => setVorlageText(String(reader.result ?? ""));
+    reader.readAsText(datei);
+  }
+
   function bearbeitenAbbrechen() {
     setBearbeiteIndex(null);
     setEingabe("");
@@ -271,7 +308,58 @@ export function ArchitektInterviewPage({
               Es gibt ein zwischengespeichertes, noch nicht abgeschlossenes Interview für dieses Projekt.
             </p>
           )}
-          <Button onClick={starten}>{fortsetzbar ? "Interview fortsetzen" : "Interview starten"}</Button>
+          {!fortsetzbar && (
+            <div className="mb-4 text-left">
+              <button
+                type="button"
+                onClick={() => setVorlageZeigen((v) => !v)}
+                className="mb-2 text-xs text-accent-light hover:underline"
+              >
+                {vorlageZeigen ? "▾" : "▸"} Vorlage offline ausfüllen (optional)
+              </button>
+              {vorlageZeigen && (
+                <div className="rounded-lg border border-border bg-bg p-3">
+                  <p className="mb-2 text-xs text-text-muted">
+                    Lade eine Vorlage herunter, fülle sie in Ruhe offline aus und füge den Text unten
+                    ein - der Architekt fragt dann nur noch nach dem, was fehlt oder unklar ist, statt
+                    den kompletten Fragenkatalog von vorne abzuarbeiten.
+                  </p>
+                  <div className="mb-2 flex flex-wrap gap-2">
+                    <Button variant="secondary" onClick={vorlageHerunterladen} disabled={ladenVorlage}>
+                      {ladenVorlage ? "Lädt..." : "⬇️ Vorlage herunterladen"}
+                    </Button>
+                    <label className="flex cursor-pointer items-center rounded-lg border border-border bg-surface-hover px-3 py-1.5 text-sm text-text hover:border-accent">
+                      📄 Datei wählen...
+                      <input
+                        type="file"
+                        accept=".md,.txt"
+                        className="hidden"
+                        onChange={(e) => {
+                          const datei = e.target.files?.[0];
+                          if (datei) vorlageDateiGewaehlt(datei);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <textarea
+                    value={vorlageText}
+                    onChange={(e) => setVorlageText(e.target.value)}
+                    rows={6}
+                    className="w-full resize-none rounded-lg border border-border bg-bg px-3 py-2 text-xs text-text outline-none transition-colors focus:border-accent"
+                    placeholder="...oder den ausgefüllten Text hier einfügen."
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          <Button onClick={starten}>
+            {fortsetzbar
+              ? "Interview fortsetzen"
+              : vorlageText.trim()
+                ? "Interview mit Vorlage starten"
+                : "Interview starten"}
+          </Button>
         </Card>
       </div>
     );

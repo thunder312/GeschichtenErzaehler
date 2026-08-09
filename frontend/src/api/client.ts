@@ -121,6 +121,9 @@ export const api = {
   architektFortsetzbar: (ordner: string) =>
     anfrage<{ fortsetzbar: boolean }>(`/api/projects/${ordner}/architekt-fortsetzbar`),
 
+  architektVorlage: (ordner: string) =>
+    anfrage<{ vorlage: string }>(`/api/projects/${ordner}/architekt-vorlage`),
+
   verbotslisteSchreiben: (ordner: string, inhalt: string) =>
     anfrage<{ gesichert_als: string | null }>(
       `/api/projects/${ordner}/verbotsliste`,
@@ -160,6 +163,12 @@ export const api = {
     anfrage<{ gesamt: string; dateiname: string }>(`/api/projects/${ordner}/export`, { method: "POST" }),
 
   exportPdfUrl: (ordner: string) => `/api/projects/${ordner}/export/pdf`,
+
+  storyFrage: (ordner: string, frage: string, sshZielId?: string | null) =>
+    anfrage<{ antwort: string }>(
+      `/api/projects/${ordner}/frage${sshQuery(sshZielId)}`,
+      { method: "POST", body: JSON.stringify({ frage }) },
+    ),
 
   coverPromptVorschlagen: (ordner: string, sshZielId?: string | null) =>
     anfrage<{ prompt: string }>(

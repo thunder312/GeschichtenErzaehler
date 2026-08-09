@@ -60,6 +60,14 @@ export function SchreibenPage({
   const [findings, setFindings] = useState<Finding[]>([]);
   const [phase, setPhase] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
+  // "Frage zur Geschichte" (siehe fragen() unten) - rein informationell,
+  // NICHT zu verwechseln mit "zusatzhinweis" oben, das Wuensche fuer das
+  // naechste geschriebene Kapitel entgegennimmt. Nur session-lokal, keine
+  // Persistenz noetig - eine kurze Nachschlage-Historie fuer diesen Besuch.
+  const [frage, setFrage] = useState("");
+  const [frageVerlauf, setFrageVerlauf] = useState<{ frage: string; antwort: string }[]>([]);
+  const [ladenFrage, setLadenFrage] = useState(false);
+  const [frageFehler, setFrageFehler] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const letztesProjekt = useRef<string | null>(null);
   const autoVorgeschlageneNummerRef = useRef<number | null>(null);
@@ -308,6 +316,22 @@ export function SchreibenPage({
     };
   }
 
+  async function fragen() {
+    const text = frage.trim();
+    if (!text) return;
+    setLadenFrage(true);
+    setFrageFehler(null);
+    try {
+      const antwort = await api.storyFrage(ordner, text, sshZielId || null);
+      setFrageVerlauf((bisher) => [...bisher, { frage: text, antwort: antwort.antwort }]);
+      setFrage("");
+    } catch (e) {
+      setFrageFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLadenFrage(false);
+    }
+  }
+
   function abbrechen() {
     socketRef.current?.close();
     setLaeuft(false);
@@ -318,48 +342,89 @@ export function SchreibenPage({
 
   return (
     <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[1fr_2fr]">
-      <Card className="h-fit space-y-3">
-        <CardTitle>✍️ Kapitel schreiben</CardTitle>
-        <div>
-          <Label>Kapitelnummer</Label>
-          <Input type="number" min={1} value={n} onChange={(e) => setN(Number(e.target.value))} disabled={laeuft} />
-          {zielWoerter && <p className="mt-1 text-xs text-text-muted">Zielumfang laut Gerüst: ~{zielWoerter} Wörter</p>}
-          {!zielWoerter && !!projekt?.letztes_geplantes_kapitel && n > projekt.letztes_geplantes_kapitel && (
-            <p className="mt-1 text-xs text-text-muted">
-              Kapitel {n} ist im Kapitelplan nicht vorgesehen (geplant bis Kapitel{" "}
-              {projekt.letztes_geplantes_kapitel}) - es wird ohne festen Zielumfang geschrieben. Nutze bei
-              Bedarf den Hinweis unten, um vorzugeben, was in diesem Kapitel passieren soll.
-            </p>
+      <div className="space-y-4">
+        <Card className="h-fit space-y-3">
+          <CardTitle>✍️ Kapitel schreiben</CardTitle>
+          <div>
+            <Label>Kapitelnummer</Label>
+            <Input type="number" min={1} value={n} onChange={(e) => setN(Number(e.target.value))} disabled={laeuft} />
+            {zielWoerter && <p className="mt-1 text-xs text-text-muted">Zielumfang laut Gerüst: ~{zielWoerter} Wörter</p>}
+            {!zielWoerter && !!projekt?.letztes_geplantes_kapitel && n > projekt.letztes_geplantes_kapitel && (
+              <p className="mt-1 text-xs text-text-muted">
+                Kapitel {n} ist im Kapitelplan nicht vorgesehen (geplant bis Kapitel{" "}
+                {projekt.letztes_geplantes_kapitel}) - es wird ohne festen Zielumfang geschrieben. Nutze bei
+                Bedarf den Hinweis unten, um vorzugeben, was in diesem Kapitel passieren soll.
+              </p>
+            )}
+            {projekt?.kapitel.includes(n) && (
+              <p className="mt-1 text-xs text-amber-300">
+                Kapitel {n} wurde bereits geschrieben - "Schreiben starten" überschreibt es (alte Fassung wird
+                als .bak gesichert).
+              </p>
+            )}
+          </div>
+          <div>
+            <Label>Zusätzlicher Hinweis (nur für diesen Versuch)</Label>
+            <textarea
+              className="w-full rounded-lg border border-border bg-bg px-3 py-1.5 text-sm text-text outline-none transition-colors focus:border-accent"
+              rows={4}
+              value={zusatzhinweis}
+              onChange={(e) => setZusatzhinweis(e.target.value)}
+              disabled={laeuft}
+              placeholder="z.B. bei starken Kontinuitäts-Brüchen im letzten Versuch..."
+            />
+          </div>
+          {!laeuft ? (
+            <Button onClick={starten} className="w-full">
+              Schreiben starten
+            </Button>
+          ) : (
+            <Button onClick={abbrechen} variant="danger" className="w-full">
+              Abbrechen
+            </Button>
           )}
-          {projekt?.kapitel.includes(n) && (
-            <p className="mt-1 text-xs text-amber-300">
-              Kapitel {n} wurde bereits geschrieben - "Schreiben starten" überschreibt es (alte Fassung wird
-              als .bak gesichert).
-            </p>
+          {fehler && <p className="text-sm text-red-400">{fehler}</p>}
+        </Card>
+
+        <Card className="h-fit space-y-3">
+          <CardTitle>❓ Frage zur Geschichte</CardTitle>
+          <p className="text-xs text-text-muted">
+            Frag zwischendurch etwas zum bisherigen Verlauf (z.B. Namen, Details) - wird aus Gerüst und
+            aktuellem Stand beantwortet, ohne die Geschichte fortzuschreiben. Für Wünsche ans nächste Kapitel
+            nutze stattdessen den "Zusätzlichen Hinweis" oben.
+          </p>
+          {frageVerlauf.length > 0 && (
+            <div className="max-h-56 space-y-2 overflow-auto rounded-lg bg-bg p-2 text-sm">
+              {frageVerlauf.map((eintrag, i) => (
+                <div key={i} className="space-y-0.5">
+                  <p className="text-text-muted">❓ {eintrag.frage}</p>
+                  <p className="text-text">{eintrag.antwort}</p>
+                </div>
+              ))}
+            </div>
           )}
-        </div>
-        <div>
-          <Label>Zusätzlicher Hinweis (nur für diesen Versuch)</Label>
-          <textarea
-            className="w-full rounded-lg border border-border bg-bg px-3 py-1.5 text-sm text-text outline-none transition-colors focus:border-accent"
-            rows={4}
-            value={zusatzhinweis}
-            onChange={(e) => setZusatzhinweis(e.target.value)}
-            disabled={laeuft}
-            placeholder="z.B. bei starken Kontinuitäts-Brüchen im letzten Versuch..."
-          />
-        </div>
-        {!laeuft ? (
-          <Button onClick={starten} className="w-full">
-            Schreiben starten
-          </Button>
-        ) : (
-          <Button onClick={abbrechen} variant="danger" className="w-full">
-            Abbrechen
-          </Button>
-        )}
-        {fehler && <p className="text-sm text-red-400">{fehler}</p>}
-      </Card>
+          <div className="flex gap-2">
+            <textarea
+              className="flex-1 resize-none rounded-lg border border-border bg-bg px-3 py-1.5 text-sm text-text outline-none transition-colors focus:border-accent"
+              rows={2}
+              value={frage}
+              onChange={(e) => setFrage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  fragen();
+                }
+              }}
+              placeholder="z.B. Wie hieß die Nebenfigur aus Kapitel 2 nochmal?"
+              disabled={ladenFrage}
+            />
+            <Button onClick={fragen} disabled={ladenFrage || !frage.trim()}>
+              {ladenFrage ? "..." : "Fragen"}
+            </Button>
+          </div>
+          {frageFehler && <p className="text-sm text-red-400">{frageFehler}</p>}
+        </Card>
+      </div>
 
       <div className="space-y-4">
         <Card>

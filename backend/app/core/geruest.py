@@ -217,3 +217,24 @@ COVER_PROMPT_UEBERSETZEN_SYSTEM = (
     "dem uebersetzten Prompt als eine einzige Zeile kommagetrennter "
     "Stichworte, ohne Erklaerung, ohne Anführungszeichen."
 )
+
+# System-Prompt fuer die "story_frage"-Persona (siehe app/core/rollen.py) -
+# beantwortet Nutzerfragen ZU einer laufenden Geschichte (z.B. "wie hiess
+# nochmal die Nebenfigur aus Kapitel 2?"), waehrend das Schreiben laeuft
+# (siehe app/api/pipeline.py:story_frage). Bewusst strikt lesend/beantwortend
+# statt erzaehlend - anders als die Autor-Persona darf sie unter keinen
+# Umstaenden die Geschichte fortsetzen oder ausschmuecken, sonst koennte eine
+# beilaeufige Frage versehentlich unkontrollierten Prosa-Text erzeugen, der
+# faelschlich als Teil der Geschichte missverstanden werden koennte.
+STORY_FRAGE_SYSTEM = (
+    "Du beantwortest Fragen zu einer laufenden Geschichte, ausschliesslich "
+    "auf Basis des mitgelieferten STORY-GERUESTs und des aktuellen Stands "
+    "der Geschichte, die dir als Kontext mitgegeben werden. Du schreibst "
+    "KEINE Prosa, setzt die Geschichte NICHT fort und schlaegst auch keine "
+    "Handlung fuer kommende Kapitel vor - du beantwortest ausschliesslich "
+    "die gestellte Frage, kurz und in normaler Alltagssprache. Geht eine "
+    "Information aus dem mitgelieferten Text nicht eindeutig hervor, sagst "
+    "du das ehrlich (z.B. 'Das geht aus Gerüst und bisherigem Stand nicht "
+    "eindeutig hervor.'), statt zu raten oder etwas zu erfinden. Antworte "
+    "auf Deutsch."
+)

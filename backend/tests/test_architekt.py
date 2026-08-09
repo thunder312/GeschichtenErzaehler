@@ -129,6 +129,45 @@ def test_figuren_abschnitt_erkennen_ignoriert_unterueberschrift_in_ausgangslage(
     assert "Mira" not in figuren
 
 
+_PERSONA_MIT_VORLAGE = (
+    "Du bist Erzaehlarchitekt...\n\n"
+    "## Ausgabe\n"
+    "Erst nach dieser Bestaetigung gibst du EIN Dokument aus:\n\n"
+    "# STORY-GERUEST\n\n"
+    "## Rahmen\n"
+    "Jahr (vierstellig), Ort, Jahreszeit, Erzaehlperspektive, Tempus, Tonlage\n\n"
+    "## Titel\n"
+    "Ein Titel, der auf den Plot hindeutet.\n\n"
+    "## Figuren\n"
+    "Je Figur: Name, Alter, Rang/Titel.\n\n"
+    "## Regeln\n"
+    "Keine Prosa, keine Beispielsaetze.\n"
+)
+
+
+def test_vorlage_erzeugen_extrahiert_story_geruest_struktur():
+    vorlage = arch.vorlage_erzeugen(_PERSONA_MIT_VORLAGE)
+    assert vorlage.startswith("<!--")
+    assert "# STORY-GERUEST" in vorlage
+    assert "## Rahmen" in vorlage
+    assert "Jahr (vierstellig)" in vorlage
+    assert "## Figuren" in vorlage
+    assert "## Regeln" not in vorlage
+    assert "Keine Prosa" not in vorlage
+
+
+def test_vorlage_erzeugen_ohne_treffer_liefert_nackte_ueberschrift():
+    vorlage = arch.vorlage_erzeugen("Eine Persona ohne STORY-GERUEST-Muster.")
+    assert "# STORY-GERUEST" in vorlage
+
+
+def test_erste_eingabe_mit_vorlage_enthaelt_dokument_und_anweisung():
+    eingabe = arch.erste_eingabe_mit_vorlage("# STORY-GERUEST\n\n## Titel\nDer Markt von Rothenfeld")
+    assert "Der Markt von Rothenfeld" in eingabe
+    assert "NUR zu Punkten" in eingabe
+    assert "STORY-GERUEST" in eingabe
+
+
 def test_transkript_erzeugen_beschriftet_nutzer_und_architekt():
     verlauf = [
         "Ich: Lass uns anfangen. Stelle mir die ersten Fragen.",
