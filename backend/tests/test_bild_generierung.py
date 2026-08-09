@@ -9,7 +9,9 @@ import pytest
 from app.core.bild_generierung import (
     BildGenerierungFehler,
     NEGATIV_PROMPT_STANDARD,
+    STANDARD_HEIGHT,
     STANDARD_SAMPLE_STEPS,
+    STANDARD_WIDTH,
     generiere_cover,
 )
 
@@ -76,39 +78,58 @@ def test_generiere_cover_liefert_dekodierte_png_bytes():
     assert gesendeter_prompt.startswith("a lovely cat")
 
 
-def test_generiere_cover_bettet_standard_negativ_prompt_und_steps_ein():
+def test_generiere_cover_bettet_alle_standardwerte_ein():
     asyncio.run(generiere_cover("http://fake:7860", "a lovely cat"))
     extra_args = _extra_args(_FakeAsyncClient.letzter_payload["prompt"])
     assert extra_args == {
         "negative_prompt": NEGATIV_PROMPT_STANDARD,
         "sample_params": {"sample_steps": STANDARD_SAMPLE_STEPS},
+        "width": STANDARD_WIDTH,
+        "height": STANDARD_HEIGHT,
     }
     assert "extra limbs" in NEGATIV_PROMPT_STANDARD
     assert "deformed face" in NEGATIV_PROMPT_STANDARD
     assert "duplicate person" in NEGATIV_PROMPT_STANDARD
     assert STANDARD_SAMPLE_STEPS > 4  # verdoppelt gegenueber dem sd-server-Turbo-Standard
+    assert (STANDARD_WIDTH, STANDARD_HEIGHT) == (512, 512)  # kleiner als der 1024x1024-Server-Standard
 
 
 def test_generiere_cover_erlaubt_eigenen_negativ_prompt():
-    asyncio.run(generiere_cover("http://fake:7860", "prompt", negativ_prompt="nur diese eine Sache", sample_steps=None))
+    asyncio.run(generiere_cover(
+        "http://fake:7860", "prompt", negativ_prompt="nur diese eine Sache",
+        sample_steps=None, width=None, height=None,
+    ))
     extra_args = _extra_args(_FakeAsyncClient.letzter_payload["prompt"])
     assert extra_args == {"negative_prompt": "nur diese eine Sache"}
 
 
 def test_generiere_cover_erlaubt_eigene_sample_steps():
-    asyncio.run(generiere_cover("http://fake:7860", "prompt", negativ_prompt="", sample_steps=20))
+    asyncio.run(generiere_cover(
+        "http://fake:7860", "prompt", negativ_prompt="", sample_steps=20, width=None, height=None,
+    ))
     extra_args = _extra_args(_FakeAsyncClient.letzter_payload["prompt"])
     assert extra_args == {"sample_params": {"sample_steps": 20}}
 
 
-def test_generiere_cover_ohne_negativ_prompt_und_steps_laesst_prompt_unveraendert():
-    asyncio.run(generiere_cover("http://fake:7860", "a lovely cat", negativ_prompt="", sample_steps=None))
+def test_generiere_cover_erlaubt_eigene_aufloesung():
+    asyncio.run(generiere_cover(
+        "http://fake:7860", "prompt", negativ_prompt="", sample_steps=None, width=768, height=768,
+    ))
+    extra_args = _extra_args(_FakeAsyncClient.letzter_payload["prompt"])
+    assert extra_args == {"width": 768, "height": 768}
+
+
+def test_generiere_cover_ohne_extra_args_laesst_prompt_unveraendert():
+    asyncio.run(generiere_cover(
+        "http://fake:7860", "a lovely cat", negativ_prompt="", sample_steps=None, width=None, height=None,
+    ))
     assert _FakeAsyncClient.letzter_payload == {"prompt": "a lovely cat"}
 
 
 def test_generiere_cover_escaped_anfuehrungszeichen_im_prompt_korrekt():
     asyncio.run(generiere_cover(
-        "http://fake:7860", 'a "special" cat', negativ_prompt='contains "quotes"', sample_steps=None,
+        "http://fake:7860", 'a "special" cat', negativ_prompt='contains "quotes"',
+        sample_steps=None, width=None, height=None,
     ))
     gesendeter_prompt = _FakeAsyncClient.letzter_payload["prompt"]
     assert gesendeter_prompt.startswith('a "special" cat')
