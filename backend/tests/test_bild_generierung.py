@@ -1,10 +1,20 @@
 import asyncio
 import base64
+import json
+import re
 
 import httpx
 import pytest
 
-from app.core.bild_generierung import BildGenerierungFehler, generiere_cover
+from app.core.bild_generierung import BildGenerierungFehler, NEGATIV_PROMPT_STANDARD, generiere_cover
+
+_EXTRA_ARGS_MUSTER = re.compile(r"<sd_cpp_extra_args>(.*?)</sd_cpp_extra_args>", re.DOTALL)
+
+
+def _extra_args(gesendeter_prompt: str) -> dict:
+    treffer = _EXTRA_ARGS_MUSTER.search(gesendeter_prompt)
+    assert treffer, f"kein sd_cpp_extra_args-Block im Prompt gefunden: {gesendeter_prompt!r}"
+    return json.loads(treffer.group(1))
 
 _PNG_BYTES = b"\x89PNG\r\n\x1a\nfake-png-inhalt"
 
@@ -57,7 +67,34 @@ def test_generiere_cover_liefert_dekodierte_png_bytes():
     ergebnis = asyncio.run(generiere_cover("http://fake:7860", "a lovely cat"))
     assert ergebnis == _PNG_BYTES
     assert _FakeAsyncClient.letzte_url == "http://fake:7860/v1/images/generations"
+    gesendeter_prompt = _FakeAsyncClient.letzter_payload["prompt"]
+    assert gesendeter_prompt.startswith("a lovely cat")
+
+
+def test_generiere_cover_bettet_standard_negativ_prompt_ein():
+    asyncio.run(generiere_cover("http://fake:7860", "a lovely cat"))
+    extra_args = _extra_args(_FakeAsyncClient.letzter_payload["prompt"])
+    assert extra_args == {"negative_prompt": NEGATIV_PROMPT_STANDARD}
+    assert "extra limbs" in NEGATIV_PROMPT_STANDARD
+
+
+def test_generiere_cover_erlaubt_eigenen_negativ_prompt():
+    asyncio.run(generiere_cover("http://fake:7860", "prompt", negativ_prompt="nur diese eine Sache"))
+    extra_args = _extra_args(_FakeAsyncClient.letzter_payload["prompt"])
+    assert extra_args == {"negative_prompt": "nur diese eine Sache"}
+
+
+def test_generiere_cover_ohne_negativ_prompt_laesst_prompt_unveraendert():
+    asyncio.run(generiere_cover("http://fake:7860", "a lovely cat", negativ_prompt=""))
     assert _FakeAsyncClient.letzter_payload == {"prompt": "a lovely cat"}
+
+
+def test_generiere_cover_escaped_anfuehrungszeichen_im_prompt_korrekt():
+    asyncio.run(generiere_cover("http://fake:7860", 'a "special" cat', negativ_prompt='contains "quotes"'))
+    gesendeter_prompt = _FakeAsyncClient.letzter_payload["prompt"]
+    assert gesendeter_prompt.startswith('a "special" cat')
+    extra_args = _extra_args(gesendeter_prompt)
+    assert extra_args == {"negative_prompt": 'contains "quotes"'}
 
 
 def test_http_fehlerstatus_erzeugt_bild_generierung_fehler():
