@@ -30,16 +30,20 @@ import httpx
 # liegt verschachtelt unter "sample_params").
 #
 # Ohne Gegensteuerung neigt gerade das hier laufende Turbo/Distill-Modell
-# (wenige Sampling-Schritte) zu Anatomie-Artefakten wie Extra-Gliedmassen -
-# eine rein positive Prompt-Formulierung wie "strictly one pair of arms"
-# hilft kaum, weil Diffusionsmodelle Negationen im Prompt nicht
-# zuverlaessig verstehen. Bewusst als fester, immer mitgeschickter
+# (wenige Sampling-Schritte) zu Anatomie-Artefakten wie Extra-Gliedmassen
+# und - nach Haenden das zweitschwerste fuer Diffusionsmodelle - waechsern
+# wirkenden/asymmetrischen Gesichtern. Eine rein positive/vermeidende
+# Prompt-Formulierung wie "strictly one pair of arms" oder "keine Gesichter
+# im Vordergrund" hilft kaum, weil Diffusionsmodelle Negationen im Prompt
+# nicht zuverlaessig verstehen. Bewusst als fester, immer mitgeschickter
 # Standard-Satz statt als vom User editierbares Feld: die Artefaktklasse
 # ist modellbedingt, nicht geschichtenspezifisch.
 NEGATIV_PROMPT_STANDARD = (
     "extra limbs, extra arms, extra hands, extra legs, extra fingers, "
     "fused fingers, missing fingers, deformed hands, mutated hands, "
     "malformed limbs, disfigured, duplicate body parts, bad anatomy, "
+    "uncanny face, asymmetric face, deformed face, distorted face, "
+    "waxy skin, empty stare, dead eyes, "
     "blurry, low quality, watermark, text"
 )
 
