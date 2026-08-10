@@ -6,12 +6,15 @@ import { BefundListe } from "../components/BefundListe";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { Button, Card, CardTitle } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
+import { kapitelTextSchluessel, useKapitelText } from "../context/KapitelTextContext";
 import { hatReste } from "../utils/automatik";
+import { kapitelTextZusammenbauen, kapitelUeberschrift, splitteNachKapitel, type Spanne } from "../utils/kapitelKombiniert";
 
 interface PruefenAnwendenPageProps {
   ordner: string;
   projekt: ProjektDetail | null;
   sshZielId: string;
+  onGeaendert: () => void;
 }
 
 interface KapitelBlock {
@@ -22,30 +25,7 @@ interface KapitelBlock {
   fehler: string | null;
 }
 
-interface Spanne {
-  start: number;
-  end: number;
-}
-
-const kapitelUeberschrift = (n: number) => `## Kapitel ${n}`;
-const KAPITEL_MARKER_MUSTER = /^## Kapitel (\d+)\s*$/gm;
-
-/** Teilt den kombinierten Text anhand der "## Kapitel N"-Ueberschriften
- * wieder in einzelne Kapitel auf - Gegenstueck zum Zusammenbauen beim Laden
- * (siehe useEffect unten). Wird nur beim Speichern gebraucht. */
-function splitteNachKapitel(text: string): Map<number, string> {
-  const treffer = [...text.matchAll(KAPITEL_MARKER_MUSTER)];
-  const ergebnis = new Map<number, string>();
-  for (let i = 0; i < treffer.length; i++) {
-    const n = Number(treffer[i][1]);
-    const startInhalt = treffer[i].index! + treffer[i][0].length;
-    const endeInhalt = i + 1 < treffer.length ? treffer[i + 1].index! : text.length;
-    ergebnis.set(n, text.slice(startInhalt, endeInhalt).trim());
-  }
-  return ergebnis;
-}
-
-export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwendenPageProps) {
+export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }: PruefenAnwendenPageProps) {
   const [bloecke, setBloecke] = useState<Record<number, KapitelBlock>>({});
   const [kombiniert, setKombiniert] = useState("");
   const [spannen, setSpannen] = useState<Record<number, Spanne>>({});
@@ -165,6 +145,42 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
     });
   }, [bloecke, kapitelNummern]);
 
+  const { stand: kapitelStand, veroeffentlichen: kapitelVeroeffentlichen } = useKapitelText();
+
+  // Cross-Tab-Sync: Der Tab "Rechtschreibung" haelt denselben Kapiteltext in
+  // einem eigenen, unabhaengigen Zustand (siehe RechtschreibungPage.tsx) -
+  // beide Tabs bleiben beim Wechseln dauerhaft gemountet (App.tsx). Wurde
+  // dort ein hier bereits geladenes Kapitel gespeichert, sofort uebernehmen
+  // - aber nur, wenn hier selbst keine ungespeicherte Aenderung an GENAU
+  // diesem Kapitel existiert (die hat Vorrang, sonst wuerden gerade
+  // uebernommene Befund-Vorschlaege oder laufende Eingaben ueberschrieben).
+  useEffect(() => {
+    if (angehaengtRef.current.size === 0) return;
+    const segmente = splitteNachKapitel(kombiniert);
+    const uebernahmen = new Map<number, string>();
+    for (const n of kapitelNummern) {
+      if (!angehaengtRef.current.has(n)) continue;
+      const block = bloecke[n];
+      const eintrag = kapitelStand[kapitelTextSchluessel(ordner, n)];
+      if (!block || !eintrag || eintrag.text === block.kapiteltext) continue;
+      const eigenesSegment = segmente.get(n);
+      if (eigenesSegment !== undefined && eigenesSegment !== block.kapiteltext) continue;
+      uebernahmen.set(n, eintrag.text);
+    }
+    if (uebernahmen.size === 0) return;
+
+    setBloecke((b) => {
+      const kopie = { ...b };
+      for (const [n, text] of uebernahmen) kopie[n] = { ...kopie[n], kapiteltext: text };
+      return kopie;
+    });
+    const { text, spannen: neueSpannen } = kapitelTextZusammenbauen(kapitelNummern, (n) =>
+      angehaengtRef.current.has(n) ? (uebernahmen.get(n) ?? segmente.get(n) ?? bloecke[n]?.kapiteltext) : undefined,
+    );
+    setKombiniert(text);
+    setSpannen(neueSpannen);
+  }, [kapitelStand, ordner, kapitelNummern, bloecke, kombiniert]);
+
   // Verschiebt jeden Fund von "Offset im eigenen Kapitel" auf "Offset im
   // gemeinsamen Text" (siehe `spannen`) und macht die ID projektweit
   // eindeutig (befunde_merge.py vergibt IDs nur PRO Pruef-Lauf neu ab "b1" -
@@ -251,6 +267,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
         if (segment === undefined || segment === bloecke[n]?.kapiteltext) continue;
         await api.kapitelSchreiben(ordner, n, segment);
         geaendert.push(n);
+        kapitelVeroeffentlichen(ordner, n, segment);
       }
       if (geaendert.length > 0) {
         setBloecke((b) => {
@@ -284,6 +301,9 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId }: PruefenAnwen
     try {
       await api.automatikResteBestaetigen(ordner);
       setAutomatikStatus(await api.automatikStatus(ordner));
+      // Das Projekte-Label (AutomatikBadge) haengt am selben Status
+      // (resten_bestaetigt) und soll ohne Tab-Wechsel sofort mitziehen.
+      onGeaendert();
     } finally {
       setResteWirdBestaetigt(false);
     }

@@ -5,6 +5,8 @@ import { api } from "../api/client";
 import type { ProjektDetail, RechtschreibWort } from "../api/types";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { Button, Card, CardTitle } from "../components/ui";
+import { kapitelTextSchluessel, useKapitelText } from "../context/KapitelTextContext";
+import { kapitelTextZusammenbauen, kapitelUeberschrift, splitteNachKapitel, type Spanne } from "../utils/kapitelKombiniert";
 
 type TextEditor = MonacoEditorNS.IStandaloneCodeEditor;
 
@@ -21,26 +23,6 @@ interface KapitelBlock {
   geladen: boolean;
   laedt: boolean;
   fehler: string | null;
-}
-
-interface Spanne {
-  start: number;
-  end: number;
-}
-
-const kapitelUeberschrift = (n: number) => `## Kapitel ${n}`;
-const KAPITEL_MARKER_MUSTER = /^## Kapitel (\d+)\s*$/gm;
-
-function splitteNachKapitel(text: string): Map<number, string> {
-  const treffer = [...text.matchAll(KAPITEL_MARKER_MUSTER)];
-  const ergebnis = new Map<number, string>();
-  for (let i = 0; i < treffer.length; i++) {
-    const n = Number(treffer[i][1]);
-    const startInhalt = treffer[i].index! + treffer[i][0].length;
-    const endeInhalt = i + 1 < treffer.length ? treffer[i + 1].index! : text.length;
-    ergebnis.set(n, text.slice(startInhalt, endeInhalt).trim());
-  }
-  return ergebnis;
 }
 
 interface KapitelTextEditorHandle {
@@ -204,6 +186,42 @@ export function RechtschreibungPage({ ordner, projekt, sshZielId }: Rechtschreib
     });
   }, [bloecke, kapitelNummern]);
 
+  const { stand: kapitelStand, veroeffentlichen: kapitelVeroeffentlichen } = useKapitelText();
+
+  // Cross-Tab-Sync: Der Tab "Prüfen & Anwenden" haelt denselben Kapiteltext
+  // in einem eigenen, unabhaengigen Zustand (siehe PruefenAnwendenPage.tsx) -
+  // beide Tabs bleiben beim Wechseln dauerhaft gemountet (App.tsx). Wurde
+  // dort ein hier bereits geladenes Kapitel gespeichert (Text-Edit oder
+  // uebernommener Befund), sofort uebernehmen - aber nur, wenn hier selbst
+  // keine ungespeicherte Aenderung an GENAU diesem Kapitel existiert (die
+  // hat Vorrang, sonst wuerden laufende Eingaben ueberschrieben).
+  useEffect(() => {
+    if (angehaengtRef.current.size === 0) return;
+    const segmente = splitteNachKapitel(kombiniert);
+    const uebernahmen = new Map<number, string>();
+    for (const n of kapitelNummern) {
+      if (!angehaengtRef.current.has(n)) continue;
+      const block = bloecke[n];
+      const eintrag = kapitelStand[kapitelTextSchluessel(ordner, n)];
+      if (!block || !eintrag || eintrag.text === block.kapiteltext) continue;
+      const eigenesSegment = segmente.get(n);
+      if (eigenesSegment !== undefined && eigenesSegment !== block.kapiteltext) continue;
+      uebernahmen.set(n, eintrag.text);
+    }
+    if (uebernahmen.size === 0) return;
+
+    setBloecke((b) => {
+      const kopie = { ...b };
+      for (const [n, text] of uebernahmen) kopie[n] = { ...kopie[n], kapiteltext: text };
+      return kopie;
+    });
+    const { text, spannen: neueSpannen } = kapitelTextZusammenbauen(kapitelNummern, (n) =>
+      angehaengtRef.current.has(n) ? (uebernahmen.get(n) ?? segmente.get(n) ?? bloecke[n]?.kapiteltext) : undefined,
+    );
+    setKombiniert(text);
+    setSpannen(neueSpannen);
+  }, [kapitelStand, ordner, kapitelNummern, bloecke, kombiniert]);
+
   async function alleErneutPruefen() {
     await Promise.all(kapitelNummern.map((n) => pruefeKapitel(n)));
   }
@@ -219,6 +237,7 @@ export function RechtschreibungPage({ ordner, projekt, sshZielId }: Rechtschreib
         if (segment === undefined || segment === bloecke[n]?.kapiteltext) continue;
         await api.kapitelSchreiben(ordner, n, segment);
         geaendert.push(n);
+        kapitelVeroeffentlichen(ordner, n, segment);
       }
       if (geaendert.length > 0) {
         setBloecke((b) => {

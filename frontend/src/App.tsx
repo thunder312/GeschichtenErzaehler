@@ -11,6 +11,7 @@ import { GeruestPage } from "./pages/GeruestPage";
 import { StatusFooter } from "./components/StatusFooter";
 import { ZeitUeberbrueckungOverlay } from "./components/ZeitUeberbrueckungOverlay";
 import { AktivitaetProvider } from "./context/AktivitaetContext";
+import { KapitelTextProvider } from "./context/KapitelTextContext";
 import { useAuth } from "./context/AuthContext";
 import { BenutzerPage } from "./pages/BenutzerPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -146,6 +147,7 @@ function App() {
 
   return (
     <AktivitaetProvider>
+    <KapitelTextProvider>
     <div className="flex h-screen flex-col overflow-hidden text-text">
       <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
         <div className="flex min-w-0 items-center gap-4">
@@ -271,6 +273,10 @@ function App() {
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
                 sshZielId={sshZielId}
+                onGeaendert={() => {
+                  projektDetailLaden();
+                  projekteLaden();
+                }}
               />
             </div>
 
@@ -329,6 +335,7 @@ function App() {
       <ZeitUeberbrueckungOverlay />
       {ueberSichtbar && <AboutDialog onClose={() => setUeberSichtbar(false)} />}
     </div>
+    </KapitelTextProvider>
     </AktivitaetProvider>
   );
 }
