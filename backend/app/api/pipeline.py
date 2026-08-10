@@ -785,11 +785,32 @@ def _automatik_log_zeile(payload: dict) -> str | None:
         return f"Autor schreibt (Ziel ~{ziel} Wörter)..." if ziel else "Autor schreibt..."
     if phase == "autor" and typ == "done":
         meta = payload.get("meta") or {}
-        return f"Kapitel-Entwurf fertig ({meta.get('woerter', '?')} Wörter, {meta.get('token_pro_sekunde', '?')} Tok/s)."
+        zeile = f"Kapitel-Entwurf fertig ({meta.get('woerter', '?')} Wörter, {meta.get('token_pro_sekunde', '?')} Tok/s)."
+        # Ollamas eigener Abbruchgrund - "stop" ist der normale Fall (Modell
+        # hat selbst einen Stop-Token gewaehlt), "length" heisst: num_predict
+        # war ausgeschoepft, der Text wurde hart mitten drin gekappt. Vorher
+        # wurde dieses Feld zwar in chat_stream() erfasst, aber nirgends
+        # geloggt - ein zu kurz abgebrochenes Kapitel (siehe "zu_kurz"-Hinweis
+        # unten) liess sich dadurch nicht von einem Budget- vs. einem
+        # Modell-Problem unterscheiden (siehe Vorfall "Das-Echo-der-
+        # Verpflichtung-Ein-Geheimnis-in-Winterbottom-Hall").
+        grund = meta.get("done_reason")
+        if grund and grund != "stop":
+            zeile += f" ⚠ Ollama-Abbruchgrund: {grund}."
+        return zeile
     if phase == "autor_fortsetzung" and typ == "start":
         return f"Kapitel zu kurz, Fortsetzungsversuch {payload.get('versuch')}/{payload.get('max_versuche')}..."
     if phase == "nachbearbeitung" and typ == "done":
-        return f"Nachbearbeitung fertig ({len(payload.get('findings', []))} Hinweis(e))."
+        findings = payload.get("findings") or []
+        if not findings:
+            return "Nachbearbeitung fertig (keine Hinweise)."
+        # Vorher nur eine inhaltsleere Zaehlung ("N Hinweis(e)") - der Text
+        # jedes Hinweises (u.a. "zu_kurz": Kapitel X liegt bei Y von Z
+        # Woertern, Automatische Fortsetzung deaktiviert) ging dadurch im
+        # Automatikmodus komplett verloren, weil hier niemand live zuschaut
+        # wie beim interaktiven Schreiben (siehe gleicher Vorfall wie oben).
+        hinweise = " | ".join(f"{f.get('code')}: {f.get('meldung')}" for f in findings)
+        return f"Nachbearbeitung fertig ({len(findings)} Hinweis(e)): {hinweise}"
     if phase == "pruefen" and typ == "start":
         return "Prüfer laufen..."
     if phase == "pruefen" and typ == "done":

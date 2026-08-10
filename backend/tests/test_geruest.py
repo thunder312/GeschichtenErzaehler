@@ -83,10 +83,23 @@ def test_autor_rolle_erkennen():
     assert g.autor_rolle_erkennen("keine Angabe") == "autor"
 
 
+def test_autor_rolle_erkennen_bei_vom_architekten_verdoppeltem_label():
+    # Vorfall "Das-Echo-der-Verpflichtung-Ein-Geheimnis-in-Winterbottom-Hall":
+    # der Architekt hat das Label im Geruest verdoppelt ins Dokument
+    # geschrieben. Ohne das (?:...)+ im Muster wuerde "Autor-Modell" selbst
+    # als Wert eingefangen und der Autor faelschlich auf Hermes3 zurueckfallen.
+    assert g.autor_rolle_erkennen("Autor-Modell: Autor-Modell: Mistral") == "autor_mistral"
+
+
 def test_automatische_fortsetzung_default_aus():
     assert g.automatische_fortsetzung_aktiviert(BEISPIEL_GERUEST) is False
     assert g.automatische_fortsetzung_aktiviert("Automatische Fortsetzung: Ein") is True
     assert g.automatische_fortsetzung_aktiviert("keine Angabe") is False
+
+
+def test_automatische_fortsetzung_bei_vom_architekten_verdoppeltem_label():
+    assert g.automatische_fortsetzung_aktiviert("Automatische Fortsetzung: Automatische Fortsetzung: Ein") is True
+    assert g.automatische_fortsetzung_aktiviert("Automatische Fortsetzung: Automatische Fortsetzung: Aus") is False
 
 
 def test_ordnername_aus_titel_transliteriert_umlaute():

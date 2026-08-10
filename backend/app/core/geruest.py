@@ -106,8 +106,15 @@ def jugendschutz_stufe_erkennen(geruest: str) -> str:
 def autor_rolle_erkennen(geruest: str) -> str:
     """Liefert den ROLLEN-Schluessel des Autor-Modells. Fehlt die Angabe,
     gilt automatisch 'autor' (Hermes3) - unveraendertes Verhalten fuer
-    Bestandsprojekte."""
-    treffer = re.search(r"Autor-Modell\s*[:\-]?\s*([A-Za-z0-9 ]+)", geruest, re.IGNORECASE)
+    Bestandsprojekte. Das Label wird bewusst mit (?:...)+  VOR der Erfassung
+    beliebig oft konsumiert, nicht nur einmal - der Architekt hat es bei
+    einem Live-Projekt ("Das-Echo-der-Verpflichtung-Ein-Geheimnis-in-
+    Winterbottom-Hall") verdoppelt ins Geruest geschrieben
+    ("Autor-Modell: Autor-Modell: Mistral"). Ohne das (?:...)+ wuerde die
+    einfache Version des Musters dann "Autor-Modell" selbst als Wert
+    einfangen statt "Mistral" und der Autor faelschlich auf Hermes3
+    zurueckfallen."""
+    treffer = re.search(r"(?:Autor-Modell\s*[:\-]?\s*)+([A-Za-z0-9 ]+)", geruest, re.IGNORECASE)
     if not treffer:
         return "autor"
     wert = treffer.group(1).lower()
@@ -120,8 +127,10 @@ def autor_rolle_erkennen(geruest: str) -> str:
 
 def automatische_fortsetzung_aktiviert(geruest: str) -> bool:
     """Default AUS, auch wenn das Feld fehlt - bewusst der sicherere
-    Standard (siehe Bedienungsanleitung Abschnitt 9b)."""
-    treffer = re.search(r"Automatische Fortsetzung\s*[:\-]?\s*([A-Za-zÄÖÜäöüß]+)",
+    Standard (siehe Bedienungsanleitung Abschnitt 9b). Siehe
+    autor_rolle_erkennen() zur Begruendung des (?:...)+ gegen ein vom
+    Architekten verdoppeltes Label."""
+    treffer = re.search(r"(?:Automatische Fortsetzung\s*[:\-]?\s*)+([A-Za-zÄÖÜäöüß]+)",
                          geruest, re.IGNORECASE)
     if not treffer:
         return False
