@@ -317,6 +317,74 @@ def test_automatik_stop_setzt_flag_und_bricht_vor_naechstem_kapitel_ab(client, p
     assert r2.status_code == 404
 
 
+def test_automatik_haelt_nach_checkpoint_bei_ungeloesten_funden_an(client, monkeypatch):
+    """Vorfall "Das-Echo-der-Verpflichtung-Ein-Geheimnis-in-Winterbottom-
+    Hall" (2026-08-10): Der Automatikmodus schrieb unbeaufsichtigt alle 6
+    Kapitel durch, obwohl schon nach Kapitel 3 ein Grossteil der Pruefer-
+    Funde uebersprungen wurde (u.a. ein echter Kontinuitaetsbruch). Ab
+    AUTOMATIK_CHECKPOINT_INTERVALL (3) muss der Lauf anhalten, wenn das
+    Protokoll ungeloeste ("uebersprungen") Funde enthaelt, statt blind mit
+    Kapitel 4 weiterzumachen."""
+    from app.schemas import Befund, BefundBeschreibung, BefundeAntwort
+
+    r = client.post("/api/projects", json={"titel": "Checkpointtest", "epoche": "Regency"})
+    ordner = r.json()["ordner"]
+    geruest = (
+        "# STORY-GERUEST\n\n## Rahmen\nJahr: 1815\n\n"
+        "## Kapitelplan\n"
+        "Kapitel 1: Ein Anfang. 5 Wörter.\n"
+        "Kapitel 2: Weiter. 5 Wörter.\n"
+        "Kapitel 3: Noch mehr. 5 Wörter.\n"
+        "Kapitel 4: Ein Ende. 5 Wörter.\n"
+    )
+    client.put(f"/api/projects/{ordner}/geruest", json={"inhalt": geruest})
+
+    async def _pruefung_mit_ungeloestem_fund(settings_, projekt, base_url, n, kapiteltext):
+        befund = Befund(
+            id="b1", kategorien=["kontinuitaet"], fundstelle="irrelevant",
+            beschreibungen=[BefundBeschreibung(quelle="kontinuitaet", text="Testbefund")],
+            sicherheit=None, vorschlag=None, konflikt=False, gefunden=False,
+            start=None, end=None,
+        )
+        return BefundeAntwort(kapitel=n, erzeugt_am="2026-01-01 10:00", jahr="1815", befunde=[befund])
+
+    monkeypatch.setattr(pipeline, "_pruefe_kapitel", _pruefung_mit_ungeloestem_fund)
+
+    r = client.post(f"/api/projects/{ordner}/automatik/start", json={"max_durchlaeufe": 1})
+    assert r.status_code == 200
+    status = client.get(f"/api/projects/{ordner}/automatik/status").json()
+
+    assert status["abgeschlossen"] is False
+    assert status["laeuft"] is False
+    assert status["fehler"] is None
+    assert status["fortsetzbar"] is True
+    assert status["phase"] == "pruefen"
+    assert status["aktuelles_kapitel"] == 4
+    assert any("Angehalten nach Kapitel 3" in zeile for zeile in status["log"])
+    # Kapitel 4 wurde in Phase 1 zwar schon geschrieben, aber noch nicht
+    # geprueft - der "uebersprungen"-Protokolleintrag existiert nur fuer 1-3.
+    kapitel_mit_befund = {e["kapitel"] for e in status["protokoll"] if e["art"] == "uebersprungen"}
+    assert kapitel_mit_befund == {1, 2, 3}
+
+    r4 = client.get(f"/api/projects/{ordner}/kapitel/4")
+    assert r4.status_code == 200 and r4.text.strip()
+
+    # "Fortsetzen" fuehrt den Lauf zu Ende, OHNE Kapitel 1-3 erneut zu pruefen.
+    aufrufe: list[int] = []
+    urspruengliche_fake = pipeline._pruefe_kapitel
+
+    async def _zaehle_aufrufe(settings_, projekt, base_url, n, kapiteltext):
+        aufrufe.append(n)
+        return await urspruengliche_fake(settings_, projekt, base_url, n, kapiteltext)
+
+    monkeypatch.setattr(pipeline, "_pruefe_kapitel", _zaehle_aufrufe)
+    r2 = client.post(f"/api/projects/{ordner}/automatik/start", json={"max_durchlaeufe": 1, "fortsetzen": True})
+    assert r2.status_code == 200
+    status2 = client.get(f"/api/projects/{ordner}/automatik/status").json()
+    assert status2["abgeschlossen"] is True
+    assert aufrufe == [4]
+
+
 def test_automatik_resten_bestaetigen_aendert_projektlisten_badge(client, projekt_mit_kapitelplan):
     """Nachdem die im Protokoll verbliebenen Reste (uebersprungene Funde)
     ueber den neuen Endpunkt quittiert wurden, soll die Projektliste nicht

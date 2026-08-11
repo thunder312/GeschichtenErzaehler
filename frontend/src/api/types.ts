@@ -286,6 +286,7 @@ export type ArchitektNachricht =
       ausgangslage_gespeichert: boolean;
       gesichert_als: string | null;
       neuer_ordner: string;
+      kapitelplan_platzhalter: string[];
     }
   | { phase: "beendet_ohne_speichern" }
   | { phase: "fehler"; typ: "error"; text: string };

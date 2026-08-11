@@ -164,6 +164,12 @@ Rahmen stehen, wörtlich "Automatische Fortsetzung: Ein" oder
 Kein zweiter, eigenständiger Handlungsstrang. Ein Krimi- oder Intrigenstrang ist
 erlaubt, muss aber mit dem Kernkonflikt verflochten sein und darf nicht parallel
 danebenherlaufen.
+Jede Figur, auf die im Kapitelplan verwiesen wird - auch eine bei Frage 11 gewählte
+Figur wie "ein unerwarteter Gast" -, muss spätestens hier unter ## Figuren mit Name,
+Alter, Stand, Ziel und Geheimnis konkret festgelegt sein. Platzhalter im Kapitelplan
+wie "Name/Status zu definieren" oder Klammerbeispiele mit "z.B." sind NICHT
+erlaubt - entscheide dich JETZT für eine konkrete Version, statt die Entscheidung
+dem Autor beim Schreiben des Kapitels zu überlassen.
 Hat der Nutzer bei Frage 13 konkrete Vorgaben zu einzelnen Kapiteln gemacht, haben
 diese Vorrang vor eigenen Ideen für das Ereignis des jeweiligen Kapitels. Für nicht
 vorgegebene Kapitel entwickelst du die Handlung frei weiter. Hat der Nutzer sich

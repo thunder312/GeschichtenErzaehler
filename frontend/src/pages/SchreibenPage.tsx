@@ -13,7 +13,7 @@ import { CollapsibleCard } from "../components/CollapsibleCard";
 import { FindingsList } from "../components/FindingsList";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
-import { hatReste } from "../utils/automatik";
+import { hatReste, resteZusammenfassen } from "../utils/automatik";
 import { alsDateiHerunterladen } from "../utils/download";
 
 interface SchreibenPageProps {
@@ -22,6 +22,15 @@ interface SchreibenPageProps {
   sshZielId: string;
   onKapitelGeschrieben: () => void;
 }
+
+// Grund-Codes aus app/core/automatik.py:befunde_anwenden() - lesbare Texte
+// statt der rohen Codes in der Zusammenfassung/Protokollliste.
+const GRUND_LABEL: Record<string, string> = {
+  kein_vorschlag: "kein Korrekturvorschlag (unsicher)",
+  konflikt: "widersprüchliche Vorschläge zweier Prüfer",
+  nicht_gefunden: "Textstelle nicht mehr auffindbar",
+  verdaechtiger_vorschlag: "verdächtiger Vorschlag verworfen",
+};
 
 function formatDauer(sekunden: number): string {
   const std = Math.floor(sekunden / 3600);
@@ -542,38 +551,66 @@ export function SchreibenPage({
           <p className="mt-2 text-sm text-red-400">Fehler im letzten Lauf: {automatikStatus.fehler}</p>
         )}
 
-        {!automatikStatus?.laeuft && automatikStatus?.abgeschlossen && (
-          <CollapsibleCard
-            title={`Protokoll des letzten Laufs (${automatikStatus.protokoll.length})`}
-            defaultOffen={false}
-            className="mt-3"
-          >
-            <div className="space-y-2 p-4 text-xs text-text-muted">
-              <ul className="max-h-64 space-y-1 overflow-auto">
-                {automatikStatus.protokoll.map((eintrag, i) => (
-                  <li key={i}>
-                    Kapitel {eintrag.kapitel}:{" "}
-                    {eintrag.art === "angewendet"
-                      ? "✅ angewendet"
-                      : eintrag.art === "rechtschreibung"
-                        ? `📝 ${eintrag.unbekannte_woerter?.length ?? 0} unbekannte(s) Wort/Wörter`
-                        : `⏭️ übersprungen (${eintrag.grund})`}
-                    {eintrag.fundstelle && <> – „{eintrag.fundstelle}“</>}
-                  </li>
-                ))}
-              </ul>
-              <p>
-                Reste findest du wie gewohnt im Tab "Prüfen &amp; Anwenden"
-                {hatReste(automatikStatus.protokoll) && !automatikStatus.resten_bestaetigt && (
-                  <> - dort auch der Button "Prüfung abschließen".</>
-                )}
-              </p>
-              {hatReste(automatikStatus.protokoll) && automatikStatus.resten_bestaetigt && (
-                <p className="text-accent-light">✅ Prüfung als abgeschlossen bestätigt.</p>
+        {!automatikStatus?.laeuft && automatikStatus != null && automatikStatus.protokoll.length > 0 && (() => {
+          const reste = hatReste(automatikStatus.protokoll);
+          const zusammenfassung = resteZusammenfassen(automatikStatus.protokoll);
+          const uebersprungenGesamt = zusammenfassung.gesamt - zusammenfassung.angewendet;
+          return (
+            <>
+              {reste && !automatikStatus.abgeschlossen && (
+                <div className="mt-3 rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+                  ⏸️ Automatikmodus angehalten: ungelöste Prüfer-Funde seit Laufbeginn vorhanden. Im Tab "Prüfen
+                  &amp; Anwenden" durchsehen, bevor du mit "Fortsetzen" weitermachst - sonst häufen sich ungelöste
+                  Kontinuitätsprobleme über weitere Kapitel hinweg an.
+                </div>
               )}
-            </div>
-          </CollapsibleCard>
-        )}
+              <CollapsibleCard
+                title={`Protokoll des letzten Laufs (${zusammenfassung.angewendet}/${zusammenfassung.gesamt} angewendet${
+                  uebersprungenGesamt > 0 ? `, ${uebersprungenGesamt} übersprungen` : ""
+                })`}
+                defaultOffen={reste}
+                className="mt-3"
+              >
+                <div className="space-y-2 p-4 text-xs text-text-muted">
+                  {uebersprungenGesamt > 0 && (
+                    <p>
+                      {uebersprungenGesamt} von {zusammenfassung.gesamt} Korrekturvorschlägen übersprungen:{" "}
+                      {Object.entries(zusammenfassung.uebersprungenNachGrund)
+                        .map(([grund, anzahl]) => `${anzahl}× ${GRUND_LABEL[grund] ?? grund}`)
+                        .join(", ")}
+                      .
+                    </p>
+                  )}
+                  {zusammenfassung.unbekannteWoerter > 0 && (
+                    <p>{zusammenfassung.unbekannteWoerter} unbekannte(s) Wort/Wörter (Rechtschreibung, hunspell).</p>
+                  )}
+                  <ul className="max-h-64 space-y-1 overflow-auto">
+                    {automatikStatus.protokoll.map((eintrag, i) => (
+                      <li key={i}>
+                        Kapitel {eintrag.kapitel}:{" "}
+                        {eintrag.art === "angewendet"
+                          ? "✅ angewendet"
+                          : eintrag.art === "rechtschreibung"
+                            ? `📝 ${eintrag.unbekannte_woerter?.length ?? 0} unbekannte(s) Wort/Wörter`
+                            : `⏭️ übersprungen (${GRUND_LABEL[eintrag.grund ?? ""] ?? eintrag.grund})`}
+                        {eintrag.fundstelle && <> – „{eintrag.fundstelle}“</>}
+                      </li>
+                    ))}
+                  </ul>
+                  <p>
+                    Reste findest du wie gewohnt im Tab "Prüfen &amp; Anwenden"
+                    {reste && !automatikStatus.resten_bestaetigt && (
+                      <> - dort auch der Button "Prüfung abschließen".</>
+                    )}
+                  </p>
+                  {reste && automatikStatus.resten_bestaetigt && (
+                    <p className="text-accent-light">✅ Prüfung als abgeschlossen bestätigt.</p>
+                  )}
+                </div>
+              </CollapsibleCard>
+            </>
+          );
+        })()}
 
         {automatikVerlauf.length > 0 && (
           <CollapsibleCard title={`Lauf-Historie (${automatikVerlauf.length})`} defaultOffen={false} className="mt-3">

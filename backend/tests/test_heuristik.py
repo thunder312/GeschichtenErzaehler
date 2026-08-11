@@ -134,6 +134,105 @@ def test_interne_wiederholung_abschneiden_zweimalige_wiederholung_kein_fund():
     assert findings == []
 
 
+def test_wiederholten_absatzblock_ausschneiden_erkennt_nicht_angrenzende_wiederholung():
+    """Regression: interne_wiederholung_abschneiden() vergleicht nur den
+    UNMITTELBAR naechsten Absatzblock (j = i + k) - liegt zwischen zwei
+    (fast) identischen Bloecken ein andersformuliertes Zwischenstueck (wie
+    beim realen Vorfall in Kapitel 4 von "Das-Echo-der-Verpflichtung-Ein-
+    Geheimnis-in-Winterbottom-Hall"), findet interne_wiederholung_
+    abschneiden() nichts. wiederholten_absatzblock_ausschneiden() muss den
+    Fall trotzdem erkennen und NUR den redundanten Mittelteil entfernen,
+    der Text danach (hier: der Schlussabsatz) muss erhalten bleiben."""
+    block = (
+        "Marcus fragte sie leise, was das Dokument bedeute, und wartete auf "
+        "ihre Antwort mit angehaltenem Atem.\n\n"
+        "Julia erklaerte ihm die Zusammenhaenge, so gut sie es aus den alten "
+        "Papieren herauslesen konnte, ihre Stimme leicht zitternd.\n\n"
+        "Er nickte langsam und wandte sich zum Fenster, um seine Fassung "
+        "wiederzufinden, bevor er antwortete."
+    )
+    zwischenstueck = (
+        "Ein Diener klopfte kurz an die Tuer, trat aber nicht ein, sondern "
+        "entfernte sich wieder auf leisen Sohlen den Flur hinunter."
+    )
+    text = (
+        "Einleitender Absatz, der nur einmal vorkommt.\n\n"
+        + block + "\n\n" + zwischenstueck + "\n\n" + block
+        + "\n\nAbschliessender Absatz, der unbedingt erhalten bleiben muss."
+    )
+    gekuerzt, findings = h.wiederholten_absatzblock_ausschneiden(text)
+    assert len(findings) == 1
+    assert findings[0].code == "wiederholter_absatzblock"
+    assert gekuerzt.startswith("Einleitender Absatz, der nur einmal vorkommt.\n\n" + block)
+    assert gekuerzt.endswith("Abschliessender Absatz, der unbedingt erhalten bleiben muss.")
+    assert zwischenstueck not in gekuerzt
+    assert gekuerzt.count("Marcus fragte sie leise") == 1
+
+
+def test_wiederholten_absatzblock_ausschneiden_ohne_wiederholung_unveraendert():
+    text = "Erster Absatz.\n\nZweiter, ganz anderer Absatz.\n\nDritter Absatz zum Schluss."
+    gekuerzt, findings = h.wiederholten_absatzblock_ausschneiden(text)
+    assert gekuerzt == text
+    assert findings == []
+
+
+def test_wiederholten_absatzblock_ausschneiden_ignoriert_kurzen_refrain():
+    # Ein einzelner, kurzer wiederkehrender Satz (< min_fenster Absaetze)
+    # bleibt bewusst unangetastet - siehe interne_wiederholung_abschneiden()-
+    # Pendant-Test: kann ein gewollter Stil-Refrain sein.
+    refrain = "Der Punkt ohne Wiederkehr war erreicht."
+    text = "Auftakt.\n\n" + refrain + "\n\nMittelteil.\n\n" + refrain + "\n\nSchluss."
+    gekuerzt, findings = h.wiederholten_absatzblock_ausschneiden(text)
+    assert gekuerzt == text
+    assert findings == []
+
+
+def test_wiederholten_absatzblock_ausschneiden_kapitel4_realfall():
+    """End-to-End gegen den (gekuerzten) Originaltext von Kapitel 4 aus
+    "Das-Echo-der-Verpflichtung-Ein-Geheimnis-in-Winterbottom-Hall" (Live-
+    Vorfall vom 2026-08-10) - muss den bekannten Duplikat-Block entfernen,
+    ohne den Schlussteil (neue, einmalige Liebesgestaendnis-Szene) zu
+    verlieren."""
+    text = (
+        "Marcus starrte sie an, sein Gesicht war blass geworden. „Was meinen Sie?“\n\n"
+        "Julia blickte zu ihm auf, ihre Augen waren voller Sorge. „Es scheint, als ob "
+        "Ihr Vorfahre einen Handel geschlossen hat, der nicht nur finanziell, sondern "
+        "auch emotional belastet war. Es gibt Andeutungen von Verrat und Verlust.“\n\n"
+        "Finch nickte langsam. „Genau das ist es, was ich Ihnen zeigen wollte.“\n\n"
+        "Marcus spürte, wie ihm übel wurde. Er wandte sich ab und ging zum Fenster, "
+        "wo er in den dunklen Wald hinausstarrte.\n\n"
+        "Julia legte sanft eine Hand auf seinen Arm. „Marcus, wir müssen die Wahrheit "
+        "herausfinden. Egal, wie schmerzhaft sie ist.“\n\n"
+        "Er drehte sich zu ihr um, seine Augen waren feucht vor unvergossenen Tränen. "
+        "„Warum? Warum sollte ich etwas wissen wollen, das mich nur noch mehr leiden "
+        "lässt?“\n\n"
+        "Julia nahm vorsichtig eines der Papiere und begann zu lesen. Ihre Stimme war "
+        "ruhig, aber ihre Hände zitterten.\n\n"
+        "Marcus starrte sie an, sein Gesicht war blass geworden. „Was für eine "
+        "Schuld?“\n\n"
+        "Julia blickte zu ihm auf, ihre Augen waren voller Sorge. „Es scheint, als ob "
+        "jemand betrogen wurde. Jemand, den Ihr Vorfahre geliebt hat.“\n\n"
+        "Marcus spürte, wie sich ein Knoten in seinem Magen bildete. Er wandte sich ab "
+        "und ging zum Fenster, wo er in den dunklen Wald hinausstarrte.\n\n"
+        "Julia legte sanft eine Hand auf seinen Arm. „Marcus, wir müssen die Wahrheit "
+        "herausfinden. Egal, wie schmerzhaft sie ist.“\n\n"
+        "Er drehte sich zu ihr um, seine Augen waren feucht vor unvergossenen Tränen. "
+        "„Warum? Warum sollte ich etwas wissen wollen, das mich nur noch mehr leiden "
+        "lässt?“\n\n"
+        "Finch lächelte leicht und deutete auf einen Stapel weiterer Papiere auf dem "
+        "Schreibtisch. „Dort finden Sie alles, was Sie brauchen.“\n\n"
+        "Die Stunden vergingen, während Marcus und Julia die vergilbten Papiere "
+        "durchforsteten.\n\n"
+        "„Gut“, flüsterte er. „Dann lass uns beginnen.“"
+    )
+    gekuerzt, findings = h.wiederholten_absatzblock_ausschneiden(text)
+    assert len(findings) == 1
+    assert gekuerzt.count("Finch lächelte leicht und deutete auf einen Stapel") == 1
+    assert gekuerzt.count("Julia legte sanft eine Hand auf seinen Arm") == 1
+    assert "Gut“, flüsterte er. „Dann lass uns beginnen." in gekuerzt
+    assert "Die Stunden vergingen" in gekuerzt
+
+
 def test_explizitheit_pruefen_nur_relevant_wenn_nicht_voll():
     text = "Eine Szene mit Penetration und Orgasmus."
     assert h.explizitheit_pruefen(text, "voll") == []

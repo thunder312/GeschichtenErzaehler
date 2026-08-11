@@ -68,6 +68,13 @@ export function ArchitektInterviewPage({
   const [wartetAufAntwort, setWartetAufAntwort] = useState(false);
   const [denktNach, setDenktNach] = useState(false);
   const [abgeschlossen, setAbgeschlossen] = useState(false);
+  // Nicht aufgeloeste Figuren-Platzhalter im fertigen Kapitelplan (siehe
+  // app/core/geruest.py:kapitelplan_platzhalter_erkennen) - z.B. "Name/
+  // Status zu definieren". Blockiert nichts, ist nur ein Hinweis: eine
+  // solche Stelle zwingt die Autor-Rolle beim Schreiben zu improvisieren
+  // (Vorfall "Das-Echo-der-Verpflichtung-Ein-Geheimnis-in-Winterbottom-
+  // Hall": zwei nie wieder aufgegriffene Nebenfiguren).
+  const [kapitelplanPlatzhalter, setKapitelplanPlatzhalter] = useState<string[]>([]);
   const [beendetOhneSpeichern, setBeendetOhneSpeichern] = useState(false);
   const [pausiert, setPausiert] = useState(false);
   const [fortsetzbar, setFortsetzbar] = useState(false);
@@ -177,6 +184,7 @@ export function ArchitektInterviewPage({
       if (nachricht.phase === "abgeschlossen") {
         kontrolliertBeendetRef.current = true;
         setAbgeschlossen(true);
+        setKapitelplanPlatzhalter(nachricht.kapitelplan_platzhalter);
         setWartetAufAntwort(false);
         aktivitaetBeenden();
         onAbgeschlossen(nachricht.neuer_ordner);
@@ -406,6 +414,20 @@ export function ArchitektInterviewPage({
             <div className="rounded-lg border border-accent-soft bg-accent-soft/40 px-4 py-3 text-sm text-accent-light">
               ✅ Story-Gerüst erstellt und gespeichert. Wechsle oben zum Reiter, um es zu sehen oder von Hand
               nachzujustieren.
+            </div>
+          )}
+          {abgeschlossen && kapitelplanPlatzhalter.length > 0 && (
+            <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+              <p className="mb-2">
+                ⚠️ Der Kapitelplan enthält noch nicht aufgelöste Figuren-Platzhalter. Der Autor müsste beim
+                Schreiben selbst improvisieren, wer das ist - lege die Figur lieber jetzt von Hand unter „##
+                Figuren" fest, statt das dem Autor zu überlassen:
+              </p>
+              <ul className="list-disc space-y-1 pl-5">
+                {kapitelplanPlatzhalter.map((zeile, i) => (
+                  <li key={i}>{zeile}</li>
+                ))}
+              </ul>
             </div>
           )}
           {beendetOhneSpeichern && (

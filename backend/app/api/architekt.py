@@ -288,6 +288,7 @@ async def ws_architekt(websocket: WebSocket, ordner: str, ssh_ziel_id: str | Non
                         "ausgangslage_gespeichert": ausgangslage_gespeichert,
                         "gesichert_als": gesichert_als,
                         "neuer_ordner": neuer_ordner,
+                        "kapitelplan_platzhalter": g.kapitelplan_platzhalter_erkennen(antwort),
                     })
                     break
 

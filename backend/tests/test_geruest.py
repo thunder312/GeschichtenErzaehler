@@ -32,6 +32,59 @@ def test_kapitel_block_erkennen_liefert_nur_den_gesuchten_block():
     assert "Ankunft" not in block
 
 
+def test_kapitelplan_platzhalter_erkennen_findet_undefinierte_figur():
+    # Realer Vorfall "Das-Echo-der-Verpflichtung-Ein-Geheimnis-in-
+    # Winterbottom-Hall" (2026-08-10): Der Architekt liess eine bei der
+    # unerhoerten Begebenheit gewaehlte Figur ("ein unerwarteter Gast") im
+    # Kapitelplan als Platzhalter stehen, statt sie unter ## Figuren
+    # festzulegen - der Autor improvisierte daraufhin beim Schreiben zwei
+    # nie wieder aufgegriffene Nebenfiguren.
+    geruest = BEISPIEL_GERUEST.replace(
+        "Kapitel 3: Aufloesung. Zielwortzahl: 1.400 Woerter.",
+        "Kapitel 3: Aufloesung. Anwesende Figuren: Anna, der unerwartete Gast "
+        "(Name/Status zu definieren, z.B. eine entfernte Verwandte). "
+        "Zielwortzahl: 1.400 Woerter.",
+    )
+    treffer = g.kapitelplan_platzhalter_erkennen(geruest)
+    assert len(treffer) == 1
+    assert "zu definieren" in treffer[0]
+
+
+def test_kapitelplan_platzhalter_erkennen_ignoriert_legitimes_zb_bei_orten():
+    # "z.B." bei Orts-/Ereignisangaben ist im Kapitelplan-Format normal und
+    # darf NICHT als Platzhalter gemeldet werden (sonst waere die Funktion
+    # bei jedem zweiten Kapitelplan falsch positiv).
+    geruest = BEISPIEL_GERUEST.replace(
+        "Kapitel 3: Aufloesung. Zielwortzahl: 1.400 Woerter.",
+        "Kapitel 3: Ort: Ein abgelegener Teil des Anwesens (z.B. ein "
+        "verlassener Fluegel oder der Wald). Zielwortzahl: 1.400 Woerter.",
+    )
+    assert g.kapitelplan_platzhalter_erkennen(geruest) == []
+
+
+def test_kapitelplan_platzhalter_erkennen_ignoriert_offene_punkte_ausserhalb_kapitelplan():
+    geruest = BEISPIEL_GERUEST + "\n## Offene Punkte\nDie Zukunft der Figuren ist noch offen.\n"
+    assert g.kapitelplan_platzhalter_erkennen(geruest) == []
+
+
+def test_nebenstrang_abschnitt_erkennen_extrahiert_abschnitt():
+    geruest = (
+        "# STORY-GERUEST\n\n"
+        "## Nebenstrang\n"
+        "**Geheimnis:** Ein altes Familiengeheimnis.\n"
+        "*   **Kapitel 2:** Ein Hinweis wird gefunden.\n\n"
+        "## Kapitelplan\nKapitel 1: ...\n"
+    )
+    nebenstrang = g.nebenstrang_abschnitt_erkennen(geruest)
+    assert nebenstrang is not None
+    assert "Familiengeheimnis" in nebenstrang
+    assert "Kapitelplan" not in nebenstrang
+
+
+def test_nebenstrang_abschnitt_erkennen_liefert_none_ohne_abschnitt():
+    assert g.nebenstrang_abschnitt_erkennen("# STORY-GERUEST\n\n## Rahmen\nJahr: 1815") is None
+
+
 def test_jahr_erkennen_mit_explizitem_feld():
     assert g.jahr_erkennen(BEISPIEL_GERUEST) == "1815"
 

@@ -338,6 +338,59 @@ def interne_wiederholung_abschneiden(text: str, min_fenster: int = 2, max_fenste
     return text, []
 
 
+def wiederholten_absatzblock_ausschneiden(text: str, min_fenster: int = 3, max_fenster: int = 10,
+                                           max_luecke_faktor: int = 3) -> tuple[str, list[Finding]]:
+    """Erkennt einen groesseren Absatzblock (>= min_fenster Absaetze), den das
+    Modell an einer SPAETEREN, NICHT unmittelbar angrenzenden Stelle im
+    selben Kapitel noch einmal (fast) wortgleich erzaehlt hat - z.B. weil es
+    eine Szene neu aufgerollt statt fortgesetzt hat (realer Vorfall: Kapitel
+    4 von "Das-Echo-der-Verpflichtung-Ein-Geheimnis-in-Winterbottom-Hall" -
+    ein 5-Absatz-Dialogblock kehrte nach 4 andersformulierten, aber
+    inhaltlich redundanten Zwischenabsaetzen fast wortgleich zurueck).
+    interne_wiederholung_abschneiden() findet solche Faelle NICHT: sie
+    vergleicht nur den unmittelbar naechsten Block (j = i + k), die anders
+    formulierten Zwischenabsaetze reissen die Kette dort sofort ab.
+    Deshalb hier eine begrenzte Vorschau (max_luecke_faktor * Fenstergroesse)
+    statt strikter Adjazenz. Bei einem so grossen Block ist bereits EINE
+    Wiederholung (zwei Kopien) ein zuverlaessiges Signal - anders als bei
+    interne_wiederholung_abschneiden(), wo ein einzelner kurzer Absatz auch
+    ein bewusst gesetzter Stil-Refrain sein kann (siehe dortige Tests).
+    Schneidet NUR den Bereich zwischen dem Ende der ersten und dem Ende der
+    zweiten Kopie heraus (statt wie interne_wiederholung_abschneiden() den
+    gesamten Rest des Texts zu verwerfen): nach einer solchen Neuaufrollung
+    schreibt das Modell oft trotzdem echte neue Handlung weiter, anders als
+    bei der haengengebliebenen Endlosschleife bis zum Generierungsende, die
+    interne_wiederholung_abschneiden() behandelt.
+    Prueft absteigend nach Fenstergroesse (groesster Block zuerst), damit ein
+    gefundener Treffer den vollen redundanten Bereich abdeckt statt nur ein
+    kleineres Teilstueck davon (jede Teilmenge eines passenden Blocks passt
+    zwangslaeufig ebenfalls)."""
+    absaetze = [a for a in text.split("\n\n") if a.strip()]
+    n = len(absaetze)
+    for k in range(min(max_fenster, n // 2), min_fenster - 1, -1):
+        max_luecke = k * max_luecke_faktor
+        for i in range(0, n - k + 1):
+            basis = absaetze[i:i + k]
+            ende_suche = min(i + k + max_luecke, n - k)
+            for j in range(i + k, ende_suche + 1):
+                kandidat = absaetze[j:j + k]
+                aehnlichkeiten = [
+                    difflib.SequenceMatcher(None, a.strip(), b.strip()).ratio()
+                    for a, b in zip(basis, kandidat)
+                ]
+                if min(aehnlichkeiten) > 0.8:
+                    rest = absaetze[:i + k] + absaetze[j + k:]
+                    gekuerzt = "\n\n".join(rest)
+                    finding = Finding(
+                        "wiederholter_absatzblock",
+                        f"Modell hat einen Absatzblock ({k} Absatz/Absätze) an einer "
+                        f"späteren Stelle im Kapitel noch einmal fast wortgleich "
+                        f"erzählt - wiederholten Mittelteil automatisch entfernt.",
+                    )
+                    return gekuerzt, [finding]
+    return text, []
+
+
 def alle_nachbearbeitungs_checks(text: str, geruest: str, stufe: str) -> list[Finding]:
     """Buendelt alle rein lesenden Pruefungen (keine Textveraenderung), wie
     sie novelle.py am Ende von cmd_schreiben/cmd_lektorieren aufruft."""

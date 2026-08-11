@@ -383,7 +383,8 @@ async def _bei_bedarf_fortsetzen(
         text, findings_neustart = h.kapitel_neustart_abschneiden(text)
         text, findings_ende = h.vorzeitige_kapitelende_abschneiden(text)
         text, findings_wiederholung = h.interne_wiederholung_abschneiden(text)
-        findings += findings_neustart + findings_ende + findings_wiederholung
+        text, findings_block = h.wiederholten_absatzblock_ausschneiden(text)
+        findings += findings_neustart + findings_ende + findings_wiederholung + findings_block
 
     if woerter(text) < ziel * FORTSETZEN_SCHWELLE:
         findings.append(h.Finding(
@@ -438,6 +439,11 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
     vorher = pd.lies(pd.stand_datei(projekt, n - 1), pflicht=False,
                       ersatz="(Kein vorheriger Stand vorhanden. Dies ist das erste Kapitel.)")
     jahr = g.jahr_fuer_kapitel_erkennen(geruest_text, n)
+    nebenstrang = g.nebenstrang_abschnitt_erkennen(geruest_text)
+    nebenstrang_block = (
+        f"\n\n=== GEPLANTER NEBENSTRANG (gesamtes Geruest, nicht nur dieses "
+        f"Kapitel) ===\n{nebenstrang}" if nebenstrang else ""
+    )
 
     # Anachronismus/Kontinuitaet/Lektor bekommen weiterhin je EINEN Aufruf
     # mit dem ganzen Kapitel. Satzbau bekommt dagegen mehrere Aufrufe, je
@@ -460,7 +466,8 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
         ),
         _sammle_stream(
             settings, base_url, "kontinuitaet", pd.persona_lesen(projekt.parent, "pruefer_kontinuitaet"),
-            f"=== STAND NACH DEM VORIGEN KAPITEL ===\n{vorher}\n\n=== NEUES KAPITEL {n} ===\n{kapiteltext}",
+            f"=== STAND NACH DEM VORIGEN KAPITEL ===\n{vorher}{nebenstrang_block}\n\n"
+            f"=== NEUES KAPITEL {n} ===\n{kapiteltext}",
             format="json",
         ),
         _sammle_stream(
@@ -628,7 +635,8 @@ async def _kapitel_schreiben_kern(
     text, findings_neustart = h.kapitel_neustart_abschneiden(text)
     text, findings_ende = h.vorzeitige_kapitelende_abschneiden(text)
     text, findings_wiederholung = h.interne_wiederholung_abschneiden(text)
-    findings = findings_neustart + findings_ende + findings_wiederholung
+    text, findings_block = h.wiederholten_absatzblock_ausschneiden(text)
+    findings = findings_neustart + findings_ende + findings_wiederholung + findings_block
 
     if ziel and g.automatische_fortsetzung_aktiviert(geruest_text):
         text, findings_fortsetzung = await _bei_bedarf_fortsetzen(
@@ -857,6 +865,18 @@ T = TypeVar("T")
 # von AUTOMATIK_RETRY_WARTEZEIT_SEK, also 5/10/15 Minuten NACH dem ersten
 # Fehlschlag. Erst wenn auch der letzte Versuch scheitert, pausiert der Lauf
 # wie bisher ueber den bestehenden Fehler-Pfad in _automatik_lauf().
+# Vorfall "Das-Echo-der-Verpflichtung-Ein-Geheimnis-in-Winterbottom-Hall"
+# (2026-08-10): Der Automatikmodus schrieb unbeaufsichtigt alle 6 Kapitel
+# durch, obwohl schon nach Kapitel 3 39% aller Pruefer-Funde (u.a. echte
+# Kontinuitaetsbrueche - eine im Nebenstrang verankerte Figur, die spurlos
+# verschwand) uebersprungen wurden. Ohne Zwischenstopp haeufen sich solche
+# Probleme unbemerkt über mehrere weitere Kapitel, bevor der Nutzer sie
+# ueberhaupt sehen kann. Alle AUTOMATIK_CHECKPOINT_INTERVALL Kapitel wird der
+# Lauf deshalb angehalten (wie ein regulaerer Stop - ueber den bestehenden
+# "Fortsetzen"-Button wieder aufnehmbar, siehe fortsetzbar()), WENN das
+# Protokoll seit Laufbeginn uebersprungene Funde enthaelt.
+AUTOMATIK_CHECKPOINT_INTERVALL = 3
+
 AUTOMATIK_RETRY_VERSUCHE = 3
 AUTOMATIK_RETRY_WARTEZEIT_SEK = 5 * 60
 
@@ -1131,6 +1151,18 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                         f"- keine automatische Korrektur, siehe Protokoll."
                     )
                 _automatik_status_schreiben(status, projekt_root)
+
+                if n < letztes and n % AUTOMATIK_CHECKPOINT_INTERVALL == 0 \
+                        and automatik.reste_vorhanden(status):
+                    status["aktuelles_kapitel"] = n + 1
+                    status["log"].append(
+                        f"Angehalten nach Kapitel {n}: ungelöste Prüfer-Funde seit "
+                        f"Laufbeginn vorhanden (siehe Protokoll). Bitte im Tab "
+                        f"\"Prüfen & Anwenden\" durchsehen, dann mit \"Fortsetzen\" "
+                        f"weitermachen."
+                    )
+                    _automatik_status_schreiben(status, projekt_root)
+                    return
 
         status["phase"] = "abgeschlossen"
         status["abgeschlossen"] = True

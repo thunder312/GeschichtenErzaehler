@@ -62,6 +62,71 @@ def kapitel_block_erkennen(geruest: str, gesuchte_nummer: int) -> str | None:
     return None
 
 
+_KAPITELPLAN_ABSCHNITT_MUSTER = re.compile(
+    r"##\s*Kapitelplan\s*\n(.*?)(?=\n##\s|\Z)", re.IGNORECASE | re.DOTALL,
+)
+
+# Bewusst eng gefasst auf "Name/Status/Figur ... zu definieren"-artige
+# Formulierungen statt z.B. jedes "z.B." im Kapitelplan zu melden - ein
+# "z.B." bei einer Orts- oder Ereignis-Angabe (z.B. "Ort: ... (z.B. ein
+# verlassener Fluegel oder der Wald)") ist im bestehenden Kapitelplan-Format
+# normal und kein Fehlersignal, siehe architekt.txt "## Kapitelplan".
+_KAPITELPLAN_PLATZHALTER_MUSTER = re.compile(
+    r"\b(?:Name|Status|Figur)\b[^\n]{0,40}\bzu\s+definieren\b"
+    r"|\bnoch\s+(?:zu\s+)?(?:benennen|festzulegen|unbekannt)\b"
+    r"|\bTBD\b",
+    re.IGNORECASE,
+)
+
+
+def kapitelplan_platzhalter_erkennen(geruest: str) -> list[str]:
+    """Findet unaufgeloeste Figuren-Platzhalter im Kapitelplan, z.B. "der
+    unerwartete Gast (Name/Status zu definieren, z.B. eine entfernte
+    Verwandte oder ein alter Freund)" - ein Hinweis, dass eine bei der
+    "unerhoerten Begebenheit" gewaehlte Figur nie konkret unter ## Figuren
+    festgelegt wurde. Die Autor-Rolle bekommt den kompletten Kapitelplan
+    inkl. aller Kapitel mitgeschickt (siehe app/api/pipeline.py) und muss
+    einen solchen Platzhalter beim Schreiben selbst improvisatorisch
+    aufloesen - im Vorfall "Das-Echo-der-Verpflichtung-Ein-Geheimnis-in-
+    Winterbottom-Hall" (2026-08-10) fuehrte das zu zwei nie wieder
+    aufgegriffenen Nebenfiguren (Lady Harriet, Sir Reginald Blackwood) in
+    Kapitel 3. Durchsucht NUR den Kapitelplan-Abschnitt (nicht z.B.
+    '## Offene Punkte', wo "noch offen"-artige Formulierungen legitim
+    sind). Liefert die betroffenen Zeilen roh zur Anzeige im Frontend -
+    blockiert nichts, ist nur ein Hinweis (siehe app/api/architekt.py)."""
+    abschnitt = _KAPITELPLAN_ABSCHNITT_MUSTER.search(geruest)
+    if not abschnitt:
+        return []
+    return [
+        zeile.strip() for zeile in abschnitt.group(1).splitlines()
+        if _KAPITELPLAN_PLATZHALTER_MUSTER.search(zeile)
+    ]
+
+
+_NEBENSTRANG_ABSCHNITT_MUSTER = re.compile(
+    r"##\s*Nebenstrang\s*\n(.*?)(?=\n##\s|\Z)", re.IGNORECASE | re.DOTALL,
+)
+
+
+def nebenstrang_abschnitt_erkennen(geruest: str) -> str | None:
+    """Extrahiert '## Nebenstrang' aus dem fertigen Geruest - Grundlage
+    dafuer, dem Kontinuitaets-Pruefer (pruefer_kontinuitaet.txt) zusaetzlich
+    zum "Stand nach dem vorigen Kapitel" (nur EIN Kapitel Rueckblick) den
+    gesamten geplanten Nebenstrang mitzugeben. Ohne das kann ein ueber
+    mehrere Kapitel schleichend fallengelassener Faden (z.B. eine im
+    Nebenstrang angelegte Figur, die nach ihrem Auftritt nie wieder erwaehnt
+    wird) nicht auffallen, weil der Pruefer nur den EINEN Schritt vorher/
+    nachher vergleicht (siehe Vorfall "Das-Echo-der-Verpflichtung-Ein-
+    Geheimnis-in-Winterbottom-Hall": Lady Harriet/Sir Reginald Blackwood
+    verschwanden nach Kapitel 3 spurlos, ohne dass ein Pruefer das je
+    meldete). None, wenn der Abschnitt fehlt oder leer ist."""
+    treffer = _NEBENSTRANG_ABSCHNITT_MUSTER.search(geruest)
+    if not treffer:
+        return None
+    inhalt = treffer.group(1).strip()
+    return inhalt or None
+
+
 def jahr_erkennen(geruest: str) -> str:
     """Fallback-Kette: 'Jahr: 1815' -> irgendeine 4-stellige 12../19../20..-
     Zahl -> 'unbekannt'."""
