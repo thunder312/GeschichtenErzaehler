@@ -11,6 +11,8 @@ Das Frontend (siehe /frontend) laeuft im Dev-Betrieb separat unter Vite
 Produktions-Build kann das Vite-dist/-Verzeichnis spaeter zusaetzlich hier
 gemountet werden.
 """
+import logging
+
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -18,16 +20,32 @@ from fastapi.responses import JSONResponse
 from app.api import architekt, auth, benutzer, dokumentation, einstellungen, epochen, fundus, persona_modelle, pipeline, projects, ssh_targets, wissen
 from app.auth import get_current_admin, get_current_user
 from app.config import get_settings
+from app.core import automatik
 from app.core.ollama_client import OllamaFehler
 from app.core.projekt_dateien import DateiFehlt
 from app.core.ssh_manager import SSHVerbindungsFehler
 from app.core.wissen import csv_einlesen
 from app.db import init_db, wissen_anzahl, wissen_einfuegen
 from app.migration import layout_migrieren
+from app.services import projekte_wurzel_unskopiert
 
 settings = get_settings()
 init_db(settings.database_path)
 layout_migrieren(settings)
+
+# Verwaiste "laeuft: true"-Zustaende aus einem VORHERIGEN Prozess aufraeumen
+# (Deploy, Absturz, Server-Neustart mitten in einem Automatik-Lauf) - siehe
+# app/core/automatik.py:verwaiste_laeufe_zuruecksetzen fuer den Vorfall, der
+# das ausgeloest hat. Muss vor dem ersten Request laufen, deshalb hier auf
+# Modulebene statt als FastAPI-Startup-Hook (analog zu init_db/
+# layout_migrieren oben).
+_verwaiste_laeufe = automatik.verwaiste_laeufe_zuruecksetzen(projekte_wurzel_unskopiert(settings))
+if _verwaiste_laeufe:
+    logging.getLogger(__name__).warning(
+        "%d verwaiste(n) Automatik-Lauf/Läufe beim Start zurückgesetzt (laeuft: true ohne "
+        "lebenden Hintergrund-Task, vermutlich durch einen vorherigen Neustart).",
+        _verwaiste_laeufe,
+    )
 
 # Einmalig beim Start befuellen, falls die Tabelle noch leer ist (z.B. beim
 # allerersten Start oder nach dem Loeschen der DB-Datei) - kein Neu-Einlesen

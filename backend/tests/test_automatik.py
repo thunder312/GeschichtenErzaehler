@@ -229,6 +229,70 @@ def test_fortsetzbar_nach_fehler_oder_stop():
     assert automatik.fortsetzbar(status) is True
 
 
+def test_verwaiste_laeufe_zuruecksetzen_setzt_laeuft_zurueck(tmp_path):
+    """Regression 2026-08-12: Ein Backend-Neustart (Deploy, Absturz) waehrend
+    eines laufenden Automatik-Laufs killt den Hintergrund-Task, ohne dass
+    dessen eigenes finally: status["laeuft"] = False je ausgefuehrt wird -
+    ohne Zuruecksetzen beim naechsten Start bliebe der Lauf fuer immer als
+    "laeuft" haengen und fortsetzbar() wuerde "Fortsetzen" nie anbieten."""
+    laufendes_projekt = tmp_path / "daniel" / "Regency" / "Haengendes-Projekt"
+    status = automatik.status_lesen(laufendes_projekt)
+    status["laeuft"] = True
+    status["gestartet_am"] = "2026-08-12 16:32"
+    status["aktuelles_kapitel"] = 5
+    status["aktueller_durchlauf"] = 2
+    status["log"] = ["Autor schreibt..."]
+    automatik.status_schreiben(laufendes_projekt, status)
+
+    fertiges_projekt = tmp_path / "daniel" / "Mittelalter" / "Fertiges-Projekt"
+    fertiger_status = automatik.status_lesen(fertiges_projekt)
+    fertiger_status["laeuft"] = False
+    fertiger_status["abgeschlossen"] = True
+    fertiger_status["log"] = ["Automatikmodus abgeschlossen."]
+    automatik.status_schreiben(fertiges_projekt, fertiger_status)
+
+    anzahl = automatik.verwaiste_laeufe_zuruecksetzen(tmp_path)
+    assert anzahl == 1
+
+    zurueckgesetzt = automatik.status_lesen(laufendes_projekt)
+    assert zurueckgesetzt["laeuft"] is False
+    assert zurueckgesetzt["aktueller_durchlauf"] is None
+    assert automatik.fortsetzbar(zurueckgesetzt) is True
+    assert any("Backend-Neustart" in zeile for zeile in zurueckgesetzt["log"])
+    # Der Rest des Logs (u.a. der Hinweis, WO genau unterbrochen wurde) bleibt
+    # erhalten, statt ueberschrieben zu werden.
+    assert "Autor schreibt..." in zurueckgesetzt["log"]
+
+    unveraendert = automatik.status_lesen(fertiges_projekt)
+    assert unveraendert["log"] == ["Automatikmodus abgeschlossen."]
+
+
+def test_verwaiste_laeufe_zuruecksetzen_schreibt_verlauf_eintrag(tmp_path):
+    projekt = tmp_path / "daniel" / "Regency" / "Haengendes-Projekt"
+    status = automatik.status_lesen(projekt)
+    status["laeuft"] = True
+    status["gestartet_am"] = "2026-08-12 16:32"
+    automatik.status_schreiben(projekt, status)
+
+    automatik.verwaiste_laeufe_zuruecksetzen(tmp_path)
+
+    eintraege = automatik.verlauf_lesen(projekt)
+    assert len(eintraege) == 1
+    assert eintraege[0]["status"] == "gestoppt"
+    assert eintraege[0]["von"] == "2026-08-12 16:32"
+    assert eintraege[0]["fortgesetzt"] is False
+
+
+def test_verwaiste_laeufe_zuruecksetzen_ohne_laufende_laeufe_bleibt_wirkungslos(tmp_path):
+    projekt = tmp_path / "daniel" / "Regency" / "Ruhiges-Projekt"
+    status = automatik.status_lesen(projekt)
+    status["laeuft"] = False
+    automatik.status_schreiben(projekt, status)
+
+    assert automatik.verwaiste_laeufe_zuruecksetzen(tmp_path) == 0
+    assert automatik.verlauf_lesen(projekt) == []
+
+
 def test_verlauf_ohne_datei_ist_leer(tmp_path):
     assert automatik.verlauf_lesen(tmp_path) == []
 

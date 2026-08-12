@@ -14,6 +14,7 @@ app/core/heuristik.py und app/core/befunde_merge.py:
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -73,6 +74,70 @@ def fortsetzbar(status: dict[str, Any]) -> bool:
     Fehler oder einem Stop-Wunsch abgebrochen wurde) - siehe
     app/api/pipeline.py:_automatik_lauf fuer die Wiederaufnahme selbst."""
     return bool(status.get("gestartet_am")) and not status.get("laeuft") and not status.get("abgeschlossen")
+
+
+def verwaiste_laeufe_zuruecksetzen(projects_root: Path) -> int:
+    """Setzt jeden automatik_status.json unterhalb von projects_root mit
+    laeuft=true auf laeuft=false zurueck - wird EINMALIG beim Start des
+    Backends aufgerufen (siehe app/main.py). Ein "laeuft: true" kann beim
+    Prozessstart NIEMALS mehr echt sein: der zugehoerige Hintergrund-Task
+    lief im VORHERIGEN Prozess (siehe app/api/pipeline.py:_automatik_lauf)
+    und existiert nach einem Neustart (Deploy, Absturz, Server-Reboot) nicht
+    mehr - er bekommt insbesondere NIE die Chance, sein eigenes
+    finally: status["laeuft"] = False auszufuehren, weil der komplette
+    Python-Prozess beendet wird, nicht nur eine einzelne Anfrage.
+
+    Ohne dieses Zuruecksetzen bleibt ein unterbrochener Lauf im Frontend fuer
+    immer als "laeuft" haengen (es kommen nie wieder neue Log-Zeilen), UND
+    fortsetzbar() bietet "Fortsetzen" gar nicht erst an, weil es explizit
+    "not laeuft" voraussetzt - der Nutzer sitzt komplett fest, ohne jeden
+    Ausweg ausser einem manuellen Datei-Edit auf dem Server.
+
+    Vorfall 2026-08-12: Ein Backend-Deploy waehrend eines laufenden
+    Automatik-Laufs killte den Hintergrund-Task mitten in Kapitel 5 (Autor-
+    Streaming), der Status blieb dauerhaft auf "laeuft" haengen - vom
+    Frontend aus nicht mehr zu unterscheiden von einem echten, sehr langsamen
+    KI-Ziel."""
+    zurueckgesetzt = 0
+    for pfad in projects_root.rglob(AUTOMATIK_STATUS_DATEINAME):
+        try:
+            status: dict[str, Any] = json.loads(pfad.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not status.get("laeuft"):
+            continue
+
+        status["laeuft"] = False
+        status["aktueller_durchlauf"] = None
+        status["log"] = list(status.get("log", [])) + [
+            "Automatik-Lauf durch einen Backend-Neustart unterbrochen (z.B. "
+            "Deploy, Absturz oder Server-Neustart) - über \"Fortsetzen\" "
+            "wieder aufnehmbar."
+        ]
+        try:
+            pfad.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError:
+            continue
+
+        projekt_root = pfad.parent.parent
+        gestartet_am = status.get("gestartet_am")
+        dauer = None
+        if gestartet_am:
+            try:
+                dauer = round(time.time() - time.mktime(time.strptime(gestartet_am, "%Y-%m-%d %H:%M")))
+            except ValueError:
+                dauer = None
+        verlauf_eintrag_anhaengen(projekt_root, {
+            "datum": gestartet_am.split(" ")[0] if gestartet_am else time.strftime("%Y-%m-%d"),
+            "von": gestartet_am,
+            "bis": time.strftime("%Y-%m-%d %H:%M"),
+            "dauer_sekunden": dauer,
+            "status": "gestoppt",
+            "fehler": "Backend-Neustart während des Laufs (z.B. Deploy).",
+            "fortgesetzt": False,
+        })
+        zurueckgesetzt += 1
+    return zurueckgesetzt
 
 
 def verlauf_lesen(projekt_root: Path) -> list[dict[str, Any]]:
