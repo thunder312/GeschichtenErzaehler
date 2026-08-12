@@ -297,6 +297,11 @@ class EinstellungenAntwort(BaseModel):
     ist_standard: bool
     standard_projects_dir: str
     unterordner_je_epoche: bool
+    # Link zu einer externen Bildgenerierungs-Weboberflaeche (z.B. Google
+    # Gemini) - im Titelbild-Bereich (Stand & Export) als Schnellzugriff
+    # verlinkt, editierbar hier fuer den Fall, dass sich der Link mal aendert.
+    bildgenerator_url: str
+    bildgenerator_url_ist_standard: bool
 
 
 class FundusImportAntwort(BaseModel):
@@ -309,6 +314,8 @@ class EinstellungenAnfrage(BaseModel):
     # Leer/None setzt den Override zurueck auf standard_projects_dir.
     projects_dir: str | None = None
     unterordner_je_epoche: bool = False
+    # Leer/None setzt den Override zurueck auf den Standard-Bildgenerator-Link.
+    bildgenerator_url: str | None = None
 
 
 class WissenEintrag(BaseModel):

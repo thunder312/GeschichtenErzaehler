@@ -78,3 +78,48 @@ def test_unterordner_je_epoche_laesst_sich_setzen_und_bleibt_gespeichert(client)
 
     r2 = client.get("/api/einstellungen")
     assert r2.json()["unterordner_je_epoche"] is True
+
+
+def test_bildgenerator_url_liefert_standard_ohne_override(client):
+    from app.api.einstellungen import STANDARD_BILDGENERATOR_URL
+
+    r = client.get("/api/einstellungen")
+    daten = r.json()
+    assert daten["bildgenerator_url_ist_standard"] is True
+    assert daten["bildgenerator_url"] == STANDARD_BILDGENERATOR_URL
+
+
+def test_bildgenerator_url_laesst_sich_anpassen_und_bleibt_gespeichert(client):
+    r = client.put("/api/einstellungen", json={"bildgenerator_url": "https://example.com/bilder"})
+    assert r.status_code == 200
+    daten = r.json()
+    assert daten["bildgenerator_url_ist_standard"] is False
+    assert daten["bildgenerator_url"] == "https://example.com/bilder"
+
+    r2 = client.get("/api/einstellungen")
+    assert r2.json()["bildgenerator_url"] == "https://example.com/bilder"
+
+
+def test_bildgenerator_url_leerer_wert_setzt_auf_standard_zurueck(client):
+    from app.api.einstellungen import STANDARD_BILDGENERATOR_URL
+
+    client.put("/api/einstellungen", json={"bildgenerator_url": "https://example.com/bilder"})
+    r = client.put("/api/einstellungen", json={"bildgenerator_url": ""})
+    assert r.status_code == 200
+    daten = r.json()
+    assert daten["bildgenerator_url_ist_standard"] is True
+    assert daten["bildgenerator_url"] == STANDARD_BILDGENERATOR_URL
+
+
+def test_einstellungen_schreiben_ist_immer_vollstaendiger_ersatz_nicht_teilupdate(client):
+    """PUT /api/einstellungen kennt (wie schon bei projects_dir) kein PATCH -
+    ein Feld, das im Request fehlt, gilt als "nicht gesetzt" und faellt auf
+    seinen Standard zurueck. Das Frontend (EinstellungenPage.tsx) schickt
+    deshalb bei jedem Speichern konsequent alle drei Felder mit, auch wenn
+    nur eines davon sich gerade aendert (siehe unterordnerUmschalten())."""
+    from app.api.einstellungen import STANDARD_BILDGENERATOR_URL
+
+    client.put("/api/einstellungen", json={"bildgenerator_url": "https://example.com/bilder"})
+    r = client.put("/api/einstellungen", json={"unterordner_je_epoche": True})
+    assert r.status_code == 200
+    assert r.json()["bildgenerator_url"] == STANDARD_BILDGENERATOR_URL

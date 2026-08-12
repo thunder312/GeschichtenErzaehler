@@ -282,10 +282,14 @@ export const api = {
 
   einstellungen: () => anfrage<Einstellungen>("/api/einstellungen"),
 
-  einstellungenSchreiben: (projectsDir: string, unterordnerJeEpoche: boolean) =>
+  einstellungenSchreiben: (projectsDir: string, unterordnerJeEpoche: boolean, bildgeneratorUrl?: string) =>
     anfrage<Einstellungen>("/api/einstellungen", {
       method: "PUT",
-      body: JSON.stringify({ projects_dir: projectsDir, unterordner_je_epoche: unterordnerJeEpoche }),
+      body: JSON.stringify({
+        projects_dir: projectsDir,
+        unterordner_je_epoche: unterordnerJeEpoche,
+        bildgenerator_url: bildgeneratorUrl,
+      }),
     }),
 
   unnuetzesWissen: () => anfrage<WissenEintrag[]>("/api/unnuetzeswissen"),

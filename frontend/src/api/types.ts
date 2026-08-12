@@ -212,6 +212,10 @@ export interface Einstellungen {
   ist_standard: boolean;
   standard_projects_dir: string;
   unterordner_je_epoche: boolean;
+  /** Link zu einer externen Bildgenerierungs-Weboberflaeche (z.B. Google
+   * Gemini) - Schnellzugriff im Titelbild-Bereich (Stand & Export). */
+  bildgenerator_url: string;
+  bildgenerator_url_ist_standard: boolean;
 }
 
 // /api/auth/*

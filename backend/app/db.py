@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS ssh_targets (
 CREATE TABLE IF NOT EXISTS einstellungen (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     projects_dir TEXT,
-    unterordner_je_epoche INTEGER NOT NULL DEFAULT 0
+    unterordner_je_epoche INTEGER NOT NULL DEFAULT 0,
+    bildgenerator_url TEXT
 );
 
 CREATE TABLE IF NOT EXISTS persona_modelle (
@@ -117,6 +118,9 @@ def init_db(db_path: Path) -> None:
         # keine Bildgenerierung an (sd-server laeuft nicht/ist nicht konfiguriert).
         if "bildki_port" not in spalten:
             conn.execute("ALTER TABLE ssh_targets ADD COLUMN bildki_port INTEGER")
+
+        if "bildgenerator_url" not in einstellungen_spalten:
+            conn.execute("ALTER TABLE einstellungen ADD COLUMN bildgenerator_url TEXT")
 
 
 def _jetzt() -> str:
@@ -235,6 +239,24 @@ def einstellung_unterordner_je_epoche_schreiben(db_path: Path, aktiv: bool) -> N
             "INSERT INTO einstellungen (id, unterordner_je_epoche) VALUES (1, ?) "
             "ON CONFLICT(id) DO UPDATE SET unterordner_je_epoche=excluded.unterordner_je_epoche",
             (1 if aktiv else 0,),
+        )
+
+
+def einstellung_bildgenerator_url_lesen(db_path: Path) -> str | None:
+    """None bedeutet: kein Override gesetzt, es gilt der in app/api/
+    einstellungen.py hinterlegte Standard-Link (aktuell Google Gemini
+    Bildgenerierung) - editierbar, falls sich der Link mal aendert."""
+    with _verbindung(db_path) as conn:
+        zeile = conn.execute("SELECT bildgenerator_url FROM einstellungen WHERE id=1").fetchone()
+    return zeile["bildgenerator_url"] if zeile else None
+
+
+def einstellung_bildgenerator_url_schreiben(db_path: Path, url: str | None) -> None:
+    with _verbindung(db_path) as conn:
+        conn.execute(
+            "INSERT INTO einstellungen (id, bildgenerator_url) VALUES (1, ?) "
+            "ON CONFLICT(id) DO UPDATE SET bildgenerator_url=excluded.bildgenerator_url",
+            (url,),
         )
 
 

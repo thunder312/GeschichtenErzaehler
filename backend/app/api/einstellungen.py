@@ -16,15 +16,23 @@ from app.services import projekte_wurzel_unskopiert
 
 router = APIRouter(prefix="/api/einstellungen", tags=["einstellungen"])
 
+# Standard-Link fuer den "Bild extern erstellen"-Schnellzugriff im Titelbild-
+# Bereich (Stand & Export) - editierbar in den Einstellungen, falls sich der
+# Link mal aendert (siehe db.py:einstellung_bildgenerator_url_lesen).
+STANDARD_BILDGENERATOR_URL = "https://gemini.google/de/overview/image-generation/?hl=de-DE"
+
 
 def _antwort(settings: Settings) -> EinstellungenAntwort:
     override = db.einstellung_projects_dir_lesen(settings.database_path)
     aktuell = Path(override) if override else settings.projects_dir
+    bildgenerator_override = db.einstellung_bildgenerator_url_lesen(settings.database_path)
     return EinstellungenAntwort(
         projects_dir=str(aktuell.resolve()),
         ist_standard=override is None,
         standard_projects_dir=str(settings.projects_dir.resolve()),
         unterordner_je_epoche=db.einstellung_unterordner_je_epoche_lesen(settings.database_path),
+        bildgenerator_url=bildgenerator_override or STANDARD_BILDGENERATOR_URL,
+        bildgenerator_url_ist_standard=bildgenerator_override is None,
     )
 
 
@@ -36,6 +44,8 @@ def einstellungen_lesen(settings: Settings = Depends(get_settings)):
 @router.put("", response_model=EinstellungenAntwort)
 def einstellungen_schreiben(anfrage: EinstellungenAnfrage, settings: Settings = Depends(get_settings)):
     db.einstellung_unterordner_je_epoche_schreiben(settings.database_path, anfrage.unterordner_je_epoche)
+    neue_bildgenerator_url = (anfrage.bildgenerator_url or "").strip()
+    db.einstellung_bildgenerator_url_schreiben(settings.database_path, neue_bildgenerator_url or None)
 
     neuer_pfad = (anfrage.projects_dir or "").strip()
     if not neuer_pfad:

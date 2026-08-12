@@ -41,6 +41,7 @@ export function StandExportPage({
   const [ladenCoverBild, setLadenCoverBild] = useState(false);
   const [ladenCoverUpload, setLadenCoverUpload] = useState(false);
   const [coverFehler, setCoverFehler] = useState<string | null>(null);
+  const [bildgeneratorUrl, setBildgeneratorUrl] = useState<string | null>(null);
 
   const [fehler, setFehler] = useState<string | null>(null);
   const { starten, beenden } = useAktivitaet();
@@ -52,6 +53,10 @@ export function StandExportPage({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sshZiele]);
+
+  useEffect(() => {
+    api.einstellungen().then((e) => setBildgeneratorUrl(e.bildgenerator_url)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     setCoverVorhanden(false);
@@ -237,8 +242,17 @@ export function StandExportPage({
         <div className={bildZiele.length === 0 ? "mt-2" : "mt-6 border-t border-border pt-4"}>
           <Label>Oder eigenes Bild hochladen</Label>
           <p className="mb-2 text-xs text-text-muted">
-            Z.B. von Hand kostenlos über eine Web-Oberfläche wie Google AI Studio erzeugt und
-            heruntergeladen - PNG, JPEG oder WEBP, wird automatisch zu PNG umgewandelt.
+            Z. B. von Hand{" "}
+            {bildgeneratorUrl && (
+              <>
+                über{" "}
+                <a href={bildgeneratorUrl} target="_blank" rel="noopener noreferrer" className="text-accent-light hover:underline">
+                  einen externen Bildgenerator ↗
+                </a>{" "}
+              </>
+            )}
+            erzeugt und heruntergeladen - PNG, JPEG oder WEBP, wird automatisch zu PNG umgewandelt.
+            Der Link lässt sich unter "Einstellungen" anpassen.
           </p>
           <input
             type="file"
