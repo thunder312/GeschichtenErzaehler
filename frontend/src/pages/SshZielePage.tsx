@@ -140,7 +140,7 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[1.3fr_1fr]">
+    <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[1.3fr_1fr]">
       <Card>
         <CardTitle>🔌 Gespeicherte KI-Ziele</CardTitle>
         {sshZiele.length === 0 ? (
@@ -245,7 +245,7 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-[2fr_1fr] gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr]">
                 <div>
                   <Label>Host</Label>
                   <Input

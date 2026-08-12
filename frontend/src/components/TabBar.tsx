@@ -17,7 +17,7 @@ function TabButton({ tab, istAktiv, onSelect }: { tab: Tab; istAktiv: boolean; o
   return (
     <button
       onClick={() => onSelect(tab.id)}
-      className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-150 ${
+      className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-150 ${
         istAktiv
           ? "bg-accent-soft text-accent-light shadow-inner"
           : "text-text-muted hover:bg-surface-hover hover:text-text"

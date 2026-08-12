@@ -133,7 +133,7 @@ export function ProjektePage({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-[2fr_1fr]">
+    <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 md:grid-cols-[2fr_1fr]">
       <Card>
         <CardTitle>📚 Vorhandene Projekte</CardTitle>
         {projekte.length > 0 && (

@@ -21,7 +21,7 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" }) {
   const basis =
-    "rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]";
+    "rounded-full px-4 py-2 text-sm font-medium transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]";
   const varianten = {
     primary: "bg-accent text-[#0c1712] hover:bg-accent-hover hover:shadow-md hover:shadow-accent/20",
     secondary: "border border-border text-text hover:bg-surface-hover",
@@ -34,7 +34,7 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full rounded-lg border border-border bg-bg px-3 py-1.5 text-sm text-text outline-none transition-colors placeholder:text-text-muted/70 focus:border-accent ${props.className ?? ""}`}
+      className={`w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none transition-colors placeholder:text-text-muted/70 focus:border-accent ${props.className ?? ""}`}
     />
   );
 }
@@ -43,7 +43,7 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className={`w-full rounded-lg border border-border bg-bg px-3 py-1.5 text-sm text-text outline-none transition-colors focus:border-accent ${props.className ?? ""}`}
+      className={`w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none transition-colors focus:border-accent ${props.className ?? ""}`}
     />
   );
 }

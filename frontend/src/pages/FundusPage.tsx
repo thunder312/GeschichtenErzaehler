@@ -65,7 +65,7 @@ export function FundusPage({ sshZielId }: FundusPageProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[1fr_3fr]">
+    <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_3fr]">
       <Card>
         <CardTitle>🧬 Personen-Fundus</CardTitle>
         <p className="text-sm text-text-muted">
@@ -94,7 +94,7 @@ export function FundusPage({ sshZielId }: FundusPageProps) {
           </div>
         </div>
         <Editor
-          height="640px"
+          height="clamp(320px, 70vh, 640px)"
           defaultLanguage="markdown"
           value={inhalt}
           onChange={(v) => setInhalt(v ?? "")}

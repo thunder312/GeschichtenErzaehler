@@ -44,7 +44,7 @@ export interface BefundEditorHandle {
  * kann: reiner Text-Ersatz im Browser, kein weiterer KI-Aufruf. Ersetzt die
  * alte Vorher/Nachher-Git-Diff-Ansicht (frueher MergeEditor.tsx). */
 export const BefundEditor = forwardRef<BefundEditorHandle, BefundEditorProps>(function BefundEditor(
-  { kapiteltext, befunde, onKapiteltextChange, height = "520px", zeigeListe = true, onOrphan, onUebernommenChange },
+  { kapiteltext, befunde, onKapiteltextChange, height = "clamp(320px, 60vh, 520px)", zeigeListe = true, onOrphan, onUebernommenChange },
   ref,
 ) {
   const editorRef = useRef<TextEditor | null>(null);
@@ -136,7 +136,7 @@ export const BefundEditor = forwardRef<BefundEditorHandle, BefundEditorProps>(fu
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
       {editorNode}
-      <div className="max-h-[520px] overflow-auto pr-1">
+      <div className="max-h-[clamp(320px,60vh,520px)] overflow-auto pr-1">
         <BefundListe
           befunde={befunde}
           aktiveId={aktiveId}

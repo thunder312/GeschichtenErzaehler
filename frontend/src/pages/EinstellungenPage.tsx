@@ -42,7 +42,7 @@ export function EinstellungenPage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-6 p-6">
+    <div className="max-w-2xl space-y-6 p-4 sm:p-6">
       <Card>
         <CardTitle>🗂️ Speicherort der Geschichten</CardTitle>
         <p className="mb-3 text-sm text-text-muted">

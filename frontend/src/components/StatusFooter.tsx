@@ -19,7 +19,7 @@ export function StatusFooter() {
   const sekunden = aktivitaet ? Math.max(0, Math.round((jetzt - aktivitaet.seit) / 1000)) : 0;
 
   return (
-    <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-6 py-2 text-sm">
+    <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-4 py-2 text-sm sm:px-6">
       {aktivitaet ? (
         <div className="flex items-center gap-2 text-accent-light">
           <span className="inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden="true" />

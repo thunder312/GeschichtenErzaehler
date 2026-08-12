@@ -149,13 +149,13 @@ function App() {
     <AktivitaetProvider>
     <KapitelTextProvider>
     <div className="flex h-screen flex-col overflow-hidden text-text">
-      <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
-        <div className="flex min-w-0 items-center gap-4">
+      <header className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
           <h1 className="flex shrink-0 items-center gap-2">
             <span aria-hidden="true" className="text-2xl">
               📖
             </span>
-            <span className="heading-flourish inline-block bg-gradient-to-r from-accent-light to-accent bg-clip-text text-3xl font-bold tracking-tight text-transparent transition-transform duration-300 hover:-rotate-1 hover:scale-105">
+            <span className="heading-flourish inline-block bg-gradient-to-r from-accent-light to-accent bg-clip-text text-2xl font-bold tracking-tight text-transparent transition-transform duration-300 hover:-rotate-1 hover:scale-105 sm:text-3xl">
               Geschichten Erzähler
             </span>
           </h1>
@@ -165,16 +165,16 @@ function App() {
             </span>
           )}
         </div>
-        {aktuellesProjekt && (
-          <div className="shrink-0">
-            {/* Ein einziges KI-Ziel pro Projekt-Sitzung statt einer eigenen
-                Auswahl in jedem Pipeline-Schritt - innerhalb derselben
-                Geschichte wechselt man das praktisch nie zwischen den
-                Schritten. */}
+        <div className="flex flex-wrap items-center gap-3 sm:shrink-0">
+          {aktuellesProjekt && (
+            // Ein einziges KI-Ziel pro Projekt-Sitzung statt einer eigenen
+            // Auswahl in jedem Pipeline-Schritt - innerhalb derselben
+            // Geschichte wechselt man das praktisch nie zwischen den
+            // Schritten.
             <Select
               value={sshZielId}
               onChange={(e) => setSshZielId(e.target.value)}
-              className="w-56"
+              className="w-full sm:w-56"
             >
               <option value="">Lokal / Standard-Ollama</option>
               {sshZiele.map((z) => (
@@ -183,9 +183,7 @@ function App() {
                 </option>
               ))}
             </Select>
-          </div>
-        )}
-        <div className="shrink-0 flex items-center gap-3">
+          )}
           <button
             onClick={() => window.open(api.anleitungUrl(), "_blank")}
             className="text-sm text-text-muted hover:text-text"

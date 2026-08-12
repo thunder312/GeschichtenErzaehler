@@ -98,7 +98,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   }
 
   return (
-    <div className="grid grid-cols-1 items-start gap-6 p-6 lg:grid-cols-[2fr_1fr]">
+    <div className="grid grid-cols-1 items-start gap-6 p-4 sm:p-6 lg:grid-cols-[2fr_1fr]">
       <CollapsibleCard
         title="🗺️ geruest.md"
         aktionen={
@@ -114,7 +114,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
         }
       >
         <Editor
-          height="560px"
+          height="clamp(320px, 60vh, 560px)"
           defaultLanguage="markdown"
           value={inhalt}
           onChange={(v) => setInhalt(v ?? "")}
@@ -192,7 +192,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
           }
         >
           <Editor
-            height="320px"
+            height="clamp(220px, 40vh, 320px)"
             defaultLanguage="markdown"
             value={verbotslisteInhalt}
             onChange={(v) => setVerbotslisteInhalt(v ?? "")}
@@ -219,7 +219,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
             NICHT die Handlung, Namen oder Figuren daraus. Leer lassen hat keinen Effekt.
           </p>
           <Editor
-            height="320px"
+            height="clamp(220px, 40vh, 320px)"
             defaultLanguage="markdown"
             value={stilprobenInhalt}
             onChange={(v) => setStilprobenInhalt(v ?? "")}

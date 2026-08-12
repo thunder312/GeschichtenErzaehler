@@ -170,7 +170,7 @@ function EpocheBearbeiten({
           </div>
         </div>
         <Editor
-          height="440px"
+          height="clamp(320px, 55vh, 440px)"
           defaultLanguage="markdown"
           value={inhalt}
           onChange={(v) => setInhalt(v ?? "")}
@@ -267,7 +267,7 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
 
   if (ergebnis) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <Card className="mx-auto max-w-2xl">
           <CardTitle>✅ Rohentwurf angelegt: {ergebnis.name}</CardTitle>
           <p className="mb-3 text-sm text-text-muted">
@@ -291,7 +291,7 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
+    <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
       <Card>
         <CardTitle>📜 Vorhandene Epochen</CardTitle>
         {loeschenFehler && <p className="mb-3 text-sm text-red-400">{loeschenFehler}</p>}

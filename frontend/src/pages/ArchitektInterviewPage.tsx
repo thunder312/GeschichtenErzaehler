@@ -303,7 +303,7 @@ export function ArchitektInterviewPage({
 
   if (!gestartet) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <Card className="mx-auto max-w-xl text-center">
           <div className="mb-3 text-4xl">🗺️</div>
           <h2 className="font-heading mb-2 text-lg font-semibold text-text">Architekten-Interview</h2>

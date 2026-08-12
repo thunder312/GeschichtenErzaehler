@@ -57,7 +57,7 @@ const KapitelTextEditor = forwardRef<KapitelTextEditorHandle, { text: string; on
     return (
       <div className="overflow-hidden rounded-xl border border-border">
         <Editor
-          height="75vh"
+          height="clamp(320px, 75vh, 900px)"
           language="markdown"
           value={text}
           theme="vs-dark"
@@ -289,7 +289,7 @@ export function RechtschreibungPage({ ordner, projekt, sshZielId }: Rechtschreib
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle>📖 Rechtschreibung (hunspell)</CardTitle>
@@ -334,7 +334,7 @@ export function RechtschreibungPage({ ordner, projekt, sshZielId }: Rechtschreib
         >
           <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[2fr_1fr]">
             <KapitelTextEditor ref={editorRef} text={kombiniert} onChange={setKombiniert} />
-            <div className="max-h-[75vh] space-y-1 overflow-auto pr-1">
+            <div className="max-h-[clamp(320px,75vh,900px)] space-y-1 overflow-auto pr-1">
               <p className="mb-1 text-xs font-medium uppercase tracking-wider text-text-muted">
                 Unbekannte Wörter ({alleWoerter.length})
               </p>

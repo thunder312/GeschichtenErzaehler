@@ -350,7 +350,7 @@ export function SchreibenPage({
   const zielWoerter = projekt?.kapitelplan[n];
 
   return (
-    <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[1fr_2fr]">
+    <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_2fr]">
       <div className="space-y-4">
         <Card className="h-fit space-y-3">
           <CardTitle>✍️ Kapitel schreiben</CardTitle>

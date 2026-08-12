@@ -315,7 +315,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <Card>
         <CardTitle>🔍 Prüfen &amp; Anwenden</CardTitle>
         <p className="text-xs text-text-muted">
@@ -407,11 +407,11 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
               befunde={shiftedBefunde}
               onKapiteltextChange={setKombiniert}
               zeigeListe={false}
-              height="75vh"
+              height="clamp(320px, 75vh, 900px)"
               onOrphan={(id) => setOrphanIds((s) => new Set(s).add(id))}
               onUebernommenChange={(id) => setUebernommenIds((s) => new Set(s).add(id))}
             />
-            <div className="max-h-[75vh] overflow-auto pr-1">
+            <div className="max-h-[clamp(320px,75vh,900px)] overflow-auto pr-1">
               <BefundListe
                 befunde={shiftedBefunde}
                 aktiveId={aktiveId}

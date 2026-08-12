@@ -29,7 +29,7 @@ export function CollapsibleCard({ title, children, defaultOffen = true, classNam
         className={`flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 ${offen ? "border-b border-border" : ""}`}
       >
         <h2 className="font-heading text-lg font-semibold tracking-wide text-text">{title}</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {aktionen}
           <button
             type="button"
