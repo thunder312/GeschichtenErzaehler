@@ -25,7 +25,10 @@ import time
 from pathlib import Path
 from typing import Awaitable, Callable, TypeVar
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Response, UploadFile,
+    WebSocket, WebSocketDisconnect,
+)
 from pydantic import ValidationError
 
 from app.auth import get_current_user, get_current_user_ws
@@ -1517,6 +1520,27 @@ async def cover_generieren(ordner: str, anfrage: CoverGenerierenAnfrage,
         except BildGenerierungFehler as e:
             raise HTTPException(502, str(e)) from e
     pd.cover_datei(projekt).write_bytes(bild_bytes)
+    return {"gespeichert": True}
+
+
+@router.post("/{ordner:path}/cover/hochladen")
+async def cover_hochladen(ordner: str, datei: UploadFile = File(...),
+                           settings: Settings = Depends(get_settings),
+                           benutzer: Benutzer = Depends(get_current_user)):
+    """Alternative zur KI-Generierung oben: ein von Hand erzeugtes Titelbild
+    (z.B. kostenlos ueber eine Web-Oberflaeche wie Google AI Studio erstellt
+    und heruntergeladen) direkt als cover.png uebernehmen, ohne dass das
+    Projekt ein eigenes Bild-KI-Ziel braucht. Nimmt PNG/JPEG/WEBP entgegen,
+    normalisiert intern immer zu PNG (siehe
+    app/core/bild_generierung.py:cover_aus_upload_normalisieren)."""
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    projekt = projekt_root / "projekt"
+    rohdaten = await datei.read()
+    try:
+        png_bytes = bild_generierung.cover_aus_upload_normalisieren(rohdaten)
+    except BildGenerierungFehler as e:
+        raise HTTPException(400, str(e)) from e
+    pd.cover_datei(projekt).write_bytes(png_bytes)
     return {"gespeichert": True}
 
 

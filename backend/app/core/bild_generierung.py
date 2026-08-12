@@ -25,9 +25,11 @@ beheben.
 from __future__ import annotations
 
 import base64
+import io
 import json
 
 import httpx
+from PIL import Image, UnidentifiedImageError
 
 # sd-servers OpenAI-kompatibler Endpunkt kennt kein eigenes JSON-Feld fuer
 # negative_prompt/sample_steps (siehe routes_openai.cpp im
@@ -80,6 +82,44 @@ STANDARD_HEIGHT = 512
 
 class BildGenerierungFehler(Exception):
     pass
+
+
+# Grosszuegige Obergrenze fuer ein manuell hochgeladenes Titelbild - schuetzt
+# vor versehentlichem Upload einer riesigen Datei, nicht vor Missbrauch
+# (dafuer reicht bei einer Handvoll eingeloggter Nutzer kein Rate-Limit).
+COVER_UPLOAD_MAX_BYTES = 15 * 1024 * 1024
+
+
+def cover_aus_upload_normalisieren(rohdaten: bytes, max_bytes: int = COVER_UPLOAD_MAX_BYTES) -> bytes:
+    """Validiert ein manuell hochgeladenes Titelbild (siehe app/api/pipeline.py:
+    cover_hochladen - Alternative zur KI-Generierung weiter oben in dieser
+    Datei, z.B. wenn ein Bild von Hand ueber eine kostenlose Web-Oberflaeche
+    wie Google AI Studio erzeugt und hier nur noch eingebunden werden soll)
+    und wandelt es in PNG-Bytes um, damit cover.png (siehe
+    app/core/projekt_dateien.py:cover_datei) unabhaengig vom hochgeladenen
+    Ausgangsformat (JPEG, WEBP, ...) immer im selben Format vorliegt - sowohl
+    cover_lesen() (media_type="image/png") als auch der PDF-Export
+    (app/core/pdf_export.py:ImageReader) erwarten das nicht zwingend, aber
+    ein einheitliches Format vermeidet ueberraschende Sonderfaelle.
+    Pillow entschaerft Dekompressions-Bomben bereits selbst (Image.
+    MAX_IMAGE_PIXELS), die Byte-Obergrenze hier greift zusaetzlich VOR jedem
+    Dekodierversuch."""
+    if len(rohdaten) > max_bytes:
+        raise BildGenerierungFehler(
+            f"Datei ist zu groß ({len(rohdaten) / 1_000_000:.1f} MB, "
+            f"erlaubt sind maximal {max_bytes / 1_000_000:.0f} MB)."
+        )
+    try:
+        bild = Image.open(io.BytesIO(rohdaten))
+        bild = bild.convert("RGB")
+    except (UnidentifiedImageError, OSError) as e:
+        raise BildGenerierungFehler(
+            "Datei konnte nicht als Bild gelesen werden (kein gültiges "
+            "PNG/JPEG/WEBP oder beschädigt)."
+        ) from e
+    puffer = io.BytesIO()
+    bild.save(puffer, format="PNG")
+    return puffer.getvalue()
 
 
 def _prompt_mit_extra_args(prompt: str, negativ_prompt: str, sample_steps: int | None,

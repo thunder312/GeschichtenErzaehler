@@ -9,3 +9,5 @@ websockets==14.1
 reportlab==5.0.0
 argon2-cffi==23.1.0
 markdown==3.7
+python-multipart==0.0.32
+Pillow==12.3.0

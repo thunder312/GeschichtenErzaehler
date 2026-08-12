@@ -185,6 +185,19 @@ export const api = {
     );
   },
 
+  coverHochladen: (ordner: string, datei: File) => {
+    const formular = new FormData();
+    formular.append("datei", datei);
+    // Kein "Content-Type": application/json wie im Default von anfrage() -
+    // der Browser setzt bei FormData selbst den korrekten
+    // multipart/form-data-Header inkl. Boundary, ein erzwungener JSON-Header
+    // wuerde die Anfrage serverseitig unlesbar machen.
+    return anfrage<{ gespeichert: boolean }>(
+      `/api/projects/${ordner}/cover/hochladen`,
+      { method: "POST", headers: {}, body: formular },
+    );
+  },
+
   coverUrl: (ordner: string) => `/api/projects/${ordner}/cover`,
 
   anleitungUrl: () => "/api/docs/anleitung",

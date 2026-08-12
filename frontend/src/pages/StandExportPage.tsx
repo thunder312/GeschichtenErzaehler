@@ -39,6 +39,7 @@ export function StandExportPage({
   const [coverVersion, setCoverVersion] = useState(0);
   const [ladenCoverPrompt, setLadenCoverPrompt] = useState(false);
   const [ladenCoverBild, setLadenCoverBild] = useState(false);
+  const [ladenCoverUpload, setLadenCoverUpload] = useState(false);
   const [coverFehler, setCoverFehler] = useState<string | null>(null);
 
   const [fehler, setFehler] = useState<string | null>(null);
@@ -86,6 +87,21 @@ export function StandExportPage({
       setCoverFehler(e instanceof Error ? e.message : String(e));
     } finally {
       setLadenCoverBild(false);
+      beenden();
+    }
+  }
+
+  async function coverHochladen(datei: File) {
+    setLadenCoverUpload(true);
+    setCoverFehler(null);
+    starten("Lädt Titelbild hoch...");
+    try {
+      await api.coverHochladen(ordner, datei);
+      setCoverVersion((v) => v + 1);
+    } catch (e) {
+      setCoverFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLadenCoverUpload(false);
       beenden();
     }
   }
@@ -176,10 +192,12 @@ export function StandExportPage({
 
       <Card>
         <CardTitle>🎨 Titelbild</CardTitle>
+
         {bildZiele.length === 0 ? (
           <p className="text-sm text-text-muted">
             Kein KI-Ziel mit konfigurierter Bildgenerierung vorhanden. Unter "KI-Ziele" bei einem
-            Ziel den Bild-Port hinterlegen, um diese Funktion zu nutzen.
+            Ziel den Bild-Port hinterlegen, um diese Funktion zu nutzen - oder unten direkt ein
+            fertiges Bild hochladen.
           </p>
         ) : (
           <>
@@ -213,19 +231,40 @@ export function StandExportPage({
                 {ladenCoverBild ? "Generiert Bild..." : coverVorhanden ? "Bild neu generieren" : "Bild generieren"}
               </Button>
             </div>
-            {coverVorhanden && (
-              <div className="mt-4 max-w-xs">
-                <a href={`${api.coverUrl(ordner)}?v=${coverVersion}`} target="_blank" rel="noopener noreferrer">
-                  <img
-                    key={coverVersion}
-                    src={`${api.coverUrl(ordner)}?v=${coverVersion}`}
-                    alt="Generiertes Titelbild"
-                    className="w-full cursor-zoom-in rounded-lg border border-border transition-opacity hover:opacity-90"
-                  />
-                </a>
-              </div>
-            )}
           </>
+        )}
+
+        <div className={bildZiele.length === 0 ? "mt-2" : "mt-6 border-t border-border pt-4"}>
+          <Label>Oder eigenes Bild hochladen</Label>
+          <p className="mb-2 text-xs text-text-muted">
+            Z.B. von Hand kostenlos über eine Web-Oberfläche wie Google AI Studio erzeugt und
+            heruntergeladen - PNG, JPEG oder WEBP, wird automatisch zu PNG umgewandelt.
+          </p>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            disabled={ladenCoverUpload}
+            onChange={(e) => {
+              const datei = e.target.files?.[0];
+              e.target.value = "";
+              if (datei) coverHochladen(datei);
+            }}
+            className="text-sm text-text-muted file:mr-3 file:rounded-full file:border-0 file:bg-accent file:px-4 file:py-2 file:text-sm file:font-medium file:text-[#0c1712] hover:file:bg-accent-hover"
+          />
+          {ladenCoverUpload && <p className="mt-1 text-xs text-text-muted">Lädt hoch...</p>}
+        </div>
+
+        {coverVorhanden && (
+          <div className="mt-4 max-w-xs">
+            <a href={`${api.coverUrl(ordner)}?v=${coverVersion}`} target="_blank" rel="noopener noreferrer">
+              <img
+                key={coverVersion}
+                src={`${api.coverUrl(ordner)}?v=${coverVersion}`}
+                alt="Titelbild"
+                className="w-full cursor-zoom-in rounded-lg border border-border transition-opacity hover:opacity-90"
+              />
+            </a>
+          </div>
         )}
         {coverFehler && <p className="mt-2 text-sm text-red-400">{coverFehler}</p>}
       </Card>

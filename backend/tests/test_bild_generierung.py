@@ -1,10 +1,12 @@
 import asyncio
 import base64
+import io
 import json
 import re
 
 import httpx
 import pytest
+from PIL import Image
 
 from app.core.bild_generierung import (
     BildGenerierungFehler,
@@ -12,6 +14,7 @@ from app.core.bild_generierung import (
     STANDARD_HEIGHT,
     STANDARD_SAMPLE_STEPS,
     STANDARD_WIDTH,
+    cover_aus_upload_normalisieren,
     generiere_cover,
 )
 
@@ -147,3 +150,43 @@ def test_leere_datenliste_erzeugt_bild_generierung_fehler():
     _FakeAsyncClient.antwort = _FakeAntwort(200, {"data": []})
     with pytest.raises(BildGenerierungFehler):
         asyncio.run(generiere_cover("http://fake:7860", "prompt"))
+
+
+def _bild_bytes(format: str, groesse: tuple[int, int] = (32, 32)) -> bytes:
+    puffer = io.BytesIO()
+    Image.new("RGB", groesse, color=(120, 60, 200)).save(puffer, format=format)
+    return puffer.getvalue()
+
+
+def test_cover_aus_upload_normalisieren_akzeptiert_png():
+    ergebnis = cover_aus_upload_normalisieren(_bild_bytes("PNG"))
+    assert ergebnis.startswith(b"\x89PNG\r\n\x1a\n")
+    # Ergebnis muss selbst wieder ein gueltiges, dekodierbares PNG sein.
+    assert Image.open(io.BytesIO(ergebnis)).format == "PNG"
+
+
+def test_cover_aus_upload_normalisieren_wandelt_jpeg_zu_png():
+    """Handverkleinertes Titelbild kommt haeufig als JPEG von einer externen
+    Quelle (z.B. aus dem Browser von Google AI Studio heruntergeladen) -
+    muss trotzdem als PNG landen, damit cover_lesen() (media_type=
+    "image/png") und der PDF-Export konsistent bleiben."""
+    jpeg_bytes = _bild_bytes("JPEG")
+    assert not jpeg_bytes.startswith(b"\x89PNG")
+    ergebnis = cover_aus_upload_normalisieren(jpeg_bytes)
+    assert ergebnis.startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_cover_aus_upload_normalisieren_wandelt_webp_zu_png():
+    ergebnis = cover_aus_upload_normalisieren(_bild_bytes("WEBP"))
+    assert ergebnis.startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_cover_aus_upload_normalisieren_lehnt_ungueltige_datei_ab():
+    with pytest.raises(BildGenerierungFehler):
+        cover_aus_upload_normalisieren(b"das ist eindeutig kein Bild, nur Text")
+
+
+def test_cover_aus_upload_normalisieren_lehnt_zu_grosse_datei_ab():
+    zu_gross = b"\x00" * (1000)
+    with pytest.raises(BildGenerierungFehler):
+        cover_aus_upload_normalisieren(zu_gross, max_bytes=500)
