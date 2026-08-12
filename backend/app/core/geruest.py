@@ -127,6 +127,26 @@ def nebenstrang_abschnitt_erkennen(geruest: str) -> str | None:
     return inhalt or None
 
 
+_FIGUREN_ABSCHNITT_MUSTER = re.compile(
+    r"##\s*Figuren\s*\n(.*?)(?=\n##\s|\Z)", re.IGNORECASE | re.DOTALL,
+)
+
+
+def figuren_abschnitt_erkennen(geruest: str) -> str | None:
+    """Extrahiert '## Figuren' aus dem fertigen Geruest - kanonische Namen
+    und Titel der Hauptfiguren als Referenzliste fuer den Kontinuitaets-
+    Pruefer (pruefer_kontinuitaet.txt), damit er einen abweichenden Titel
+    oder eine abweichende Anrede im neuen Kapitel gegen die im Geruest
+    festgelegte Version pruefen kann, statt sich nur auf das zu verlassen,
+    was der Chronist zufaellig im Stand wiederholt hat. None, wenn der
+    Abschnitt fehlt oder leer ist."""
+    treffer = _FIGUREN_ABSCHNITT_MUSTER.search(geruest)
+    if not treffer:
+        return None
+    inhalt = treffer.group(1).strip()
+    return inhalt or None
+
+
 def jahr_erkennen(geruest: str) -> str:
     """Fallback-Kette: 'Jahr: 1815' -> irgendeine 4-stellige 12../19../20..-
     Zahl -> 'unbekannt'."""

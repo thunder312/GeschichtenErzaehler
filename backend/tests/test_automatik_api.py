@@ -138,11 +138,11 @@ def test_automatik_fortsetzen_ueberspringt_bereits_geprueftes_kapitel(client, pr
     # Fortsetzen-Lauf die Verbindung "repariert".
     zustand = {"scheitert": True}
 
-    async def _pruefung_die_bei_kapitel_2_ab_phase_2_scheitert(settings_, projekt, base_url, n, kapiteltext):
+    async def _pruefung_die_bei_kapitel_2_ab_phase_2_scheitert(settings_, projekt, base_url, n, kapiteltext, zusatzhinweis=""):
         aufrufe.append(n)
         if n == 2 and zustand["scheitert"] and aufrufe.count(2) >= 2:
             raise pipeline.OllamaFehler("Simulierter Verbindungsabbruch")
-        return await urspruengliche_pruefung(settings_, projekt, base_url, n, kapiteltext)
+        return await urspruengliche_pruefung(settings_, projekt, base_url, n, kapiteltext, zusatzhinweis)
 
     monkeypatch.setattr(pipeline, "_pruefe_kapitel", _pruefung_die_bei_kapitel_2_ab_phase_2_scheitert)
 
@@ -239,7 +239,7 @@ def test_automatik_stop_waehrend_durchlauf_wird_nicht_verloren(client, projekt_m
 
     aufrufe: list[int] = []
 
-    async def _fake_pruefung(settings_, projekt, base_url, n, kapiteltext):
+    async def _fake_pruefung(settings_, projekt, base_url, n, kapiteltext, zusatzhinweis=""):
         # Bewusst KEIN echter Aufruf/Dateischreiben (pd.schreib sichert eine
         # vorhandene Fassung ueber einen Sekunden-genauen Zeitstempel als
         # .bak - bei mehreren Aufrufen fuer dasselbe Kapitel INNERHALB
@@ -339,7 +339,7 @@ def test_automatik_haelt_nach_checkpoint_bei_ungeloesten_funden_an(client, monke
     )
     client.put(f"/api/projects/{ordner}/geruest", json={"inhalt": geruest})
 
-    async def _pruefung_mit_ungeloestem_fund(settings_, projekt, base_url, n, kapiteltext):
+    async def _pruefung_mit_ungeloestem_fund(settings_, projekt, base_url, n, kapiteltext, zusatzhinweis=""):
         befund = Befund(
             id="b1", kategorien=["kontinuitaet"], fundstelle="irrelevant",
             beschreibungen=[BefundBeschreibung(quelle="kontinuitaet", text="Testbefund")],
@@ -373,9 +373,9 @@ def test_automatik_haelt_nach_checkpoint_bei_ungeloesten_funden_an(client, monke
     aufrufe: list[int] = []
     urspruengliche_fake = pipeline._pruefe_kapitel
 
-    async def _zaehle_aufrufe(settings_, projekt, base_url, n, kapiteltext):
+    async def _zaehle_aufrufe(settings_, projekt, base_url, n, kapiteltext, zusatzhinweis=""):
         aufrufe.append(n)
-        return await urspruengliche_fake(settings_, projekt, base_url, n, kapiteltext)
+        return await urspruengliche_fake(settings_, projekt, base_url, n, kapiteltext, zusatzhinweis)
 
     monkeypatch.setattr(pipeline, "_pruefe_kapitel", _zaehle_aufrufe)
     r2 = client.post(f"/api/projects/{ordner}/automatik/start", json={"max_durchlaeufe": 1, "fortsetzen": True})

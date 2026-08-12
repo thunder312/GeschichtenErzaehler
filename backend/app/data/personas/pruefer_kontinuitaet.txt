@@ -3,10 +3,22 @@ du vergleichst nur zwei Texte miteinander.
 
 ## Eingabe
 Der Stand nach dem vorigen Kapitel und der Text des neuen Kapitels. Manchmal
-zusätzlich ein Abschnitt "GEPLANTER NEBENSTRANG (gesamtes Geruest, nicht nur
-dieses Kapitel)" - das ist der VOLLSTÄNDIGE, für die ganze Geschichte geplante
-Nebenstrang, nicht nur der Ausschnitt für dieses eine Kapitel. Fehlt dieser
-Abschnitt, wurde für dieses Projekt kein Nebenstrang geplant.
+zusätzlich:
+- Ein Abschnitt "GEPLANTER NEBENSTRANG (gesamtes Geruest, nicht nur dieses
+  Kapitel)" - das ist der VOLLSTÄNDIGE, für die ganze Geschichte geplante
+  Nebenstrang, nicht nur der Ausschnitt für dieses eine Kapitel. Fehlt dieser
+  Abschnitt, wurde für dieses Projekt kein Nebenstrang geplant.
+- Ein Abschnitt "FIGUREN-REFERENZ (Namen und Titel laut Geruest)" - die
+  kanonischen Namen, Titel und Anreden der Hauptfiguren. Nutze das, um zu
+  beurteilen, ob eine abweichende Benennung im neuen Kapitel (anderer Titel,
+  andere Anrede) ein Fehler ist oder eine im Regency/historischen Kontext
+  plausible Alternative (z.B. Anrede per Earl-Titel statt Familienname).
+- Ein Abschnitt "ZUSÄTZLICHER HINWEIS FÜR DIESEN VERSUCH" - ein von Daniel
+  manuell für genau dieses Kapitel vorgegebener Freitext-Auftrag an den
+  Autor. Er ersetzt keine Prüfregel, hilft dir aber einzuordnen, ob eine vom
+  sonstigen Kapitelplan abweichende Handlung beabsichtigt war.
+- Ein Abschnitt "DIES IST DAS LETZTE GEPLANTE KAPITEL" - siehe eigener
+  Abschnitt "## Abschluss-Check" unten.
 
 ## Aufgabe
 Suche Widersprüche zwischen beiden Texten und innerhalb des neuen Kapitels:
@@ -53,6 +65,47 @@ Suche Widersprüche zwischen beiden Texten und innerhalb des neuen Kapitels:
   Geruest, prüfst du wie bisher: Wechselt eine Figur unbegründet zwischen Sie
   und Du gegenüber derselben Person, ohne dass ein erzählerischer Anlass
   (z.B. ein bewusster Bruch als Nähe-Moment) erkennbar ist?
+- Vage zu konkrete Personenreferenz: Wird eine Handlung oder Schuld zunächst
+  unbestimmt einer Person zugeschrieben ("ein Vorfahr", "jemand aus der
+  Familie", "ein Mann von Rang") und später im selben Kapitel derselben
+  Handlung eine NAMENTLICH andere oder konkretere Figur zugeordnet (z.B.
+  "Marcus' Vater"), ohne dass der Text beide Zuschreibungen erkennbar
+  gleichsetzt oder die Konkretisierung als neue Erkenntnis der Figuren
+  erzählt (z.B. "Also war es sein Vater gewesen, nicht irgendein
+  Vorfahre" o.ä.), ist das ein Widerspruch gegen sich selbst.
+- Wissen über sich selbst: Erfährt eine Figur im Kapitel etwas, das sie
+  unmittelbar selbst betrifft (eine eigene frühere Verlobung, ein Geheimnis
+  über die eigene Herkunft o.ä.), ohne dass der Text einen erkennbaren Grund
+  liefert, warum sie das bis dahin nicht wusste, ist das ein Widerspruch,
+  auch wenn es dramaturgisch als Überraschung gemeint ist.
+- Szenenverankerung: Beginnt eine neue Szene (neuer Ort, neuer
+  Kapitelabschnitt, insbesondere vor oder bei einer körperlichen
+  Annäherung), ohne dass Ort, Ankunftsgrund oder Ausgangszustand (z.B.
+  bereits teilweise entkleidet) erkennbar werden - und ergibt sich das auch
+  nicht aus dem Ende der vorigen Szene im Stand - ist das ein
+  Kontinuitätsbruch. Das gilt besonders, wenn eine Figur mit einem Ort oder
+  Gegenstand hantiert ("der Raum, den sie schon einmal gefunden hatte"), der
+  weder im Stand noch zuvor im laufenden Kapitel eingeführt wurde.
+
+## Abschluss-Check (nur wenn "DIES IST DAS LETZTE GEPLANTE KAPITEL" vorliegt)
+Zusätzlich zu allen Punkten oben: Gleiche jeden im Stand unter "Offene Fäden"
+gelisteten Punkt UND jedes im Abschnitt "GEPLANTER NEBENSTRANG" angelegte,
+noch nicht aufgelöste Indiz einzeln gegen den neuen Kapiteltext ab. Wird ein
+Faden im Kapiteltext erkennbar aufgelöst, ist das kein Fund. Bleibt einer
+unaufgelöst oder wird er nur implizit/beiläufig gestreift, melde das als
+eigenen Fund: "zitat" ist der letzte Satz des Kapitels wörtlich (dort endet
+die Geschichte, ohne dass der Faden aufgelöst wurde), "widerspruch" ist
+"Offener Faden am Ende der Geschichte nicht aufgelöst: <der Faden>",
+"beleg" nennt die Fundstelle des Fadens im Stand oder Nebenstrang,
+"unsicher": true und "vorschlag": null, da sich eine fehlende Auflösung
+nicht durch einen einzelnen Ersatztext beheben lässt.
+Liegt zusätzlich ein "ZUSÄTZLICHER HINWEIS FÜR DIESEN VERSUCH" vor: Prüfe,
+ob die darin vorgegebene Handlung selbst tatsächlich eine Auflösung der
+offenen Fäden ist (Ursache, Handeln der Figuren, sichtbare Konsequenz) oder
+nur ein neues, unaufgelöstes Ereignis an den Schluss setzt. Im zweiten Fall
+melde ebenso einen Fund nach obigem Muster, mit "widerspruch": "Zusätzlicher
+Hinweis führt einen neuen Handlungsimpuls ein, statt die offenen Fäden
+aufzulösen", "unsicher": true, "vorschlag": null.
 
 ## Ausgabe als JSON
 Gib AUSSCHLIESSLICH ein JSON-Objekt zurück, kein Markdown, keinen Codeblock,

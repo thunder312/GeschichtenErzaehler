@@ -433,7 +433,8 @@ def _text_in_abschnitte_teilen(text: str, ziel_zeichen: int = SATZBAU_ABSCHNITT_
     return abschnitte
 
 
-async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: int, kapiteltext: str) -> BefundeAntwort:
+async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: int, kapiteltext: str,
+                           zusatzhinweis: str = "") -> BefundeAntwort:
     geruest_text = pd.lies(pd.geruest_datei(projekt))
     verbote = pd.lies(pd.verbotsliste_datei(projekt), pflicht=False, ersatz="")
     vorher = pd.lies(pd.stand_datei(projekt, n - 1), pflicht=False,
@@ -443,6 +444,25 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
     nebenstrang_block = (
         f"\n\n=== GEPLANTER NEBENSTRANG (gesamtes Geruest, nicht nur dieses "
         f"Kapitel) ===\n{nebenstrang}" if nebenstrang else ""
+    )
+    figuren = g.figuren_abschnitt_erkennen(geruest_text)
+    figuren_block = (
+        f"\n\n=== FIGUREN-REFERENZ (Namen und Titel laut Geruest) ===\n{figuren}"
+        if figuren else ""
+    )
+    zusatzhinweis_block = (
+        f"\n\n=== ZUSÄTZLICHER HINWEIS FÜR DIESEN VERSUCH ===\n{zusatzhinweis}"
+        if zusatzhinweis else ""
+    )
+    # Aktiviert den Abschluss-Check in pruefer_kontinuitaet.txt: nur beim
+    # letzten geplanten Kapitel soll der Pruefer gezielt gegen "Offene
+    # Faeden" und den Nebenstrang abgleichen, statt bei jedem Kapitel ein
+    # fehlendes Happy End zu vermuten.
+    letztes = g.letztes_geplantes_kapitel(geruest_text)
+    letztes_kapitel_block = (
+        "\n\n=== DIES IST DAS LETZTE GEPLANTE KAPITEL ===\n"
+        "Fuehre zusaetzlich den Abschluss-Check aus."
+        if letztes and n == letztes else ""
     )
 
     # Anachronismus/Kontinuitaet/Lektor bekommen weiterhin je EINEN Aufruf
@@ -466,8 +486,8 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
         ),
         _sammle_stream(
             settings, base_url, "kontinuitaet", pd.persona_lesen(projekt.parent, "pruefer_kontinuitaet"),
-            f"=== STAND NACH DEM VORIGEN KAPITEL ===\n{vorher}{nebenstrang_block}\n\n"
-            f"=== NEUES KAPITEL {n} ===\n{kapiteltext}",
+            f"=== STAND NACH DEM VORIGEN KAPITEL ===\n{vorher}{nebenstrang_block}{figuren_block}\n\n"
+            f"=== NEUES KAPITEL {n} ===\n{kapiteltext}{zusatzhinweis_block}{letztes_kapitel_block}",
             format="json",
         ),
         _sammle_stream(
@@ -695,7 +715,7 @@ async def _kapitel_schreiben_kern(
     })
 
     await on_event({"phase": "pruefen", "typ": "start"})
-    befunde_antwort = await _pruefe_kapitel(settings, projekt, base_url, n, text)
+    befunde_antwort = await _pruefe_kapitel(settings, projekt, base_url, n, text, zusatzhinweis)
     await on_event({"phase": "pruefen", "typ": "done", "befunde": befunde_antwort.model_dump()})
 
     await on_event({"phase": "abgeschlossen", "kapitel_text": text})
@@ -1121,6 +1141,24 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                         f"Kapitel {n}, Durchlauf {durchlauf}: {angewendet} Korrektur(en) "
                         f"angewendet, {len(protokoll_eintraege) - angewendet} übersprungen."
                     )
+
+                    # Ein gespliceter "vorschlag" kann trotz aller Sicherheits-
+                    # netze (vorschlag_verdaechtig, _ist_echte_korrektur) eine
+                    # Ueberschrift oder einen Absatzblock duplizieren (siehe
+                    # kapitel_neustart_abschneiden()/wiederholter_absatzblock_
+                    # ausschneiden() weiter oben) - diese Strukturchecks liefen
+                    # bisher nur direkt nach der Erst-Generierung, nie nach dem
+                    # Anwenden von Pruefer-Vorschlaegen. Denselben Check hier
+                    # zu wiederholen schliesst diese Luecke, ohne den
+                    # Frisch-Anwenden-Pfad selbst anzufassen.
+                    if angewendet > 0:
+                        korrigiert, struktur_neustart = h.kapitel_neustart_abschneiden(korrigiert)
+                        korrigiert, struktur_block = h.wiederholten_absatzblock_ausschneiden(korrigiert)
+                        for finding in struktur_neustart + struktur_block:
+                            status["log"].append(
+                                f"Kapitel {n}, Durchlauf {durchlauf}: {finding.meldung}"
+                            )
+
                     _automatik_status_schreiben(status, projekt_root)
 
                     if korrigiert != kapiteltext:

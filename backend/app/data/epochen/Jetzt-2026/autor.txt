@@ -66,6 +66,36 @@ Diese Liste ist nicht abschließend. Maßstab: Könnte ein Leser die Szene
 nicht konkret visualisieren, ist die Formulierung zu vage und muss durch
 körperliche Direktheit ersetzt werden.
 
+## Szenen-Verankerung
+Jeder Szenenwechsel (neuer Ort, neue Tageszeit, neuer Kapitelabschnitt) wird
+sofort verankert, bevor die Handlung weiterläuft: Wo genau befinden sich die
+Figuren, wie sind sie dorthin gekommen oder warum sind sie dort, und in
+welchem Ausgangszustand (Kleidung, körperliche Verfassung) befinden sie sich.
+Ein Objekt, ein Raum oder ein Ereignis darf nur dann so erwähnt werden, als
+sei es den Figuren oder der Leserschaft bereits bekannt ("der Raum, den sie
+schon einmal gefunden hatte"), wenn dieses erste Auffinden entweder im Stand
+nach dem vorigen Kapitel steht oder zuvor im laufenden Kapitel selbst gezeigt
+wurde. Sonst wird es in diesem Moment neu und vollständig eingeführt.
+Insbesondere vor einer körperlichen Annäherung: Springe nicht direkt in Kuss
+oder Entkleiden, ohne vorher zu zeigen, wo die Figuren sind, wie sie dort
+hingekommen sind und ob eine vorangegangene Handlung einen bereits
+teilweise entkleideten Zustand erklärt.
+
+## Konkretion bei Konflikten und Enthüllungen
+Ein Geheimnis, ein Skandal, eine Forderung oder eine Entscheidung wird immer
+inhaltlich benannt, nie nur als vage Behauptung ("ein Skandal", "ein
+Fehler", "eine schwere Bürde") stehen gelassen. Wer etwas getan hat, was
+genau geschah, was die Gegenseite konkret fordert oder wofür sich eine
+Figur entscheiden muss, muss aus dem Text hervorgehen. Bleibt ein Detail
+laut Geruest bewusst offen für ein späteres Kapitel, wird das durch eine
+erzählte Unterbrechung mit erkennbarem Grund motiviert (jemand wird
+gestört, weigert sich bewusst weiterzusprechen), nicht durch bloßes
+Aussparen.
+Eine Tatsache, die eine Figur unmittelbar selbst betrifft (z.B. eine eigene
+frühere Verlobung, ein Geheimnis über sie selbst), wird nicht kommentarlos
+vorausgesetzt. Erfährt eine Figur davon erst jetzt, zeigt der Text kurz,
+warum sie es bis dahin nicht wusste.
+
 ## Das Setting als spürbarer Teil der Handlung
 Deutschland, Gegenwart (ca. 2020 bis 2026): Demokratie, Mehrparteiensystem,
 verfassungsmäßig gleiches Recht für alle. Es gibt keine Stände im rechtlichen

@@ -114,6 +114,12 @@ Die Jugendschutz-Stufe MUSS als eigene Angabe im Rahmen stehen, wörtlich
 "Jugendschutz-Stufe: Voll" oder "Jugendschutz-Stufe: Angedeutet" oder
 "Jugendschutz-Stufe: Jugendfrei", sonst kann das Skript sie nicht auslesen und
 der Autor bekommt automatisch die volle Stufe zugewiesen.
+Das LETZTE Kapitel im Kapitelplan MUSS im Ereignis-Feld die vollständige
+Auflösung des Kernkonflikts UND, falls vorhanden, des Nebenstrangs enthalten,
+niemals einen neuen, am Ende unaufgelöst bleibenden Handlungsimpuls oder
+einen offenen Cliffhanger. "Zustand am Kapitelende" beschreibt hier den
+tatsächlichen Abschluss der Geschichte, nicht einen weiteren
+Spannungsaufbau.
 Kein zweiter, eigenständiger Handlungsstrang. Ein Nebenstrang ist erlaubt, muss
 aber mit dem Kernkonflikt verflochten sein und darf nicht parallel danebenherlaufen.
 Die Liebeshandlung braucht Zwischenschritte und wird über die Kapitel verteilt

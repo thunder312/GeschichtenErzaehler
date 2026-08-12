@@ -160,6 +160,12 @@ Die Einstellung zur Automatischen Fortsetzung MUSS als eigene Angabe im
 Rahmen stehen, wörtlich "Automatische Fortsetzung: Ein" oder
 "Automatische Fortsetzung: Aus", sonst wird automatisch AUS verwendet (der
 sicherere Standard).
+Das LETZTE Kapitel im Kapitelplan MUSS im Ereignis-Feld die vollständige
+Auflösung des Kernkonflikts UND, falls vorhanden, des Nebenstrangs enthalten,
+niemals einen neuen, am Ende unaufgelöst bleibenden Handlungsimpuls oder
+einen offenen Cliffhanger. "Zustand am Kapitelende" beschreibt hier den
+tatsächlichen Abschluss der Geschichte, nicht einen weiteren
+Spannungsaufbau.
 Kein zweiter, eigenständiger Handlungsstrang. Ein Nebenstrang ist erlaubt, muss
 aber mit dem Kernkonflikt verflochten sein und darf nicht parallel danebenherlaufen.
 Jede Figur, auf die im Kapitelplan verwiesen wird - auch eine bei Frage 11 gewählte

@@ -187,6 +187,35 @@ def test_wiederholten_absatzblock_ausschneiden_ignoriert_kurzen_refrain():
     assert findings == []
 
 
+def test_wiederholten_absatzblock_ausschneiden_erkennt_kurzen_2absatz_block():
+    """Regression: ein KURZER 2-Absatz-Dialogschnipsel (z.B. Frage-und-
+    Reaktions-Zeile), der spaeter im Kapitel noch einmal (fast) wortgleich
+    auftaucht, fiel bei min_fenster=3 durchs Raster - siehe Docstring von
+    wiederholten_absatzblock_ausschneiden(). min_fenster=2 muss ihn jetzt
+    erfassen, waehrend ein einzelner 1-Absatz-Refrain weiterhin ignoriert
+    wird (siehe test_..._ignoriert_kurzen_refrain direkt darueber)."""
+    block = (
+        "Marcus blickte von dem vergilbten Dokument auf, sein Gesicht war "
+        "blass geworden.\n\n"
+        "„Was bedeutet das?“, fragte er leise, die Stimme kaum mehr als ein "
+        "Flüstern."
+    )
+    zwischenstueck = (
+        "Julia schwieg einen Moment und sah aus dem Fenster, bevor sie "
+        "wieder zu den Papieren griff."
+    )
+    text = (
+        "Einleitender Absatz, der nur einmal vorkommt.\n\n"
+        + block + "\n\n" + zwischenstueck + "\n\n" + block
+        + "\n\nAbschliessender Absatz, der unbedingt erhalten bleiben muss."
+    )
+    gekuerzt, findings = h.wiederholten_absatzblock_ausschneiden(text)
+    assert len(findings) == 1
+    assert findings[0].code == "wiederholter_absatzblock"
+    assert gekuerzt.count("Marcus blickte von dem vergilbten Dokument auf") == 1
+    assert gekuerzt.endswith("Abschliessender Absatz, der unbedingt erhalten bleiben muss.")
+
+
 def test_wiederholten_absatzblock_ausschneiden_kapitel4_realfall():
     """End-to-End gegen den (gekuerzten) Originaltext von Kapitel 4 aus
     "Das-Echo-der-Verpflichtung-Ein-Geheimnis-in-Winterbottom-Hall" (Live-

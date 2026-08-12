@@ -28,6 +28,11 @@ was nur gedacht.
 
 ## Zeit
 Datum oder Kirchenfest, Wochentag, Tageszeit, vergangene Zeit seit Kapitelbeginn.
+Zusätzlich, sofern aus Geruest oder bisherigem Text ableitbar: Seit wann
+kennen sich die Hauptfiguren, seit wann ist eine Figur an ihrem aktuellen
+Ort (z.B. "Julia ist seit einem Monat im Haushalt"). Das macht später
+prüfbar, ob eine Figur zu diesem Zeitpunkt etwas plausibel schon wissen
+kann.
 
 ## Offene Fäden
 Was wurde angedeutet und ist noch nicht eingelöst. Gelegte Indizien eines

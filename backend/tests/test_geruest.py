@@ -85,6 +85,24 @@ def test_nebenstrang_abschnitt_erkennen_liefert_none_ohne_abschnitt():
     assert g.nebenstrang_abschnitt_erkennen("# STORY-GERUEST\n\n## Rahmen\nJahr: 1815") is None
 
 
+def test_figuren_abschnitt_erkennen_extrahiert_abschnitt():
+    geruest = (
+        "# STORY-GERUEST\n\n"
+        "## Figuren\n"
+        "**Lord Marcus Winterbottom (3. Earl of Devonshire):** 28 Jahre, Earl.\n"
+        "**Julia:** 19 Jahre, Magd.\n\n"
+        "## Konflikt\nEin Satz.\n"
+    )
+    figuren = g.figuren_abschnitt_erkennen(geruest)
+    assert figuren is not None
+    assert "Devonshire" in figuren
+    assert "Konflikt" not in figuren
+
+
+def test_figuren_abschnitt_erkennen_liefert_none_ohne_abschnitt():
+    assert g.figuren_abschnitt_erkennen("# STORY-GERUEST\n\n## Rahmen\nJahr: 1815") is None
+
+
 def test_jahr_erkennen_mit_explizitem_feld():
     assert g.jahr_erkennen(BEISPIEL_GERUEST) == "1815"
 

@@ -338,7 +338,7 @@ def interne_wiederholung_abschneiden(text: str, min_fenster: int = 2, max_fenste
     return text, []
 
 
-def wiederholten_absatzblock_ausschneiden(text: str, min_fenster: int = 3, max_fenster: int = 10,
+def wiederholten_absatzblock_ausschneiden(text: str, min_fenster: int = 2, max_fenster: int = 10,
                                            max_luecke_faktor: int = 3) -> tuple[str, list[Finding]]:
     """Erkennt einen groesseren Absatzblock (>= min_fenster Absaetze), den das
     Modell an einer SPAETEREN, NICHT unmittelbar angrenzenden Stelle im
@@ -355,6 +355,14 @@ def wiederholten_absatzblock_ausschneiden(text: str, min_fenster: int = 3, max_f
     Wiederholung (zwei Kopien) ein zuverlaessiges Signal - anders als bei
     interne_wiederholung_abschneiden(), wo ein einzelner kurzer Absatz auch
     ein bewusst gesetzter Stil-Refrain sein kann (siehe dortige Tests).
+    min_fenster=2 (statt urspruenglich 3) schliesst eine beobachtete Luecke:
+    ein KURZER, nur 2-Absatz-Dialogschnipsel (z.B. eine wiederholte
+    Reaktions-/Antwort-Zeile), der spaeter im Kapitel noch einmal auftaucht,
+    fiel bei min_fenster=3 durchs Raster, weil weder diese Funktion (Block zu
+    kurz) noch interne_wiederholung_abschneiden() (nicht 3x unmittelbar
+    hintereinander) ihn erfasste. Ein einzelner, isolierter 1-Absatz-Refrain
+    bleibt weiterhin bewusst unangetastet (siehe
+    test_wiederholten_absatzblock_ausschneiden_ignoriert_kurzen_refrain).
     Schneidet NUR den Bereich zwischen dem Ende der ersten und dem Ende der
     zweiten Kopie heraus (statt wie interne_wiederholung_abschneiden() den
     gesamten Rest des Texts zu verwerfen): nach einer solchen Neuaufrollung
