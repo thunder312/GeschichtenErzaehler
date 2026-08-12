@@ -153,6 +153,25 @@ def test_automatik_start_schreibt_alle_fehlenden_kapitel_und_schliesst_ab(client
     assert r3.status_code == 200 and r3.text.strip()
 
 
+def test_automatik_log_zeigt_pruefer_start_je_durchlauf(client, projekt_mit_kapitelplan):
+    """Regression 2026-08-12: Phase 2 (Pruefen & Anwenden je Durchlauf) rief
+    _pruefe_kapitel() bisher OHNE jede Log-Zeile auf - zwischen dem Ende
+    eines Durchlaufs und der "N Korrektur(en) angewendet"-Zeile des naechsten
+    herrschte komplette Stille, bis die vier parallelen Pruefer-Rollen
+    fertig waren. Live gemeldet als vermeintlicher Haenger bei Kapitel 6,
+    obwohl der Lauf kurz danach sauber abschloss. Jeder Durchlauf muss jetzt
+    VOR dem Pruef-Aufruf eine eigene "Prüfer laufen..."-Zeile bekommen."""
+    r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 2})
+    assert r.status_code == 200
+
+    status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    pruefer_start_zeilen = [z for z in status["log"] if "Prüfer laufen..." in z]
+    # Mindestens ein "Prüfer laufen..." je geschriebenem Kapitel (Phase 2
+    # startet fuer jedes Kapitel mit Durchlauf 1).
+    assert len(pruefer_start_zeilen) >= status["gesamt_kapitel"]
+    assert any("Kapitel 1, Durchlauf 1: Prüfer laufen..." in z for z in status["log"])
+
+
 def test_automatik_start_verweigert_zweiten_gleichzeitigen_lauf(client, projekt_mit_kapitelplan, monkeypatch):
     # Simuliert einen bereits laufenden Job, ohne tatsaechlich einen zu
     # starten (der echte Lauf ist in Tests synchron/blockierend ueber

@@ -1178,6 +1178,16 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                         )
                         _automatik_status_schreiben(status, projekt_root)
                         return
+                    # Vorfall 2026-08-12: Dieser Aufruf startet vier parallele
+                    # Pruefer-Rollen (siehe _pruefe_kapitel) und liefert bis zu
+                    # deren gemeinsamem Abschluss KEINERLEI Log-Zeile - anders
+                    # als beim Autor (siehe _automatik_on_event) gibt es hier
+                    # kein Streaming, das sich fuer Zwischen-Updates anzapfen
+                    # liesse, aber zumindest der Beginn muss sichtbar sein,
+                    # sonst wirkt ein laengerer Pruef-Durchlauf auf einem
+                    # langsamen KI-Ziel wie ein Haenger (wurde live so
+                    # gemeldet, obwohl der Lauf kurz danach sauber fertig war).
+                    status["log"].append(f"Kapitel {n}, Durchlauf {durchlauf}: Prüfer laufen...")
                     _automatik_status_schreiben(status, projekt_root)
                     kapiteltext = pd.lies(pd.kapitel_datei(projekt, n))
                     status["fehler_schritt"] = {"kapitel": n, "phase": "pruefen", "durchlauf": durchlauf}
