@@ -239,6 +239,12 @@ class AutomatikStatusAntwort(BaseModel):
     # Kapitel/Phase/Durchlauf des zuletzt gescheiterten Schritts plus
     # extrahierter Fehlercode, fuers Frontend (kompakte Fortsetzen-Zeile).
     fehler_schritt: dict | None = None
+    # Live-Text des Autors waehrend des Automatikmodus (siehe
+    # app/api/pipeline.py:_automatik_on_event), damit das "Autor"-Fenster in
+    # SchreibenPage.tsx auch unbeaufsichtigt mitlaeuft, nicht nur beim
+    # interaktiven Schreiben ueber die WebSocket-Verbindung. None ausserhalb
+    # der Phase "schreiben" bzw. vor dem ersten Fortschritts-Update.
+    aktueller_text: str | None = None
 
 
 class AutomatikVerlaufEintrag(BaseModel):

@@ -51,6 +51,7 @@ def status_lesen(projekt_root: Path) -> dict[str, Any]:
             "fehler": None,
             "resten_bestaetigt": False,
             "fehler_schritt": None,
+            "aktueller_text": None,
         }
     status = json.loads(pfad.read_text(encoding="utf-8"))
     status.setdefault("aktueller_durchlauf", None)
@@ -59,6 +60,12 @@ def status_lesen(projekt_root: Path) -> dict[str, Any]:
     # _automatik_mit_retry) eingefuehrt - setdefault fuer Status-Dateien
     # aelterer, noch laufender/pausierter Automatik-Laeufe.
     status.setdefault("fehler_schritt", None)
+    # Erst mit der Live-Fortschrittsanzeige (siehe app/api/pipeline.py:
+    # _automatik_on_event) eingefuehrt - Text, den der Autor gerade im
+    # Automatikmodus schreibt, damit das "Autor"-Fenster im Frontend auch
+    # unbeaufsichtigt live mitlaufen kann statt nur waehrend interaktiven
+    # Schreibens (siehe SchreibenPage.tsx).
+    status.setdefault("aktueller_text", None)
     return status
 
 

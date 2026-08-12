@@ -1006,12 +1006,14 @@ def _automatik_on_event(status: dict, projekt_root: Path) -> OnEvent:
         # Zwischenstaenden vollrauscht.
         if phase in ("autor", "autor_fortsetzung") and typ == "start":
             fortschritt.update(teile=[], letzte_zeit=time.time(), start_zeit=time.time(), log_index=None)
+            status["aktueller_text"] = ""
         elif phase in ("autor", "autor_fortsetzung") and typ == "content":
             fortschritt["teile"].append(payload.get("text") or "")
             jetzt = time.time()
             if jetzt - fortschritt["letzte_zeit"] >= AUTOMATIK_FORTSCHRITT_INTERVALL_SEK:
                 fortschritt["letzte_zeit"] = jetzt
-                bisher_woerter = woerter("".join(fortschritt["teile"]))
+                gesamter_text = "".join(fortschritt["teile"])
+                bisher_woerter = woerter(gesamter_text)
                 vergangen = int(jetzt - fortschritt["start_zeit"])
                 zeile = f"... schreibt noch (ca. {bisher_woerter} Wörter bisher, {vergangen}s)."
                 if fortschritt["log_index"] is not None:
@@ -1019,10 +1021,17 @@ def _automatik_on_event(status: dict, projekt_root: Path) -> OnEvent:
                 else:
                     fortschritt["log_index"] = len(status["log"])
                     status["log"].append(zeile)
+                # Damit das "Autor"-Fenster im Frontend (siehe SchreibenPage.tsx)
+                # auch waehrend des Automatikmodus live mitlaeuft, nicht nur
+                # beim interaktiven Schreiben ueber die WebSocket-Verbindung.
+                status["aktueller_text"] = gesamter_text
                 _automatik_status_schreiben(status, projekt_root)
             return
         elif phase in ("autor", "autor_fortsetzung") and typ == "done":
             fortschritt["log_index"] = None
+            # Letzter Sync: Chunks zwischen dem letzten Throttle-Tick und dem
+            # Ende der Antwort fehlten sonst im "Autor"-Fenster.
+            status["aktueller_text"] = "".join(fortschritt["teile"])
 
         zeile = _automatik_log_zeile(payload)
         if zeile:

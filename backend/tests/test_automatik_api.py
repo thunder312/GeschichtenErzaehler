@@ -108,6 +108,34 @@ def test_automatik_log_zeigt_fortschritt_waehrend_langsamem_streaming(client, pr
     assert any("Kapitel-Entwurf fertig" in z for z in status["log"])
 
 
+def test_automatik_status_fuehrt_aktuellen_autor_text_live_mit(client, projekt_mit_kapitelplan, monkeypatch):
+    """Das "Autor"-Fenster im Frontend (SchreibenPage.tsx) zeigt beim
+    interaktiven Schreiben den per WebSocket gestreamten Text - im
+    Automatikmodus gibt es keine WebSocket-Verbindung, also muss derselbe
+    Text ueber aktueller_text() im Status-Objekt ankommen, sonst bleibt das
+    Fenster ab dem ersten unbeaufsichtigten Kapitel fuer immer leer."""
+    monkeypatch.setattr(pipeline, "AUTOMATIK_FORTSCHRITT_INTERVALL_SEK", 0.0)
+
+    async def _fake_chat_stream_zwei_chunks(base_url, rolle, system, user, ueberschreibe=None,
+                                             timeout=3600.0, format=None, modell_override=None):
+        yield ChatEvent("content", text="Er trat ans Fenster. ")
+        yield ChatEvent("content", text="Der Regen fiel unaufhörlich " * 10)
+        yield ChatEvent("done", text="Er trat ans Fenster. " + "Der Regen fiel unaufhörlich " * 10,
+                         meta={"woerter": 42, "token_pro_sekunde": 4.5})
+
+    monkeypatch.setattr(pipeline, "chat_stream", _fake_chat_stream_zwei_chunks)
+
+    r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 1})
+    assert r.status_code == 200
+
+    status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    # Nach Abschluss von Kapitel 1 enthaelt aktueller_text den vollstaendigen,
+    # zuletzt erzeugten Text (nicht leer, nicht nur den ersten Chunk).
+    assert status["aktueller_text"] is not None
+    assert "Er trat ans Fenster." in status["aktueller_text"]
+    assert "Der Regen fiel unaufhörlich" in status["aktueller_text"]
+
+
 def test_automatik_start_schreibt_alle_fehlenden_kapitel_und_schliesst_ab(client, projekt_mit_kapitelplan):
     r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 2})
     assert r.status_code == 200

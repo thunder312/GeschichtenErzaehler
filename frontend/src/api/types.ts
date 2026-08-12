@@ -176,6 +176,10 @@ export interface AutomatikStatus {
   // Nur gesetzt, wenn der letzte Lauf nach ausgeschoepften 502/503-Retries
   // pausiert wurde (siehe app/api/pipeline.py:_automatik_mit_retry) - fuer
   // die kompakte Fortsetzen-Zeile.
+  /** Live-Text des Autors waehrend des Automatikmodus (siehe
+   * app/api/pipeline.py:_automatik_on_event) - fuellt dasselbe "Autor"-
+   * Fenster wie beim interaktiven Schreiben, nur ohne WebSocket. */
+  aktueller_text: string | null;
   fehler_schritt: {
     kapitel: number;
     phase: string;

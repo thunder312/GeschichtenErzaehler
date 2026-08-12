@@ -349,6 +349,14 @@ export function SchreibenPage({
 
   const zielWoerter = projekt?.kapitelplan[n];
 
+  // Das "Autor"-Fenster zeigt waehrend des interaktiven Schreibens den per
+  // WebSocket gestreamten Text (autorText). Laeuft stattdessen gerade der
+  // Automatikmodus (kein WebSocket, siehe _automatik_on_event im Backend),
+  // zeigt es dessen periodisch aktualisierten aktueller_text - sonst bliebe
+  // das Fenster ab dem ersten unbeaufsichtigten Kapitel fuer immer leer.
+  const automatikSchreibtGerade = (automatikStatus?.laeuft ?? false) && !laeuft;
+  const angezeigterAutorText = automatikSchreibtGerade ? automatikStatus?.aktueller_text ?? "" : autorText;
+
   return (
     <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_2fr]">
       <div className="space-y-4">
@@ -442,13 +450,19 @@ export function SchreibenPage({
               Autor {modell && <span className="font-sans font-normal text-text-muted">({modell})</span>}
             </h2>
             {denktNach && <span className="text-xs italic text-accent-light">denkt nach...</span>}
-            {!laeuft && geladenAusDatei && (
+            {automatikSchreibtGerade && (
+              <span className="text-xs italic text-accent-light">
+                Automatikmodus schreibt Kapitel {automatikStatus?.aktuelles_kapitel}
+                {automatikStatus?.gesamt_kapitel != null && <>/{automatikStatus.gesamt_kapitel}</>}...
+              </span>
+            )}
+            {!laeuft && !automatikSchreibtGerade && geladenAusDatei && (
               <span className="text-xs text-text-muted">📄 gespeicherter Stand von kapitel_{String(n).padStart(2, "0")}.md</span>
             )}
             {phase && phase !== "autor" && laeuft && (
               <span className="text-xs text-text-muted">Phase: {phase}</span>
             )}
-            {!laeuft && autorText && (
+            {!laeuft && !automatikSchreibtGerade && autorText && (
               <button
                 onClick={() => alsDateiHerunterladen(`kapitel_${String(n).padStart(2, "0")}.md`, autorText)}
                 className="text-xs text-accent-light hover:underline"
@@ -458,7 +472,8 @@ export function SchreibenPage({
             )}
           </div>
           <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm leading-relaxed text-text">
-            {autorText || "Noch kein Text erzeugt."}
+            {angezeigterAutorText ||
+              (automatikSchreibtGerade ? "Automatikmodus startet gerade..." : "Noch kein Text erzeugt.")}
           </pre>
         </Card>
 
