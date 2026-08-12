@@ -46,7 +46,11 @@ if errorlevel 1 (
     echo Backend-Upload fehlgeschlagen - abgebrochen.
     exit /b 1
 )
-ssh -i "%KEY%" %HOST% "cd %REMOTE%/backend && tar -xzf geschichten-backend.tar.gz && rm geschichten-backend.tar.gz && chown -R www-data:www-data %REMOTE%/backend && systemctl restart geschichten && sleep 2 && systemctl is-active geschichten"
+rem pip install VOR dem Neustart: ohne das wuerden neu hinzugekommene
+rem Abhaengigkeiten in requirements.txt beim normalen Deploy still
+rem uebersehen - die Datei landete zwar mit hoch, wurde aber nie
+rem tatsaechlich installiert.
+ssh -i "%KEY%" %HOST% "cd %REMOTE%/backend && tar -xzf geschichten-backend.tar.gz && rm geschichten-backend.tar.gz && ./.venv/bin/pip install -q -r requirements.txt && chown -R www-data:www-data %REMOTE%/backend && systemctl restart geschichten && sleep 2 && systemctl is-active geschichten"
 if errorlevel 1 (
     echo Backend-Neustart auf dem Server fehlgeschlagen.
     exit /b 1

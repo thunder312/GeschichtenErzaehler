@@ -25,7 +25,11 @@ echo "============================================"
 echo "3/6: Backend hochladen und neu starten..."
 echo "============================================"
 scp -i "$KEY" "$TMPDIR/geschichten-backend.tar.gz" "$HOST:$REMOTE/backend/"
-ssh -i "$KEY" "$HOST" "cd $REMOTE/backend && tar -xzf geschichten-backend.tar.gz && rm geschichten-backend.tar.gz && chown -R www-data:www-data $REMOTE/backend && systemctl restart geschichten && sleep 2 && systemctl is-active geschichten"
+# pip install VOR dem Neustart: ohne das wuerden neu hinzugekommene
+# Abhaengigkeiten in requirements.txt (z.B. python-multipart/Pillow beim
+# Cover-Upload-Feature) beim normalen Deploy still uebersehen - die Datei
+# landete zwar mit hoch, wurde aber nie tatsaechlich installiert.
+ssh -i "$KEY" "$HOST" "cd $REMOTE/backend && tar -xzf geschichten-backend.tar.gz && rm geschichten-backend.tar.gz && ./.venv/bin/pip install -q -r requirements.txt && chown -R www-data:www-data $REMOTE/backend && systemctl restart geschichten && sleep 2 && systemctl is-active geschichten"
 
 echo "============================================"
 echo "4/6: Frontend hochladen und austauschen..."
