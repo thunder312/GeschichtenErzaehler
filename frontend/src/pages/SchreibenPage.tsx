@@ -507,8 +507,14 @@ export function SchreibenPage({
                 automatikStatus.log.slice(-20).map((zeile, i) => <div key={i}>{zeile}</div>)
               )}
             </div>
-            <Button variant="danger" onClick={automatikStoppen}>
-              Stoppen
+            {automatikStatus.stop_angefordert && (
+              <p className="text-xs text-text-muted">
+                Stop angefordert - wird nach dem aktuellen Schritt beendet, nicht sofort mitten in einer laufenden
+                KI-Anfrage.
+              </p>
+            )}
+            <Button variant="danger" onClick={automatikStoppen} disabled={automatikStatus.stop_angefordert}>
+              {automatikStatus.stop_angefordert ? "Wird gestoppt..." : "Stoppen"}
             </Button>
           </div>
         ) : (

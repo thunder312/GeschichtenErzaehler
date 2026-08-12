@@ -71,6 +71,43 @@ def test_automatik_status_ohne_lauf_ist_leerzustand(client, projekt_mit_kapitelp
     assert daten["log"] == []
 
 
+def test_automatik_log_zeigt_fortschritt_waehrend_langsamem_streaming(client, projekt_mit_kapitelplan, monkeypatch):
+    """Regression 2026-08-12: Auf einem langsamen KI-Ziel (CPU-Inferenz ohne
+    dedizierte GPU) blieb das Automatik-Log zwischen "Autor schreibt..." und
+    "Kapitel-Entwurf fertig" mehrere Minuten lang leer, weil Streaming-Chunks
+    komplett verworfen wurden (siehe _automatik_log_zeile) - das sah aus wie
+    ein Haenger, obwohl im Hintergrund aktiv Text erzeugt wurde. Mit
+    AUTOMATIK_FORTSCHRITT_INTERVALL_SEK auf 0 gesetzt (jede Zeitspanne
+    "ueberschreitet" die Schwelle) muss JEDER Content-Chunk eine Fortschritts-
+    Zeile erzeugen oder aktualisieren - aber alle Chunks derselben laufenden
+    Antwort teilen sich EINE Zeile (per Index ersetzt), statt das Log mit
+    einer Zeile pro Chunk vollzuspammen."""
+    monkeypatch.setattr(pipeline, "AUTOMATIK_FORTSCHRITT_INTERVALL_SEK", 0.0)
+
+    async def _fake_chat_stream_mehrere_chunks(base_url, rolle, system, user, ueberschreibe=None,
+                                                timeout=3600.0, format=None, modell_override=None):
+        yield ChatEvent("content", text="Erster Teil. ")
+        yield ChatEvent("content", text="Zweiter Teil. ")
+        yield ChatEvent("content", text="Dritter Teil. " * 20)
+        yield ChatEvent("done", text="Erster Teil. Zweiter Teil. " + "Dritter Teil. " * 20,
+                         meta={"woerter": 44, "token_pro_sekunde": 5.1})
+
+    monkeypatch.setattr(pipeline, "chat_stream", _fake_chat_stream_mehrere_chunks)
+
+    r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 1})
+    assert r.status_code == 200
+
+    status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    fortschritts_zeilen = [z for z in status["log"] if "schreibt noch" in z]
+    # Genau EINE Fortschrittszeile fuer Kapitel 1 - nicht eine je Chunk -,
+    # weil alle Chunks derselben Antwort dieselbe Zeile per Index ersetzen.
+    # (Kapitel 2 erzeugt eine zweite, eigene Fortschrittszeile.)
+    assert 1 <= len(fortschritts_zeilen) <= 2
+    assert any("Wörter bisher" in z for z in fortschritts_zeilen)
+    # Die finale, echte Wortzahl-Zeile muss weiterhin ganz normal erscheinen.
+    assert any("Kapitel-Entwurf fertig" in z for z in status["log"])
+
+
 def test_automatik_start_schreibt_alle_fehlenden_kapitel_und_schliesst_ab(client, projekt_mit_kapitelplan):
     r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 2})
     assert r.status_code == 200

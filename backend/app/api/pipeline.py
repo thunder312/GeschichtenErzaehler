@@ -977,8 +977,53 @@ async def _automatik_mit_retry(
     raise AssertionError("unreachable")  # pragma: no cover
 
 
+# Mindestabstand zwischen zwei Fortschritts-Log-Zeilen waehrend des reinen
+# Streamens (siehe _automatik_on_event) - klein genug, um auf einem
+# langsamen KI-Ziel sichtbar zu bleiben, gross genug, um das Log nicht mit
+# Zwischenstaenden vollzuspammen.
+AUTOMATIK_FORTSCHRITT_INTERVALL_SEK = 20.0
+
+
 def _automatik_on_event(status: dict, projekt_root: Path) -> OnEvent:
+    # Geschlossen ueber den gesamten Lauf (mehrere Kapitel) hinweg, aber bei
+    # jedem "start"-Ereignis unten zurueckgesetzt - verfolgt NUR die gerade
+    # laufende Streaming-Antwort.
+    fortschritt = {"teile": [], "letzte_zeit": 0.0, "start_zeit": 0.0, "log_index": None}
+
     async def _on_event(payload: dict) -> None:
+        phase, typ = payload.get("phase"), payload.get("typ")
+
+        # Live-Fortschritt waehrend des Streamens: OHNE das sah der
+        # Automatikmodus auf einem langsamen KI-Ziel (z.B. CPU-Inferenz ohne
+        # dedizierte GPU) ueber mehrere Minuten wie haengengeblieben aus, weil
+        # zwischen "Autor schreibt..." und "Kapitel-Entwurf fertig" bisher
+        # KEINE einzige Log-Zeile erschien (Streaming-Chunks wurden komplett
+        # verworfen, siehe _automatik_log_zeile). Vorfall 2026-08-12: Kapitel 1
+        # brauchte bei ~5 Tok/s knapp 5 Minuten reine Autor-Zeit ohne jedes
+        # Zwischen-Update - wurde faelschlich fuer einen Haenger gehalten und
+        # abgebrochen. Ersetzt dieselbe Log-Zeile per gemerktem Index statt bei
+        # jedem Chunk eine neue anzuhaengen, damit das Log nicht mit hunderten
+        # Zwischenstaenden vollrauscht.
+        if phase in ("autor", "autor_fortsetzung") and typ == "start":
+            fortschritt.update(teile=[], letzte_zeit=time.time(), start_zeit=time.time(), log_index=None)
+        elif phase in ("autor", "autor_fortsetzung") and typ == "content":
+            fortschritt["teile"].append(payload.get("text") or "")
+            jetzt = time.time()
+            if jetzt - fortschritt["letzte_zeit"] >= AUTOMATIK_FORTSCHRITT_INTERVALL_SEK:
+                fortschritt["letzte_zeit"] = jetzt
+                bisher_woerter = woerter("".join(fortschritt["teile"]))
+                vergangen = int(jetzt - fortschritt["start_zeit"])
+                zeile = f"... schreibt noch (ca. {bisher_woerter} Wörter bisher, {vergangen}s)."
+                if fortschritt["log_index"] is not None:
+                    status["log"][fortschritt["log_index"]] = zeile
+                else:
+                    fortschritt["log_index"] = len(status["log"])
+                    status["log"].append(zeile)
+                _automatik_status_schreiben(status, projekt_root)
+            return
+        elif phase in ("autor", "autor_fortsetzung") and typ == "done":
+            fortschritt["log_index"] = None
+
         zeile = _automatik_log_zeile(payload)
         if zeile:
             status["log"].append(zeile)
