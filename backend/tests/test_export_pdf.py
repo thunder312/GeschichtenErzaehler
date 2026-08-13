@@ -68,6 +68,26 @@ def test_export_pdf_mit_cover_fuegt_bildseite_ein(client, projekt_mit_kapiteln, 
     assert len(mit_cover.content) != len(ohne_cover.content)
 
 
+def test_export_pdf_mit_hochformat_cover_ueberlaeuft_nicht(client, projekt_mit_kapiteln, tmp_path):
+    # Regression: ein Cover, dessen Seitenverhaeltnis die Skalierung an der
+    # Rahmenhoehe (statt -breite) ausrichtet, ragte um genau das reportlab-
+    # Standard-Frame-Padding (6pt je Seite) ueber den Inhaltsbereich hinaus
+    # und liess buch_pdf_erzeugen() mit einem LayoutError abstuerzen (Live-
+    # Vorfall "Asche-und-Kimono...", Seitenverhaeltnis ca. 512x917).
+    import io
+
+    from PIL import Image as PILImage
+
+    projekt_pfad = tmp_path / "projects" / "daniel" / projekt_mit_kapiteln / "projekt"
+    puffer = io.BytesIO()
+    PILImage.new("RGB", (512, 917), color="blue").save(puffer, format="PNG")
+    pd.cover_datei(projekt_pfad).write_bytes(puffer.getvalue())
+
+    r = client.get(f"/api/projects/{projekt_mit_kapiteln}/export/pdf")
+    assert r.status_code == 200
+    assert r.content.startswith(b"%PDF")
+
+
 def test_export_pdf_ohne_cover_bleibt_unveraendert(client, projekt_mit_kapiteln):
     r = client.get(f"/api/projects/{projekt_mit_kapiteln}/export/pdf")
     assert r.status_code == 200

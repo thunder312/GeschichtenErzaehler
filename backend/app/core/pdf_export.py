@@ -115,7 +115,18 @@ def buch_pdf_erzeugen(geruest_text: str, epoche: str | None, kapitel: list[tuple
         topMargin=2.6 * cm, bottomMargin=2.2 * cm,
         title=titel, author="Geschichten Erzähler",
     )
-    rahmen = Frame(dokument.leftMargin, dokument.bottomMargin, dokument.width, dokument.height, id="inhalt")
+    # Padding explizit auf 0 (Frame haette sonst reportlab-Default 6pt auf
+    # allen vier Seiten) - die Cover-Skalierung unten rechnet bewusst gegen
+    # die vollen dokument.width/height als nutzbaren Seiteninhaltsbereich;
+    # mit dem Default-Padding waere der Rahmen innen 12pt schmaler/niedriger
+    # als angenommen, wodurch ein bis an die Kante skaliertes (v.a. hochfor-
+    # matiges) Cover einen LayoutError ausloest ("Flowable ... too large"),
+    # weil das Bild selbst dann noch genau diese 12pt zu gross fuers
+    # tatsaechlich verfuegbare Innenmass des Frames ist.
+    rahmen = Frame(
+        dokument.leftMargin, dokument.bottomMargin, dokument.width, dokument.height, id="inhalt",
+        leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0,
+    )
     seiten_ohne_nummer = 2 if cover_bytes else 1
     dokument.addPageTemplates(
         [PageTemplate(id="seite", frames=[rahmen], onPage=_seitenzahl_zeichner(seiten_ohne_nummer))]
