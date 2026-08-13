@@ -102,7 +102,18 @@ export function installBefundReview(
     erledigt.clear();
 
     for (const befund of befunde) {
-      if (!befund.gefunden || befund.start === null || befund.end === null) continue;
+      // "gefunden: false" (Backend fand die vom Pruefer zitierte Fundstelle
+      // schon beim Pruef-Lauf selbst nicht im Kapiteltext, siehe
+      // fundstellen.py) hat KEIN start/end und landet deshalb nie in
+      // `verfolgt` - ohne dieses onVerwaist() bliebe der Fund fuer immer in
+      // der Liste stehen (nie "verwaist", weil er nie getrackt wurde), auch
+      // nachdem alle anderen laengst ungueltigen Funde nach einem Neuladen
+      // sauber in den "X weitere ausgeblendet"-Sammler wandern.
+      if (!befund.gefunden || befund.start === null || befund.end === null) {
+        erledigt.add(befund.id);
+        callbacks.onVerwaist(befund.id);
+        continue;
+      }
 
       const startPos = model.getPositionAt(befund.start);
       const endPos = model.getPositionAt(befund.end);
