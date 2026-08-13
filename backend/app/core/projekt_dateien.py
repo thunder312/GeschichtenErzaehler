@@ -191,6 +191,59 @@ def _freier_pfad(wurzel: Path, name: str) -> Path:
     return ziel
 
 
+def _v2_pfad(quelle: Path) -> Path:
+    """Zielordner fuers Duplizieren beim 'Neu schreiben'-Feature (siehe
+    app/api/projects.py:projekt_neu_schreiben) - haengt '_v2' an den
+    Ordnernamen an, bei Kollision '_v3', '_v4', ... statt '_v2' erneut zu
+    versuchen."""
+    version = 2
+    ziel = quelle.parent / f"{quelle.name}_v{version}"
+    while ziel.exists():
+        version += 1
+        ziel = quelle.parent / f"{quelle.name}_v{version}"
+    return ziel
+
+
+def projekt_fuer_neuschreiben_duplizieren(quelle: Path) -> Path:
+    """Dupliziert einen bestehenden Projektordner als Grundlage fuers 'Neu
+    schreiben'-Feature (Icon in der Projektliste, siehe
+    app/api/projects.py:projekt_neu_schreiben): Ordnername + '_v2', alle
+    durchs Schreiben/Pruefen/Automatikmodus entstandenen Dateien im Duplikat
+    geloescht und das Autor-Modell im Geruest fest auf Mistral gesetzt
+    (siehe app/core/geruest.py:autor_modell_erzwingen) - danach sieht das
+    Duplikat so aus, als waere gerade eben nur das Architekten-Interview
+    abgeschlossen worden, und der Automatikmodus faengt zwangslaeufig bei
+    Kapitel 1 an."""
+    ziel = _v2_pfad(quelle)
+    shutil.copytree(quelle, ziel)
+
+    projekt = ziel / "projekt"
+    for datei in vorhandene_kapitel(projekt):
+        datei.unlink()
+    for datei in projekt.glob("stand_*.md"):
+        if datei.name != "stand_00.md":
+            datei.unlink()
+    for datei in projekt.glob("befunde_*.json"):
+        datei.unlink()
+    for name in ("automatik_status.json", "automatik_verlauf.json"):
+        (projekt / name).unlink(missing_ok=True)
+    architekt_verlauf_datei(projekt).unlink(missing_ok=True)
+    for datei in ziel.rglob("*.bak"):
+        datei.unlink()
+    for datei in ziel.glob("*.md"):
+        # Export-Gesamtdatei im Story-Root (Dateiname = alter Ordnername,
+        # siehe app/api/pipeline.py:_export_ausfuehren) bzw. Altlast
+        # "gesamt.md" - beides Schreib-Ergebnis, nicht Architekt-Output.
+        datei.unlink()
+
+    geruest_pfad = geruest_datei(projekt)
+    geruest_text = lies(geruest_pfad, pflicht=False, ersatz="")
+    if geruest_text:
+        geruest_pfad.write_text(_geruest.autor_modell_erzwingen(geruest_text).strip() + "\n", encoding="utf-8")
+
+    return ziel
+
+
 def projektordner_umbenennen(projekt_root: Path, geruest_text: str) -> str | None:
     """Versucht, den Projektordner nach dem im Geruest gewaehlten Titel
     umzubenennen - portiert aus novelle.py's

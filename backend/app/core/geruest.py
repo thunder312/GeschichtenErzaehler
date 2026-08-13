@@ -210,6 +210,25 @@ def autor_rolle_erkennen(geruest: str) -> str:
     return "autor"
 
 
+def autor_modell_erzwingen(geruest: str, modell: str = "Mistral") -> str:
+    """Ersetzt/ergaenzt das Autor-Modell-Feld im Rahmen-Block, unabhaengig
+    vom bisherigen Wert - gedacht fuers Duplizieren eines Projekts zum
+    automatischen Neu-Schreiben (siehe app/api/projects.py:neu_schreiben),
+    wo der Schreiber immer fest auf 'Mistral' stehen soll. Ersetzt
+    bestehende (auch verdoppelte, siehe autor_rolle_erkennen) Angaben durch
+    genau eine Zeile; fehlt das Feld komplett, wird es direkt nach der
+    '## Rahmen'-Ueberschrift eingefuegt."""
+    muster = re.compile(r"(?:Autor-Modell\s*[:\-]?\s*)+[A-Za-z0-9 ]+", re.IGNORECASE)
+    ersatz = f"Autor-Modell: {modell}"
+    if muster.search(geruest):
+        return muster.sub(ersatz, geruest, count=1)
+    rahmen = re.search(r"##\s*Rahmen\s*\n", geruest, re.IGNORECASE)
+    if rahmen:
+        einfuegestelle = rahmen.end()
+        return geruest[:einfuegestelle] + ersatz + "\n" + geruest[einfuegestelle:]
+    return ersatz + "\n" + geruest
+
+
 def automatische_fortsetzung_aktiviert(geruest: str) -> bool:
     """Default AUS, auch wenn das Feld fehlt - bewusst der sicherere
     Standard (siehe Bedienungsanleitung Abschnitt 9b). Siehe

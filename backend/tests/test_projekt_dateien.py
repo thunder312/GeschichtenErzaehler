@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from app.core import geruest as g
 from app.core import projekt_dateien as pd
 
 
@@ -96,3 +97,92 @@ def test_projektordner_umbenennen_gibt_nach_wiederholtem_fehler_auf(tmp_path, mo
 
     assert neuer_name is None
     assert projekt_root.exists()
+
+
+def _quellprojekt_mit_schreibartefakten(tmp_path: Path) -> Path:
+    """Baut ein Projekt, das so aussieht, als waere es fertig geschrieben -
+    Grundlage fuer die projekt_fuer_neuschreiben_duplizieren()-Tests unten."""
+    quelle = tmp_path / "Der-Markt-von-Rothenfeld"
+    projekt = quelle / "projekt"
+    projekt.mkdir(parents=True)
+    (quelle / "personas").mkdir()
+    (quelle / "personas" / "architekt.txt").write_text("Persona-Text", encoding="utf-8")
+    (quelle / ".epoche").write_text("Mittelalter", encoding="utf-8")
+    geruest = (
+        "# STORY-GERUEST\n\n## Rahmen\nJahr: 1815\nAutor-Modell: Qwen3\n\n"
+        "## Titel\nDer Markt von Rothenfeld\n\n## Kapitelplan\n"
+        "Kapitel 1: Ankunft. Zielwortzahl: 1.000 Woerter.\n"
+        "Kapitel 2: Aufloesung. Zielwortzahl: 1.000 Woerter.\n"
+    )
+    (projekt / "geruest.md").write_text(geruest, encoding="utf-8")
+    (projekt / "verbotsliste.md").write_text("keine", encoding="utf-8")
+    (projekt / "stand_00.md").write_text("Ausgangslage", encoding="utf-8")
+    (projekt / "kapitel_01.md").write_text("Kapiteltext 1", encoding="utf-8")
+    (projekt / "kapitel_02.md").write_text("Kapiteltext 2", encoding="utf-8")
+    (projekt / "stand_01.md").write_text("Stand nach Kapitel 1", encoding="utf-8")
+    (projekt / "befunde_01.json").write_text("{}", encoding="utf-8")
+    (projekt / "automatik_status.json").write_text("{}", encoding="utf-8")
+    (projekt / "automatik_verlauf.json").write_text("[]", encoding="utf-8")
+    (projekt / "architekt_verlauf.json").write_text("{}", encoding="utf-8")
+    (projekt / "geruest.md.1234567890.bak").write_text("alte Fassung", encoding="utf-8")
+    (quelle / f"{quelle.name}.md").write_text("Kapiteltext 1\n\nKapiteltext 2", encoding="utf-8")
+    return quelle
+
+
+def test_projekt_fuer_neuschreiben_duplizieren_erzeugt_v2_ordner(tmp_path):
+    quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
+
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle)
+
+    assert ziel == tmp_path / "Der-Markt-von-Rothenfeld_v2"
+    assert ziel.is_dir()
+    assert quelle.is_dir()  # Original bleibt unangetastet
+
+
+def test_projekt_fuer_neuschreiben_duplizieren_haengt_hochzaehlend_v3_an_bei_kollision(tmp_path):
+    quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
+    (tmp_path / "Der-Markt-von-Rothenfeld_v2").mkdir()
+
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle)
+
+    assert ziel == tmp_path / "Der-Markt-von-Rothenfeld_v3"
+
+
+def test_projekt_fuer_neuschreiben_duplizieren_loescht_schreib_artefakte(tmp_path):
+    quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
+
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle)
+    projekt = ziel / "projekt"
+
+    assert not (projekt / "kapitel_01.md").exists()
+    assert not (projekt / "kapitel_02.md").exists()
+    assert not (projekt / "stand_01.md").exists()
+    assert not (projekt / "befunde_01.json").exists()
+    assert not (projekt / "automatik_status.json").exists()
+    assert not (projekt / "automatik_verlauf.json").exists()
+    assert not (projekt / "architekt_verlauf.json").exists()
+    assert not (projekt / "geruest.md.1234567890.bak").exists()
+    assert not (ziel / f"{quelle.name}.md").exists()
+
+
+def test_projekt_fuer_neuschreiben_duplizieren_behaelt_architekt_output(tmp_path):
+    quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
+
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle)
+    projekt = ziel / "projekt"
+
+    assert (projekt / "geruest.md").exists()
+    assert (projekt / "verbotsliste.md").exists()
+    assert (projekt / "stand_00.md").exists()
+    assert (ziel / "personas" / "architekt.txt").exists()
+    assert (ziel / ".epoche").read_text(encoding="utf-8") == "Mittelalter"
+
+
+def test_projekt_fuer_neuschreiben_duplizieren_erzwingt_mistral(tmp_path):
+    quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
+
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle)
+    geruest_text = (ziel / "projekt" / "geruest.md").read_text(encoding="utf-8")
+
+    assert g.autor_rolle_erkennen(geruest_text) == "autor_mistral"
+    assert "Qwen3" not in geruest_text

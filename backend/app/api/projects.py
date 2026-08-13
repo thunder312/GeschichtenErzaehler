@@ -150,6 +150,24 @@ def projekt_loeschen(ordner: str, settings: Settings = Depends(get_settings),
     shutil.rmtree(pfad)
 
 
+@router.post("/{ordner:path}/neu-schreiben", response_model=ProjektKurz, status_code=201)
+def projekt_neu_schreiben(ordner: str, settings: Settings = Depends(get_settings),
+                           benutzer: Benutzer = Depends(get_current_user)):
+    """Dupliziert ein bestehendes Projekt (Ordnername + '_v2', siehe
+    app/core/projekt_dateien.py:projekt_fuer_neuschreiben_duplizieren) und
+    setzt das Duplikat in den Zustand direkt nach Abschluss des Architekten-
+    Interviews zurueck - Schreiber fest auf Mistral. Das eigentliche
+    Anstossen des Automatikmodus-Laufs macht das Frontend im Anschluss ueber
+    den bestehenden POST .../automatik/start-Endpoint (app/api/pipeline.py) -
+    hier ist bewusst nur die Dateikopie noetig, kein Ollama-Aufruf (siehe
+    Modulkommentar oben)."""
+    pfad = projekt_pfad(settings, benutzer.username, ordner)
+    if automatik.status_lesen(pfad)["laeuft"]:
+        raise HTTPException(409, "Automatikmodus läuft für dieses Projekt gerade - bitte zuerst stoppen.")
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(pfad)
+    return _projekt_kurz(ziel, projekte_wurzel(settings, benutzer.username), settings)
+
+
 @fallback_router.get("/{ordner:path}", response_model=ProjektDetail)
 def projekt_lesen(ordner: str, settings: Settings = Depends(get_settings),
                    benutzer: Benutzer = Depends(get_current_user)):

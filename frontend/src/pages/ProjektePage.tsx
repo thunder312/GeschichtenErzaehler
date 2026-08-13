@@ -18,18 +18,27 @@ interface ProjektePageProps {
   projekte: ProjektKurz[];
   epochen: EpocheKurz[];
   aktuellesProjekt: string | null;
+  sshZielId: string;
   onProjekteGeaendert: () => void;
   onProjektAuswaehlen: (ordner: string) => void;
   onProjektGeloescht: (ordner: string) => void;
+  onNeuSchreibenGestartet: (ordner: string) => void;
 }
+
+// Gleicher Default wie der "Automatikmodus starten"-Button im Schreiben-Tab
+// (frontend/src/pages/SchreibenPage.tsx) - beim Neu-schreiben aus der
+// Projektliste heraus gibt es keine eigene UI, um das anzupassen.
+const NEU_SCHREIBEN_MAX_DURCHLAEUFE = 3;
 
 export function ProjektePage({
   projekte,
   epochen,
   aktuellesProjekt,
+  sshZielId,
   onProjekteGeaendert,
   onProjektAuswaehlen,
   onProjektGeloescht,
+  onNeuSchreibenGestartet,
 }: ProjektePageProps) {
   const [titel, setTitel] = useState("");
   const [epoche, setEpoche] = useState("");
@@ -38,6 +47,9 @@ export function ProjektePage({
   const [wirdAngelegt, setWirdAngelegt] = useState(false);
   const [wirdGeloescht, setWirdGeloescht] = useState<string | null>(null);
   const [loeschenAnfrage, setLoeschenAnfrage] = useState<ProjektKurz | null>(null);
+  const [wirdNeuGeschrieben, setWirdNeuGeschrieben] = useState<string | null>(null);
+  const [neuSchreibenAnfrage, setNeuSchreibenAnfrage] = useState<ProjektKurz | null>(null);
+  const [neuSchreibenFehler, setNeuSchreibenFehler] = useState<string | null>(null);
   const [suchtext, setSuchtext] = useState("");
   const [epocheFilter, setEpocheFilter] = useState("");
   const [sortierungAbsteigend, setSortierungAbsteigend] = useState(false);
@@ -103,6 +115,37 @@ export function ProjektePage({
       window.alert(e instanceof Error ? e.message : String(e));
     } finally {
       setWirdGeloescht(null);
+    }
+  }
+
+  function neuSchreibenAnfordern(ereignis: MouseEvent, p: ProjektKurz) {
+    // Wie loeschenAnfordern() oben - verhindert, dass der Zeilen-Klick
+    // (oeffnet das Projekt) zusaetzlich ausgeloest wird.
+    ereignis.stopPropagation();
+    setNeuSchreibenFehler(null);
+    setNeuSchreibenAnfrage(p);
+  }
+
+  async function neuSchreibenBestaetigt() {
+    if (!neuSchreibenAnfrage) return;
+    const ordner = neuSchreibenAnfrage.ordner;
+    setWirdNeuGeschrieben(ordner);
+    setNeuSchreibenFehler(null);
+    try {
+      const kopie = await api.projektNeuSchreiben(ordner);
+      // Automatikmodus-Start ist ein separater Request (siehe
+      // app/api/projects.py:projekt_neu_schreiben - der Duplizier-Endpoint
+      // selbst macht bewusst keinen Ollama-Aufruf), fuer den Nutzer wirkt
+      // es trotzdem wie EIN Vorgang, da beides hier direkt nacheinander
+      // laeuft.
+      await api.automatikStarten(kopie.ordner, NEU_SCHREIBEN_MAX_DURCHLAEUFE, sshZielId || null);
+      setNeuSchreibenAnfrage(null);
+      onProjekteGeaendert();
+      onNeuSchreibenGestartet(kopie.ordner);
+    } catch (e) {
+      setNeuSchreibenFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWirdNeuGeschrieben(null);
     }
   }
 
@@ -196,6 +239,17 @@ export function ProjektePage({
                 >
                   ✕
                 </button>
+                {p.letztes_geplantes_kapitel && (
+                  <button
+                    onClick={(e) => neuSchreibenAnfordern(e, p)}
+                    disabled={wirdNeuGeschrieben === p.ordner || p.automatik_zustand === "laeuft"}
+                    title={`"${p.titel ?? p.ordner}" als Kopie neu schreiben lassen (Schreiber: Mistral)`}
+                    aria-label={`"${p.titel ?? p.ordner}" neu schreiben`}
+                    className="shrink-0 text-sm leading-none text-text-muted/60 transition-colors hover:text-text disabled:opacity-40"
+                  >
+                    🔄
+                  </button>
+                )}
                 <div>
                   <div className="flex items-center gap-2">
                     <div className="font-medium text-text">{p.titel ?? p.ordner}</div>
@@ -268,6 +322,24 @@ export function ProjektePage({
           wirdAusgefuehrt={wirdGeloescht === loeschenAnfrage.ordner}
           onBestaetigen={loeschenBestaetigt}
           onAbbrechen={() => setLoeschenAnfrage(null)}
+        />
+      )}
+
+      {neuSchreibenAnfrage && (
+        <ConfirmDialog
+          titel="Projekt neu schreiben?"
+          beschreibung={
+            `"${neuSchreibenAnfrage.titel ?? neuSchreibenAnfrage.ordner}" wird als Kopie ` +
+            `("${neuSchreibenAnfrage.ordner}_v2") komplett neu geschrieben - Gerüst und Personas bleiben erhalten, ` +
+            `alle bisherigen Kapitel/Prüfungen NICHT (das Original bleibt unangetastet). Schreiber ist dabei immer ` +
+            `Mistral, unabhängig von der Angabe im Gerüst. Das kann sehr lange laufen (alle Kapitel werden neu ` +
+            `geschrieben und geprüft).` +
+            (neuSchreibenFehler ? `\n\nFehler: ${neuSchreibenFehler}` : "")
+          }
+          bestaetigenText="Neu schreiben starten"
+          wirdAusgefuehrt={wirdNeuGeschrieben === neuSchreibenAnfrage.ordner}
+          onBestaetigen={neuSchreibenBestaetigt}
+          onAbbrechen={() => setNeuSchreibenAnfrage(null)}
         />
       )}
     </div>
