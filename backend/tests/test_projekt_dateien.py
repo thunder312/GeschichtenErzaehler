@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from app.core import geruest as g
 from app.core import projekt_dateien as pd
 
 
@@ -178,11 +177,3 @@ def test_projekt_fuer_neuschreiben_duplizieren_behaelt_architekt_output(tmp_path
     assert (ziel / ".epoche").read_text(encoding="utf-8") == "Mittelalter"
 
 
-def test_projekt_fuer_neuschreiben_duplizieren_erzwingt_mistral(tmp_path):
-    quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
-
-    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle)
-    geruest_text = (ziel / "projekt" / "geruest.md").read_text(encoding="utf-8")
-
-    assert g.autor_rolle_erkennen(geruest_text) == "autor_mistral"
-    assert "Qwen3" not in geruest_text

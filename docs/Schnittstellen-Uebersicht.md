@@ -255,6 +255,16 @@ repeat_penalty, repeat_last_n, ggf. presence_penalty) stehen im Quelltext im
 Dictionary `ROLLEN`. Eine GUI, die eigene Ollama-Aufrufe macht, sollte diese
 Werte 1:1 übernehmen, sonst weicht das Verhalten vom CLI ab.
 
+**Abweichung GUI-Backend (Stand 2026-08-13):** Die obige Tabelle beschreibt
+weiterhin `pre-GUI/novelle.py` (CLI, unveraendert). Im GUI-Backend
+(`app/core/rollen.py`) wurden `autor_qwen` und `autor_mistral` entfernt und
+`autor` selbst auf `mistral-small3.2:latest` (Optionen wie zuvor bei
+`autor_mistral`) umgestellt - es gibt dort nur noch EINEN Schreiber
+(Mistral), kein Auswahlfeld im Architekten-Interview mehr. Grund: Mistral hat
+sich in der Praxis klar gegenueber Hermes3/Qwen3 durchgesetzt. Siehe
+Abschnitt 5.2 fuer Details zur (im GUI-Backend inzwischen trivialen)
+Autor-Modell-Erkennung.
+
 **Warum `think` bei den meisten Rollen `false` ist, obwohl `gemma4`
 Denkmodus kann:** Rollen, deren Antwort selbst ein langer Fließtext ist
 (Lektor, Korrektur-Rollen), würden bei aktivem Denkmodus riskieren, dass das
@@ -316,13 +326,20 @@ gleichberechtigt neben Hermes3 als zweite vollwertige Autor-Wahl nutzbar,
 nicht mehr nur als Test-/Vergleichsmodus - der A/B-Vergleichsbefehl selbst
 ist reine CLI-Historie und im GUI-Backend nicht nachgebaut.
 
-Die Rolle `autor_mistral` ist eine reine GUI-Backend-Erweiterung ohne
+Die Rolle `autor_mistral` war eine reine GUI-Backend-Erweiterung ohne
 CLI-Vorbild (kein Gegenstück in `pre-GUI/novelle.py`) - dritte gleichwertige
 Autor-Wahl neben Hermes3 und Qwen3, ausgewählt über
 "Autor-Modell: Mistral" im Gerüst.
 
 Fehlt die Angabe (ältere Projekte ohne diese Frage), lautet der Rückgabewert
 immer `"autor"` (Hermes) - unverändertes Verhalten für Bestandsprojekte.
+
+**Abweichung GUI-Backend (Stand 2026-08-13):** Alles oben Beschriebene gilt
+weiterhin fuer die CLI. Im GUI-Backend ist `autor_rolle_erkennen()`
+(`app/core/geruest.py`) inzwischen trivial - sie liest den Geruest-Text gar
+nicht mehr aus und liefert immer `"autor"` (= Mistral, siehe Abschnitt 4).
+Es gibt keine Autor-Modell-Frage mehr im Architekten-Interview, die Rollen
+`autor_qwen`/`autor_mistral` existieren im GUI-Backend nicht mehr.
 
 ### 5.3 Zusaetzlicher Hinweis fuer einzelne Schreibversuche (`schreiben <n> [hinweis...]`)
 

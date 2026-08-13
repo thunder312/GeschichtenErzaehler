@@ -285,10 +285,10 @@ def _autor_system_prompt(projekt_root: Path) -> str:
     """Haengt an die Autor-Persona optional die vom Nutzer gepflegten
     Stilproben an (siehe app/core/projekt_dateien.py:stilproben_datei) -
     kurze Vorbild-Ausschnitte aus Geschichten, deren Sprache/Rhythmus/Ton
-    gefallen haben, damit sich Hermes3 UND Qwen3 (beide teilen dieselbe
-    "autor"-Persona, siehe rollen.py) beim Formulieren daran orientieren
-    koennen, ohne dass dafuer ein echtes Fine-Tuning noetig waere. Leeres
-    oder fehlendes stilproben.md aendert nichts am Prompt."""
+    gefallen haben, damit sich der Autor (Mistral, siehe rollen.py) beim
+    Formulieren daran orientieren kann, ohne dass dafuer ein echtes
+    Fine-Tuning noetig waere. Leeres oder fehlendes stilproben.md aendert
+    nichts am Prompt."""
     persona = pd.persona_lesen(projekt_root, "autor")
     stilproben = pd.lies(pd.stilproben_datei(projekt_root / "projekt"), pflicht=False, ersatz="")
     if not stilproben.strip():

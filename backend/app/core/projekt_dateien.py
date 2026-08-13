@@ -209,11 +209,11 @@ def projekt_fuer_neuschreiben_duplizieren(quelle: Path) -> Path:
     schreiben'-Feature (Icon in der Projektliste, siehe
     app/api/projects.py:projekt_neu_schreiben): Ordnername + '_v2', alle
     durchs Schreiben/Pruefen/Automatikmodus entstandenen Dateien im Duplikat
-    geloescht und das Autor-Modell im Geruest fest auf Mistral gesetzt
-    (siehe app/core/geruest.py:autor_modell_erzwingen) - danach sieht das
-    Duplikat so aus, als waere gerade eben nur das Architekten-Interview
-    abgeschlossen worden, und der Automatikmodus faengt zwangslaeufig bei
-    Kapitel 1 an."""
+    geloescht - danach sieht das Duplikat so aus, als waere gerade eben nur
+    das Architekten-Interview abgeschlossen worden, und der Automatikmodus
+    faengt zwangslaeufig bei Kapitel 1 an. Der Schreiber ist ohnehin immer
+    Mistral (einziger Schreiber, siehe app/core/rollen.py), muss hier also
+    nicht mehr extra erzwungen werden."""
     ziel = _v2_pfad(quelle)
     shutil.copytree(quelle, ziel)
 
@@ -235,11 +235,6 @@ def projekt_fuer_neuschreiben_duplizieren(quelle: Path) -> Path:
         # siehe app/api/pipeline.py:_export_ausfuehren) bzw. Altlast
         # "gesamt.md" - beides Schreib-Ergebnis, nicht Architekt-Output.
         datei.unlink()
-
-    geruest_pfad = geruest_datei(projekt)
-    geruest_text = lies(geruest_pfad, pflicht=False, ersatz="")
-    if geruest_text:
-        geruest_pfad.write_text(_geruest.autor_modell_erzwingen(geruest_text).strip() + "\n", encoding="utf-8")
 
     return ziel
 

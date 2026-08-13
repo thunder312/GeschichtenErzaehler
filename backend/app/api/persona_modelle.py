@@ -2,14 +2,7 @@
 Persona-Modell-Zuordnung). Ueberschreibt pro ROLLEN-Key aus app/core/
 rollen.py NUR das Feld "modell" - Sampling-Parameter/think-Flag bleiben wie
 dort definiert. Gilt global fuer alle User/Projekte, aufgeloest bei jedem
-Ollama-Aufruf ueber app/services.py:rollen_modell_override().
-
-Bewusst getrennt vom bestehenden Projekt-Override "Autor-Modell: Qwen3" im
-Gerüst-Text (siehe app/core/geruest.py:autor_rolle_erkennen): jener
-entscheidet, WELCHER ROLLEN-Key ("autor" vs. "autor_qwen") pro Geschichte
-angefragt wird - eine kreative Entscheidung. Diese Zuordnung hier entscheidet
-NUR, welches physische Modell hinter einem gegebenen Key steckt - eine
-Infrastruktur-Entscheidung."""
+Ollama-Aufruf ueber app/services.py:rollen_modell_override()."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException

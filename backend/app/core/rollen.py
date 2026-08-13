@@ -37,18 +37,39 @@ ROLLEN: dict[str, dict] = {
             "seed": 42,
         },
     },
+    # Einziger Schreiber (Stand 2026-08-13): Hermes3 und Qwen3 wurden als
+    # Autor-Alternativen entfernt, seit Mistral sich als klar ueberlegen
+    # erwiesen hat - kein Auswahlfeld im Architekten-Interview mehr, siehe
+    # app/core/geruest.py:autor_rolle_erkennen (liefert immer "autor").
+    # Modell+Optionen von der ehemaligen Rolle "autor_mistral" uebernommen,
+    # inklusive der dort per Live-Lauf gefundenen presence_penalty-Tuning-
+    # Historie (siehe Kommentar unten).
+    #
+    # presence_penalty stand beim ersten Live-Lauf ("Das-Echo-der-
+    # Verpflichtung-Ein-Geheimnis-in-Winterbottom-Hall") noch bei 1.5 (1:1
+    # von der damaligen "autor_qwen"-Rolle uebernommen) - mistral-small3.2
+    # brach damit ab Kapitel 2 systematisch weit vor der Zielwortzahl UND
+    # mitten im Satz ab (alle Kapitel nur 29-36% des Ziels statt der bei
+    # Hermes3/Qwen3 ueblichen ~100%). Ein so aggressiver presence_penalty
+    # bestraft bei jedem neu benutzten Token zusaetzlich zum repeat_penalty
+    # noch einmal jedes bereits verwendete - bei diesem Modell offenbar
+    # stark genug, um frueh einen Stop-Token statt der naechsten Szene zu
+    # waehlen. Auf 0.4 gesenkt (deutlich milder), repeat_penalty/
+    # repeat_last_n bleiben als primaerer Schutz gegen Wiederholungsschleifen
+    # erhalten.
     "autor": {
-        "modell": "hermes3:8b",
+        "modell": "mistral-small3.2:latest",
         "think": False,
         "optionen": {
-            "temperature": 0.70,
-            "top_p": 1.0,
-            "min_p": 0.05,
-            "top_k": 0,
+            "temperature": 0.7,
+            "top_p": 0.8,
+            "top_k": 20,
+            "min_p": 0.0,
             "repeat_penalty": 1.1,
             "repeat_last_n": 256,
-            "num_ctx": 8192,
-            "num_predict": 4096,
+            "presence_penalty": 0.4,
+            "num_ctx": 16384,
+            "num_predict": 6144,
         },
     },
     "chronist": {
@@ -115,67 +136,6 @@ ROLLEN: dict[str, dict] = {
             "num_ctx": 16384,
             "num_predict": 6144,
             "seed": 42,
-        },
-    },
-    # Gleichberechtigte Autor-Alternative zu "autor" (Hermes3), waehlbar
-    # ueber "Autor-Modell: Qwen3" im Geruest - siehe
-    # app/core/geruest.py:autor_rolle_erkennen. Kein Test-/Vergleichsmodus,
-    # sondern ein vollwertiger zweiter Schreiber.
-    "autor_qwen": {
-        "modell": "qwen3:14b",
-        "think": False,
-        "optionen": {
-            "temperature": 0.7,
-            "top_p": 0.8,
-            "top_k": 20,
-            "min_p": 0.0,
-            # repeat_penalty stand vorher auf 1.0 (= wirkungslos) und
-            # repeat_last_n fehlte ganz - presence_penalty allein bestraft
-            # nur EINMAL benutzte Token unabhaengig von der Distanz, verhindert
-            # aber keine exakt wiederholte TOKENFOLGE (siehe Vorfall
-            # "Der-Preis-der-Wuerde-Ein-Geheimnis-in-Mayfair" Kapitel 9: ein
-            # 6-Absatz-Block wurde 6x hintereinander wortgleich wiederholt,
-            # bevorzugt in formelhaften expliziten Szenen). Werte jetzt wie
-            # bei der "autor"-Rolle (Hermes3), die dasselbe Problem nicht
-            # zeigt - siehe auch heuristik.py:interne_wiederholung_abschneiden
-            # als zusaetzliches Sicherheitsnetz, falls es trotzdem passiert.
-            "repeat_penalty": 1.1,
-            "repeat_last_n": 256,
-            "presence_penalty": 1.5,
-            "num_ctx": 16384,
-            "num_predict": 6144,
-        },
-    },
-    # Dritte gleichberechtigte Autor-Alternative, waehlbar ueber
-    # "Autor-Modell: Mistral" im Geruest - siehe
-    # app/core/geruest.py:autor_rolle_erkennen.
-    #
-    # presence_penalty stand beim ersten Live-Lauf ("Das-Echo-der-
-    # Verpflichtung-Ein-Geheimnis-in-Winterbottom-Hall") noch bei 1.5 (1:1
-    # von "autor_qwen" uebernommen, siehe dortiger Kommentar zum Vorfall
-    # "Der-Preis-der-Wuerde-Ein-Geheimnis-in-Mayfair") - mistral-small3.2
-    # brach damit ab Kapitel 2 systematisch weit vor der Zielwortzahl UND
-    # mitten im Satz ab (alle Kapitel nur 29-36% des Ziels statt der bei
-    # Hermes3/Qwen3 ueblichen ~100%). Ein so aggressiver presence_penalty
-    # bestraft bei jedem neu benutzten Token zusaetzlich zum repeat_penalty
-    # noch einmal jedes bereits verwendete - bei diesem Modell offenbar
-    # stark genug, um frueh einen Stop-Token statt der naechsten Szene zu
-    # waehlen. Auf 0.4 gesenkt (deutlich milder), repeat_penalty/
-    # repeat_last_n bleiben als primaerer Schutz gegen Wiederholungsschleifen
-    # erhalten. Bei Bedarf nach weiteren Live-Laeufen nachjustieren.
-    "autor_mistral": {
-        "modell": "mistral-small3.2:latest",
-        "think": False,
-        "optionen": {
-            "temperature": 0.7,
-            "top_p": 0.8,
-            "top_k": 20,
-            "min_p": 0.0,
-            "repeat_penalty": 1.1,
-            "repeat_last_n": 256,
-            "presence_penalty": 0.4,
-            "num_ctx": 16384,
-            "num_predict": 6144,
         },
     },
     # Extrahiert Figuren aus dem "## Figuren"-Abschnitt eines fertigen

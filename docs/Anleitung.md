@@ -53,8 +53,7 @@ gemeinsam in einer einzigen, farblich nach Kategorie markierten Liste im Tab
 **Prüfen & Anwenden**.
 
 Jede Rolle läuft mit eigenem Modell und eigenen Parametern, abgestimmt auf
-ihre jeweilige Aufgabe. Für den Autor stehen drei gleichwertige Modelle zur
-Wahl (Hermes3, Qwen3, Mistral, siehe Abschnitt 2). Welches KI-**Ziel**
+ihre jeweilige Aufgabe. Der Autor schreibt immer mit Mistral. Welches KI-**Ziel**
 (lokal oder per SSH-Tunnel/Netzwerk auf einem anderen Rechner
 angesprochen wird, stellst du über die Auswahl oben im Kopfbereich ein —
 sie gilt für alle Pipeline-Schritte gleichzeitig und bleibt beim Tab-Wechsel
@@ -86,8 +85,6 @@ Im erzeugten Gerüst legst du unter anderem fest:
 
 - **Jugendschutz-Stufe** — *Voll*, *Angedeutet* oder *Jugendfrei*. Steuert,
   wie explizit der Autor schreiben darf.
-- **Autor-Modell** — welches der drei gleichberechtigten Schreib-Modelle
-  (Hermes3, Qwen3 oder Mistral) die Geschichte tatsächlich schreibt.
 - **Automatische Fortsetzung** — standardmäßig **aus**. Ein zu kurzes
   Kapitel automatisch weiterschreiben zu lassen war wiederholt Ursache für
   doppelte Kapitelüberschriften oder sinnfreien Füll-Text; bei

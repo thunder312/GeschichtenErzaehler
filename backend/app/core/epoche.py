@@ -26,7 +26,7 @@ Fettdruck-Überschrift ordentlich aussehen):
 3. **Nebenfiguren:** Wie viele und welche Funktion?"
 
 RICHTIG (nur die eine, aktuell fällige Frage, sonst nichts):
-"Frage 2 von 15: In welchem Ort und in welcher Jahreszeit soll die Geschichte
+"Frage 2 von 14: In welchem Ort und in welcher Jahreszeit soll die Geschichte
 spielen?
 a) ...
 b) ...
@@ -39,7 +39,7 @@ freie Selbstformulieren erlaubt.
 Deine ERSTE Antwort in einem neuen Gespräch muss EXAKT so aussehen, kein Wort mehr,
 kein Wort weniger:
 
-"Frage 1 von 15: Wie lang soll die Geschichte ungefähr sein?
+"Frage 1 von 14: Wie lang soll die Geschichte ungefähr sein?
 a) Kurz (~2.500 Wörter gesamt, 2 Kapitel à ca. 1.250 Wörter)
 b) Mittel (~5.000 Wörter gesamt, 4 Kapitel à ca. 1.250 Wörter)
 c) Erzählung (~9.500 Wörter gesamt, 6 Kapitel à ca. 1.580 Wörter)
@@ -165,12 +165,7 @@ Du schreibst KEINE Prosa. Nicht einen Satz. Deine einzige Aufgabe ist das Gerues
       Handlungen)
    c) Jugendfrei (keinerlei erotische Inhalte)
    d) Eigene Angabe
-3. Autor-Modell: Welches installierte Modell soll die Geschichte schreiben?
-   a) Hermes3 (empfohlen, insbesondere für explizite Inhalte)
-   b) Qwen3 (gleichwertige Alternative, ggf. andere Stärken/Schwächen)
-   c) Mistral (weitere Alternative, ggf. andere Stärken/Schwächen)
-   d) Eigene Angabe
-4. Automatische Fortsetzung bei zu kurzen Kapiteln?
+3. Automatische Fortsetzung bei zu kurzen Kapiteln?
    a) Aus (empfohlen) - ein zu kurzes Kapitel bleibt so, wie es geschrieben
       wurde; von Hand nachbessern oder neu schreiben lassen
    b) Ein - das Modell versucht automatisch weiterzuschreiben, bis die
@@ -178,32 +173,32 @@ Du schreibst KEINE Prosa. Nicht einen Satz. Deine einzige Aufgabe ist das Gerues
       widersprüchlichen Texten, weil das Modell "auf Krampf" versucht, die
       Wortzahl zu erreichen, statt die Szene organisch zu Ende zu erzählen
    c) Eigene Angabe
-5. Ort und Region: {a.orte}. Fiktiv oder an reale Orte angelehnt?
-6. Zeitangabe: {a.zeitraum}. Wichtig, weil daran später die Prüfung hängt.
-7. Bekannte Figuren aus dem Fundus wiederverwenden? Dir liegt ggf. weiter
+4. Ort und Region: {a.orte}. Fiktiv oder an reale Orte angelehnt?
+5. Zeitangabe: {a.zeitraum}. Wichtig, weil daran später die Prüfung hängt.
+6. Bekannte Figuren aus dem Fundus wiederverwenden? Dir liegt ggf. weiter
    unten ein Abschnitt "FUNDUS DIESER EPOCHE" mit bereits verwendeten
    Figuren aus früheren Geschichten vor.
    a) Nein, alle Figuren neu erfinden
    b) Ja, ich nenne dir konkrete Namen, die du übernehmen sollst
    c) Zeig mir passende Vorschläge aus dem Fundus
-8. Pflichtfiguren: Name, {a.rang_wort}, Rolle, kurze Eigenschaft. Stehen durch
-   Frage 7 bereits Haupt- oder Nebenfiguren fest, gilt diese Frage nur noch
+7. Pflichtfiguren: Name, {a.rang_wort}, Rolle, kurze Eigenschaft. Stehen durch
+   Frage 6 bereits Haupt- oder Nebenfiguren fest, gilt diese Frage nur noch
    für zusätzliche, neu zu erfindende Figuren.
-9. Fehlende Nebenfiguren frei erfinden, oder Wünsche zu Typus und Anzahl?
-10. Kernkonflikt: Was will die Hauptfigur, was steht dagegen?
-11. Die eine unerhörte Begebenheit: Welches einzelne ungewöhnliche Ereignis
+8. Fehlende Nebenfiguren frei erfinden, oder Wünsche zu Typus und Anzahl?
+9. Kernkonflikt: Was will die Hauptfigur, was steht dagegen?
+10. Die eine unerhörte Begebenheit: Welches einzelne ungewöhnliche Ereignis
     trägt die ganze Erzählung? Alle Kapitel müssen darauf zulaufen oder
     daraus folgen.
-12. Nebenstrang gewünscht? Falls ja: {a.nebenstrang_typen}.
-13. Ablaufsteuerung je Kapitel (optional, darf übersprungen werden): Möchtest
+11. Nebenstrang gewünscht? Falls ja: {a.nebenstrang_typen}.
+12. Ablaufsteuerung je Kapitel (optional, darf übersprungen werden): Möchtest
     du für einzelne oder alle Kapitel schon jetzt vorgeben, was passieren
     soll, oder lässt du dich lieber überraschen?
     a) Überraschen lassen (empfohlen)
     b) Ja, ich gebe jetzt Stichpunkte pro Kapitel vor (z.B. "Kapitel 2:
        Streit beim Fest, Kapitel 4: erste Liebesnacht")
     c) Eigene Angabe
-14. Ton-Feinjustierung: mehr Drama oder mehr Leichtigkeit? Sonstige Tonwünsche?
-15. Titel-Idee vorhanden? Falls nein: schlage DREI unterschiedliche, zum
+13. Ton-Feinjustierung: mehr Drama oder mehr Leichtigkeit? Sonstige Tonwünsche?
+14. Titel-Idee vorhanden? Falls nein: schlage DREI unterschiedliche, zum
     bisherigen Plot passende Titel im gewohnten Mehrfachauswahl-Format vor
     (echte, ausformulierte Titel - keine Platzhaltertexte):
     a) ...
@@ -211,7 +206,7 @@ Du schreibst KEINE Prosa. Nicht einen Satz. Deine einzige Aufgabe ist das Gerues
     c) ...
     d) Eigener Titel
 
-Nach Frage 15: Fasse in höchstens zehn Zeilen zusammen, was du verstanden hast,
+Nach Frage 14: Fasse in höchstens zehn Zeilen zusammen, was du verstanden hast,
 und frage einmal nach, ob das passt.
 
 ## Ausgabe
@@ -221,8 +216,7 @@ Erst nach dieser Bestätigung gibst du EIN Dokument aus, in genau dieser Struktu
 
 ## Rahmen
 Zeitangabe, Ort, Jahreszeit, Erzählperspektive, Tempus, Tonlage,
-Jugendschutz-Stufe (Voll/Angedeutet/Jugendfrei), Autor-Modell (Hermes3/Qwen3/Mistral),
-Automatische Fortsetzung (Ein/Aus)
+Jugendschutz-Stufe (Voll/Angedeutet/Jugendfrei), Automatische Fortsetzung (Ein/Aus)
 
 ## Titel
 Ein Titel, der auf den Plot hindeutet und Spannung erzeugt.
@@ -245,7 +239,7 @@ niemals durch Zufall oder Geständnis aus dem Nichts.
 ## Kapitelplan
 Je Kapitel: Nummer, Titel im Format "Kapitel eins: Sprechender Untertitel",
 Ort, anwesende Figuren, Ereignis, Zielwortzahl, Funktion im Spannungsbogen,
-Stand der Liebeshandlung, Zustand am Kapitelende. Hat der Nutzer bei Frage 13
+Stand der Liebeshandlung, Zustand am Kapitelende. Hat der Nutzer bei Frage 12
 eine konkrete Vorgabe für dieses Kapitel gemacht, fliesst sie wörtlich in
 das Ereignis-Feld ein.
 
@@ -275,16 +269,13 @@ Die Jugendschutz-Stufe MUSS als eigene Angabe im Rahmen stehen, wörtlich
 "Jugendschutz-Stufe: Voll" oder "Jugendschutz-Stufe: Angedeutet" oder
 "Jugendschutz-Stufe: Jugendfrei", sonst kann das Skript sie nicht auslesen
 und der Autor bekommt automatisch die volle Stufe zugewiesen.
-Das Autor-Modell MUSS als eigene Angabe im Rahmen stehen, wörtlich
-"Autor-Modell: Hermes3", "Autor-Modell: Qwen3" oder "Autor-Modell: Mistral",
-sonst wird automatisch Hermes3 verwendet.
 Die Einstellung zur Automatischen Fortsetzung MUSS als eigene Angabe im
 Rahmen stehen, wörtlich "Automatische Fortsetzung: Ein" oder
 "Automatische Fortsetzung: Aus", sonst wird automatisch AUS verwendet (der
 sicherere Standard).
 Kein zweiter, eigenständiger Handlungsstrang. Ein Nebenstrang ist erlaubt, muss
 aber mit dem Kernkonflikt verflochten sein und darf nicht parallel danebenherlaufen.
-Hat der Nutzer bei Frage 13 konkrete Vorgaben zu einzelnen Kapiteln gemacht, haben
+Hat der Nutzer bei Frage 12 konkrete Vorgaben zu einzelnen Kapiteln gemacht, haben
 diese Vorrang vor eigenen Ideen für das Ereignis des jeweiligen Kapitels. Für
 nicht vorgegebene Kapitel entwickelst du die Handlung frei weiter. Hat der Nutzer
 sich für Überraschung entschieden oder die Frage übersprungen, planst du den
@@ -292,7 +283,7 @@ gesamten Kapitelplan wie gewohnt eigenständig.
 Die Liebeshandlung braucht Zwischenschritte und wird über die Kapitel verteilt
 geplant: Begegnung, Annäherung, Widerstand, ehrliches Geständnis, körperliche
 Erfüllung. Kein Sprung von Fremdheit zu Intimität.
-Ist eine Figur laut Frage 7 aus dem Fundus übernommen, behältst du deren dort
+Ist eine Figur laut Frage 6 aus dem Fundus übernommen, behältst du deren dort
 bereits festgelegte Merkmale (Alter, {a.rang_wort}, Eigenschaften und - sofern
 sie Hauptfigur ist - Ziel, größte Angst, Geheimnis, Entwicklungsbogen)
 unverändert bei, statt sie neu zu erfinden. Nur wirklich fehlende Angaben
@@ -550,14 +541,14 @@ Ihre eigenen Interviewfragen und ihr eigenes Ausgabeformat gelten NICHT -
 für das gesamte Interview und das Geruest gilt ausschließlich das oben für
 "{primaer_name}" beschriebene Format.
 
-Zusätzliche Interviewfragen (direkt nach der bisherigen Frage 15, vor der
+Zusätzliche Interviewfragen (direkt nach der bisherigen Frage 14, vor der
 abschließenden Zusammenfassung, fortlaufend nummeriert):
-16. Auslöser des Zeitsprungs: Was oder wer löst den Wechsel zwischen
+15. Auslöser des Zeitsprungs: Was oder wer löst den Wechsel zwischen
     "{primaer_name}" und "{sekundaer_name}" aus? Einmaliger Sprung oder
     mehrfaches Hin und Her?
-17. Welche Figur(en) springen zwischen den Epochen, welche bleiben jeweils
+16. Welche Figur(en) springen zwischen den Epochen, welche bleiben jeweils
     in ihrer eigenen Zeit zurück?
-18. In welcher Epoche beginnt die Geschichte, nach welchem Kapitel erfolgt
+17. In welcher Epoche beginnt die Geschichte, nach welchem Kapitel erfolgt
     der erste Sprung, gibt es weitere Sprünge?
 
 Zusätzliche Pflichtangabe im Kapitelplan: JEDER Kapitel-Eintrag bekommt neben

@@ -380,8 +380,6 @@ export function SshZielePage({ sshZiele, onGeaendert }: SshZielePageProps) {
 const PERSONA_LABELS: Record<string, string> = {
   architekt: "Architekt",
   autor: "Autor",
-  autor_qwen: "Autor (Qwen3-Variante)",
-  autor_mistral: "Autor (Mistral-Variante)",
   chronist: "Chronist",
   anachronismus: "Prüfer: Anachronismus",
   kontinuitaet: "Prüfer: Kontinuität",
@@ -454,8 +452,7 @@ function PersonaModellZuordnung({ sshZiele }: PersonaModellZuordnungProps) {
       <CardTitle>🧭 Persona-Modell-Zuordnung</CardTitle>
       <p className="mb-3 text-xs text-text-muted">
         Legt fest, welches Ollama-Modell hinter jeder Persona steckt - global für alle Benutzer und Projekte.
-        Überschreibt nur das Modell, alle sonstigen Parameter bleiben wie im Code hinterlegt. Unabhängig vom
-        projektspezifischen "Autor-Modell: Qwen3"-Vermerk im Gerüst.
+        Überschreibt nur das Modell, alle sonstigen Parameter bleiben wie im Code hinterlegt.
       </p>
 
       <div className="mb-3 max-w-sm">

@@ -189,51 +189,25 @@ def jugendschutz_stufe_erkennen(geruest: str) -> str:
 
 
 def autor_rolle_erkennen(geruest: str) -> str:
-    """Liefert den ROLLEN-Schluessel des Autor-Modells. Fehlt die Angabe,
-    gilt automatisch 'autor' (Hermes3) - unveraendertes Verhalten fuer
-    Bestandsprojekte. Das Label wird bewusst mit (?:...)+  VOR der Erfassung
-    beliebig oft konsumiert, nicht nur einmal - der Architekt hat es bei
-    einem Live-Projekt ("Das-Echo-der-Verpflichtung-Ein-Geheimnis-in-
-    Winterbottom-Hall") verdoppelt ins Geruest geschrieben
-    ("Autor-Modell: Autor-Modell: Mistral"). Ohne das (?:...)+ wuerde die
-    einfache Version des Musters dann "Autor-Modell" selbst als Wert
-    einfangen statt "Mistral" und der Autor faelschlich auf Hermes3
-    zurueckfallen."""
-    treffer = re.search(r"(?:Autor-Modell\s*[:\-]?\s*)+([A-Za-z0-9 ]+)", geruest, re.IGNORECASE)
-    if not treffer:
-        return "autor"
-    wert = treffer.group(1).lower()
-    if "mistral" in wert:
-        return "autor_mistral"
-    if "qwen" in wert:
-        return "autor_qwen"
+    """Liefert den ROLLEN-Schluessel des Schreibers. Es gibt seit 2026-08-13
+    nur noch EINEN Schreiber (Mistral, Rolle "autor" in app/core/rollen.py -
+    Hermes3/Qwen3 wurden entfernt), deshalb liefert diese Funktion immer
+    "autor", unabhaengig vom (evtl. noch aus aelteren Projekten stammenden)
+    Freitext-Wert im Gerüst. Signatur bewusst beibehalten (nimmt weiterhin
+    den Geruest-Text entgegen, auch wenn er nicht mehr ausgewertet wird),
+    damit alle bestehenden Aufrufer (z.B. app/api/pipeline.py,
+    app/api/projects.py) unveraendert bleiben koennen."""
     return "autor"
-
-
-def autor_modell_erzwingen(geruest: str, modell: str = "Mistral") -> str:
-    """Ersetzt/ergaenzt das Autor-Modell-Feld im Rahmen-Block, unabhaengig
-    vom bisherigen Wert - gedacht fuers Duplizieren eines Projekts zum
-    automatischen Neu-Schreiben (siehe app/api/projects.py:neu_schreiben),
-    wo der Schreiber immer fest auf 'Mistral' stehen soll. Ersetzt
-    bestehende (auch verdoppelte, siehe autor_rolle_erkennen) Angaben durch
-    genau eine Zeile; fehlt das Feld komplett, wird es direkt nach der
-    '## Rahmen'-Ueberschrift eingefuegt."""
-    muster = re.compile(r"(?:Autor-Modell\s*[:\-]?\s*)+[A-Za-z0-9 ]+", re.IGNORECASE)
-    ersatz = f"Autor-Modell: {modell}"
-    if muster.search(geruest):
-        return muster.sub(ersatz, geruest, count=1)
-    rahmen = re.search(r"##\s*Rahmen\s*\n", geruest, re.IGNORECASE)
-    if rahmen:
-        einfuegestelle = rahmen.end()
-        return geruest[:einfuegestelle] + ersatz + "\n" + geruest[einfuegestelle:]
-    return ersatz + "\n" + geruest
 
 
 def automatische_fortsetzung_aktiviert(geruest: str) -> bool:
     """Default AUS, auch wenn das Feld fehlt - bewusst der sicherere
-    Standard (siehe Bedienungsanleitung Abschnitt 9b). Siehe
-    autor_rolle_erkennen() zur Begruendung des (?:...)+ gegen ein vom
-    Architekten verdoppeltes Label."""
+    Standard (siehe Bedienungsanleitung Abschnitt 9b). Das Label wird
+    bewusst mit (?:...)+ VOR der Erfassung beliebig oft konsumiert, nicht
+    nur einmal, falls der Architekt es (wie schon bei anderen Feldern live
+    beobachtet) verdoppelt ins Geruest schreibt - ohne das (?:...)+ wuerde
+    die einfache Version des Musters dann das Label selbst als Wert
+    einfangen statt "Ein"/"Aus"."""
     treffer = re.search(r"(?:Automatische Fortsetzung\s*[:\-]?\s*)+([A-Za-zÄÖÜäöüß]+)",
                          geruest, re.IGNORECASE)
     if not treffer:

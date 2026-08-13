@@ -147,19 +147,16 @@ def test_jugendschutz_stufe_erkennen():
     assert g.jugendschutz_stufe_erkennen("keine Angabe") == "voll"
 
 
-def test_autor_rolle_erkennen():
-    assert g.autor_rolle_erkennen(BEISPIEL_GERUEST) == "autor_qwen"
+def test_autor_rolle_erkennen_liefert_immer_autor():
+    # Seit 2026-08-13 nur noch EIN Schreiber (Mistral, Rolle "autor") -
+    # Hermes3/Qwen3 entfernt. autor_rolle_erkennen() wertet den Geruest-Text
+    # nicht mehr aus, egal was dort (auch aus aelteren Projekten) steht.
+    assert g.autor_rolle_erkennen(BEISPIEL_GERUEST) == "autor"
     assert g.autor_rolle_erkennen("Autor-Modell: Hermes3") == "autor"
-    assert g.autor_rolle_erkennen("Autor-Modell: Mistral") == "autor_mistral"
+    assert g.autor_rolle_erkennen("Autor-Modell: Qwen3") == "autor"
+    assert g.autor_rolle_erkennen("Autor-Modell: Mistral") == "autor"
     assert g.autor_rolle_erkennen("keine Angabe") == "autor"
-
-
-def test_autor_rolle_erkennen_bei_vom_architekten_verdoppeltem_label():
-    # Vorfall "Das-Echo-der-Verpflichtung-Ein-Geheimnis-in-Winterbottom-Hall":
-    # der Architekt hat das Label im Geruest verdoppelt ins Dokument
-    # geschrieben. Ohne das (?:...)+ im Muster wuerde "Autor-Modell" selbst
-    # als Wert eingefangen und der Autor faelschlich auf Hermes3 zurueckfallen.
-    assert g.autor_rolle_erkennen("Autor-Modell: Autor-Modell: Mistral") == "autor_mistral"
+    assert g.autor_rolle_erkennen("") == "autor"
 
 
 def test_automatische_fortsetzung_default_aus():

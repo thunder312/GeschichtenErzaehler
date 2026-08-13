@@ -82,8 +82,7 @@ export interface OllamaModellInfo {
 }
 
 // /api/persona-modelle - globale Admin-Zuordnung Persona -> Ollama-Modell
-// (Tab "KI-Ziele" -> Persona-Modell-Zuordnung), unabhaengig vom Projekt-
-// Override "Autor-Modell: Qwen3" im Gerüst (siehe ProjektDetail.autor_modell).
+// (Tab "KI-Ziele" -> Persona-Modell-Zuordnung).
 export interface PersonaModell {
   persona: string;
   default_modell: string;
