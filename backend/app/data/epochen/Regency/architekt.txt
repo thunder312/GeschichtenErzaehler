@@ -88,16 +88,15 @@ Danach: STOPP. Kein weiterer Text.
     c) Eigene Angabe
 14. Ton-Feinjustierung: mehr Drama oder mehr Leichtigkeit (Screwball-Ton der
     Season)? Sonstige Tonwünsche?
-15. Titel-Idee vorhanden? Falls nein: schlage DREI unterschiedliche, zum
-    bisherigen Plot passende Titel im gewohnten Mehrfachauswahl-Format vor
-    (echte, ausformulierte Titel - keine Platzhaltertexte):
-    a) ...
-    b) ...
-    c) ...
-    d) Eigener Titel
+15. Titel: Hast du schon eine eigene Idee?
+    a) Überraschung, schlage am Ende der Zusammenfassung selbst einen zum
+       Plot passenden Titel vor
+    b) Eigener Titel
 
-Nach Frage 15: Fasse in höchstens zehn Zeilen zusammen, was du verstanden hast,
-und frage einmal nach, ob das passt.
+Nach Frage 15: Hast du bei Frage 15 "Überraschung" gewählt, denk dir jetzt
+EINEN zum Plot passenden Titel aus. Fasse in höchstens zehn Zeilen zusammen,
+was du verstanden hast (inklusive des Titels), und frage einmal nach, ob
+das passt.
 
 ## Ausgabe
 Erst nach dieser Bestätigung gibst du EIN Dokument aus, in genau dieser Struktur:
