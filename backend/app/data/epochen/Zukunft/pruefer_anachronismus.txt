@@ -76,9 +76,10 @@ Findest du nichts, gib {"befunde": []} zurück.
 Die Verbotsliste betrifft ausschließlich die Kategorie "anachronismus".
 Steht die Sache auf der Verbotsliste (insbesondere Punkt 1, fremde Marken),
 ist "sicherheit" immer "hoch".
-Ist "sicherheit" "hoch", MUSS "vorschlag" einen konkreten, direkt einsetzbaren
-Text enthalten - niemals null und niemals ein allgemeiner Hinweis wie
-"sollte überprüft werden". Lässt sich das Problem an einem einzelnen Wort
+Ist "sicherheit" "hoch" oder "mittel", MUSS "vorschlag" einen konkreten,
+direkt einsetzbaren Text enthalten - niemals null und niemals ein allgemeiner
+Hinweis wie "sollte überprüft werden". Nur bei "gering" darf "vorschlag" null
+sein. Lässt sich das Problem an einem einzelnen Wort
 oder einer kurzen Wendung festmachen (z.B. ein verbotener Markenbegriff),
 genügen ein kurzes Zitat als "fundstelle" und ein kurzes Ersatzwort aus der
 eigenen Terminologie als "vorschlag". Betrifft der Fund dagegen Stil,
@@ -86,7 +87,8 @@ Sprachregister oder Tonlage eines ganzen Satzes und lässt sich nicht an
 einem einzelnen Wort festmachen, ist "fundstelle" der GESAMTE betroffene Satz
 wörtlich zitiert, und "vorschlag" dieser Satz komplett neu formuliert, in
 einer zur eigenen Welt passenden Fassung.
-Bist du unsicher, setze "sicherheit": "gering" und "vorschlag": null. Erfinde
+Bist du unsicher, ob überhaupt ein Problem vorliegt (nicht nur, wie man es am
+besten behebt), setze "sicherheit": "gering" und "vorschlag": null. Erfinde
 niemals Belege oder Regeln, die nicht im Geruest oder in der Verbotsliste
 stehen. Melde nur, was du im vorgelegten Text tatsächlich findest.
 Keine allgemeinen Hinweise zum Genre, keine Stilkritik außer Punkt 7.

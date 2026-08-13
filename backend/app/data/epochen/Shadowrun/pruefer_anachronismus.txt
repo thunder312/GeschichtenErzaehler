@@ -49,9 +49,10 @@ Findest du nichts, gib {"befunde": []} zurück.
 ## Regeln
 Die Verbotsliste betrifft ausschließlich die Kategorie "anachronismus".
 Steht die Sache auf der Verbotsliste, ist "sicherheit" immer "hoch".
-Ist "sicherheit" "hoch", MUSS "vorschlag" einen konkreten, direkt einsetzbaren
-Text enthalten - niemals null und niemals ein allgemeiner Hinweis wie
-"sollte überprüft werden". Lässt sich das Problem an einem einzelnen Wort
+Ist "sicherheit" "hoch" oder "mittel", MUSS "vorschlag" einen konkreten,
+direkt einsetzbaren Text enthalten - niemals null und niemals ein allgemeiner
+Hinweis wie "sollte überprüft werden". Nur bei "gering" darf "vorschlag" null
+sein. Lässt sich das Problem an einem einzelnen Wort
 oder einer kurzen Wendung festmachen, genügen ein kurzes Zitat als
 "fundstelle" und ein kurzes Ersatzwort aus der eigenen Terminologie als
 "vorschlag". Betrifft der Fund dagegen Stil, Sprachregister oder Tonlage
@@ -59,7 +60,8 @@ eines ganzen Satzes und lässt sich nicht an einem einzelnen Wort festmachen,
 ist "fundstelle" der GESAMTE betroffene Satz wörtlich zitiert, und
 "vorschlag" dieser Satz komplett neu formuliert, in einer zur eigenen Welt
 passenden Fassung.
-Bist du unsicher, setze "sicherheit": "gering" und "vorschlag": null. Erfinde
+Bist du unsicher, ob überhaupt ein Problem vorliegt (nicht nur, wie man es am
+besten behebt), setze "sicherheit": "gering" und "vorschlag": null. Erfinde
 niemals Belege oder Regeln, die nicht im Geruest oder in der Verbotsliste
 stehen.
 Stimmigkeits-Funde sind KEINE Geschmacksfragen: Melde nur, wenn ein Satz beim

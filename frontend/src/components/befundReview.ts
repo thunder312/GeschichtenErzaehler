@@ -7,11 +7,6 @@ type TextModel = MonacoEditorNS.ITextModel;
 
 interface TrackedBefund {
   decorationId: string;
-  /** Nur gesetzt, wenn dieser Fund ein Ein-Klick-Apply anbietet (Vorschlag
-   * vorhanden, kein Konflikt) - Ankerpunkt + Widget direkt hinter der
-   * Fundstelle. */
-  ankerDecorationId: string | null;
-  widget: MonacoEditorNS.IContentWidget | null;
 }
 
 function cssKlasse(befund: Befund): string {
@@ -21,44 +16,26 @@ function cssKlasse(befund: Befund): string {
   return `finding-${kategorie}`;
 }
 
-function kannUebernommenWerden(befund: Befund): boolean {
-  return befund.gefunden && !befund.konflikt && !!befund.vorschlag;
-}
-
-function erstelleWidgetKnoten(onUebernehmen: () => void): HTMLElement {
-  const knoten = document.createElement("div");
-  knoten.className =
-    "flex items-center rounded-md border border-border bg-surface px-1 py-0.5 shadow-lg shadow-black/40";
-  const button = document.createElement("button");
-  button.type = "button";
-  button.title = "Vorschlag übernehmen";
-  button.textContent = "✓";
-  button.className = "rounded px-1.5 text-xs font-bold leading-5 text-accent-light hover:bg-accent-soft";
-  button.onclick = (e) => {
-    e.preventDefault();
-    onUebernehmen();
-  };
-  knoten.appendChild(button);
-  return knoten;
-}
-
 export interface BefundReviewCallbacks {
   /** Die Fundstelle wurde durch eine ueberlappende manuelle Bearbeitung
    * entfernt (Decoration-Range kollabiert) - Fund bleibt in der Liste,
    * bekommt aber ein "nicht mehr vorhanden"-Badge statt der Apply-Option. */
   onVerwaist: (befundId: string) => void;
-  /** Der Vorschlag wurde uebernommen (per Widget oder Listen-Button). */
+  /** Der Vorschlag wurde uebernommen (per Listen-Button). */
   onUebernommen: (befundId: string) => void;
 }
 
-/** Verwaltet Inline-Decorations + schwebende Uebernehmen-Widgets fuer die
- * Funde im BefundEditor (Decorations "leben" auf demselben Model und
+/** Verwaltet Inline-Decorations (Hervorhebung + Hover-Tooltip) fuer die Funde
+ * im BefundEditor - das eigentliche Uebernehmen laeuft ausschliesslich ueber
+ * den Listen-Button in BefundListe.tsx (frueher gab es zusaetzlich ein
+ * schwebendes Widget direkt im Text, das wurde entfernt: es verdeckte
+ * gelegentlich Text ungünstig und war ein zweiter, unnoetiger Weg zu
+ * demselben uebernehmen()). Decorations "leben" auf demselben Model und
  * verschieben sich bei Edits an anderer Stelle automatisch mit; Live-
  * Position wird nie aus einer gespeicherten Zeilennummer, sondern immer per
  * model.getDecorationRange() gelesen - urspruenglich vom inzwischen
  * entfernten hunkReview.ts/MergeEditor.tsx uebernommenes Muster, hier aber
- * fuer zeichengenaue Spannen statt ganzer Zeilen-Hunks: der Anker sitzt
- * direkt hinter der Fundstelle, nicht am Zeilenende). */
+ * fuer zeichengenaue Spannen statt ganzer Zeilen-Hunks. */
 export function installBefundReview(
   editor: TextEditor,
   monaco: Monaco,
@@ -79,9 +56,7 @@ export function installBefundReview(
   function entferneTracked(id: string) {
     const t = verfolgt.get(id);
     if (!t || !model) return;
-    if (t.widget) editor.removeContentWidget(t.widget);
-    const ids = [t.decorationId, ...(t.ankerDecorationId ? [t.ankerDecorationId] : [])];
-    model.deltaDecorations(ids, []);
+    model.deltaDecorations([t.decorationId], []);
     verfolgt.delete(id);
   }
 
@@ -157,34 +132,7 @@ export function installBefundReview(
         },
       }]);
 
-      if (!kannUebernommenWerden(befund)) {
-        verfolgt.set(befund.id, { decorationId, ankerDecorationId: null, widget: null });
-        continue;
-      }
-
-      const [ankerDecorationId] = model.deltaDecorations([], [{
-        range: new monaco.Range(endPos.lineNumber, endPos.column, endPos.lineNumber, endPos.column),
-        options: {},
-      }]);
-
-      const domKnoten = erstelleWidgetKnoten(() => uebernehmen(befund.id));
-      const widget: MonacoEditorNS.IContentWidget = {
-        getId: () => `befund-widget-${decorationId}`,
-        getDomNode: () => domKnoten,
-        getPosition: () => {
-          const liveRange = model.getDecorationRange(ankerDecorationId);
-          return {
-            position: {
-              lineNumber: liveRange ? liveRange.startLineNumber : endPos.lineNumber,
-              column: liveRange ? liveRange.startColumn : endPos.column,
-            },
-            preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
-          };
-        },
-      };
-
-      editor.addContentWidget(widget);
-      verfolgt.set(befund.id, { decorationId, ankerDecorationId, widget });
+      verfolgt.set(befund.id, { decorationId });
     }
   }
 

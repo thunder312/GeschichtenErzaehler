@@ -524,8 +524,9 @@ export function SchreibenPage({
             </div>
             {automatikStatus.stop_angefordert && (
               <p className="text-xs text-text-muted">
-                Stop angefordert - wird nach dem aktuellen Schritt beendet, nicht sofort mitten in einer laufenden
-                KI-Anfrage.
+                Stop angefordert - das laufende Kapitel wird noch fertig geschrieben, geprüft und gespeichert (nichts
+                geht dabei verloren), erst danach hält der Lauf vor dem nächsten Kapitel an. Das kann je nach Kapitel
+                noch einige Minuten dauern.
               </p>
             )}
             <Button variant="danger" onClick={automatikStoppen} disabled={automatikStatus.stop_angefordert}>

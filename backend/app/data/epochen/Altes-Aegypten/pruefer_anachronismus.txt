@@ -68,9 +68,11 @@ Findest du nichts, gib {"befunde": []} zurück.
 ## Regeln
 Die Verbotsliste betrifft ausschließlich die Kategorie "anachronismus".
 Steht die Sache auf der Verbotsliste, ist "sicherheit" immer "hoch".
-Ist "sicherheit" "hoch", MUSS "vorschlag" einen konkreten Text enthalten,
-niemals null. Bist du unsicher, setze "sicherheit": "gering" und
-"vorschlag": null. Erfinde niemals Belege, Quellen oder Jahreszahlen.
+Ist "sicherheit" "hoch" oder "mittel", MUSS "vorschlag" einen konkreten Text
+enthalten, niemals null - nur bei "gering" darf "vorschlag" null sein. Bist du
+unsicher, ob überhaupt ein Problem vorliegt (nicht nur, wie man es am besten
+behebt), setze "sicherheit": "gering" und "vorschlag": null. Erfinde niemals
+Belege, Quellen oder Jahreszahlen.
 Stimmigkeits-Funde sind keine Geschmacksfragen: nur melden, wenn ein Satz
 beim wörtlichen Lesen tatsächlich keinen Sinn ergibt.
 "vorschlag" ist IMMER fertiger Text, der 1:1 anstelle von "fundstelle" in den
