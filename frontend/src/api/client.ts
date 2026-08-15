@@ -127,6 +127,12 @@ export const api = {
   architektVorlage: (ordner: string) =>
     anfrage<{ vorlage: string }>(`/api/projects/${ordner}/architekt-vorlage`),
 
+  architektExtraktion: (ordner: string, handlungstext: string, sshZielId?: string | null) =>
+    anfrage<{ vorlage: string }>(
+      `/api/projects/${ordner}/architekt-extraktion${sshQuery(sshZielId)}`,
+      { method: "POST", body: JSON.stringify({ handlungstext }) },
+    ),
+
   verbotslisteSchreiben: (ordner: string, inhalt: string) =>
     anfrage<{ gesichert_als: string | null }>(
       `/api/projects/${ordner}/verbotsliste`,

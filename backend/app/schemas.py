@@ -292,6 +292,10 @@ class StoryFrageAntwort(BaseModel):
     antwort: str
 
 
+class HandlungstextAnfrage(BaseModel):
+    handlungstext: str = Field(min_length=1)
+
+
 class EinstellungenAntwort(BaseModel):
     projects_dir: str
     ist_standard: bool

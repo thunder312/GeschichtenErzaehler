@@ -58,23 +58,58 @@ def verlauf_zu_text(verlauf: list[str]) -> str:
     return "\n\n".join(verlauf)
 
 
+def _grundgeruest(persona_text: str) -> str:
+    """Extrahiert die reine STORY-GERUEST-Struktur (siehe _VORLAGE_MUSTER)
+    aus einer Architekt-Persona - gemeinsamer Baustein fuer vorlage_erzeugen()
+    und handlungstext_extraktion_system(), damit beide Wege (Vorlage von
+    Hand ausfuellen vs. per KI aus einem Handlungstext extrahieren) auf
+    exakt demselben Zielformat aufbauen. Faellt das Muster nicht (z.B. bei
+    einer nutzerdefinierten Persona ohne dieses Muster), bleibt nur die
+    nackte Überschrift übrig."""
+    treffer = _VORLAGE_MUSTER.search(persona_text)
+    return treffer.group(1).strip() if treffer else "# STORY-GERUEST"
+
+
 def vorlage_erzeugen(persona_text: str) -> str:
     """Baut aus einer Architekt-Persona ein ausfuellbares Vorlage-Dokument
     zum Offline-Vorbereiten (siehe app/api/architekt.py: architekt_vorlage())
-    - extrahiert die STORY-GERUEST-Struktur samt ihrer Platzhaltertexte
-    (z.B. "Jahr (vierstellig), Ort, ..."), die in jeder Epoche-Persona
-    ohnehin schon als Ausfuellhilfe formuliert ist, statt eine zweite,
-    separat zu pflegende Vorlage anzulegen. Faellt _VORLAGE_MUSTER nicht
-    (z.B. bei einer nutzerdefinierten Persona ohne dieses Muster), bleibt
-    nur die nackte Überschrift übrig - das Interview funktioniert dann
-    weiterhin normal per Fragenkatalog, nur ohne hilfreiche Platzhalter."""
-    treffer = _VORLAGE_MUSTER.search(persona_text)
-    grundgeruest = treffer.group(1).strip() if treffer else "# STORY-GERUEST"
+    - nutzt die von _grundgeruest() extrahierte STORY-GERUEST-Struktur samt
+    ihrer Platzhaltertexte (z.B. "Jahr (vierstellig), Ort, ..."), die in
+    jeder Epoche-Persona ohnehin schon als Ausfuellhilfe formuliert ist,
+    statt eine zweite, separat zu pflegende Vorlage anzulegen."""
     return (
         "<!-- Fülle so viel wie möglich aus, Lücken sind ok. Beim Import "
         "dieser Datei fragt der Architekt gezielt nur noch nach dem, was "
         "fehlt oder unklar ist - diese Kommentarzeile kann stehen bleiben. -->\n\n"
-        + grundgeruest + "\n"
+        + _grundgeruest(persona_text) + "\n"
+    )
+
+
+def handlungstext_extraktion_system(persona_text: str) -> str:
+    """System-Prompt fuer den einmaligen (nicht-dialogischen) Extraktions-
+    aufruf in app/api/architekt.py: architekt_extraktion() - Grundlage fuer
+    den dritten Weg, ein Story-Gerüst zu erzeugen (neben dem gefuehrten
+    Interview und der von Hand ausgefuellten Vorlage): ein fertiger
+    Handlungstext (z.B. Skript/Inhaltsangabe einer Sendung) wird automatisch
+    in dieselbe STORY-GERUEST-Struktur ueberfuehrt wie vorlage_erzeugen()
+    (siehe _grundgeruest) - das Ergebnis landet im Frontend in derselben,
+    editierbaren Vorlage-Textarea und durchlaeuft danach unveraendert den
+    bestehenden erste_eingabe_mit_vorlage()-Weg: Nutzer prueft/bestaetigt
+    den Entwurf, der Architekt fragt anschliessend nur noch gezielt nach
+    dem, was aus dem Text nicht eindeutig hervorgeht."""
+    return (
+        "Du analysierst einen vorgegebenen Handlungstext (z.B. das Skript "
+        "oder die Inhaltsangabe einer Sendung, eines Films oder einer "
+        "Geschichte) und überführst ihn in folgende STORY-GERUEST-Struktur:\n\n"
+        + _grundgeruest(persona_text) + "\n\n"
+        "Fülle JEDES Feld so weit aus, wie es sich aus dem Handlungstext "
+        "eindeutig ergibt. Erfinde NICHTS hinzu - geht ein Punkt aus dem "
+        "Text nicht eindeutig hervor (z.B. Jugendschutz-Stufe, Automatische "
+        "Fortsetzung, Zielwortzahl, Kapitelaufteilung, Titel), lass ihn als "
+        "Platzhalter in eckigen Klammern stehen, z.B. "
+        "'[aus Text nicht ersichtlich]'. Antworte NUR mit dem ausgefüllten "
+        "Dokument in GENAU dieser Struktur, ohne Einleitung oder Erklärung "
+        "davor oder danach."
     )
 
 

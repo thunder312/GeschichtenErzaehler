@@ -85,6 +85,15 @@ export function ArchitektInterviewPage({
   const [vorlageZeigen, setVorlageZeigen] = useState(false);
   const [vorlageText, setVorlageText] = useState("");
   const [ladenVorlage, setLadenVorlage] = useState(false);
+  // Dritter Weg zu einem Story-Gerüst (siehe backend architekt-extraktion):
+  // ein importierter Handlungstext (z.B. Skript/Inhaltsangabe einer
+  // Sendung) wird per KI in einen Vorlage-Entwurf uebersetzt, der danach in
+  // vorlageText landet - der Nutzer sieht und bestaetigt ihn dort wie einen
+  // von Hand ausgefuellten Vorlage-Text (siehe entwurfErzeugen()).
+  const [handlungstextZeigen, setHandlungstextZeigen] = useState(false);
+  const [handlungstextEingabe, setHandlungstextEingabe] = useState("");
+  const [ladenExtraktion, setLadenExtraktion] = useState(false);
+  const [extraktionsFehler, setExtraktionsFehler] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const [verbindungVerloren, setVerbindungVerloren] = useState(false);
   // Index (in `nachrichten`) der eigenen Antwort, die gerade bearbeitet
@@ -270,6 +279,32 @@ export function ArchitektInterviewPage({
     reader.readAsText(datei);
   }
 
+  function handlungstextDateiGewaehlt(datei: File) {
+    const reader = new FileReader();
+    reader.onload = () => setHandlungstextEingabe(String(reader.result ?? ""));
+    reader.readAsText(datei);
+  }
+
+  /** Ruft die KI-Extraktion auf und laedt das Ergebnis in die bestehende
+   * Vorlage-Textarea (siehe State-Kommentar oben) - von dort aus prueft/
+   * bestaetigt der Nutzer den Entwurf genau wie eine von Hand ausgefuellte
+   * Vorlage, inklusive freier Bearbeitung vor dem Start des Interviews. */
+  async function entwurfErzeugen() {
+    const text = handlungstextEingabe.trim();
+    if (!text) return;
+    setLadenExtraktion(true);
+    setExtraktionsFehler(null);
+    try {
+      const antwort = await api.architektExtraktion(ordner, text, sshZielId || null);
+      setVorlageText(antwort.vorlage);
+      setVorlageZeigen(true);
+    } catch (e) {
+      setExtraktionsFehler(e instanceof Error ? e.message : "Entwurf konnte nicht erzeugt werden.");
+    } finally {
+      setLadenExtraktion(false);
+    }
+  }
+
   function bearbeitenAbbrechen() {
     setBearbeiteIndex(null);
     setEingabe("");
@@ -320,6 +355,53 @@ export function ArchitektInterviewPage({
             <div className="mb-4 text-left">
               <button
                 type="button"
+                onClick={() => setHandlungstextZeigen((v) => !v)}
+                className="mb-2 text-xs text-accent-light hover:underline"
+              >
+                {handlungstextZeigen ? "▾" : "▸"} Handlungstext importieren (optional)
+              </button>
+              {handlungstextZeigen && (
+                <div className="mb-3 rounded-lg border border-border bg-bg p-3">
+                  <p className="mb-2 text-xs text-text-muted">
+                    Füge einen fertigen Handlungstext ein (z.B. Skript oder Inhaltsangabe einer
+                    Sendung) - der Architekt erstellt daraus automatisch einen Gerüst-Entwurf, den du
+                    unten in der Vorlage prüfen, ändern und bestätigen kannst, bevor die verbleibenden
+                    offenen Punkte im Interview erfragt werden.
+                  </p>
+                  <div className="mb-2 flex flex-wrap gap-2">
+                    <label className="flex cursor-pointer items-center rounded-lg border border-border bg-surface-hover px-3 py-1.5 text-sm text-text hover:border-accent">
+                      📄 Datei wählen...
+                      <input
+                        type="file"
+                        accept=".md,.txt"
+                        className="hidden"
+                        onChange={(e) => {
+                          const datei = e.target.files?.[0];
+                          if (datei) handlungstextDateiGewaehlt(datei);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <textarea
+                    value={handlungstextEingabe}
+                    onChange={(e) => setHandlungstextEingabe(e.target.value)}
+                    rows={6}
+                    className="mb-2 w-full resize-none rounded-lg border border-border bg-bg px-3 py-2 text-xs text-text outline-none transition-colors focus:border-accent"
+                    placeholder="...oder den Handlungstext hier einfügen."
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={entwurfErzeugen}
+                    disabled={ladenExtraktion || !handlungstextEingabe.trim()}
+                  >
+                    {ladenExtraktion ? "Entwurf wird erzeugt..." : "🪄 Entwurf erzeugen"}
+                  </Button>
+                  {extraktionsFehler && <p className="mt-2 text-xs text-red-400">{extraktionsFehler}</p>}
+                </div>
+              )}
+              <button
+                type="button"
                 onClick={() => setVorlageZeigen((v) => !v)}
                 className="mb-2 text-xs text-accent-light hover:underline"
               >
@@ -332,6 +414,13 @@ export function ArchitektInterviewPage({
                     ein - der Architekt fragt dann nur noch nach dem, was fehlt oder unklar ist, statt
                     den kompletten Fragenkatalog von vorne abzuarbeiten.
                   </p>
+                  {handlungstextZeigen && (
+                    <p className="mb-2 text-xs text-amber-300">
+                      ⚠️ Prüfe den unten erzeugten Entwurf sorgfältig und korrigiere ihn bei Bedarf,
+                      bevor du das Interview startest - er beruht auf einer automatischen Extraktion
+                      aus deinem Handlungstext und kann Fehler oder Lücken enthalten.
+                    </p>
+                  )}
                   <div className="mb-2 flex flex-wrap gap-2">
                     <Button variant="secondary" onClick={vorlageHerunterladen} disabled={ladenVorlage}>
                       {ladenVorlage ? "Lädt..." : "⬇️ Vorlage herunterladen"}

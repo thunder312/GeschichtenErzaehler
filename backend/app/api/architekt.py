@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
 from app.auth import get_current_user, get_current_user_ws
@@ -45,7 +45,7 @@ from app.core import projekt_dateien as pd
 from app.core.fundus_schema import FundusExtraktionAntwortLLM
 from app.core.ollama_client import OllamaFehler, chat_stream, sammle_antwort
 from app.core.rollen import ROLLEN
-from app.schemas import Benutzer
+from app.schemas import Benutzer, HandlungstextAnfrage
 from app.services import fundus_datei, ollama_basis_url, ordner_nach_umbenennung, projekt_pfad, rollen_modell_override
 
 router = APIRouter(prefix="/api/projects", tags=["architekt"])
@@ -92,6 +92,33 @@ def architekt_vorlage(ordner: str, settings: Settings = Depends(get_settings),
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     persona_text = pd.persona_lesen(projekt_root, "architekt")
     return {"vorlage": arch.vorlage_erzeugen(persona_text)}
+
+
+@router.post("/{ordner:path}/architekt-extraktion")
+async def architekt_extraktion(ordner: str, anfrage: HandlungstextAnfrage,
+                                ssh_ziel_id: str | None = Query(None),
+                                settings: Settings = Depends(get_settings),
+                                benutzer: Benutzer = Depends(get_current_user)):
+    """Dritter Weg zu einem Story-Gerüst (neben gefuehrtem Interview und von
+    Hand ausgefuellter Vorlage): extrahiert per einmaligem, nicht-
+    dialogischem LLM-Aufruf einen Vorlage-Entwurf aus einem importierten
+    Handlungstext (siehe arch.handlungstext_extraktion_system). Antwortform
+    bewusst identisch zu architekt_vorlage() ({"vorlage": ...}), damit das
+    Frontend den Entwurf in dieselbe editierbare Vorlage-Textarea laedt -
+    der Nutzer prueft/bestaetigt ihn dort, bevor er wie gewohnt ueber
+    erste_eingabe_mit_vorlage() ins Interview startet."""
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    persona_text = pd.persona_lesen(projekt_root, "architekt")
+    system = arch.handlungstext_extraktion_system(persona_text)
+    with ollama_basis_url(settings, ssh_ziel_id) as base_url:
+        try:
+            antwort, _meta = await sammle_antwort(
+                base_url, "architekt", system, anfrage.handlungstext.strip(),
+                modell_override=rollen_modell_override(settings, "architekt"),
+            )
+        except OllamaFehler as e:
+            raise HTTPException(502, str(e)) from e
+    return {"vorlage": antwort}
 
 
 def _fundus_kontext(settings: Settings, benutzer: Benutzer, projekt_root) -> str:
