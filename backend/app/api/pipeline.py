@@ -1519,7 +1519,8 @@ async def cover_generieren(ordner: str, anfrage: CoverGenerierenAnfrage,
         modell = rollen_modell_override(settings, "cover_prompt")
         try:
             prompt_englisch, _meta = await _sammle_antwort(
-                text_base_url, "cover_prompt", g.COVER_PROMPT_UEBERSETZEN_SYSTEM, anfrage.prompt,
+                text_base_url, "cover_prompt", g.COVER_PROMPT_UEBERSETZEN_SYSTEM,
+                g.COVER_PROMPT_HOCHFORMAT_PRAEFIX + anfrage.prompt,
                 modell_override=modell,
             )
         except OllamaFehler as e:

@@ -288,6 +288,18 @@ COVER_PROMPT_SYSTEM = (
     "Erklaerung, ohne Anführungszeichen."
 )
 
+# Wird in app/api/pipeline.py:cover_generieren() jedem Bildprompt vorangestellt,
+# bevor er ins Englische uebersetzt wird - ein Buchcover soll wie ein echtes
+# Buchcover im Hochformat wirken, nicht wie das quadratische Standardbild, das
+# sd-server liefert (siehe app/core/bild_generierung.py:STANDARD_WIDTH/HEIGHT,
+# bewusst quadratisch belassen wegen dort dokumentierter Subjekt-Verdopplungs-
+# Artefakte bei anderen Seitenverhaeltnissen). Nur die KOMPOSITION innerhalb
+# des quadratischen Bildes wird dadurch vertikaler/hochformatiger, nicht die
+# tatsaechlichen Bildmasse. Immer als fester Praefix statt editierbares Feld,
+# damit es unabhaengig davon greift, ob der User den vorgeschlagenen Prompt
+# uebernimmt oder einen eigenen von Hand eintippt.
+COVER_PROMPT_HOCHFORMAT_PRAEFIX = "Hochformat, "
+
 # System-Prompt, der den (ggf. vom User auf Deutsch getippten oder
 # korrigierten) Bildprompt unmittelbar vor der sd-server-Anfrage ins
 # Englische uebersetzt (Stable-Diffusion-Modelle sind auf englische Prompts
