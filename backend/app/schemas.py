@@ -212,6 +212,14 @@ class AutomatikStartAnfrage(BaseModel):
     # zuletzt vermerkten Kapitel/Durchlauf wieder ein statt bei Kapitel 1
     # neu zu beginnen - siehe app/api/pipeline.py:_automatik_lauf.
     fortsetzen: bool = False
+    # True = Button "Bestätige alles auf dem Weg": der alle
+    # AUTOMATIK_CHECKPOINT_INTERVALL Kapitel greifende Reste-Zwischenstopp
+    # (siehe app/api/pipeline.py:_automatik_lauf) wird uebersprungen - fuer
+    # unbeaufsichtigte Ueber-Nacht-Laeufe, bei denen der Nutzer ohnehin
+    # praktisch immer den Pruefer-Vorschlaegen zustimmt und die
+    # uebersprungenen Funde erst am naechsten Morgen gesammelt durchsehen
+    # will statt zwischendurch geweckt/gefragt zu werden.
+    automatisch_bestaetigen: bool = False
 
 
 class AutomatikStatusAntwort(BaseModel):

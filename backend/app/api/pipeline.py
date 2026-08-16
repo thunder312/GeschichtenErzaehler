@@ -1044,7 +1044,8 @@ def _automatik_on_event(status: dict, projekt_root: Path) -> OnEvent:
 
 
 async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: str | None,
-                           max_durchlaeufe: int, fortsetzen: bool = False) -> None:
+                           max_durchlaeufe: int, fortsetzen: bool = False,
+                           automatisch_bestaetigen: bool = False) -> None:
     """Hintergrund-Job (siehe automatik_start(), per FastAPI BackgroundTasks
     gestartet - laeuft unabhaengig von einer offenen Browser-Verbindung
     weiter): schreibt zuerst alle fehlenden Kapitel, wendet dann pro
@@ -1061,7 +1062,14 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
     wieder bei Kapitel 1 anfaengt. Bei fortsetzen=True wird deshalb der
     genaue Unterbrechungspunkt (Kapitel + Durchlauf) aus dem VORHERIGEN
     Status gelesen und Phase 2 steigt dort direkt wieder ein, statt bereits
-    fertig geprüfte/korrigierte Kapitel erneut abzuklappern."""
+    fertig geprüfte/korrigierte Kapitel erneut abzuklappern.
+
+    `automatisch_bestaetigen=True` (Button "Bestätige alles auf dem Weg"):
+    unterdrueckt den weiter unten beschriebenen Reste-Zwischenstopp (alle
+    AUTOMATIK_CHECKPOINT_INTERVALL Kapitel) - der Lauf schreibt und prueft
+    unbeaufsichtigt bis zum letzten Kapitel durch, uebersprungene
+    Pruefer-Funde sammeln sich wie gewohnt im Protokoll/Tab "Pruefen & Anwenden"
+    fuer die Durchsicht danach, statt den Lauf zu unterbrechen."""
     projekt = projekt_root / "projekt"
     vorheriger_status = automatik.status_lesen(projekt_root)
     fortsetzen_ab_kapitel: int | None = None
@@ -1258,7 +1266,7 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                 _automatik_status_schreiben(status, projekt_root)
 
                 if n < letztes and n % AUTOMATIK_CHECKPOINT_INTERVALL == 0 \
-                        and automatik.reste_vorhanden(status):
+                        and automatik.reste_vorhanden(status) and not automatisch_bestaetigen:
                     status["aktuelles_kapitel"] = n + 1
                     status["log"].append(
                         f"Angehalten nach Kapitel {n}: ungelöste Prüfer-Funde seit "
@@ -1268,6 +1276,13 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                     )
                     _automatik_status_schreiben(status, projekt_root)
                     return
+                elif n < letztes and n % AUTOMATIK_CHECKPOINT_INTERVALL == 0 \
+                        and automatik.reste_vorhanden(status) and automatisch_bestaetigen:
+                    status["log"].append(
+                        f"Kapitel {n}: ungelöste Prüfer-Funde vorhanden, wird dank "
+                        f"\"Bestätige alles auf dem Weg\" ohne Zwischenstopp fortgesetzt."
+                    )
+                    _automatik_status_schreiben(status, projekt_root)
 
         status["phase"] = "abgeschlossen"
         status["abgeschlossen"] = True
@@ -1311,6 +1326,7 @@ async def automatik_start(ordner: str, anfrage: AutomatikStartAnfrage,
         raise HTTPException(409, "Automatikmodus läuft für dieses Projekt bereits.")
     background_tasks.add_task(
         _automatik_lauf, settings, projekt_root, ssh_ziel_id, anfrage.max_durchlaeufe, anfrage.fortsetzen,
+        anfrage.automatisch_bestaetigen,
     )
     return {"gestartet": True}
 

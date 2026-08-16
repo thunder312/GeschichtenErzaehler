@@ -469,6 +469,54 @@ def test_automatik_haelt_nach_checkpoint_bei_ungeloesten_funden_an(client, monke
     assert aufrufe == [4]
 
 
+def test_automatik_bestaetigt_alles_ueberspringt_checkpoint(client, monkeypatch):
+    """Button "Bestätige alles auf dem Weg" (automatisch_bestaetigen=True):
+    derselbe Aufbau wie test_automatik_haelt_nach_checkpoint_bei_ungeloesten_
+    funden_an oben, aber der Lauf soll trotz ungeloester Funde NICHT am
+    Checkpoint nach Kapitel 3 anhalten, sondern in einem einzigen Aufruf bis
+    Kapitel 4 durchlaufen - die uebersprungenen Funde landen trotzdem wie
+    gewohnt im Protokoll."""
+    from app.schemas import Befund, BefundBeschreibung, BefundeAntwort
+
+    r = client.post("/api/projects", json={"titel": "Checkpointtest Bestaetigt", "epoche": "Regency"})
+    ordner = r.json()["ordner"]
+    geruest = (
+        "# STORY-GERUEST\n\n## Rahmen\nJahr: 1815\n\n"
+        "## Kapitelplan\n"
+        "Kapitel 1: Ein Anfang. 5 Wörter.\n"
+        "Kapitel 2: Weiter. 5 Wörter.\n"
+        "Kapitel 3: Noch mehr. 5 Wörter.\n"
+        "Kapitel 4: Ein Ende. 5 Wörter.\n"
+    )
+    client.put(f"/api/projects/{ordner}/geruest", json={"inhalt": geruest})
+
+    async def _pruefung_mit_ungeloestem_fund(settings_, projekt, base_url, n, kapiteltext, zusatzhinweis=""):
+        befund = Befund(
+            id="b1", kategorien=["kontinuitaet"], fundstelle="irrelevant",
+            beschreibungen=[BefundBeschreibung(quelle="kontinuitaet", text="Testbefund")],
+            sicherheit=None, vorschlag=None, konflikt=False, gefunden=False,
+            start=None, end=None,
+        )
+        return BefundeAntwort(kapitel=n, erzeugt_am="2026-01-01 10:00", jahr="1815", befunde=[befund])
+
+    monkeypatch.setattr(pipeline, "_pruefe_kapitel", _pruefung_mit_ungeloestem_fund)
+
+    r = client.post(
+        f"/api/projects/{ordner}/automatik/start",
+        json={"max_durchlaeufe": 1, "automatisch_bestaetigen": True},
+    )
+    assert r.status_code == 200
+    status = client.get(f"/api/projects/{ordner}/automatik/status").json()
+
+    assert status["abgeschlossen"] is True
+    assert status["laeuft"] is False
+    assert status["fehler"] is None
+    assert not any("Angehalten nach Kapitel" in zeile for zeile in status["log"])
+    assert any("ohne Zwischenstopp fortgesetzt" in zeile for zeile in status["log"])
+    kapitel_mit_befund = {e["kapitel"] for e in status["protokoll"] if e["art"] == "uebersprungen"}
+    assert kapitel_mit_befund == {1, 2, 3, 4}
+
+
 def test_automatik_resten_bestaetigen_aendert_projektlisten_badge(client, projekt_mit_kapitelplan):
     """Nachdem die im Protokoll verbliebenen Reste (uebersprungene Funde)
     ueber den neuen Endpunkt quittiert wurden, soll die Projektliste nicht

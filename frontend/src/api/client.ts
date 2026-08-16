@@ -229,10 +229,23 @@ export const api = {
       `/api/projects/${ordner}/rechtschreibung/${n}${sshQuery(sshZielId)}`,
     ),
 
-  automatikStarten: (ordner: string, maxDurchlaeufe: number, sshZielId?: string | null, fortsetzen = false) =>
+  automatikStarten: (
+    ordner: string,
+    maxDurchlaeufe: number,
+    sshZielId?: string | null,
+    fortsetzen = false,
+    automatischBestaetigen = false,
+  ) =>
     anfrage<{ gestartet: boolean }>(
       `/api/projects/${ordner}/automatik/start${sshQuery(sshZielId)}`,
-      { method: "POST", body: JSON.stringify({ max_durchlaeufe: maxDurchlaeufe, fortsetzen }) },
+      {
+        method: "POST",
+        body: JSON.stringify({
+          max_durchlaeufe: maxDurchlaeufe,
+          fortsetzen,
+          automatisch_bestaetigen: automatischBestaetigen,
+        }),
+      },
     ),
 
   automatikStatus: (ordner: string) =>

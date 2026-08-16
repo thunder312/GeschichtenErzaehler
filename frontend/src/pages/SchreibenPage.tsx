@@ -146,10 +146,12 @@ export function SchreibenPage({
     };
   }, [ordner]);
 
-  async function automatikStarten(fortsetzen = false) {
+  async function automatikStarten(fortsetzen = false, automatischBestaetigen = false) {
     setAutomatikFehler(null);
     try {
-      await api.automatikStarten(ordner, automatikMaxDurchlaeufe, sshZielId || null, fortsetzen);
+      await api.automatikStarten(
+        ordner, automatikMaxDurchlaeufe, sshZielId || null, fortsetzen, automatischBestaetigen,
+      );
       setAutomatikStatus(await api.automatikStatus(ordner));
     } catch (e) {
       setAutomatikFehler(e instanceof Error ? e.message : String(e));
@@ -564,7 +566,16 @@ export function SchreibenPage({
               <Button variant={automatikStatus?.fortsetzbar ? "secondary" : "primary"} onClick={() => automatikStarten(false)}>
                 Automatikmodus starten
               </Button>
+              <Button variant="secondary" onClick={() => automatikStarten(false, true)}>
+                🌙 Bestätige alles auf dem Weg
+              </Button>
             </div>
+            <p className="text-xs text-text-muted">
+              "🌙 Bestätige alles auf dem Weg" überspringt den sonst alle paar Kapitel greifenden Zwischenstopp bei
+              ungelösten Prüfer-Funden (siehe Hinweis unten) - für unbeaufsichtigte Läufe über Nacht. Übersprungene
+              Funde sammeln sich trotzdem im Protokoll und lassen sich danach in Ruhe im Tab "Prüfen &amp; Anwenden"
+              nachpflegen.
+            </p>
           </div>
         )}
 
