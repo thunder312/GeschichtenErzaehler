@@ -204,37 +204,44 @@ def _v2_pfad(quelle: Path) -> Path:
     return ziel
 
 
-def projekt_fuer_neuschreiben_duplizieren(quelle: Path) -> Path:
-    """Dupliziert einen bestehenden Projektordner als Grundlage fuers 'Neu
-    schreiben'-Feature (Icon in der Projektliste, siehe
-    app/api/projects.py:projekt_neu_schreiben): Ordnername + '_v2', alle
-    durchs Schreiben/Pruefen/Automatikmodus entstandenen Dateien im Duplikat
-    geloescht - danach sieht das Duplikat so aus, als waere gerade eben nur
-    das Architekten-Interview abgeschlossen worden, und der Automatikmodus
-    faengt zwangslaeufig bei Kapitel 1 an. Der Schreiber ist ohnehin immer
-    Mistral (einziger Schreiber, siehe app/core/rollen.py), muss hier also
-    nicht mehr extra erzwungen werden."""
-    ziel = _v2_pfad(quelle)
-    shutil.copytree(quelle, ziel)
+_NEUSCHREIBEN_AUSGANGSDATEIEN = ("verbotsliste.md", "geruest.md", "stand_00.md")
 
-    projekt = ziel / "projekt"
-    for datei in vorhandene_kapitel(projekt):
-        datei.unlink()
-    for datei in projekt.glob("stand_*.md"):
-        if datei.name != "stand_00.md":
-            datei.unlink()
-    for datei in projekt.glob("befunde_*.json"):
-        datei.unlink()
-    for name in ("automatik_status.json", "automatik_verlauf.json"):
-        (projekt / name).unlink(missing_ok=True)
-    architekt_verlauf_datei(projekt).unlink(missing_ok=True)
-    for datei in ziel.rglob("*.bak"):
-        datei.unlink()
-    for datei in ziel.glob("*.md"):
-        # Export-Gesamtdatei im Story-Root (Dateiname = alter Ordnername,
-        # siehe app/api/pipeline.py:_export_ausfuehren) bzw. Altlast
-        # "gesamt.md" - beides Schreib-Ergebnis, nicht Architekt-Output.
-        datei.unlink()
+
+def projekt_fuer_neuschreiben_duplizieren(quelle: Path) -> Path:
+    """Legt fuers 'Neu schreiben'-Feature (Icon in der Projektliste, siehe
+    app/api/projects.py:projekt_neu_schreiben) ein frisches Duplikat an
+    (Ordnername + '_v2') - bewusst KEIN voller Ordner-Kopie+Aufraeumen mehr
+    (wie fruecher per shutil.copytree), sondern von vornherein nur die fuers
+    Weiterschreiben noetigen Ausgangsdaten:
+    - personas/ 1:1 vom Quellprojekt (architekt.txt/autor.txt/... werden
+      von persona_lesen() ohne Fallback aus dem Projektordner gelesen -
+      ohne die Dateien waere das Duplikat funktionsunfaehig).
+    - .epoche/.epoche_zweite (Marker, siehe epoche_von_projekt()).
+    - aus projekt/ NUR verbotsliste.md, geruest.md, stand_00.md - der
+      Zustand direkt nach Abschluss des Architekten-Interviews, BEVOR
+      irgendein Kapitel geschrieben wurde. Kapitel/Stand-Folgedateien/
+      Befunde/Automatik-Status/Cover/Stilproben entstehen erst durchs
+      Schreiben/Pruefen und werden deshalb gar nicht erst kopiert.
+
+    Anders als bisher wird der Automatikmodus danach NICHT mehr automatisch
+    gestartet (siehe frontend/src/pages/ProjektePage.tsx) - das Duplikat
+    landet im Gerüst-Tab, der Nutzer entscheidet selbst, ob/wann er
+    weiterschreiben laesst."""
+    ziel = _v2_pfad(quelle)
+    ziel.mkdir(parents=True)
+    (ziel / "projekt").mkdir()
+
+    shutil.copytree(quelle / "personas", ziel / "personas", dirs_exist_ok=True)
+
+    for marker in (".epoche", ".epoche_zweite"):
+        quelle_marker = quelle / marker
+        if quelle_marker.exists():
+            shutil.copy(quelle_marker, ziel / marker)
+
+    for name in _NEUSCHREIBEN_AUSGANGSDATEIEN:
+        quelle_datei = quelle / "projekt" / name
+        if quelle_datei.exists():
+            shutil.copy(quelle_datei, ziel / "projekt" / name)
 
     return ziel
 

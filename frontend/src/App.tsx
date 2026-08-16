@@ -107,16 +107,6 @@ function App() {
     projekteLaden();
   }
 
-  function neuSchreibenGestartet(ordner: string) {
-    // Wie projektAuswaehlen(), aber direkt in den "Schreiben"-Tab statt
-    // "Architekt / Gerüst" - der Automatikmodus laeuft dort schon los,
-    // waehrend man ihn im Gerüst-Tab nicht sehen wuerde.
-    setAktuellesProjekt(ordner);
-    setInterviewErzwungen(false);
-    setActiveTab("schreiben");
-    projekteLaden();
-  }
-
   function projektGeloescht(ordner: string) {
     if (aktuellesProjekt === ordner) {
       setAktuellesProjekt(null);
@@ -238,11 +228,10 @@ function App() {
             projekte={projekte}
             epochen={epochen}
             aktuellesProjekt={aktuellesProjekt}
-            sshZielId={sshZielId}
             onProjekteGeaendert={projekteLaden}
             onProjektAuswaehlen={projektAuswaehlen}
             onProjektGeloescht={projektGeloescht}
-            onNeuSchreibenGestartet={neuSchreibenGestartet}
+            onNeuSchreibenGestartet={projektAuswaehlen}
           />
         </div>
 

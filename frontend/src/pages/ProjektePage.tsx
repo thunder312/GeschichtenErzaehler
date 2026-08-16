@@ -18,23 +18,16 @@ interface ProjektePageProps {
   projekte: ProjektKurz[];
   epochen: EpocheKurz[];
   aktuellesProjekt: string | null;
-  sshZielId: string;
   onProjekteGeaendert: () => void;
   onProjektAuswaehlen: (ordner: string) => void;
   onProjektGeloescht: (ordner: string) => void;
   onNeuSchreibenGestartet: (ordner: string) => void;
 }
 
-// Gleicher Default wie der "Automatikmodus starten"-Button im Schreiben-Tab
-// (frontend/src/pages/SchreibenPage.tsx) - beim Neu-schreiben aus der
-// Projektliste heraus gibt es keine eigene UI, um das anzupassen.
-const NEU_SCHREIBEN_MAX_DURCHLAEUFE = 3;
-
 export function ProjektePage({
   projekte,
   epochen,
   aktuellesProjekt,
-  sshZielId,
   onProjekteGeaendert,
   onProjektAuswaehlen,
   onProjektGeloescht,
@@ -132,13 +125,11 @@ export function ProjektePage({
     setWirdNeuGeschrieben(ordner);
     setNeuSchreibenFehler(null);
     try {
+      // Nur die Dateikopie (siehe app/api/projects.py:projekt_neu_schreiben) -
+      // der Automatikmodus wird bewusst NICHT automatisch mitgestartet, der
+      // Nutzer landet stattdessen im Gerüst-Tab und stoesst das Schreiben
+      // selbst an, wenn/wann er will (siehe App.tsx:neuSchreibenGestartet).
       const kopie = await api.projektNeuSchreiben(ordner);
-      // Automatikmodus-Start ist ein separater Request (siehe
-      // app/api/projects.py:projekt_neu_schreiben - der Duplizier-Endpoint
-      // selbst macht bewusst keinen Ollama-Aufruf), fuer den Nutzer wirkt
-      // es trotzdem wie EIN Vorgang, da beides hier direkt nacheinander
-      // laeuft.
-      await api.automatikStarten(kopie.ordner, NEU_SCHREIBEN_MAX_DURCHLAEUFE, sshZielId || null);
       setNeuSchreibenAnfrage(null);
       onProjekteGeaendert();
       onNeuSchreibenGestartet(kopie.ordner);
@@ -330,13 +321,13 @@ export function ProjektePage({
           titel="Projekt neu schreiben?"
           beschreibung={
             `"${neuSchreibenAnfrage.titel ?? neuSchreibenAnfrage.ordner}" wird als Kopie ` +
-            `("${neuSchreibenAnfrage.ordner}_v2") komplett neu geschrieben - Gerüst und Personas bleiben erhalten, ` +
-            `alle bisherigen Kapitel/Prüfungen NICHT (das Original bleibt unangetastet). Schreiber ist dabei immer ` +
-            `Mistral, unabhängig von der Angabe im Gerüst. Das kann sehr lange laufen (alle Kapitel werden neu ` +
-            `geschrieben und geprüft).` +
+            `("${neuSchreibenAnfrage.ordner}_v2") angelegt - Personas, Verbotsliste, Gerüst und die Ausgangslage vor ` +
+            `Kapitel eins bleiben erhalten, alle bisherigen Kapitel/Prüfungen/Automatik-Ergebnisse NICHT (das ` +
+            `Original bleibt unangetastet). Der Automatikmodus wird dabei NICHT automatisch gestartet - das Duplikat ` +
+            `landet im Gerüst-Tab, du entscheidest selbst, wann es weitergeschrieben werden soll.` +
             (neuSchreibenFehler ? `\n\nFehler: ${neuSchreibenFehler}` : "")
           }
-          bestaetigenText="Neu schreiben starten"
+          bestaetigenText="Duplizieren"
           wirdAusgefuehrt={wirdNeuGeschrieben === neuSchreibenAnfrage.ordner}
           onBestaetigen={neuSchreibenBestaetigt}
           onAbbrechen={() => setNeuSchreibenAnfrage(null)}
