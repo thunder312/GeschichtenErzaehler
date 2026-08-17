@@ -52,11 +52,12 @@ export function Label({ children }: { children: ReactNode }) {
   return <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-text-muted">{children}</label>;
 }
 
-export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "green" | "amber" }) {
+export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "green" | "amber" | "blue" }) {
   const toene = {
     neutral: "bg-surface-hover text-text-muted",
     green: "bg-accent-soft text-accent-light",
     amber: "bg-amber-400/15 text-amber-300",
+    blue: "bg-sky-400/15 text-sky-300",
   };
   return <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${toene[tone]}`}>{children}</span>;
 }

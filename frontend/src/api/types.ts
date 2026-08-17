@@ -20,6 +20,11 @@ export interface ProjektKurz {
   anzahl_kapitel: number;
   letztes_geplantes_kapitel: number | null;
   automatik_zustand: AutomatikZustand;
+  // Nur gesetzt, wenn dieses Projekt per "Neu schreiben" aus einem anderen
+  // dupliziert wurde - Ordnerpfad des Quellprojekts (Titel/Gerüst werden
+  // 1:1 mitkopiert, ohne dieses Feld waeren beide Projekte in der Liste
+  // nicht unterscheidbar).
+  neu_geschrieben_aus?: string | null;
 }
 
 export interface ProjektDetail {

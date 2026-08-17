@@ -81,6 +81,7 @@ def _projekt_kurz(pfad, wurzel, settings: Settings) -> ProjektKurz:
         anzahl_kapitel=len(pd.vorhandene_kapitel(projekt_unterordner)),
         letztes_geplantes_kapitel=g.letztes_geplantes_kapitel(geruest_text) if geruest_text else None,
         automatik_zustand=automatik.zustand_zusammenfassen(automatik.status_lesen(pfad)),
+        neu_geschrieben_aus=pd.neuschreiben_quelle(pfad),
     )
 
 
@@ -165,7 +166,7 @@ def projekt_neu_schreiben(ordner: str, settings: Settings = Depends(get_settings
     pfad = projekt_pfad(settings, benutzer.username, ordner)
     if automatik.status_lesen(pfad)["laeuft"]:
         raise HTTPException(409, "Automatikmodus läuft für dieses Projekt gerade - bitte zuerst stoppen.")
-    ziel = pd.projekt_fuer_neuschreiben_duplizieren(pfad)
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(pfad, ordner)
     return _projekt_kurz(ziel, projekte_wurzel(settings, benutzer.username), settings)
 
 

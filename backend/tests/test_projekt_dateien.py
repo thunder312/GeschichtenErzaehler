@@ -131,7 +131,7 @@ def _quellprojekt_mit_schreibartefakten(tmp_path: Path) -> Path:
 def test_projekt_fuer_neuschreiben_duplizieren_erzeugt_v2_ordner(tmp_path):
     quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
 
-    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle)
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle, "Mittelalter/Der-Markt-von-Rothenfeld")
 
     assert ziel == tmp_path / "Der-Markt-von-Rothenfeld_v2"
     assert ziel.is_dir()
@@ -142,7 +142,7 @@ def test_projekt_fuer_neuschreiben_duplizieren_haengt_hochzaehlend_v3_an_bei_kol
     quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
     (tmp_path / "Der-Markt-von-Rothenfeld_v2").mkdir()
 
-    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle)
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle, "Mittelalter/Der-Markt-von-Rothenfeld")
 
     assert ziel == tmp_path / "Der-Markt-von-Rothenfeld_v3"
 
@@ -150,7 +150,7 @@ def test_projekt_fuer_neuschreiben_duplizieren_haengt_hochzaehlend_v3_an_bei_kol
 def test_projekt_fuer_neuschreiben_duplizieren_loescht_schreib_artefakte(tmp_path):
     quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
 
-    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle)
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle, "Mittelalter/Der-Markt-von-Rothenfeld")
     projekt = ziel / "projekt"
 
     assert not (projekt / "kapitel_01.md").exists()
@@ -167,7 +167,7 @@ def test_projekt_fuer_neuschreiben_duplizieren_loescht_schreib_artefakte(tmp_pat
 def test_projekt_fuer_neuschreiben_duplizieren_behaelt_architekt_output(tmp_path):
     quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
 
-    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle)
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle, "Mittelalter/Der-Markt-von-Rothenfeld")
     projekt = ziel / "projekt"
 
     assert (projekt / "geruest.md").exists()
@@ -175,5 +175,19 @@ def test_projekt_fuer_neuschreiben_duplizieren_behaelt_architekt_output(tmp_path
     assert (projekt / "stand_00.md").exists()
     assert (ziel / "personas" / "architekt.txt").exists()
     assert (ziel / ".epoche").read_text(encoding="utf-8") == "Mittelalter"
+
+
+def test_projekt_fuer_neuschreiben_duplizieren_setzt_quelle_marker(tmp_path):
+    quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
+
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle, "Mittelalter/Der-Markt-von-Rothenfeld")
+
+    assert pd.neuschreiben_quelle(ziel) == "Mittelalter/Der-Markt-von-Rothenfeld"
+
+
+def test_neuschreiben_quelle_liefert_none_ohne_marker(tmp_path):
+    kein_duplikat = _quellprojekt_mit_schreibartefakten(tmp_path)
+
+    assert pd.neuschreiben_quelle(kein_duplikat) is None
 
 

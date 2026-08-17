@@ -53,6 +53,11 @@ class ProjektKurz(BaseModel):
     # None = Automatikmodus nie gestartet. Siehe app/core/automatik.py:
     # zustand_zusammenfassen() fuer die moeglichen Werte.
     automatik_zustand: str | None = None
+    # Nur gesetzt, wenn dieses Projekt per "Neu schreiben" aus einem anderen
+    # dupliziert wurde (siehe app/core/projekt_dateien.py:neuschreiben_quelle())
+    # - Ordnerpfad des Quellprojekts, fuer die Unterscheidung gleichnamiger
+    # Projekte in der Uebersicht (Titel/Gerüst werden 1:1 mitkopiert).
+    neu_geschrieben_aus: str | None = None
 
 
 class ProjektAnlegenAnfrage(BaseModel):

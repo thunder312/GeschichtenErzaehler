@@ -244,12 +244,16 @@ export function ProjektePage({
                 <div>
                   <div className="flex items-center gap-2">
                     <div className="font-medium text-text">{p.titel ?? p.ordner}</div>
+                    {p.neu_geschrieben_aus && (
+                      <Badge tone="blue">🔄 Neu geschrieben ({p.ordner})</Badge>
+                    )}
                     <AutomatikBadge zustand={p.automatik_zustand} />
                   </div>
                   <div className="text-xs text-text-muted">
                     {p.epoche ?? "unbekannte Epoche"}
                     {p.zweite_epoche ? ` ↔ ${p.zweite_epoche} (Zeitsprung)` : ""} · {p.anzahl_kapitel} Kapitel
                     {p.letztes_geplantes_kapitel ? ` von ${p.letztes_geplantes_kapitel} geplant` : ""}
+                    {p.neu_geschrieben_aus ? ` · Kopie von "${p.neu_geschrieben_aus}"` : ""}
                   </div>
                 </div>
               </li>

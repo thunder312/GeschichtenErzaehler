@@ -206,8 +206,13 @@ def _v2_pfad(quelle: Path) -> Path:
 
 _NEUSCHREIBEN_AUSGANGSDATEIEN = ("verbotsliste.md", "geruest.md", "stand_00.md")
 
+# Marker im Duplikat-Ordner, siehe projekt_fuer_neuschreiben_duplizieren()/
+# neuschreiben_quelle() unten. Gleiches Muster wie ".epoche" oben: einfache
+# Klartext-Datei mit genau einem Wert.
+_NEUSCHREIBEN_MARKER = ".neu_geschrieben_aus"
 
-def projekt_fuer_neuschreiben_duplizieren(quelle: Path) -> Path:
+
+def projekt_fuer_neuschreiben_duplizieren(quelle: Path, quelle_ordner: str) -> Path:
     """Legt fuers 'Neu schreiben'-Feature (Icon in der Projektliste, siehe
     app/api/projects.py:projekt_neu_schreiben) ein frisches Duplikat an
     (Ordnername + '_v2') - bewusst KEIN voller Ordner-Kopie+Aufraeumen mehr
@@ -222,6 +227,14 @@ def projekt_fuer_neuschreiben_duplizieren(quelle: Path) -> Path:
       irgendein Kapitel geschrieben wurde. Kapitel/Stand-Folgedateien/
       Befunde/Automatik-Status/Cover/Stilproben entstehen erst durchs
       Schreiben/Pruefen und werden deshalb gar nicht erst kopiert.
+
+    `quelle_ordner` ist der Ordnerpfad des Quellprojekts relativ zur
+    Projekte-Wurzel (siehe ProjektKurz.ordner, vom Aufrufer schon bekannt) -
+    landet unveraendert im ".neu_geschrieben_aus"-Marker im Duplikat, damit
+    die Projektuebersicht ein per "Neu schreiben" erzeugtes Duplikat von
+    seinem gleichnamigen Original unterscheiden kann (Titel/Gerüst werden
+    ja 1:1 mitkopiert - ohne diesen Marker sehen beide Projekte in der Liste
+    identisch aus, siehe _projekt_kurz() in app/api/projects.py).
 
     Anders als bisher wird der Automatikmodus danach NICHT mehr automatisch
     gestartet (siehe frontend/src/pages/ProjektePage.tsx) - das Duplikat
@@ -243,7 +256,20 @@ def projekt_fuer_neuschreiben_duplizieren(quelle: Path) -> Path:
         if quelle_datei.exists():
             shutil.copy(quelle_datei, ziel / "projekt" / name)
 
+    (ziel / _NEUSCHREIBEN_MARKER).write_text(quelle_ordner, encoding="utf-8")
+
     return ziel
+
+
+def neuschreiben_quelle(ziel: Path) -> str | None:
+    """Nur gesetzt, wenn `ziel` per 'Neu schreiben' aus einem anderen
+    Projekt dupliziert wurde (siehe projekt_fuer_neuschreiben_duplizieren())
+    - liefert dann den Ordnerpfad des Quellprojekts relativ zur
+    Projekte-Wurzel, sonst None. Das Quellprojekt kann inzwischen umbenannt
+    oder geloescht worden sein - der Aufrufer entscheidet, wie er einen
+    nicht mehr aufloesbaren Pfad anzeigt."""
+    marker = ziel / _NEUSCHREIBEN_MARKER
+    return marker.read_text(encoding="utf-8").strip() if marker.exists() else None
 
 
 def projektordner_umbenennen(projekt_root: Path, geruest_text: str) -> str | None:
