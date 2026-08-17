@@ -150,3 +150,44 @@ def test_vorschlag_verdaechtig_laesst_echte_kurzkorrektur_durch():
         "Nach einem langen Tag auf der Baustelle zogen sie sich in die Kammer zurück. "
         "Dort lag es still, doch nicht ruhig.",
     ) is False
+
+
+# Woertlich (bis auf Kuerzung) die "vorschlag"-Werte aus einem echten
+# Produktiv-Vorfall (Die-Spuren-der-Neuzeit, automatisch_bestaetigen-Lauf
+# vom 2026-08-17): statt gar keinen Befund zu melden, meldete das Modell
+# einen Befund und setzte "vorschlag" auf sein eigenes kurzes
+# Pruefungs-Urteil statt auf Ersatztext - weder Laengen- noch
+# Anweisungs-Heuristik hat das abgefangen, die Urteile wurden woertlich in
+# den Kapiteltext gespleisst (u.a. der Satz, der den Diener ins Zimmer
+# treten liess). Regressionsschutz gegen genau dieses Muster.
+def test_vorschlag_verdaechtig_erkennt_kein_widerspruch_urteil():
+    fundstelle = (
+        "Plötzlich klopfte es an der Tür. Ein Diener trat ein und verbeugte sich tief."
+    )
+    assert vorschlag_verdaechtig(fundstelle, "Kein Widerspruch.") is True
+
+
+def test_vorschlag_verdaechtig_erkennt_beibehalten_urteil():
+    fundstelle = "Als die Morgendämmerung näher rückte, löschte Ullrich die Kerzen."
+    assert vorschlag_verdaechtig(fundstelle, "Beibehalten.") is True
+    assert vorschlag_verdaechtig(
+        fundstelle, "Beibehalten, da es die gemeinsame Geschichte der Figuren etabliert.",
+    ) is True
+
+
+def test_vorschlag_verdaechtig_erkennt_weitere_urteils_floskeln():
+    fundstelle = "Ein beliebiger Satz aus dem Kapitel."
+    for urteil in (
+        "Keine Auffälligkeiten.", "Kein Fehler.", "Korrekt so.", "Passt.",
+        "Unverändert.", "Bleibt unverändert.",
+    ):
+        assert vorschlag_verdaechtig(fundstelle, urteil) is True
+
+
+def test_vorschlag_verdaechtig_laesst_beibehalten_als_verb_im_satz_durch():
+    """'beibehalten' als normales Verb MITTEN in echter Erzaehlprosa (nicht
+    als Urteil am Satzanfang) darf nicht blockiert werden."""
+    assert vorschlag_verdaechtig(
+        "Sie wollte die alte Sitte fortführen.",
+        "Sie wollte die alte Sitte ihrer Mutter beibehalten.",
+    ) is False

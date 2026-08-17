@@ -23,6 +23,17 @@ from dataclasses import dataclass
 # reicht: ist die fundstelle selbst schon ein laengerer Satz, passt eine
 # ganze Anweisung locker unter die 3x-Grenze und wird trotzdem woertlich in
 # den Kapiteltext gespleisst.
+#
+# Ein DRITTES Fehlerbild (2026-08-17, "Die-Spuren-der-Neuzeit"-Vorfall,
+# automatisch_bestaetigen-Lauf ohne Zwischenstopp, dadurch unbeaufsichtigt
+# bis in den Live-Text durchgereicht): statt gar keinen Befund zu melden
+# (oder bei "unsicher": true "vorschlag": null zu setzen), meldet das Modell
+# gelegentlich einen Befund und setzt "vorschlag" auf sein eigenes kurzes
+# Pruefungs-Urteil ("Kein Widerspruch.", "Beibehalten.") statt auf
+# einsetzbaren Ersatztext. Weder Laengen- noch Anweisungs-Heuristik greift
+# hier: das Urteil ist kurz (unterschreitet die Laengen-Grenze locker) und
+# enthaelt keine Anweisung an ein Team, sondern eine reine Feststellung -
+# siehe _VERDIKT_MUSTER unten.
 _VORSCHLAG_MAX_ABSOLUT = 80
 _VORSCHLAG_MAX_VERHAELTNIS = 3
 
@@ -50,19 +61,38 @@ _ANWEISUNGS_MUSTER = re.compile(
     re.IGNORECASE,
 )
 
+# Kurze Pruefungs-Urteile statt Ersatztext - der Vorschlag BEGINNT mit einer
+# dieser Feststellungen (mit optionaler kurzer Begruendung dahinter, z.B.
+# "Beibehalten, da es die gemeinsame Geschichte der Figuren etabliert."), ist
+# also erkennbar ein Urteil UEBER die Fundstelle statt ein Ersatz FUER sie.
+# Bewusst am Stringanfang verankert (nicht \b irgendwo im Text): echte
+# Erzaehlprosa eroeffnet einen Satz nicht mit diesen abgehackten
+# Feststellungen, waehrend z.B. "beibehalten" als Verb mitten in einem
+# echten Satz voellig normal ist ("...wollte die alte Tradition
+# beibehalten.") und nicht faelschlich blockiert werden soll.
+_VERDIKT_MUSTER = re.compile(
+    r"^(kein(?:e|er)?\s+(widerspruch|fehler|verstoß|auff[äa]lligkeit(?:en)?|"
+    r"korrektur|beanstandung(?:en)?)|beibehalten|unver[äa]ndert|"
+    r"bleibt\s+(?:so|gleich|unver[äa]ndert)|korrekt(?:\s+so)?|passt(?:\s+so|\s+schon)?)"
+    r"\b",
+    re.IGNORECASE,
+)
+
 
 def vorschlag_verdaechtig(fundstelle: str, vorschlag: str) -> bool:
     """True, wenn `vorschlag` eher nach einem liegen gebliebenen
-    Redaktionskommentar, einem duplizierten Textfragment oder einer
-    Anweisung ans Schreib-/Pruef-Team aussieht als nach einer echten,
-    direkt einsetzbaren Korrektur von `fundstelle`. Bewusst KEIN
-    Wortueberlapp-Check: kurze Kasus-/Genus-Korrekturen (z.B. "kein" ->
-    "keine") aendern gerade die Funktionswoerter und teilen sich oft nur ein
-    einziges Inhaltswort mit der fundstelle - ein Aehnlichkeits-Check wuerde
-    genau diese legitimen Faelle blockieren."""
+    Redaktionskommentar, einem duplizierten Textfragment, einer Anweisung
+    ans Schreib-/Pruef-Team oder einem reinen Pruefungs-Urteil aussieht als
+    nach einer echten, direkt einsetzbaren Korrektur von `fundstelle`.
+    Bewusst KEIN Wortueberlapp-Check: kurze Kasus-/Genus-Korrekturen (z.B.
+    "kein" -> "keine") aendern gerade die Funktionswoerter und teilen sich
+    oft nur ein einziges Inhaltswort mit der fundstelle - ein
+    Aehnlichkeits-Check wuerde genau diese legitimen Faelle blockieren."""
     if len(vorschlag) > max(_VORSCHLAG_MAX_ABSOLUT, len(fundstelle) * _VORSCHLAG_MAX_VERHAELTNIS):
         return True
-    return bool(_ANWEISUNGS_MUSTER.search(vorschlag))
+    if _ANWEISUNGS_MUSTER.search(vorschlag):
+        return True
+    return bool(_VERDIKT_MUSTER.match(vorschlag.strip()))
 
 
 @dataclass
