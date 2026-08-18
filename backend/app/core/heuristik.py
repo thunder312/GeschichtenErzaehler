@@ -226,6 +226,30 @@ def meta_zeilen_entfernen(text: str) -> str:
     return "\n".join(zeilen).strip()
 
 
+_FUEHRENDE_MARKDOWN_UEBERSCHRIFT_MUSTER = re.compile(
+    r"^\s*#{1,6}\s*Kapitel\s+\S+[^\n]*\n+", re.IGNORECASE,
+)
+
+
+def fuehrende_markdown_ueberschrift_entfernen(text: str) -> tuple[str, list[Finding]]:
+    """Manche Modelle (z.B. Mistral) stellen der eigentlichen, persona-
+    konformen Kapitelueberschrift ("Kapitel zwei: ...") zusaetzlich eine
+    Markdown-Ueberschrift voran ("## Kapitel 2"). Die bringt in der
+    fertigen Geschichte nichts und dupliziert die Kapitelangabe - wird
+    entfernt, wenn sie ganz am Anfang des Texts steht."""
+    treffer = _FUEHRENDE_MARKDOWN_UEBERSCHRIFT_MUSTER.match(text)
+    if not treffer:
+        return text, []
+    finding = Finding(
+        "markdown_ueberschrift",
+        f"Der Text begann mit einer zusaetzlichen Markdown-Ueberschrift "
+        f"('{treffer.group(0).strip()}') vor der eigentlichen "
+        f"Kapitelueberschrift - automatisch entfernt.",
+        schwere="info",
+    )
+    return text[treffer.end():], [finding]
+
+
 _KAPITEL_UEBERSCHRIFT_MUSTER = re.compile(r"^\s*Kapitel\s+\S+\s*:", re.IGNORECASE | re.MULTILINE)
 
 

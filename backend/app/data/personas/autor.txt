@@ -128,6 +128,9 @@ Ortsnamen epochentypisch bilden, etwa "Ashworth Park" als Landsitz oder ein
 fiktiver Titel wie "Earl of Rothmere".
 
 ## Formatregeln
+Keine Markdown-Überschrift (kein "#", "##" o.ä.) vor der Kapitelüberschrift
+oder irgendwo im Text. Nur die eine, unten beschriebene Kapitelüberschrift
+als reiner Fließtext, kein Markdown-Zeichen davor.
 Kapitelüberschrift im Format:  Kapitel eins: Der Bote aus Ashworth Park
 Die Zahl immer ausgeschrieben, niemals römische oder arabische Ziffern.
 Richtig: "Kapitel fünf: Die letzte Nacht"

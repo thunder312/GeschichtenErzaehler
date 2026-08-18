@@ -67,6 +67,21 @@ def test_anredeform_ignoriert_sie_ausserhalb_der_rede():
     assert h.anredeform_pruefen(text) == []
 
 
+def test_fuehrende_markdown_ueberschrift_entfernen_erkennt_doppelte_angabe():
+    text = "## Kapitel 2\n\nKapitel zwei: Der Blick auf die Baustelle\n\nErster Absatz."
+    bereinigt, findings = h.fuehrende_markdown_ueberschrift_entfernen(text)
+    assert bereinigt == "Kapitel zwei: Der Blick auf die Baustelle\n\nErster Absatz."
+    assert len(findings) == 1
+    assert findings[0].code == "markdown_ueberschrift"
+
+
+def test_fuehrende_markdown_ueberschrift_entfernen_ohne_markdown_unveraendert():
+    text = "Kapitel eins: Ankunft\n\nEin einzelner Absatz ohne Markdown."
+    bereinigt, findings = h.fuehrende_markdown_ueberschrift_entfernen(text)
+    assert bereinigt == text
+    assert findings == []
+
+
 def test_kapitel_neustart_abschneiden_erkennt_doppelte_ueberschrift():
     text = (
         "Kapitel eins: Ankunft\n\nErster Absatz.\n\n"
