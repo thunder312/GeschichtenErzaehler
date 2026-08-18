@@ -20,7 +20,6 @@ import { PersonasPage } from "./pages/PersonasPage";
 import { PruefenAnwendenPage } from "./pages/PruefenAnwendenPage";
 import { RechtschreibungPage } from "./pages/RechtschreibungPage";
 import { SchreibenPage } from "./pages/SchreibenPage";
-import { SshZielePage } from "./pages/SshZielePage";
 import { StandExportPage } from "./pages/StandExportPage";
 import { Button, Select } from "./components/ui";
 
@@ -135,10 +134,10 @@ function App() {
     // KI-Ziele verwalten, Speicherort-Einstellungen und Benutzerverwaltung
     // betreffen die gesamte Installation, nicht nur das eigene Projekt -
     // deshalb nur fuer Admin-Benutzer sichtbar (serverseitig zusaetzlich ueber
-    // get_current_admin abgesichert, siehe backend/app/main.py).
+    // get_current_admin abgesichert, siehe backend/app/main.py). KI-Ziele
+    // werden innerhalb von EinstellungenPage verwaltet, kein eigener Tab mehr.
     ...(benutzer.ist_admin
       ? [
-          { id: "ssh", label: "KI-Ziele", icon: "🔌", align: "end" as const },
           { id: "einstellungen", label: "Einstellungen", icon: "⚙️", align: "end" as const },
           { id: "benutzer", label: "Benutzer", icon: "👤", align: "end" as const },
         ]
@@ -316,12 +315,8 @@ function App() {
 
         {benutzer.ist_admin && (
           <>
-            <div className={activeTab === "ssh" ? "" : "hidden"}>
-              <SshZielePage sshZiele={sshZiele} onGeaendert={sshZieleLaden} />
-            </div>
-
             <div className={activeTab === "einstellungen" ? "" : "hidden"}>
-              <EinstellungenPage />
+              <EinstellungenPage sshZiele={sshZiele} onSshZieleGeaendert={sshZieleLaden} />
             </div>
 
             <div className={activeTab === "benutzer" ? "" : "hidden"}>
