@@ -34,6 +34,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   const [inhalt, setInhalt] = useState(projekt?.geruest ?? "");
   const [wirdGespeichert, setWirdGespeichert] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
+  const [geruestFehler, setGeruestFehler] = useState<string | null>(null);
 
   const [verbotslisteInhalt, setVerbotslisteInhalt] = useState(projekt?.verbotsliste ?? "");
   const [verbotslisteWirdGespeichert, setVerbotslisteWirdGespeichert] = useState(false);
@@ -59,6 +60,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   async function speichern() {
     setWirdGespeichert(true);
     setGespeichertHinweis(null);
+    setGeruestFehler(null);
     try {
       const antwort = await api.geruestSchreiben(ordner, inhalt);
       const zusatz = antwort.stand_00_aktualisiert ? " Ausgangslage vor Kapitel eins (stand_00.md) synchronisiert." : "";
@@ -69,6 +71,12 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
         onGeaendert();
         setGespeichertHinweis(`Gespeichert.${zusatz}`);
       }
+    } catch (e) {
+      // Ueblicherweise die 400-Antwort von geruest_schreiben() bei einem
+      // unvollstaendigen Kapitelplan (fehlende Zielwortzahl, doppelte
+      // Kapitelnummer, siehe app/core/geruest.py:kapitelplan_pruefen) - der
+      // alte Speicherstand bleibt dabei serverseitig unangetastet.
+      setGeruestFehler(e instanceof Error ? e.message : String(e));
     } finally {
       setWirdGespeichert(false);
     }
@@ -114,6 +122,11 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
           </>
         }
       >
+        {geruestFehler && (
+          <p className="whitespace-pre-line border-b border-border bg-red-400/10 px-4 py-3 text-sm text-red-400">
+            {geruestFehler}
+          </p>
+        )}
         <Editor
           height="clamp(320px, 60vh, 560px)"
           defaultLanguage="markdown"

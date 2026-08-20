@@ -67,6 +67,48 @@ def test_kapitelplan_platzhalter_erkennen_ignoriert_offene_punkte_ausserhalb_kap
     assert g.kapitelplan_platzhalter_erkennen(geruest) == []
 
 
+def test_kapitelplan_pruefen_ohne_probleme_liefert_leere_liste():
+    assert g.kapitelplan_pruefen(BEISPIEL_GERUEST) == []
+
+
+def test_kapitelplan_pruefen_meldet_fehlende_zielwortzahl():
+    # Regression: a-Blut-und-Ahornlaub-Die-Ehre-des-Verbotenen - beim
+    # manuellen Nachbearbeiten des Kapitelplans wurden versehentlich ALLE
+    # Zielwortzahl-Zeilen entfernt, wodurch kapitelplan_erkennen() jedes
+    # Kapitel stillschweigend verschluckte.
+    geruest = BEISPIEL_GERUEST.replace(
+        "Kapitel zwei: Ein Geheimnis wird angedeutet. Zielwortzahl: 1.600 Woerter.",
+        "Kapitel zwei: Ein Geheimnis wird angedeutet.",
+    )
+    fehler = g.kapitelplan_pruefen(geruest)
+    assert len(fehler) == 1
+    assert "Kapitel 2" in fehler[0]
+    assert "Zielwortzahl" in fehler[0]
+
+
+def test_kapitelplan_pruefen_meldet_doppelt_deklarierte_kapitelnummer():
+    geruest = BEISPIEL_GERUEST.replace(
+        "Kapitel 3: Aufloesung. Zielwortzahl: 1.400 Woerter.",
+        "Kapitel 1: Aufloesung. Zielwortzahl: 1.400 Woerter.",
+    )
+    fehler = g.kapitelplan_pruefen(geruest)
+    assert any("Kapitel 1" in f and "mehrfach" in f for f in fehler)
+
+
+def test_kapitelplan_pruefen_ignoriert_kapitel_erwaehnungen_ausserhalb_kapitelplan():
+    # "Kapitel N"-Erwaehnungen im Nebenstrang (Indizien-Legung) haben keine
+    # Zielwortzahl und sind trotzdem kein Fehler - sie sind kein eigener
+    # Kapitelplan-Eintrag.
+    geruest = BEISPIEL_GERUEST + "\n## Nebenstrang\nKapitel 5: Ein Hinweis wird gelegt.\n"
+    assert g.kapitelplan_pruefen(geruest) == []
+
+
+def test_kapitelplan_pruefen_ohne_kapitelplan_abschnitt_liefert_leere_liste():
+    # Bewusst kein Fehler - ein Geruest kann noch in Arbeit sein, bevor der
+    # Kapitelplan ueberhaupt geschrieben wurde (siehe Docstring).
+    assert g.kapitelplan_pruefen("# STORY-GERUEST\n\n## Titel\nOhne Kapitelplan\n") == []
+
+
 def test_nebenstrang_abschnitt_erkennen_extrahiert_abschnitt():
     geruest = (
         "# STORY-GERUEST\n\n"

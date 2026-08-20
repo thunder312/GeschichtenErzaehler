@@ -103,6 +103,54 @@ def kapitelplan_platzhalter_erkennen(geruest: str) -> list[str]:
     ]
 
 
+def kapitelplan_pruefen(geruest: str) -> list[str]:
+    """Prueft NUR den '## Kapitelplan'-Abschnitt (nicht blosse "Kapitel N"-
+    Erwaehnungen anderswo im Geruest, z.B. im Nebenstrang) auf zwei stille
+    Fehlerbilder, die kapitelplan_erkennen()/kapitel_block_erkennen() sonst
+    klaglos verschlucken:
+    - eine Kapitel-Ueberschrift ohne erkennbare Zielwortzahl - dieses
+      Kapitel taucht dann in letztes_geplantes_kapitel() und damit im
+      Automatikmodus gar nicht erst auf, der meldet faelschlich "keine
+      Kapitel-Struktur" (Vorfall a-Blut-und-Ahornlaub-Die-Ehre-des-
+      Verbotenen, 2026-08-20 - beim manuellen Nachbearbeiten des
+      Kapitelplans waren versehentlich ALLE Zielwortzahl-Zeilen entfernt
+      worden).
+    - dieselbe Kapitelnummer zweimal deklariert (Copy-Paste-Fehler) -
+      kapitelplan_erkennen() behaelt dann stillschweigend nur die ERSTE
+      Deklaration, die zweite verschwindet spurlos.
+
+    Liefert eine Liste allgemeinverstaendlicher Fehlermeldungen (leer =
+    kein Problem gefunden). ANDERS als kapitelplan_platzhalter_erkennen()
+    oben blockiert das hier den Speichervorgang (siehe app/api/projects.py:
+    geruest_schreiben) - ein unvollstaendiger Kapitelplan wuerde sonst
+    unbemerkt gespeichert und erst Tage spaeter beim Automatik-Schreiben
+    auffallen. Fehlt der '## Kapitelplan'-Abschnitt komplett, wird das
+    bewusst NICHT gemeldet - ein Geruest kann sich noch in Arbeit befinden,
+    bevor der Kapitelplan ueberhaupt geschrieben wurde."""
+    abschnitt = _KAPITELPLAN_ABSCHNITT_MUSTER.search(geruest)
+    if not abschnitt:
+        return []
+    text = abschnitt.group(1)
+    treffer = list(re.finditer(_KAPITEL_MUSTER, text, re.IGNORECASE))
+    gesehen: set[int] = set()
+    fehler: list[str] = []
+    for i, m in enumerate(treffer):
+        roh_nummer = m.group(1).lower()
+        nummer = int(roh_nummer) if roh_nummer.isdigit() else _ZAHLWORT.get(roh_nummer)
+        if nummer is None:
+            continue
+        block_ende = treffer[i + 1].start() if i + 1 < len(treffer) else len(text)
+        block = text[m.end():block_ende]
+        if not re.search(r"[\d][\d.,]*\s*w(?:oe|ö)rter", block, re.IGNORECASE):
+            fehler.append(
+                f'Kapitel {nummer}: keine Zielwortzahl gefunden (z.B. "Zielwortzahl: ca. 1.000 Wörter").',
+            )
+        if nummer in gesehen:
+            fehler.append(f"Kapitel {nummer}: mehrfach im Kapitelplan deklariert.")
+        gesehen.add(nummer)
+    return fehler
+
+
 _NEBENSTRANG_ABSCHNITT_MUSTER = re.compile(
     r"##\s*Nebenstrang\s*\n(.*?)(?=\n##\s|\Z)", re.IGNORECASE | re.DOTALL,
 )

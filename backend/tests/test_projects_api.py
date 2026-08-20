@@ -327,3 +327,59 @@ def test_geruest_schreiben_ohne_ausgangslage_laesst_bestehendes_stand_00_unanget
 
     assert r.json()["stand_00_aktualisiert"] is False
     assert "Unveraendert" in (projekt_pfad / "stand_00.md").read_text(encoding="utf-8")
+
+
+def test_geruest_schreiben_lehnt_kapitelplan_ohne_zielwortzahl_ab(client, projekt, tmp_path):
+    r = client.put(f"/api/projects/{projekt}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nTestprojekt\n\n"
+                   "## Kapitelplan\nKapitel 1: Ankunft.\nKapitel 2: Ende. Zielwortzahl: 1.000 Woerter.\n",
+    })
+
+    assert r.status_code == 400
+    assert "Kapitel 1" in r.json()["detail"]
+    assert "Zielwortzahl" in r.json()["detail"]
+    # Es darf gar nichts geschrieben worden sein - kein geruest.md vorhanden.
+    assert not (tmp_path / "projects" / "daniel" / projekt / "projekt" / "geruest.md").exists()
+
+
+def test_geruest_schreiben_lehnt_doppelte_kapitelnummer_ab(client, projekt, tmp_path):
+    r = client.put(f"/api/projects/{projekt}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nTestprojekt\n\n"
+                   "## Kapitelplan\nKapitel 1: Ankunft. Zielwortzahl: 1.000 Woerter.\n"
+                   "Kapitel 1: Nochmal. Zielwortzahl: 1.200 Woerter.\n",
+    })
+
+    assert r.status_code == 400
+    assert "mehrfach" in r.json()["detail"]
+
+
+def test_geruest_schreiben_ueberschreibt_bestehendes_geruest_nicht_bei_fehler(client, projekt, tmp_path):
+    projekt_pfad = tmp_path / "projects" / "daniel" / projekt / "projekt"
+    client.put(f"/api/projects/{projekt}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nTestprojekt\n\n"
+                   "## Kapitelplan\nKapitel 1: Ankunft. Zielwortzahl: 1.000 Woerter.\n",
+    })
+
+    r = client.put(f"/api/projects/{projekt}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nTestprojekt\n\n## Kapitelplan\nKapitel 1: Ankunft ohne Ziel.\n",
+    })
+
+    assert r.status_code == 400
+    assert "Zielwortzahl: 1.000" in (projekt_pfad / "geruest.md").read_text(encoding="utf-8")
+
+
+def test_geruest_schreiben_erlaubt_kapitelplan_mit_zielwortzahl(client, projekt):
+    r = client.put(f"/api/projects/{projekt}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nTestprojekt\n\n"
+                   "## Kapitelplan\nKapitel 1: Ankunft. Zielwortzahl: 1.000 Woerter.\n",
+    })
+
+    assert r.status_code == 200
+
+
+def test_geruest_schreiben_ohne_kapitelplan_abschnitt_bleibt_erlaubt(client, projekt):
+    r = client.put(f"/api/projects/{projekt}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nTestprojekt\n\n## Konflikt\nNoch ohne Kapitelplan.\n",
+    })
+
+    assert r.status_code == 200

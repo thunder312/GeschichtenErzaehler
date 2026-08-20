@@ -217,6 +217,17 @@ def projekt_lesen(ordner: str, settings: Settings = Depends(get_settings),
 def geruest_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
                        settings: Settings = Depends(get_settings),
                        benutzer: Benutzer = Depends(get_current_user)):
+    # Verhindert, dass ein Kapitelplan mit fehlender Zielwortzahl oder
+    # doppelt deklarierter Kapitelnummer klaglos gespeichert wird - beides
+    # macht kapitelplan_erkennen() das betroffene Kapitel unsichtbar, der
+    # Fehler faellt sonst erst Tage spaeter beim Automatik-Schreiben auf
+    # (Vorfall a-Blut-und-Ahornlaub-Die-Ehre-des-Verbotenen). Bewusst VOR
+    # dem Schreiben geprueft, damit eine bereits gespeicherte gueltige
+    # Fassung bei einem fehlerhaften Speicherversuch unangetastet bleibt.
+    kapitelplan_fehler = g.kapitelplan_pruefen(anfrage.inhalt)
+    if kapitelplan_fehler:
+        raise HTTPException(400, "Kapitelplan unvollständig:\n" + "\n".join(kapitelplan_fehler))
+
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     ziel_pfad, gesichert_als = pd.schreib(pd.geruest_datei(projekt_root / "projekt"), anfrage.inhalt)
 
