@@ -474,8 +474,8 @@ export function ArchitektInterviewPage({
               {eintrag.rolle === "ich" && kannAntworten && bearbeiteIndex === null && (
                 <button
                   onClick={() => bearbeiten(i)}
-                  title="Diese Antwort bearbeiten und Interview ab hier neu fortsetzen"
-                  className="mt-2.5 shrink-0 text-xs text-text-muted opacity-0 transition-opacity hover:text-accent-light group-hover:opacity-100"
+                  title="Diese Antwort bearbeiten und Interview ab hier neu fortsetzen - z.B. wenn du aus Versehen Enter gedrückt hast oder dir nachträglich noch etwas einfällt"
+                  className="mt-2.5 shrink-0 text-xs text-text-muted opacity-50 transition-opacity hover:text-accent-light hover:opacity-100"
                 >
                   ✏️
                 </button>

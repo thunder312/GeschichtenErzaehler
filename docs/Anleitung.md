@@ -80,6 +80,10 @@ hat — der bisherige Chat-Verlauf wird dafür automatisch zwischengespeichert.
 Eine Frage im Interview erlaubt außerdem, bereits im **Personen-Fundus**
 gespeicherte Figuren aus früheren, abgeschlossenen Geschichten
 wiederzuverwenden, statt jede Figur neu zu erfinden (siehe Abschnitt 8).
+Jede eigene Antwort im Chat-Verlauf hat ein kleines ✏️-Symbol daneben —
+damit lässt sie sich nachträglich ändern (z. B. wenn du aus Versehen
+Enter gedrückt hast oder dir danach noch etwas einfällt); alle seither
+gestellten Fragen werden dabei verworfen, der Architekt fragt ab dort neu.
 
 Im erzeugten Gerüst legst du unter anderem fest:
 
