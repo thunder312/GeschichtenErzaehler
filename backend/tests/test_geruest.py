@@ -103,6 +103,56 @@ def test_kapitelplan_pruefen_ignoriert_kapitel_erwaehnungen_ausserhalb_kapitelpl
     assert g.kapitelplan_pruefen(geruest) == []
 
 
+def test_kapitelplan_pruefen_ignoriert_kapitel_rueckverweis_im_eigenen_feld():
+    # Regression: ein Kapitel, das in seinem eigenen Ort-/Ereignis-Feld auf
+    # FRUEHERE Kapitel verweist (z.B. "Ort: ... - erwaehnt in Kapitel 3",
+    # "Ereignis: ... aus Kapitel 4 und 6 ..."), darf NICHT wie eine zweite,
+    # echte Kapitel-Deklaration behandelt werden - sonst riss das den Block
+    # der ECHTEN Ueberschrift vorzeitig ab (die eigene Zielwortzahl-Zeile
+    # kam ja erst danach) und loeste ausserdem voellig irrefuehrende
+    # "mehrfach deklariert"-Fehler fuer die referenzierten Kapitel aus
+    # (Vorfall Kapitel 7 in a-Blut-und-Ahornlaub-Die-Ehre-des-Verbotenen,
+    # 2026-08-21).
+    geruest = (
+        "## Kapitelplan\n"
+        "*   **Kapitel 1: Start**\n"
+        "    *   Ort: Irgendwo\n"
+        "    *   Zielwortzahl: ca. 1000 Woerter.\n"
+        "*   **Kapitel 7: Die Fischerhuette**\n"
+        "    *   Ort: Die frisch renovierte Fischerhuette - erwaehnt in Kapitel 1\n"
+        "    *   Zielwortzahl: ca. 1000 Woerter.\n"
+        "    *   Ereignis: gekauft durch Einnahmen aus Kapitel 4 und 6.\n"
+    )
+    assert g.kapitelplan_pruefen(geruest) == []
+
+
+def test_kapitelplan_erkennen_verliert_kapitel_mit_rueckverweis_nicht():
+    geruest = (
+        "## Kapitelplan\n"
+        "*   **Kapitel 1: Start**\n"
+        "    *   Zielwortzahl: ca. 1000 Woerter.\n"
+        "*   **Kapitel 7: Die Fischerhuette**\n"
+        "    *   Ort: erwaehnt in Kapitel 1\n"
+        "    *   Zielwortzahl: ca. 1200 Woerter.\n"
+    )
+    assert g.kapitelplan_erkennen(geruest) == {1: 1000, 7: 1200}
+    assert g.letztes_geplantes_kapitel(geruest) == 7
+
+
+def test_kapitel_block_erkennen_mit_rueckverweis_liefert_vollstaendigen_block():
+    geruest = (
+        "## Kapitelplan\n"
+        "*   **Kapitel 7: Die Fischerhuette**\n"
+        "    *   Ort: erwaehnt in Kapitel 1\n"
+        "    *   Zielwortzahl: ca. 1000 Woerter.\n"
+        "    *   Ereignis: aus Kapitel 4 und 6.\n"
+    )
+    block = g.kapitel_block_erkennen(geruest, 7)
+    assert block is not None
+    assert "erwaehnt in Kapitel 1" in block
+    assert "aus Kapitel 4 und 6" in block
+
+
 def test_kapitelplan_pruefen_ohne_kapitelplan_abschnitt_liefert_leere_liste():
     # Bewusst kein Fehler - ein Geruest kann noch in Arbeit sein, bevor der
     # Kapitelplan ueberhaupt geschrieben wurde (siehe Docstring).

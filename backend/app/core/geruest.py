@@ -19,7 +19,22 @@ _ZAHLWORT = {
 }
 
 _ZAHLWOERTER_MUSTER = "|".join(_ZAHLWORT)
-_KAPITEL_MUSTER = rf"Kapitel\s+(\d{{1,2}}|{_ZAHLWOERTER_MUSTER})\b"
+# Verankert auf Zeilenanfang (nur optionaler Bullet-/Fett-Praefix davor
+# erlaubt: "*   **Kapitel eins: ...**", "**Kapitel 1: ...**" oder schlicht
+# "Kapitel 1: ..."), damit eine blosse Erwaehnung MITTEN in einem anderen
+# Feld (z.B. "Ort: ... - erwaehnt in Kapitel 3" oder "Ereignis: ... aus
+# Kapitel 4 und 6 ...") NICHT wie eine zweite, echte Kapitel-Deklaration
+# behandelt wird. Ohne diese Verankerung riss eine solche Rueckreferenz den
+# Block der ECHTEN Kapitel-Ueberschrift vorzeitig ab (die eigentliche
+# Zielwortzahl-Zeile kam ja erst danach) - das betroffene Kapitel
+# verschwand dadurch komplett aus kapitelplan_erkennen()/
+# letztes_geplantes_kapitel(), und kapitelplan_pruefen() lehnte den
+# Speicherversuch zusaetzlich mit vollkommen irrefuehrenden Fehlern ab
+# ("Kapitel 3: mehrfach deklariert" etc.) - Vorfall: Kapitel 7 in
+# Blut-und-Ahornlaub-Die-Ehre-des-Verbotenen referenzierte Kapitel 3/4/6,
+# 2026-08-21. Wird IMMER zusammen mit re.MULTILINE verwendet, damit "^" an
+# jedem Zeilenanfang greift, nicht nur am Textanfang.
+_KAPITEL_MUSTER = rf"^[ \t]*[*-]?[ \t]*\**[ \t]*Kapitel\s+(\d{{1,2}}|{_ZAHLWOERTER_MUSTER})\b"
 
 
 def kapitelplan_erkennen(geruest: str) -> dict[int, int]:
@@ -27,7 +42,7 @@ def kapitelplan_erkennen(geruest: str) -> dict[int, int]:
     Ergebnis z.B. {1: 1500, 2: 1600, 6: 1300} - auch bei Luecken bleiben
     erkannte Eintraege gueltig, fehlende liefern schlicht keinen Zielwert."""
     ergebnis: dict[int, int] = {}
-    treffer = list(re.finditer(_KAPITEL_MUSTER, geruest, re.IGNORECASE))
+    treffer = list(re.finditer(_KAPITEL_MUSTER, geruest, re.IGNORECASE | re.MULTILINE))
     for i, m in enumerate(treffer):
         roh_nummer = m.group(1).lower()
         nummer = int(roh_nummer) if roh_nummer.isdigit() else _ZAHLWORT.get(roh_nummer)
@@ -49,7 +64,7 @@ def kapitel_block_erkennen(geruest: str, gesuchte_nummer: int) -> str | None:
     """Liefert den vollen Textblock des EINEN gesuchten Kapitels aus dem
     echten Kapitelplan (unterscheidet ihn von blossen Kapitel-Erwaehnungen
     anderswo im Geruest, z.B. im Nebenstrang-Abschnitt)."""
-    treffer = list(re.finditer(_KAPITEL_MUSTER, geruest, re.IGNORECASE))
+    treffer = list(re.finditer(_KAPITEL_MUSTER, geruest, re.IGNORECASE | re.MULTILINE))
     for i, m in enumerate(treffer):
         roh_nummer = m.group(1).lower()
         nummer = int(roh_nummer) if roh_nummer.isdigit() else _ZAHLWORT.get(roh_nummer)
@@ -131,7 +146,7 @@ def kapitelplan_pruefen(geruest: str) -> list[str]:
     if not abschnitt:
         return []
     text = abschnitt.group(1)
-    treffer = list(re.finditer(_KAPITEL_MUSTER, text, re.IGNORECASE))
+    treffer = list(re.finditer(_KAPITEL_MUSTER, text, re.IGNORECASE | re.MULTILINE))
     gesehen: set[int] = set()
     fehler: list[str] = []
     for i, m in enumerate(treffer):
