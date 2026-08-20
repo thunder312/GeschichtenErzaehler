@@ -84,19 +84,54 @@ const KAPITEL_HEADING_MUSTER = /^[ \t]*(?:[*-][ \t]*)?\*\*[ \t]*Kapitel[ \t]+(\d
 // kapitelBloeckeParsen(), niemals zum eigentlichen Parsen.
 const KAPITEL_ERWAEHNUNG_MUSTER = /Kapitel[ \t]+(\d+|[a-zA-ZäöüÄÖÜß]+)[ \t]*:/gi;
 
-function feldExtrahieren(block: string, label: string): string {
-  // Sowohl "*   Ort: ..." als auch "*   **Ort:** ..." (Label komplett
-  // fettgedruckt inkl. Doppelpunkt) kommen in echten Projekten vor - die
-  // 0-2 optionalen "*" vor UND nach dem Label decken beide Formen ab.
-  const muster = new RegExp(`^[ \\t]*[*-][ \\t]*\\*{0,2}${label}[ \\t]*:[ \\t]*\\*{0,2}[ \\t]*(.+)$`, "im");
-  const treffer = block.match(muster);
-  return treffer ? treffer[1].replace(/\*+[ \t]*$/, "").trim() : "";
+// Die 7 bekannten Feld-Labels je Kapitel-Block, absichtlich als EIN Muster
+// statt sieben Einzelsuchen - siehe alleFelderExtrahieren() unten fuer den
+// Grund (Mehrzeilen-Werte brauchen die Position ALLER Labels gleichzeitig,
+// um zu wissen, wo ein Wert endet).
+const FELD_LABELS: readonly string[] = [
+  "Ort", "Anwesende Figuren", "Ereignis", "Zielwortzahl",
+  "Funktion im Spannungsbogen", "Stand der Liebeshandlung", "Zustand am Kapitelende",
+];
+
+// Sowohl "*   Ort: ..." als auch "*   **Ort:** ..." (Label komplett
+// fettgedruckt inkl. Doppelpunkt) kommen in echten Projekten vor - die 0-2
+// optionalen "*" vor UND nach dem Label decken beide Formen ab. Keines der
+// Labels enthaelt Regex-Sonderzeichen, deshalb ohne Escaping direkt in die
+// Alternation uebernommen.
+const FELD_LABEL_MUSTER = new RegExp(
+  `^[ \\t]*[*-]?[ \\t]*\\*{0,2}[ \\t]*(${FELD_LABELS.join("|")})[ \\t]*:[ \\t]*\\*{0,2}[ \\t]*`,
+  "gim",
+);
+
+/** Extrahiert ALLE 7 Felder auf einmal aus einem Kapitel-Block, jeweils als
+ * Wert von "nach dem Label" bis "kurz vor das naechste gefundene Label"
+ * (oder Blockende) - MEHRZEILIG, nicht nur die erste Zeile. Noetig, weil
+ * z.B. ein Ereignis-Feld oft mehrere Saetze/Absaetze mit eigenen
+ * Zeilenumbruechen enthaelt (die Textarea im Editor erlaubt das explizit).
+ * Eine reine "ein Label = eine Zeile"-Extraktion (fruehere Fassung) hat
+ * hier still Text verschluckt: nur die erste Zeile eines mehrzeiligen
+ * Ereignis-Felds kam beim naechsten Laden/Speichern noch an, der Rest fiel
+ * unbemerkt weg (Vorfall Kapitel 7 "Die Fischerhütte" in
+ * a-Blut-und-Ahornlaub-Die-Ehre-des-Verbotenen, 2026-08-21). */
+function alleFelderExtrahieren(block: string): Record<string, string> {
+  const treffer = [...block.matchAll(FELD_LABEL_MUSTER)];
+  const ergebnis: Record<string, string> = {};
+  treffer.forEach((m, i) => {
+    const start = (m.index ?? 0) + m[0].length;
+    const ende = i + 1 < treffer.length ? (treffer[i + 1].index ?? block.length) : block.length;
+    const wert = block.slice(start, ende).replace(/\*+[ \t\n]*$/, "").trim();
+    // m[1] behaelt die im Text tatsaechlich vorkommende Schreibweise (die
+    // Suche ist "i"-case-insensitive) - auf die kanonische Form aus
+    // FELD_LABELS zurueckfuehren, damit der Objekt-Key immer gleich heisst.
+    const kanonisch = FELD_LABELS.find((l) => l.toLowerCase() === m[1].toLowerCase());
+    if (kanonisch) ergebnis[kanonisch] = wert;
+  });
+  return ergebnis;
 }
 
-function zielwortzahlExtrahieren(block: string): number | null {
-  const zeile = feldExtrahieren(block, "Zielwortzahl");
-  if (!zeile) return null;
-  const treffer = [...zeile.matchAll(/([\d][\d.,]*)[ \t]*W(?:oe|ö)rter/gi)];
+function zielwortzahlExtrahieren(wert: string | undefined): number | null {
+  if (!wert) return null;
+  const treffer = [...wert.matchAll(/([\d][\d.,]*)[ \t]*W(?:oe|ö)rter/gi)];
   if (treffer.length === 0) return null;
   // Bei einer Spanne ("1800–2200 Wörter") wie im Backend die LETZTE (obere)
   // Zahl vor "Wörter" verwenden.
@@ -124,16 +159,16 @@ function kapitelBloeckeParsen(body: string): KapitelEintrag[] | null {
   return treffer.map((m, i) => {
     const start = (m.index ?? 0) + m[0].length;
     const ende = i + 1 < treffer.length ? (treffer[i + 1].index ?? body.length) : body.length;
-    const block = body.slice(start, ende);
+    const felder = alleFelderExtrahieren(body.slice(start, ende));
     return {
       titel: (m[2] ?? "").trim(),
-      ort: feldExtrahieren(block, "Ort"),
-      anwesendeFiguren: feldExtrahieren(block, "Anwesende Figuren"),
-      ereignis: feldExtrahieren(block, "Ereignis"),
-      zielwortzahl: zielwortzahlExtrahieren(block),
-      funktionImSpannungsbogen: feldExtrahieren(block, "Funktion im Spannungsbogen"),
-      standDerLiebeshandlung: feldExtrahieren(block, "Stand der Liebeshandlung"),
-      zustandAmKapitelende: feldExtrahieren(block, "Zustand am Kapitelende"),
+      ort: felder["Ort"] ?? "",
+      anwesendeFiguren: felder["Anwesende Figuren"] ?? "",
+      ereignis: felder["Ereignis"] ?? "",
+      zielwortzahl: zielwortzahlExtrahieren(felder["Zielwortzahl"]),
+      funktionImSpannungsbogen: felder["Funktion im Spannungsbogen"] ?? "",
+      standDerLiebeshandlung: felder["Stand der Liebeshandlung"] ?? "",
+      zustandAmKapitelende: felder["Zustand am Kapitelende"] ?? "",
     };
   });
 }
