@@ -32,8 +32,20 @@ ROLLEN: dict[str, dict] = {
             # mitten im Geruest abgeschnitten, aber trotzdem als fertig
             # gespeichert (siehe app/api/architekt.py:_zug, Vorfall
             # "Der-Preis-der-Wuerde-Ein-Geheimnis-in-Mayfair").
-            "num_ctx": 24576,
-            "num_predict": 8192,
+            # Zweiter, aehnlicher Vorfall (2026-08-19, "Japanisches-
+            # Hochmittelalter/neu"): ein von Hand offline ausgefuelltes
+            # Vorlage-Dokument (siehe arch.erste_eingabe_mit_vorlage) kann
+            # bereits so vollstaendig sein, dass der Architekt OHNE jede
+            # Rueckfrage direkt im ERSTEN Zug das komplette Story-Geruest
+            # ausgibt - dieser einzelne Zug muss dann den gesamten Inhalt
+            # (sechs ausformulierte Kapitel, vier Figuren, Nebenstrang) neu
+            # erzeugen, plus Denkanteil, und sprengte selbst das verdoppelte
+            # Retry-Budget (16384) noch. 24576/8192 auf 32768/12288 erhoeht,
+            # das Retry-Budget (Verdopplung in _zug()) bleibt dabei
+            # weiterhin unterhalb von num_ctx, damit fuer den Prompt selbst
+            # (Persona + Vorlage-Text + Verlauf) genug Platz bleibt.
+            "num_ctx": 32768,
+            "num_predict": 12288,
             "seed": 42,
         },
     },

@@ -5,6 +5,7 @@ import pytest
 from app.api import architekt as api_arch
 from app.config import Settings
 from app.core.ollama_client import ChatEvent, OllamaFehler
+from app.core.rollen import ROLLEN
 from app.db import init_db
 
 
@@ -83,7 +84,8 @@ def test_zug_wiederholt_mit_verdoppeltem_num_predict_bei_fehlendem_kapitelplan(s
     assert antwort == GERUEST_VOLLSTAENDIG.strip()
     assert len(aufrufe) == 2
     assert aufrufe[0] is None  # erster Versuch mit Standard-Budget
-    assert aufrufe[1] == {"num_predict": 8192 * 2}  # Retry mit verdoppeltem Budget
+    basis_num_predict = ROLLEN["architekt"]["optionen"]["num_predict"]
+    assert aufrufe[1] == {"num_predict": basis_num_predict * 2}  # Retry mit verdoppeltem Budget
 
 
 def test_zug_scheitert_sichtbar_wenn_kapitelplan_auch_nach_retry_fehlt(settings, monkeypatch):
