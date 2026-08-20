@@ -402,6 +402,27 @@ nicht ausgefüllt oder nicht erkennbar), liefert die Funktion `{}`, und alle
 davon abhängigen Automatismen (Zielwortzahl-Anzeige, automatische
 Fortsetzung, Auto-Export) bleiben inaktiv, ohne Fehler zu werfen.
 
+**GUI-Backend-Erweiterung (seit 2026-08-20):** `kapitelplan_pruefen(geruest)`
+(`app/core/geruest.py`) prüft beim manuellen Speichern eines Gerüsts (`PUT
+.../geruest`) zusätzlich NUR den `## Kapitelplan`-Abschnitt auf zwei stille
+Fehlerbilder, die `kapitelplan_erkennen()` sonst klaglos verschluckt: eine
+Kapitel-Überschrift ohne erkennbare Zielwortzahl, und dieselbe Kapitelnummer
+zweimal deklariert (`kapitelplan_erkennen()` behält dann stillschweigend
+nur die erste Deklaration). Anders als beim reinen Lesen oben wird ein
+solcher Speicherversuch mit einer konkreten Fehlermeldung **abgelehnt**
+(HTTP 400), bevor etwas geschrieben wird - Anlass war ein Vorfall, bei dem
+beim manuellen Nachbearbeiten des Kapitelplans versehentlich alle
+Zielwortzahl-Zeilen entfernt wurden und der Automatikmodus daraufhin
+fälschlich "keine Kapitel-Struktur" meldete. Das Frontend bietet dafür
+zusätzlich einen strukturierten Karten-Editor NUR für den Kapitelplan
+(`frontend/src/utils/kapitelplan.ts` + `KapitelplanEditor.tsx`) mit
+Zielwortzahl als Pflicht-Zahlenfeld, der diesen Fehler client-seitig schon
+vor jedem Speicherversuch verhindert - die serverseitige Prüfung bleibt
+trotzdem als zweite Verteidigungslinie bestehen, u. a. falls der
+Client-Parser an einem Kapitelplan-Format scheitert, das er nicht kennt
+(er fällt in diesem Fall auf reinen Freitext zurück statt Daten zu
+verlieren).
+
 ### 5.5 Automatische Fortsetzung bei zu kurzen Kapiteln (Opt-in, Standard Aus)
 
 **Wichtige Verhaltensänderung gegenüber früheren Versionen:** Die
@@ -764,6 +785,21 @@ Epoche (aus der bei Projekterstellung hinterlegten Marker-Datei
 Fehlt der Titel im Geruest, wird ein leerer String zurückgegeben (kein
 Fehler) - die Titelseite bleibt dann schlicht weg.
 
+**GUI-Backend-Erweiterung (seit 2026-08-19):** `titelseite_erzeugen()`
+(`app/core/geruest.py`) nimmt zusätzlich einen optionalen dritten
+Parameter `einleitungssatz_vorlage` entgegen - der Inhalt von
+`projekt/einleitungssatz.txt`, einer 5. Datei je Epoche (neben
+architekt.txt/autor.txt/pruefer_anachronismus.txt/verbotsliste.md, siehe
+`app/api/epochen.py`) mit Platzhalter `{jahr}`, beim Projekt-Anlegen 1:1
+kopiert wie verbotsliste.md. Ist die Vorlage vorhanden, ersetzt sie den
+generischen „Eine Geschichte aus dem {epoche}..."-Text - Grund: der rohe
+Epoche-Ordnername lässt sich nicht immer grammatikalisch korrekt in den
+Satz einsetzen (z. B. „aus dem Altes-Aegypten" statt „aus dem alten
+Ägypten"). Fehlt die Datei (ältere Epochen/Projekte), greift der
+ordnername-basierte Fallback unverändert. Eine spätere Änderung der
+zentralen Epoche wirkt sich NICHT auf bereits angelegte Projekte aus
+(gleiche Entkopplung wie bei den Personas).
+
 ### 5.16 Projektordner-Umbenennung nach Titel
 
 ```python
@@ -793,6 +829,18 @@ Projektordner, wird nicht mehr umbenannt - das kann nur passieren, wenn
 `architekt` ein zweites Mal auf einem bereits begonnenen Projekt aufgerufen
 wird. Zu diesem Zeitpunkt liefe die Umbenennung Gefahr, aktiv in
 Bearbeitung befindliche Dateipfade zu verändern.
+
+**GUI-Backend-Abweichung (seit 2026-08-20):** `titel_erkennen()`
+(`app/core/geruest.py`, Gegenstück zu `titel_treffer` oben) schneidet eine
+führende Options-Bezeichnung (`a)`/`b)`/`c)`/`d)`) vom erkannten Titel ab.
+Anlass: die Architekt-Persona verlangt laut Vorgabe EINEN Titel, antwortet
+aber gelegentlich mit der unaufgelösten Mehrfachauswahl aus der
+Titel-Frage ("a) Vorschlag ... b) Eigener Titel") statt sich für einen zu
+entscheiden - insbesondere, wenn ein bereits komplett ausgefülltes
+Offline-Vorlage-Dokument im ersten Zug ohne Rückfrage durchgereicht wird.
+Ohne dieses Abschneiden landete die rohe Options-Bezeichnung "a) "
+unverändert im slugifizierten Ordnernamen (Vorfall
+a-Blut-und-Ahornlaub-Die-Ehre-des-Verbotenen).
 
 **Für eine GUI-Reimplementierung wichtig:** `Path.cwd()` wird umbenannt,
 nicht `PROJEKT` (das Unterverzeichnis `projekt/`) - der gesamte äußere
@@ -938,7 +986,11 @@ der jeweilige Prompt-Text auf stderr erschienen ist.
   Wörter") werden nicht erkannt. Das betrifft sowohl die
   Zielwortzahl-Anzeige als auch die automatische Zusammenführung am Ende
   (Abschnitt 5.17) – im Zweifel bleibt die Automatik einfach aus, es gibt
-  keinen Fehlerfall, der stillschweigend falsche Werte liefert.
+  keinen Fehlerfall, der stillschweigend falsche Werte liefert. **Ausnahme
+  GUI-Backend:** beim manuellen Speichern eines Gerüsts über den
+  Kapitelplan-Editor lehnt `kapitelplan_pruefen()` (siehe 5.4) einen
+  unvollständigen Kapitelplan aktiv mit Fehlermeldung ab, statt ihn
+  klaglos zu speichern - dort gibt es also sehr wohl einen Fehlerfall.
 - Die Jahres- und Jugendschutz-Erkennung ist Regex-basiert und erwartet
   bestimmte Wortmuster im Gerüst. Freitext-Abweichungen der Architekten-Rolle
   können dazu führen, dass Standardwerte greifen (Jahr „unbekannt",

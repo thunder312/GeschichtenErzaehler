@@ -95,10 +95,22 @@ Im erzeugten Gerüst legst du unter anderem fest:
   Kernkonflikt (und einen eventuellen Nebenstrang) tatsächlich auflösen,
   kein offenes Ende.
 
-Das Gerüst lässt sich im selben Tab auch von Hand nachbearbeiten (Monaco-
-Editor) — wirkt sich ab dem nächsten Schreiben-Aufruf aus. Direkt darunter
-lassen sich außerdem **Stilproben** hinterlegen: ein bis drei kurze
-Textausschnitte, an deren Sprache/Satzrhythmus/Ton sich der Autor
+Das Gerüst lässt sich im selben Tab auch von Hand nachbearbeiten — wirkt
+sich ab dem nächsten Schreiben-Aufruf aus. Rahmen/Titel/Figuren/Konflikt/
+Nebenstrang sowie Ausgangslage/Offene-Punkte/Regeln bleiben Freitext
+(Monaco-Editor oben bzw. unten), der **Kapitelplan** dazwischen ist eine
+eigene Karte pro Kapitel mit einzelnen Feldern (Ort, Anwesende Figuren,
+Ereignis, Zielwortzahl, Funktion im Spannungsbogen, Stand der
+Liebeshandlung, Zustand am Kapitelende) statt einer Freitext-Bulletliste.
+Zielwortzahl ist ein Pflicht-Zahlenfeld — fehlt sie oder ein anderes Feld,
+markiert „Speichern“ die betroffene Karte rot, statt den Fehler erst beim
+Automatik-Schreiben Tage später bemerken zu lassen. Über „+ Kapitel“/▲▼/
+„Löschen“ lassen sich Kapitel ergänzen, verschieben oder entfernen; die
+Kapitelnummer ergibt sich automatisch aus der Position. Ein vorhandener
+Kapitelplan in einem bisher unbekannten Format wird nie stillschweigend
+überschrieben — er bleibt dann als Freitext mit Warnhinweis stehen. Direkt
+darunter lassen sich außerdem **Stilproben** hinterlegen: ein bis drei
+kurze Textausschnitte, an deren Sprache/Satzrhythmus/Ton sich der Autor
 orientieren soll, ohne deren Handlung oder Figuren zu übernehmen.
 
 ---
@@ -150,6 +162,14 @@ nicht mehr auffindbar ist (weil der Text sich inzwischen geändert hat),
 werden **nicht** automatisch übernommen — sie bleiben zur manuellen
 Entscheidung sichtbar.
 
+Sobald der Automatikmodus fertig ist und du „Prüfung abschließen“ klickst,
+bietet ein Dialog an, das Projekt zu **bereinigen**: löscht alle
+`.bak`-Sicherungsdateien sowie alle Zwischenstände bis auf den letzten.
+Kapitel, Gerüst, Verbotsliste und Personas bleiben dabei unangetastet. Ein
+Haken im selben Dialog (standardmäßig gesetzt, unabhängig vom Bereinigen)
+aktualisiert außerdem den **Personen-Fundus** mit den Figuren dieses
+Projekts.
+
 ---
 
 ## 5. Stand festhalten und exportieren
@@ -160,7 +180,10 @@ Tab **Stand & Export**:
   angegebenen Kapitel zusammen (Figuren, Beziehungen, offene Fäden,
   bereits verwendete Bilder/Formulierungen). Ist es das laut Gerüst
   **letzte** geplante Kapitel, werden automatisch alle Kapitel zu einer
-  Gesamtdatei zusammengefügt.
+  Gesamtdatei zusammengefügt. Daneben „🔄 Neu laden“ — zeigt nur den
+  zuletzt gespeicherten Stand erneut an, ohne den Chronisten (und damit
+  einen KI-Aufruf) erneut zu bemühen; nützlich, wenn du seitdem z. B. im
+  Tab „Rechtschreibung“ noch etwas am Kapiteltext geändert hast.
 - **„Titelbild“** — schlägt (per KI) einen deutschen Bildprompt aus dem
   Gerüst vor, oder eigenen Prompt eintragen, dann generieren lassen.
   Braucht ein KI-Ziel mit hinterlegtem **Bild-Port** (siehe Abschnitt 8) —
@@ -170,7 +193,9 @@ Tab **Stand & Export**:
 - **„Als PDF-Buch herunterladen“** — erzeugt ein gestaltetes PDF im Stil
   eines Taschenbuchs, direkt aus den aktuellen Kapitel-Dateien.
 - **„Zwischenstand zusammenfassen“** (von/bis Kapitel) — für einen
-  Auszug, ohne die Geschichte fertigstellen zu müssen.
+  Auszug, ohne die Geschichte fertigstellen zu müssen. Auch hier zeigt
+  „🔄 Neu laden“ neben der Vorschau die zuletzt genutzte der beiden
+  Zusammenfassungen erneut an.
 
 Die Gesamtdatei sowie benannte Zwischenstände landen im Story-Ordner
 selbst, nicht im internen Arbeitsdateien-Unterordner — dort findest du sie
