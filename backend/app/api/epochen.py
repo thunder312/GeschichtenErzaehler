@@ -19,7 +19,13 @@ from fastapi.responses import PlainTextResponse
 from app.config import Settings, get_settings
 from app.core.epoche import EpocheAntworten, epoche_dateien_erzeugen
 from app.core.geruest import ordnername_aus_titel
-from app.schemas import EpocheDateiSchreibenAnfrage, EpocheErstellenAnfrage, EpocheErstellenAntwort, EpocheGenreAnfrage
+from app.schemas import (
+    EpocheDateiSchreibenAnfrage,
+    EpocheErstellenAnfrage,
+    EpocheErstellenAntwort,
+    EpocheFarbeAnfrage,
+    EpocheGenreAnfrage,
+)
 
 router = APIRouter(prefix="/api/epochen", tags=["epochen"])
 
@@ -122,3 +128,19 @@ def epoche_genre_schreiben(ordner: str, anfrage: EpocheGenreAnfrage, settings: S
     else:
         marker.unlink(missing_ok=True)
     return {"genre": genre or None}
+
+
+@router.put("/{ordner}/farbe")
+def epoche_farbe_schreiben(ordner: str, anfrage: EpocheFarbeAnfrage, settings: Settings = Depends(get_settings)):
+    """Setzt/loescht die Hex-Farbmarkierung dieser Epoche (".farbe"-Datei,
+    gleiches Muster wie ".genre" oben) - dient nur der farbigen
+    Unterscheidung in der Projektliste (siehe app/api/projects.py:
+    _epoche_farbe_lesen), hat keinen Einfluss auf Prompt/Generierung."""
+    pfad = _epoche_pfad(settings, ordner)
+    farbe = anfrage.farbe.strip()
+    marker = pfad / ".farbe"
+    if farbe:
+        marker.write_text(farbe, encoding="utf-8")
+    else:
+        marker.unlink(missing_ok=True)
+    return {"farbe": farbe or None}

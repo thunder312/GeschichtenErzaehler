@@ -60,6 +60,15 @@ export function ProjektePage({
     return Array.from(gefunden).sort((a, b) => a.localeCompare(b));
   }, [projekte]);
 
+  // Epoche -> Hex-Farbe, fuer das farbige Quadrat je Projektzeile (siehe
+  // ToDo.md) - `epochen` kommt bereits fertig aus App.tsx, hier nur als
+  // Lookup umgebaut statt bei jeder Zeile erneut linear zu suchen.
+  const epocheFarbe = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of epochen) if (e.farbe) map.set(e.name, e.farbe);
+    return map;
+  }, [epochen]);
+
   const gefilterteProjekte = useMemo(() => {
     const suchtextNormalisiert = suchtext.trim().toLowerCase();
     const gefiltert = projekte.filter((p) => {
@@ -274,6 +283,14 @@ export function ProjektePage({
                 )}
                 <div>
                   <div className="flex items-center gap-2">
+                    {p.epoche && epocheFarbe.get(p.epoche) && (
+                      <span
+                        aria-hidden="true"
+                        title={p.epoche}
+                        className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                        style={{ backgroundColor: epocheFarbe.get(p.epoche) }}
+                      />
+                    )}
                     <div className="font-medium text-text">{p.titel ?? p.ordner}</div>
                     {p.neu_geschrieben_aus && (
                       <span title={`Neu geschrieben - Kopie von "${p.neu_geschrieben_aus}"`} className="cursor-help text-sm">

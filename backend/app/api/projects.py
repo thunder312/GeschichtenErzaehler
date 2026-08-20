@@ -51,12 +51,19 @@ def _epoche_genre_lesen(epoche_ordner) -> str | None:
     return marker.read_text(encoding="utf-8").strip() or None
 
 
+def _epoche_farbe_lesen(epoche_ordner) -> str | None:
+    marker = epoche_ordner / ".farbe"
+    if not marker.exists():
+        return None
+    return marker.read_text(encoding="utf-8").strip() or None
+
+
 @router.get("/epochen", response_model=list[EpocheKurz])
 def epochen_auflisten(settings: Settings = Depends(get_settings)):
     if not settings.epochen_dir.is_dir():
         return []
     return [
-        EpocheKurz(name=p.name, genre=_epoche_genre_lesen(p))
+        EpocheKurz(name=p.name, genre=_epoche_genre_lesen(p), farbe=_epoche_farbe_lesen(p))
         for p in sorted(settings.epochen_dir.iterdir()) if p.is_dir()
     ]
 

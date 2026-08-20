@@ -77,6 +77,12 @@ export const api = {
       { method: "PUT", body: JSON.stringify({ genre }) },
     ),
 
+  epocheFarbeSchreiben: (ordner: string, farbe: string) =>
+    anfrage<{ farbe: string | null }>(
+      `/api/epochen/${encodeURIComponent(ordner)}/farbe`,
+      { method: "PUT", body: JSON.stringify({ farbe }) },
+    ),
+
   projekte: () => anfrage<ProjektKurz[]>("/api/projects"),
 
   projektAnlegen: (titel: string, epoche: string, zweiteEpoche?: string | null) =>

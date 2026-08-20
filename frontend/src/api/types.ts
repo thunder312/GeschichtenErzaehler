@@ -3,6 +3,7 @@
 export interface EpocheKurz {
   name: string;
   genre?: string | null;
+  farbe?: string | null;
 }
 
 // Siehe app/core/automatik.py:zustand_zusammenfassen() für die Bedeutung

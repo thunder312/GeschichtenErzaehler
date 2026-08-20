@@ -59,13 +59,20 @@ const EPOCHE_DATEI_BESCHRIFTUNG: Record<string, string> = {
  * anders als PersonasPage.tsx wirken Aenderungen hier NICHT nur auf ein
  * einzelnes Projekt, sondern auf die Bibliothek selbst, aus der zukuenftig
  * angelegte Projekte ihre Kopie ziehen (siehe app/api/epochen.py). */
+// Fallback-Farbe fuer das native Colorpicker-Widget, solange die Epoche
+// noch keine eigene Farbe hat - neutrales Grau statt Weiss/Schwarz, damit
+// der Picker nicht wie ein bereits (falsch) gesetzter Wert aussieht.
+const FARBE_FALLBACK = "#94a3b8";
+
 function EpocheBearbeiten({
   ordner,
   genre,
+  farbe,
   onEpochenGeaendert,
 }: {
   ordner: string;
   genre: string | null;
+  farbe: string | null;
   onEpochenGeaendert: () => void;
 }) {
   const [dateinamen, setDateinamen] = useState<string[]>([]);
@@ -78,6 +85,10 @@ function EpocheBearbeiten({
   const [genreEntwurf, setGenreEntwurf] = useState(genre ?? "");
   const [genreWirdGespeichert, setGenreWirdGespeichert] = useState(false);
   const [genreGespeichertHinweis, setGenreGespeichertHinweis] = useState<string | null>(null);
+
+  const [farbeEntwurf, setFarbeEntwurf] = useState(farbe ?? "");
+  const [farbeWirdGespeichert, setFarbeWirdGespeichert] = useState(false);
+  const [farbeGespeichertHinweis, setFarbeGespeichertHinweis] = useState<string | null>(null);
 
   useEffect(() => {
     api.epocheDateienAuflisten(ordner).then((liste) => {
@@ -120,6 +131,19 @@ function EpocheBearbeiten({
     }
   }
 
+  async function farbeSpeichern(neueFarbe: string) {
+    setFarbeEntwurf(neueFarbe);
+    setFarbeWirdGespeichert(true);
+    setFarbeGespeichertHinweis(null);
+    try {
+      await api.epocheFarbeSchreiben(ordner, neueFarbe);
+      setFarbeGespeichertHinweis("Gespeichert.");
+      onEpochenGeaendert();
+    } finally {
+      setFarbeWirdGespeichert(false);
+    }
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 border-t border-border bg-bg/40 p-4 lg:grid-cols-[1fr_2fr]">
       <div className="space-y-4">
@@ -136,6 +160,29 @@ function EpocheBearbeiten({
             </Button>
           </div>
           {genreGespeichertHinweis && <p className="mt-1 text-xs text-accent-light">{genreGespeichertHinweis}</p>}
+        </div>
+        <div>
+          <Label>Farbe (Projektliste)</Label>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={farbeEntwurf || FARBE_FALLBACK}
+              onChange={(e) => farbeSpeichern(e.target.value)}
+              disabled={farbeWirdGespeichert}
+              className="h-9 w-14 cursor-pointer rounded-lg border border-border bg-bg p-1 disabled:cursor-not-allowed disabled:opacity-40"
+            />
+            {farbeEntwurf && (
+              <button
+                type="button"
+                onClick={() => farbeSpeichern("")}
+                disabled={farbeWirdGespeichert}
+                className="text-xs text-text-muted hover:text-text disabled:opacity-40"
+              >
+                Zurücksetzen
+              </button>
+            )}
+          </div>
+          {farbeGespeichertHinweis && <p className="mt-1 text-xs text-accent-light">{farbeGespeichertHinweis}</p>}
         </div>
         <div>
           <Label>Dateien</Label>
@@ -313,7 +360,16 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
                     ✕
                   </button>
                   <div className="flex-1">
-                    <div className="font-medium text-text">{e.name}</div>
+                    <div className="flex items-center gap-1.5">
+                      {e.farbe && (
+                        <span
+                          aria-hidden="true"
+                          className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                          style={{ backgroundColor: e.farbe }}
+                        />
+                      )}
+                      <span className="font-medium text-text">{e.name}</span>
+                    </div>
                     {e.genre && <div className="text-xs text-text-muted">{e.genre}</div>}
                   </div>
                   <button
@@ -328,7 +384,13 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
                   </button>
                 </div>
                 {bearbeiteOrdner === e.name && (
-                  <EpocheBearbeiten key={e.name} ordner={e.name} genre={e.genre ?? null} onEpochenGeaendert={onEpochenGeaendert} />
+                  <EpocheBearbeiten
+                    key={e.name}
+                    ordner={e.name}
+                    genre={e.genre ?? null}
+                    farbe={e.farbe ?? null}
+                    onEpochenGeaendert={onEpochenGeaendert}
+                  />
                 )}
               </li>
             ))}

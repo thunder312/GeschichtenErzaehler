@@ -226,3 +226,35 @@ def test_epoche_genre_schreiben_mit_leerem_wert_entfernt_marker(client, tmp_path
     r = client.put("/api/epochen/Viktorianisches-England/genre", json={"genre": ""})
     assert r.json()["genre"] is None
     assert not marker.exists()
+
+
+def test_epoche_farbe_schreiben_setzt_und_ueberschreibt(client):
+    client.post("/api/epochen", json=_reale_epoche())
+    r = client.put("/api/epochen/Viktorianisches-England/farbe", json={"farbe": "#a16207"})
+    assert r.status_code == 200
+    assert r.json()["farbe"] == "#a16207"
+
+    liste = client.get("/api/projects/epochen").json()
+    eintrag = next(e for e in liste if e["name"] == "Viktorianisches-England")
+    assert eintrag["farbe"] == "#a16207"
+
+    r2 = client.put("/api/epochen/Viktorianisches-England/farbe", json={"farbe": "#2563eb"})
+    assert r2.json()["farbe"] == "#2563eb"
+
+
+def test_epoche_farbe_schreiben_mit_leerem_wert_entfernt_marker(client, tmp_path):
+    client.post("/api/epochen", json=_reale_epoche())
+    client.put("/api/epochen/Viktorianisches-England/farbe", json={"farbe": "#a16207"})
+    marker = tmp_path / "epochen" / "Viktorianisches-England" / ".farbe"
+    assert marker.exists()
+
+    r = client.put("/api/epochen/Viktorianisches-England/farbe", json={"farbe": ""})
+    assert r.json()["farbe"] is None
+    assert not marker.exists()
+
+
+def test_epoche_ohne_farbe_hat_keine_farbe_in_liste(client):
+    client.post("/api/epochen", json=_reale_epoche())
+    liste = client.get("/api/projects/epochen").json()
+    eintrag = next(e for e in liste if e["name"] == "Viktorianisches-England")
+    assert eintrag["farbe"] is None

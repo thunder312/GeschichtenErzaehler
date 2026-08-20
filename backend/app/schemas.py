@@ -9,6 +9,10 @@ from pydantic import BaseModel, Field
 class EpocheKurz(BaseModel):
     name: str
     genre: str | None = None
+    # Hex-Farbcode (z.B. "#a16207") fuer die farbige Markierung in der
+    # Projektliste (siehe app/api/epochen.py:epoche_farbe_schreiben) -
+    # None, solange fuer diese Epoche noch keine Farbe gesetzt wurde.
+    farbe: str | None = None
 
 
 class EpocheErstellenAnfrage(BaseModel):
@@ -39,6 +43,10 @@ class EpocheDateiSchreibenAnfrage(BaseModel):
 
 class EpocheGenreAnfrage(BaseModel):
     genre: str = ""
+
+
+class EpocheFarbeAnfrage(BaseModel):
+    farbe: str = ""
 
 
 class ProjektKurz(BaseModel):
