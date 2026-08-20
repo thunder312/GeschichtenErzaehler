@@ -9,8 +9,11 @@ function AutomatikBadge({ zustand }: { zustand: AutomatikZustand }) {
   if (zustand === "laeuft") return <Badge tone="amber">🤖 Automatik läuft</Badge>;
   if (zustand === "fehler") return <Badge tone="amber">⚠️ Automatik-Fehler</Badge>;
   if (zustand === "gestoppt") return <Badge tone="amber">⏸️ Automatik angehalten</Badge>;
+  // "abgeschlossen_mit_resten" bleibt (echter Handlungsbedarf - Reste
+  // pruefen), "abgeschlossen_sauber" (alles fertig, nichts zu tun) zeigt
+  // bewusst KEINEN Badge mehr - unnoetig, die Kapitelzahl in der Zeile
+  // darunter sagt bereits "X von Y geplant".
   if (zustand === "abgeschlossen_mit_resten") return <Badge tone="amber">⚠️ Automatik fertig – Reste prüfen</Badge>;
-  if (zustand === "abgeschlossen_sauber") return <Badge tone="green">✅ Automatik fertig</Badge>;
   return null;
 }
 
@@ -273,7 +276,9 @@ export function ProjektePage({
                   <div className="flex items-center gap-2">
                     <div className="font-medium text-text">{p.titel ?? p.ordner}</div>
                     {p.neu_geschrieben_aus && (
-                      <Badge tone="blue">🔄 Neu geschrieben ({p.ordner})</Badge>
+                      <span title={`Neu geschrieben - Kopie von "${p.neu_geschrieben_aus}"`} className="cursor-help text-sm">
+                        🔄
+                      </span>
                     )}
                     <AutomatikBadge zustand={p.automatik_zustand} />
                   </div>
@@ -281,7 +286,6 @@ export function ProjektePage({
                     {p.epoche ?? "unbekannte Epoche"}
                     {p.zweite_epoche ? ` ↔ ${p.zweite_epoche} (Zeitsprung)` : ""} · {p.anzahl_kapitel} Kapitel
                     {p.letztes_geplantes_kapitel ? ` von ${p.letztes_geplantes_kapitel} geplant` : ""}
-                    {p.neu_geschrieben_aus ? ` · Kopie von "${p.neu_geschrieben_aus}"` : ""}
                   </div>
                 </div>
               </li>

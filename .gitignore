@@ -21,6 +21,8 @@ backend/*.sqlite3
 backend/.secret_key
 backend/_uvicorn_stdout.log
 backend/_uvicorn_stderr.log
+backend/uvicorn_out.log
+backend/uvicorn_err.log
 projects/
 *.bak
 
