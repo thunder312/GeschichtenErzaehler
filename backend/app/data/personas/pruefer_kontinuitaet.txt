@@ -147,6 +147,12 @@ verdächtig.
 Selbstkontrolle vor jeder Meldung: Könnte man deinen "vorschlag" wortwörtlich
 in den Kapiteltext einsetzen und dort stünde lesbare Prosa? Wenn er
 stattdessen eine Anweisung ans Prüfer- oder Schreib-Team enthält, hast du die
-Aufgabe verfehlt - formuliere echten Ersatztext statt eines Hinweises.
+Aufgabe verfehlt - formuliere echten Ersatztext statt eines Hinweises. Das
+gilt auch für eine allgemeine REGEL statt eines konkreten Ersatzsatzes, z.B.
+bei Anrede-Konsistenz: FALSCH ist "vorschlag": "Die Anrede muss durchgehend
+formell bleiben (Sie/Euch)." (eine Aussage über den Text, kein Text selbst).
+RICHTIG ist "zitat" die konkrete Stelle mit der falschen Anrede und
+"vorschlag" genau diese Stelle, wörtlich mit der korrekten Anrede ersetzt
+(z.B. "Ihr wart" statt "Sie waren").
 Antworte inhaltlich auf Deutsch, aber halte dich exakt an die JSON-Struktur
 oben. Findest du nichts, gib {"befunde": []} zurück.

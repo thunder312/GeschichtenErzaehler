@@ -184,6 +184,22 @@ def test_vorschlag_verdaechtig_erkennt_weitere_urteils_floskeln():
         assert vorschlag_verdaechtig(fundstelle, urteil) is True
 
 
+# Woertlich der "vorschlag"-Wert aus einem echten Produktiv-Vorfall
+# (Schatten-ueber-Luxor..., 2026-08-19, zweiter Vorfall in diesem Projekt):
+# eine allgemeine Anrede-Regel statt eines konkreten Ersatzsatzes landete im
+# Kapiteltext. Weder Anweisungs- noch Urteils-Heuristik griff, da hier keine
+# Anrede ans Team und kein kurzes Pruefungs-Urteil vorliegt, sondern eine
+# Regel-Aussage UEBER den Text. Regressionsschutz gegen genau dieses Muster.
+def test_vorschlag_verdaechtig_erkennt_anrede_regel_aussage():
+    fundstelle = "Ihr wart eine gute Schuelerin, Katush"
+    vorschlag = "Die Anrede muss durchgehend formell bleiben (Sie/Euch)."
+    assert vorschlag_verdaechtig(fundstelle, vorschlag) is True
+
+
+def test_vorschlag_verdaechtig_erkennt_klammer_mit_alternativen():
+    assert vorschlag_verdaechtig("bei der Baustätte", "Bei der Baustätte (Sie/Ihr)") is True
+
+
 def test_vorschlag_verdaechtig_laesst_beibehalten_als_verb_im_satz_durch():
     """'beibehalten' als normales Verb MITTEN in echter Erzaehlprosa (nicht
     als Urteil am Satzanfang) darf nicht blockiert werden."""

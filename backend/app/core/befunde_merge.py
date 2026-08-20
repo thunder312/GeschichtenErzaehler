@@ -34,6 +34,26 @@ from dataclasses import dataclass
 # hier: das Urteil ist kurz (unterschreitet die Laengen-Grenze locker) und
 # enthaelt keine Anweisung an ein Team, sondern eine reine Feststellung -
 # siehe _VERDIKT_MUSTER unten.
+#
+# Ein VIERTES Fehlerbild (2026-08-19, erneut "Schatten-ueber-Luxor..."):
+# statt einer Anweisung ANS TEAM (siehe _ANWEISUNGS_MUSTER oben im Modul)
+# formuliert das Modell eine allgemeine REGEL/Vorgabe fuer die Figur bzw.
+# den Text ("Die Anrede muss durchgehend formell bleiben (Sie/Euch)."). Kein
+# Imperativ, keine Anrede ans Team ("Ersetzen Sie...") - grammatisch liest
+# sich das wie eine Aussage UEBER den Text, nicht wie ein Zitat AUS ihm,
+# deshalb ein eigenes Muster statt eine Erweiterung von _ANWEISUNGS_MUSTER.
+# Zwei Signale, beide fuer sich schon selten in echter Erzaehlprosa:
+# (1) ein Modalverb ("muss"/"musste") zusammen mit einem Pauschal-Adverb wie
+# "durchgehend"/"stets"/"konsequent"/"grundsaetzlich"/"generell" - typisch
+# fuer eine Regel-Formulierung, nicht fuer eine einzelne erzaehlte Handlung;
+# (2) eine Klammer mit zwei schraeggestrichenen Alternativen ("(Sie/Euch)",
+# "(Sie/Ihr)") - echte Prosa entscheidet sich fuer EINE Anrede, sie listet
+# nie beide als Option nebeneinander auf.
+_REGEL_MUSTER = re.compile(
+    r"\bmuss(?:te|ten)?\s+.{0,40}\b(durchgehend|stets|konsequent|grundsätzlich|generell)\b|"
+    r"\([^()]{1,20}/[^()]{1,20}\)",
+    re.IGNORECASE,
+)
 _VORSCHLAG_MAX_ABSOLUT = 80
 _VORSCHLAG_MAX_VERHAELTNIS = 3
 
@@ -91,6 +111,8 @@ def vorschlag_verdaechtig(fundstelle: str, vorschlag: str) -> bool:
     if len(vorschlag) > max(_VORSCHLAG_MAX_ABSOLUT, len(fundstelle) * _VORSCHLAG_MAX_VERHAELTNIS):
         return True
     if _ANWEISUNGS_MUSTER.search(vorschlag):
+        return True
+    if _REGEL_MUSTER.search(vorschlag):
         return True
     return bool(_VERDIKT_MUSTER.match(vorschlag.strip()))
 
