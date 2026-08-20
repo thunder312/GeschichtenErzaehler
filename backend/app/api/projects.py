@@ -13,6 +13,7 @@ from fastapi.responses import PlainTextResponse
 
 from app.auth import get_current_user
 from app.config import Settings, get_settings
+from app.core import architekt as arch
 from app.core import automatik
 from app.core import geruest as g
 from app.core import projekt_dateien as pd
@@ -22,6 +23,7 @@ from app.schemas import (
     EpocheKurz,
     GeruestSchreibenAnfrage,
     ProjektAnlegenAnfrage,
+    ProjektBereinigenAntwort,
     ProjektDetail,
     ProjektKurz,
 )
@@ -170,6 +172,21 @@ def projekt_neu_schreiben(ordner: str, settings: Settings = Depends(get_settings
     return _projekt_kurz(ziel, projekte_wurzel(settings, benutzer.username), settings)
 
 
+@router.post("/{ordner:path}/bereinigen", response_model=ProjektBereinigenAntwort)
+def projekt_bereinigen(ordner: str, settings: Settings = Depends(get_settings),
+                        benutzer: Benutzer = Depends(get_current_user)):
+    """Raeumt ein fertig geprueftes Projekt auf (Dialog 'Projekt bereinigen'
+    beim Abschliessen der Pruefung, siehe frontend/src/pages/
+    PruefenAnwendenPage.tsx und app/core/projekt_dateien.py:
+    projekt_bereinigen). Reine Dateizugriffe, kein Ollama-Aufruf - anders
+    als die Personen-Fundus-Aktualisierung, die dasselbe Dialog-Fenster
+    unabhaengig davon anbietet (siehe app/api/fundus.py)."""
+    pfad = projekt_pfad(settings, benutzer.username, ordner)
+    if automatik.status_lesen(pfad)["laeuft"]:
+        raise HTTPException(409, "Automatikmodus läuft für dieses Projekt gerade - bitte zuerst stoppen.")
+    return pd.projekt_bereinigen(pfad)
+
+
 @fallback_router.get("/{ordner:path}", response_model=ProjektDetail)
 def projekt_lesen(ordner: str, settings: Settings = Depends(get_settings),
                    benutzer: Benutzer = Depends(get_current_user)):
@@ -202,6 +219,32 @@ def geruest_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
                        benutzer: Benutzer = Depends(get_current_user)):
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     ziel_pfad, gesichert_als = pd.schreib(pd.geruest_datei(projekt_root / "projekt"), anfrage.inhalt)
+
+    # stand_00.md ist NUR eine Momentaufnahme von "## Ausgangslage vor
+    # Kapitel eins", angefertigt beim Abschluss des Architekten-Interviews
+    # (siehe app/api/architekt.py) oder beim Duplizieren per "Neu schreiben"
+    # (siehe projekt_fuer_neuschreiben_duplizieren) - Kapitel eins bekommt
+    # sie 1:1 als Kontext vorgesetzt (app/api/pipeline.py:
+    # _kapitel_schreiben_kern). Wird die Ausgangslage HIER manuell
+    # nachbearbeitet (z.B. nach "Neu schreiben", um Jahreszeit/Gegenstaende
+    # zu aendern), muss stand_00.md synchron nachgezogen werden - sonst
+    # bekommt der Autor zwei widerspruechliche Quellen (aktuelles Geruest
+    # UND die alte Momentaufnahme) und greift im Zweifel zur alten
+    # (Vorfall: a-Blut-und-Ahornlaub-Die-Ehre-des-Verbotenen, Jahreszeit
+    # blieb trotz Aenderung auf "Herbst", weil nur das Geruest, nicht aber
+    # stand_00.md aktualisiert wurde). Bleibt der Abschnitt unveraendert
+    # oder fehlt er (kein Kapitel-eins-Bezug im Gerueest), bleibt ein
+    # bestehendes stand_00.md unangetastet statt geloescht zu werden.
+    ausgangslage = arch.ausgangslage_erkennen(anfrage.inhalt)
+    stand_00_aktualisiert = False
+    if ausgangslage:
+        pd.schreib(
+            pd.stand_datei(projekt_root / "projekt", 0),
+            "# STAND VOR KAPITEL EINS\n\n" + ausgangslage,
+            force=True,
+        )
+        stand_00_aktualisiert = True
+
     # Der Ordner traegt nach der Projektanlage oft noch den Platzhalter-
     # Namen "neu" (siehe projekt_anlegen()) - das Architekten-Interview
     # benennt ihn zwar am Ende automatisch um, aber nicht, wenn der Titel
@@ -209,7 +252,12 @@ def geruest_schreiben(ordner: str, anfrage: GeruestSchreibenAnfrage,
     # Ohne diesen Aufruf bliebe der Ordner dann dauerhaft "neu".
     neuer_name = pd.projektordner_umbenennen(projekt_root, anfrage.inhalt)
     neuer_ordner = ordner_nach_umbenennung(ordner, neuer_name) if neuer_name else None
-    return {"gespeichert": str(ziel_pfad), "gesichert_als": gesichert_als, "neuer_ordner": neuer_ordner}
+    return {
+        "gespeichert": str(ziel_pfad),
+        "gesichert_als": gesichert_als,
+        "neuer_ordner": neuer_ordner,
+        "stand_00_aktualisiert": stand_00_aktualisiert,
+    }
 
 
 @router.put("/{ordner:path}/verbotsliste")

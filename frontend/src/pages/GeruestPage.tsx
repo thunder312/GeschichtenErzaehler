@@ -61,12 +61,13 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
     setGespeichertHinweis(null);
     try {
       const antwort = await api.geruestSchreiben(ordner, inhalt);
+      const zusatz = antwort.stand_00_aktualisiert ? " Ausgangslage vor Kapitel eins (stand_00.md) synchronisiert." : "";
       if (antwort.neuer_ordner) {
         onOrdnerUmbenannt(antwort.neuer_ordner);
-        setGespeichertHinweis(`Gespeichert - Ordner umbenannt in "${antwort.neuer_ordner}".`);
+        setGespeichertHinweis(`Gespeichert - Ordner umbenannt in "${antwort.neuer_ordner}".${zusatz}`);
       } else {
         onGeaendert();
-        setGespeichertHinweis("Gespeichert.");
+        setGespeichertHinweis(`Gespeichert.${zusatz}`);
       }
     } finally {
       setWirdGespeichert(false);

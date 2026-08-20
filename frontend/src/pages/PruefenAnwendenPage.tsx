@@ -4,6 +4,7 @@ import type { AutomatikStatus, Befund, BefundeAntwort, ProjektDetail } from "../
 import { BefundEditor, type BefundEditorHandle } from "../components/BefundEditor";
 import { BefundListe } from "../components/BefundListe";
 import { CollapsibleCard } from "../components/CollapsibleCard";
+import { ProjektBereinigenDialog } from "../components/ProjektBereinigenDialog";
 import { Button, Card, CardTitle } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { kapitelTextSchluessel, useKapitelText } from "../context/KapitelTextContext";
@@ -37,6 +38,9 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
   const [automatikStatus, setAutomatikStatus] = useState<AutomatikStatus | null>(null);
   const [resteWirdBestaetigt, setResteWirdBestaetigt] = useState(false);
   const [bulkPruefungLaeuft, setBulkPruefungLaeuft] = useState(false);
+  const [zeigeBereinigenDialog, setZeigeBereinigenDialog] = useState(false);
+  const [bereinigenLaeuft, setBereinigenLaeuft] = useState(false);
+  const [bereinigenHinweis, setBereinigenHinweis] = useState<string | null>(null);
   // Erhoeht sich bei jedem Klick auf "Neu laden" - steht bewusst in den
   // Dependency-Arrays der beiden Lade-Effekte weiter unten, damit ein Reload
   // AUCH DANN neu laedt, wenn sich weder ordner noch kapitelNummern geaendert
@@ -304,8 +308,67 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
       // Das Projekte-Label (AutomatikBadge) haengt am selben Status
       // (resten_bestaetigt) und soll ohne Tab-Wechsel sofort mitziehen.
       onGeaendert();
+      // Direkt im Anschluss die Aufraeum-Option anbieten - der Nutzer ist
+      // gerade fertig mit der Pruefung und muss dafuer nicht extra woanders
+      // hinklicken (siehe ProjektBereinigenDialog.tsx).
+      setBereinigenHinweis(null);
+      setZeigeBereinigenDialog(true);
     } finally {
       setResteWirdBestaetigt(false);
+    }
+  }
+
+  // Aktualisiert den Personen-Fundus NUR mit den Figuren DIESES Projekts -
+  // gibt einen fertigen Hinweistext zurueck statt selbst zu werfen, damit
+  // ein Fehler hier das Bereinigen (falls ebenfalls angefordert) nicht
+  // verhindert.
+  async function fundusFuerProjektAktualisieren(): Promise<string> {
+    try {
+      const antwort = await api.fundusProjektAktualisieren(ordner, sshZielId || null);
+      return antwort.uebersprungen
+        ? "Personen-Fundus: keine Figuren erkannt."
+        : `Personen-Fundus: ${antwort.gefundene_figuren} Figur(en) übernommen.`;
+    } catch (e) {
+      return `Personen-Fundus: Fehler - ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  async function bereinigenAusgefuehrt(fundusAktualisieren: boolean) {
+    setBereinigenLaeuft(true);
+    starten("Bereinigt Projekt...");
+    try {
+      const hinweise: string[] = [];
+      try {
+        const ergebnis = await api.projektBereinigen(ordner);
+        hinweise.push(
+          `${ergebnis.geloeschte_bak} Sicherungsdatei(en) und ${ergebnis.geloeschte_stand} alte(n) ` +
+            `Zwischenstand/-stände gelöscht.`,
+        );
+      } catch (e) {
+        hinweise.push(`Bereinigen fehlgeschlagen - ${e instanceof Error ? e.message : String(e)}`);
+      }
+      if (fundusAktualisieren) hinweise.push(await fundusFuerProjektAktualisieren());
+      setBereinigenHinweis(hinweise.join(" "));
+      setZeigeBereinigenDialog(false);
+    } finally {
+      setBereinigenLaeuft(false);
+      beenden();
+    }
+  }
+
+  async function bereinigenUebersprungen(fundusAktualisieren: boolean) {
+    if (!fundusAktualisieren) {
+      setZeigeBereinigenDialog(false);
+      return;
+    }
+    setBereinigenLaeuft(true);
+    starten("Aktualisiert Personen-Fundus...");
+    try {
+      setBereinigenHinweis(await fundusFuerProjektAktualisieren());
+      setZeigeBereinigenDialog(false);
+    } finally {
+      setBereinigenLaeuft(false);
+      beenden();
     }
   }
 
@@ -394,6 +457,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
                     {resteWirdBestaetigt ? "Bestätigt..." : "Prüfung abschließen"}
                   </Button>
                 ))}
+              {bereinigenHinweis && <span className="text-xs text-text-muted">{bereinigenHinweis}</span>}
               <Button onClick={speichern} disabled={speichertLaedt || !hatUngespeicherteAenderungen}>
                 {speichertLaedt ? "Speichert..." : "Speichern"}
               </Button>
@@ -425,6 +489,14 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
             </div>
           </div>
         </CollapsibleCard>
+      )}
+
+      {zeigeBereinigenDialog && (
+        <ProjektBereinigenDialog
+          wirdAusgefuehrt={bereinigenLaeuft}
+          onBereinigen={bereinigenAusgefuehrt}
+          onUeberspringen={bereinigenUebersprungen}
+        />
       )}
     </div>
   );

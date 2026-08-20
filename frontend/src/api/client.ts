@@ -8,9 +8,11 @@ import type {
   Einstellungen,
   EpocheKurz,
   FundusImportAntwort,
+  FundusProjektAntwort,
   LoginEingabe,
   OllamaModellInfo,
   PersonaModell,
+  ProjektBereinigenAntwort,
   ProjektDetail,
   ProjektKurz,
   RechtschreibAntwort,
@@ -95,11 +97,16 @@ export const api = {
   projektNeuSchreiben: (ordner: string) =>
     anfrage<ProjektKurz>(`/api/projects/${ordner}/neu-schreiben`, { method: "POST" }),
 
+  projektBereinigen: (ordner: string) =>
+    anfrage<ProjektBereinigenAntwort>(`/api/projects/${ordner}/bereinigen`, { method: "POST" }),
+
   geruestSchreiben: (ordner: string, inhalt: string) =>
-    anfrage<{ gespeichert: string; gesichert_als: string | null; neuer_ordner: string | null }>(
-      `/api/projects/${ordner}/geruest`,
-      { method: "PUT", body: JSON.stringify({ inhalt }) },
-    ),
+    anfrage<{
+      gespeichert: string;
+      gesichert_als: string | null;
+      neuer_ordner: string | null;
+      stand_00_aktualisiert: boolean;
+    }>(`/api/projects/${ordner}/geruest`, { method: "PUT", body: JSON.stringify({ inhalt }) }),
 
   kapitel: (ordner: string, n: number) =>
     anfrage<string>(`/api/projects/${ordner}/kapitel/${n}`),
@@ -343,6 +350,9 @@ export const api = {
 
   fundusImportieren: (sshZielId?: string | null) =>
     anfrage<FundusImportAntwort>(`/api/fundus/import${sshQuery(sshZielId)}`, { method: "POST" }),
+
+  fundusProjektAktualisieren: (ordner: string, sshZielId?: string | null) =>
+    anfrage<FundusProjektAntwort>(`/api/fundus/projekt/${ordner}${sshQuery(sshZielId)}`, { method: "POST" }),
 };
 
 export function schreibenWebSocketUrl(

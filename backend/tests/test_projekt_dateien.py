@@ -191,3 +191,66 @@ def test_neuschreiben_quelle_liefert_none_ohne_marker(tmp_path):
     assert pd.neuschreiben_quelle(kein_duplikat) is None
 
 
+def _projekt_mit_bereinigungs_artefakten(tmp_path: Path) -> Path:
+    projekt_root = tmp_path / "Der-Markt-von-Rothenfeld"
+    projekt = projekt_root / "projekt"
+    projekt.mkdir(parents=True)
+    (projekt_root / "personas").mkdir()
+
+    (projekt / "geruest.md").write_text("Geruest", encoding="utf-8")
+    (projekt / "verbotsliste.md").write_text("Verboten", encoding="utf-8")
+    (projekt / "kapitel_01.md").write_text("Kapitel 1", encoding="utf-8")
+    (projekt / "kapitel_02.md").write_text("Kapitel 2", encoding="utf-8")
+    (projekt / "stand_00.md").write_text("Stand 0", encoding="utf-8")
+    (projekt / "stand_01.md").write_text("Stand 1", encoding="utf-8")
+    (projekt / "stand_02.md").write_text("Stand 2", encoding="utf-8")
+    (projekt / "geruest.md.1234567890.bak").write_text("alt", encoding="utf-8")
+    (projekt / "stand_01.md.1234567891.bak").write_text("alt", encoding="utf-8")
+    (projekt_root / "personas" / "architekt.txt").write_text("Persona", encoding="utf-8")
+    (projekt_root / "personas" / "architekt.txt.1234567892.bak").write_text("alt", encoding="utf-8")
+    return projekt_root
+
+
+def test_projekt_bereinigen_loescht_alle_bak_dateien(tmp_path):
+    projekt_root = _projekt_mit_bereinigungs_artefakten(tmp_path)
+
+    ergebnis = pd.projekt_bereinigen(projekt_root)
+
+    assert ergebnis["geloeschte_bak"] == 3
+    assert not list(projekt_root.rglob("*.bak"))
+
+
+def test_projekt_bereinigen_behaelt_nur_letzten_stand(tmp_path):
+    projekt_root = _projekt_mit_bereinigungs_artefakten(tmp_path)
+    projekt = projekt_root / "projekt"
+
+    ergebnis = pd.projekt_bereinigen(projekt_root)
+
+    assert ergebnis["geloeschte_stand"] == 2
+    assert not (projekt / "stand_00.md").exists()
+    assert not (projekt / "stand_01.md").exists()
+    assert (projekt / "stand_02.md").exists()
+
+
+def test_projekt_bereinigen_laesst_kapitel_und_geruest_unangetastet(tmp_path):
+    projekt_root = _projekt_mit_bereinigungs_artefakten(tmp_path)
+    projekt = projekt_root / "projekt"
+
+    pd.projekt_bereinigen(projekt_root)
+
+    assert (projekt / "kapitel_01.md").read_text(encoding="utf-8") == "Kapitel 1"
+    assert (projekt / "kapitel_02.md").read_text(encoding="utf-8") == "Kapitel 2"
+    assert (projekt / "geruest.md").read_text(encoding="utf-8") == "Geruest"
+    assert (projekt / "verbotsliste.md").read_text(encoding="utf-8") == "Verboten"
+    assert (projekt_root / "personas" / "architekt.txt").read_text(encoding="utf-8") == "Persona"
+
+
+def test_projekt_bereinigen_ohne_stand_dateien_bleibt_folgenlos(tmp_path):
+    projekt_root = tmp_path / "Leer"
+    (projekt_root / "projekt").mkdir(parents=True)
+
+    ergebnis = pd.projekt_bereinigen(projekt_root)
+
+    assert ergebnis == {"geloeschte_bak": 0, "geloeschte_stand": 0}
+
+

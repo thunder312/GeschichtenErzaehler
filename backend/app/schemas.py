@@ -327,6 +327,16 @@ class FundusImportAntwort(BaseModel):
     uebersprungen: list[str]
 
 
+class FundusProjektAntwort(BaseModel):
+    gefundene_figuren: int
+    uebersprungen: bool
+
+
+class ProjektBereinigenAntwort(BaseModel):
+    geloeschte_bak: int
+    geloeschte_stand: int
+
+
 class EinstellungenAnfrage(BaseModel):
     # Leer/None setzt den Override zurueck auf standard_projects_dir.
     projects_dir: str | None = None

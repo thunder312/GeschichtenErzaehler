@@ -244,3 +244,86 @@ def test_projekt_ohne_epoche_unterordner_bleibt_flach(client, tmp_path):
     r = client.post("/api/projects", json={"titel": "Der Sturm", "epoche": "Regency"})
     assert r.json()["ordner"] == "Der-Sturm"
     assert (tmp_path / "projects" / "daniel" / "Der-Sturm" / "projekt").is_dir()
+
+
+def test_projekt_bereinigen_loescht_bak_und_alte_staende(client, projekt, tmp_path):
+    from app.core import projekt_dateien as pd
+
+    projekt_pfad = tmp_path / "projects" / "daniel" / projekt / "projekt"
+    pd.schreib(pd.stand_datei(projekt_pfad, 0), "Stand 0")
+    pd.schreib(pd.stand_datei(projekt_pfad, 1), "Stand 1")
+    (projekt_pfad / "geruest.md.1234567890.bak").write_text("alte Fassung", encoding="utf-8")
+
+    r = client.post(f"/api/projects/{projekt}/bereinigen")
+
+    assert r.status_code == 200
+    assert r.json() == {"geloeschte_bak": 1, "geloeschte_stand": 1}
+    assert not (projekt_pfad / "stand_00.md").exists()
+    assert (projekt_pfad / "stand_01.md").exists()
+    assert not list(projekt_pfad.glob("*.bak"))
+
+
+def test_projekt_bereinigen_blockiert_waehrend_automatik_laeuft(client, projekt, tmp_path):
+    from app.core import automatik
+
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    status = automatik.status_lesen(projekt_root)
+    status["laeuft"] = True
+    automatik.status_schreiben(projekt_root, status)
+
+    r = client.post(f"/api/projects/{projekt}/bereinigen")
+
+    assert r.status_code == 409
+
+
+def test_geruest_schreiben_aktualisiert_stand_00_aus_ausgangslage(client, projekt, tmp_path):
+    r = client.put(f"/api/projects/{projekt}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nTestprojekt\n\n"
+                   "## Ausgangslage vor Kapitel eins\n"
+                   "### Zeit\n*   Datum/Jahreszeit: Sommer, Juli.\n",
+    })
+
+    assert r.status_code == 200
+    assert r.json()["stand_00_aktualisiert"] is True
+    stand_00 = tmp_path / "projects" / "daniel" / projekt / "projekt" / "stand_00.md"
+    assert "Sommer, Juli" in stand_00.read_text(encoding="utf-8")
+
+
+def test_geruest_schreiben_ueberschreibt_stand_00_bei_geaenderter_ausgangslage(client, projekt, tmp_path):
+    # Regression: nach "Neu schreiben" enthielt stand_00.md noch die
+    # Ausgangslage des URSPRUENGLICHEN Projekts (siehe
+    # projekt_fuer_neuschreiben_duplizieren) - eine spaetere Korrektur der
+    # Ausgangslage im Geruest-Editor (z.B. Jahreszeit Herbst->Sommer) wurde
+    # bisher NICHT nach stand_00.md uebernommen, wodurch der Autor beim
+    # Schreiben von Kapitel eins zwei widerspruechliche Quellen bekam und im
+    # Zweifel die alte (stand_00.md) uebernahm.
+    client.put(f"/api/projects/{projekt}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nTestprojekt\n\n"
+                   "## Ausgangslage vor Kapitel eins\n"
+                   "### Zeit\n*   Datum/Jahreszeit: Herbst, kühl.\n",
+    })
+
+    r = client.put(f"/api/projects/{projekt}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nTestprojekt\n\n"
+                   "## Ausgangslage vor Kapitel eins\n"
+                   "### Zeit\n*   Datum/Jahreszeit: Sommer, warm.\n",
+    })
+
+    assert r.json()["stand_00_aktualisiert"] is True
+    stand_00 = tmp_path / "projects" / "daniel" / projekt / "projekt" / "stand_00.md"
+    inhalt = stand_00.read_text(encoding="utf-8")
+    assert "Sommer, warm" in inhalt
+    assert "Herbst" not in inhalt
+
+
+def test_geruest_schreiben_ohne_ausgangslage_laesst_bestehendes_stand_00_unangetastet(client, projekt, tmp_path):
+    projekt_pfad = tmp_path / "projects" / "daniel" / projekt / "projekt"
+    from app.core import projekt_dateien as pd
+    pd.schreib(pd.stand_datei(projekt_pfad, 0), "# STAND VOR KAPITEL EINS\n\nUnveraendert")
+
+    r = client.put(f"/api/projects/{projekt}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nTestprojekt\n\n## Konflikt\nKein Ausgangslage-Abschnitt.\n",
+    })
+
+    assert r.json()["stand_00_aktualisiert"] is False
+    assert "Unveraendert" in (projekt_pfad / "stand_00.md").read_text(encoding="utf-8")

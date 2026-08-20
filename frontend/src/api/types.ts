@@ -211,6 +211,16 @@ export interface FundusImportAntwort {
   uebersprungen: string[];
 }
 
+export interface FundusProjektAntwort {
+  gefundene_figuren: number;
+  uebersprungen: boolean;
+}
+
+export interface ProjektBereinigenAntwort {
+  geloeschte_bak: number;
+  geloeschte_stand: number;
+}
+
 export interface Einstellungen {
   projects_dir: string;
   ist_standard: boolean;

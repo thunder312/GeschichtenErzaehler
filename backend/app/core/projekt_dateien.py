@@ -219,6 +219,45 @@ def _v2_pfad(quelle: Path) -> Path:
     return ziel
 
 
+def standnummer_aus_dateiname(pfad: Path) -> int:
+    treffer = re.search(r"stand_(\d+)\.md$", pfad.name)
+    return int(treffer.group(1)) if treffer else -1
+
+
+def projekt_bereinigen(projekt_root: Path) -> dict[str, int]:
+    """Raeumt ein fertig geprueftes Projekt auf ("Projekt bereinigen"-Dialog
+    beim Abschliessen der Pruefung, siehe app/api/projects.py und
+    frontend/src/pages/PruefenAnwendenPage.tsx). Loescht:
+    - JEDE .bak-Sicherung (siehe schreib() oben), egal ob unter projekt/
+      oder personas/ - Editier-Historie einzelner Dateien, die nach
+      abgeschlossener Pruefung keinen Wert mehr hat.
+    - ALLE stand_NN.md ausser dem mit der hoechsten Nummer - die frueheren
+      dienten nur als Zwischenschritt beim sequentiellen Schreiben (jedes
+      Kapitel bekommt beim Schreiben nur den Stand SEINES Vorgaengers als
+      Kontext, siehe app/api/pipeline.py:_kapitel_schreiben_kern), fuer eine
+      fertige Geschichte hat nur der letzte noch Bedeutung (z.B. als
+      Ausgangspunkt fuer eine spaetere Fortsetzung).
+
+    Kapitel-Dateien (kapitel_NN.md) sowie geruest.md/verbotsliste.md/
+    einleitungssatz.txt/stilproben.md/personas/ bleiben unangetastet - die
+    Kapitel sind die einzige dauerhafte Kopie des fertigen Texts (PDF-Export
+    laeuft nur on-the-fly aus ihnen, siehe app/core/pdf_export.py), die
+    uebrigen sind entweder klein oder fuer ein spaeteres "Neu schreiben"
+    noetig (siehe _NEUSCHREIBEN_AUSGANGSDATEIEN oben)."""
+    geloeschte_bak = 0
+    for bak in projekt_root.rglob("*.bak"):
+        bak.unlink()
+        geloeschte_bak += 1
+
+    geloeschte_stand = 0
+    stand_dateien = sorted(projekt_root.glob("projekt/stand_*.md"), key=standnummer_aus_dateiname)
+    for alt in stand_dateien[:-1]:
+        alt.unlink()
+        geloeschte_stand += 1
+
+    return {"geloeschte_bak": geloeschte_bak, "geloeschte_stand": geloeschte_stand}
+
+
 _NEUSCHREIBEN_AUSGANGSDATEIEN = ("verbotsliste.md", "geruest.md", "stand_00.md", "einleitungssatz.txt")
 
 # Marker im Duplikat-Ordner, siehe projekt_fuer_neuschreiben_duplizieren()/

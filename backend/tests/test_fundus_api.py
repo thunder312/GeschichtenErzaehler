@@ -93,3 +93,61 @@ def test_fundus_import_extrahiert_figuren_aus_geruest(client, monkeypatch):
     assert "## Regency" in r3.text
     assert "### Lady Amelia Hartwell" in r3.text
     assert "Der Markt von Rothenfeld" in r3.text
+
+
+def test_fundus_projekt_aktualisieren_ueberspringt_projekt_ohne_figuren_abschnitt(client):
+    # Titel identisch zum Anlege-Titel halten, sonst benennt das PUT unten
+    # den Projektordner um (siehe app/api/projects.py:geruest_schreiben) und
+    # "ordner" zeigt danach ins Leere.
+    r = client.post("/api/projects", json={"titel": "Ohne Figuren", "epoche": "Regency"})
+    ordner = r.json()["ordner"]
+    client.put(f"/api/projects/{ordner}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nOhne Figuren\n\n## Rahmen\nJahr: 1815\n",
+    })
+
+    r2 = client.post(f"/api/fundus/projekt/{ordner}")
+    assert r2.status_code == 200
+    daten = r2.json()
+    assert daten["gefundene_figuren"] == 0
+    assert daten["uebersprungen"] is True
+
+
+def test_fundus_projekt_aktualisieren_extrahiert_nur_figuren_dieses_projekts(client, monkeypatch):
+    r1 = client.post("/api/projects", json={"titel": "Ohne Figuren zweitens", "epoche": "Regency"})
+    ordner_ohne = r1.json()["ordner"]
+    client.put(f"/api/projects/{ordner_ohne}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nOhne Figuren zweitens\n\n## Rahmen\nJahr: 1816\n",
+    })
+
+    r2 = client.post("/api/projects", json={"titel": "Der Markt von Rothenfeld", "epoche": "Regency"})
+    ordner_mit = r2.json()["ordner"]
+    client.put(f"/api/projects/{ordner_mit}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nDer Markt von Rothenfeld\n\n"
+                  "## Figuren\nLady Amelia Hartwell, 24, Baronesse, eigensinnig.\n\n"
+                  "## Konflikt\nSie will heiraten, ihr Vater verbietet es.\n",
+    })
+
+    aufrufe = []
+
+    async def fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
+        aufrufe.append(user)
+        return (
+            '{"figuren": [{"name": "Lady Amelia Hartwell", "alter": "24", '
+            '"stand": "Baronesse", "eigenschaften": "eigensinnig"}]}',
+            {},
+        )
+
+    monkeypatch.setattr(api_fundus, "sammle_antwort", fake_sammle_antwort)
+
+    # Nur das Projekt MIT Figuren-Abschnitt anfragen - das andere Projekt
+    # (ordner_ohne) darf dabei gar nicht erst per LLM abgeklappert werden
+    # (anders als /api/fundus/import, das die komplette Bibliothek durchgeht).
+    r3 = client.post(f"/api/fundus/projekt/{ordner_mit}")
+    assert r3.status_code == 200
+    daten = r3.json()
+    assert daten["gefundene_figuren"] == 1
+    assert daten["uebersprungen"] is False
+    assert len(aufrufe) == 1
+
+    r4 = client.get("/api/fundus")
+    assert "### Lady Amelia Hartwell" in r4.text
