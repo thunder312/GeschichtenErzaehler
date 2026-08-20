@@ -233,10 +233,21 @@ def ordnername_aus_titel(titel: str) -> str:
     return titel or "Neues-Projekt"
 
 
-def titelseite_erzeugen(geruest: str, epoche: str | None) -> str:
+def titelseite_erzeugen(geruest: str, epoche: str | None, einleitungssatz_vorlage: str | None = None) -> str:
     """Baut Titel + Untertitel-Zeile fuer die erste Kapiteldatei. epoche
     kommt in der GUI aus den Projekt-Metadaten statt aus einer '.epoche'-
-    Markerdatei."""
+    Markerdatei.
+
+    einleitungssatz_vorlage ist der Inhalt von projekt/einleitungssatz.txt
+    (siehe app/core/projekt_dateien.py:einleitungssatz_datei) - eine je
+    Epoche frei editierbare Satzvorlage mit dem Platzhalter "{jahr}", noetig
+    weil der rohe Epoche-Ordnername (z.B. "Altes-Aegypten") grammatikalisch
+    nicht einfach in "Eine Geschichte aus dem {epoche}..." eingesetzt werden
+    kann (z.B. "aus dem alten Ägypten" statt "aus dem Altes-Aegypten" - ein
+    Kasus-/Deklinationsunterschied zwischen Ordnername und Fliesstext, der
+    sich nicht automatisch herleiten laesst). Fehlt die Vorlage (aeltere
+    Projekte, oder eine Epoche ohne eigene Datei), greift der alte,
+    ordnername-basierte Text als Fallback."""
     titel = titel_erkennen(geruest)
     if not titel:
         return ""
@@ -246,7 +257,9 @@ def titelseite_erzeugen(geruest: str, epoche: str | None) -> str:
         jahr_treffer = re.search(r"\b([12][0-9]{3})\b", geruest)
     jahr = jahr_treffer.group(1) if jahr_treffer else None
 
-    if epoche and jahr:
+    if einleitungssatz_vorlage and jahr:
+        untertitel = einleitungssatz_vorlage.strip().replace("{jahr}", jahr)
+    elif epoche and jahr:
         untertitel = f"Eine Geschichte aus dem {epoche} im Jahre {jahr}"
     elif jahr:
         untertitel = f"Eine Geschichte aus dem Jahre {jahr}"

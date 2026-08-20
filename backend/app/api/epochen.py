@@ -27,7 +27,7 @@ router = APIRouter(prefix="/api/epochen", tags=["epochen"])
 # app/core/epoche.py:epoche_dateien_erzeugen) - bewusst dieselbe Menge wie
 # beim Anlegen, damit auflisten/lesen/schreiben nie eine Datei ausserhalb
 # dieses bekannten Satzes anfassen.
-EPOCHE_DATEINAMEN = ("architekt.txt", "autor.txt", "pruefer_anachronismus.txt", "verbotsliste.md")
+EPOCHE_DATEINAMEN = ("architekt.txt", "autor.txt", "pruefer_anachronismus.txt", "verbotsliste.md", "einleitungssatz.txt")
 
 
 def _epoche_pfad(settings: Settings, ordner: str) -> Path:

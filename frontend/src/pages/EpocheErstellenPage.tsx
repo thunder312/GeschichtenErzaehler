@@ -51,6 +51,7 @@ const EPOCHE_DATEI_BESCHRIFTUNG: Record<string, string> = {
   "autor.txt": "✍️ Autor",
   "pruefer_anachronismus.txt": "🔍 Anachronismus- & Stimmigkeits-Prüfer",
   "verbotsliste.md": "🚫 Verbotsliste",
+  "einleitungssatz.txt": "📖 Einleitungssatz",
 };
 
 /** Editor fuer den Rohentwurf EINER zentralen Epoche (die vier Dateien aus

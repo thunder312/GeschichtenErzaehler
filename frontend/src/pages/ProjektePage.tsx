@@ -36,6 +36,8 @@ export function ProjektePage({
   const [titel, setTitel] = useState("");
   const [epoche, setEpoche] = useState("");
   const [zweiteEpoche, setZweiteEpoche] = useState("");
+  const [epocheEinleitungssatz, setEpocheEinleitungssatz] = useState<string | null>(null);
+  const [epocheInfoLaedt, setEpocheInfoLaedt] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const [wirdAngelegt, setWirdAngelegt] = useState(false);
   const [wirdGeloescht, setWirdGeloescht] = useState<string | null>(null);
@@ -88,6 +90,32 @@ export function ProjektePage({
     const vorbelegung = letzte && epochen.some((e) => e.name === letzte) ? letzte : epochen[0].name;
     setEpoche(vorbelegung);
   }, [epochen]);
+
+  // Einleitungssatz-Vorlage der gewaehlten Epoche fuer die Info-Box unten im
+  // "Neues Projekt anlegen"-Container (siehe app/api/epochen.py - eine der
+  // vier/fuenf Rohentwurf-Dateien der Epochen-Bibliothek).
+  useEffect(() => {
+    if (!epoche) {
+      setEpocheEinleitungssatz(null);
+      return;
+    }
+    let abgebrochen = false;
+    setEpocheInfoLaedt(true);
+    api
+      .epocheDateiLesen(epoche, "einleitungssatz.txt")
+      .then((text) => {
+        if (!abgebrochen) setEpocheEinleitungssatz(text);
+      })
+      .catch(() => {
+        if (!abgebrochen) setEpocheEinleitungssatz(null);
+      })
+      .finally(() => {
+        if (!abgebrochen) setEpocheInfoLaedt(false);
+      });
+    return () => {
+      abgebrochen = true;
+    };
+  }, [epoche]);
 
   function loeschenAnfordern(ereignis: MouseEvent, p: ProjektKurz) {
     // Verhindert, dass der Klick auf das "X" zusaetzlich den Zeilen-Klick-
@@ -279,10 +307,22 @@ export function ProjektePage({
             <Select value={epoche} onChange={(e) => epocheAuswaehlen(e.target.value)}>
               {epochen.map((e) => (
                 <option key={e.name} value={e.name}>
-                  {e.genre ? `${e.name} (${e.genre})` : e.name}
+                  {e.name}
                 </option>
               ))}
             </Select>
+            {epoche && (
+              <div className="mt-2 rounded-lg border border-border bg-bg/40 p-3 text-xs text-text-muted">
+                <p>
+                  <span className="font-medium text-text">Genre-Prägung: </span>
+                  {epochen.find((e) => e.name === epoche)?.genre || "(keine)"}
+                </p>
+                <p className="mt-1">
+                  <span className="font-medium text-text">Einleitungssatz: </span>
+                  {epocheInfoLaedt ? "…" : epocheEinleitungssatz || "(keine Vorlage hinterlegt)"}
+                </p>
+              </div>
+            )}
           </div>
           <div>
             <Label>Zeitsprung: zweite Epoche (optional)</Label>
@@ -292,7 +332,7 @@ export function ProjektePage({
                 .filter((e) => e.name !== epoche)
                 .map((e) => (
                   <option key={e.name} value={e.name}>
-                    {e.genre ? `${e.name} (${e.genre})` : e.name}
+                    {e.name}
                   </option>
                 ))}
             </Select>

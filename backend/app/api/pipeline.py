@@ -680,7 +680,8 @@ async def _kapitel_schreiben_kern(
     titelseite_hinzugefuegt = False
     if n == 1:
         epoche = pd.epoche_von_projekt(projekt_root)
-        titelseite = g.titelseite_erzeugen(geruest_text, epoche)
+        einleitungssatz_vorlage = pd.lies(pd.einleitungssatz_datei(projekt), pflicht=False, ersatz="") or None
+        titelseite = g.titelseite_erzeugen(geruest_text, epoche, einleitungssatz_vorlage)
         if titelseite:
             erste_zeile = titelseite.strip().split("\n")[0]
             if not text.lstrip().startswith(erste_zeile):
@@ -1421,10 +1422,12 @@ def export_pdf(ordner: str, settings: Settings = Depends(get_settings),
         raise HTTPException(404, "Keine Kapitel gefunden.")
     geruest_text = pd.lies(pd.geruest_datei(projekt), pflicht=False, ersatz="")
     epoche = pd.epoche_von_projekt(projekt_root)
+    einleitungssatz_vorlage = pd.lies(pd.einleitungssatz_datei(projekt), pflicht=False, ersatz="") or None
     kapitel = [(pd.kapitelnummer_aus_dateiname(p), pd.lies(p)) for p in kapitel_dateien]
     cover_datei = pd.cover_datei(projekt)
     cover_bytes = cover_datei.read_bytes() if cover_datei.exists() else None
-    pdf_bytes = buch_pdf_erzeugen(geruest_text, epoche, kapitel, cover_bytes=cover_bytes)
+    pdf_bytes = buch_pdf_erzeugen(geruest_text, epoche, kapitel, cover_bytes=cover_bytes,
+                                   einleitungssatz_vorlage=einleitungssatz_vorlage)
     # ordner kann bei aktivierten Epoche-Unterordnern einen "/" enthalten
     # (z.B. "Mittelalter/Im-Feuer-gestaehlt") - als Dateiname nur den
     # eigentlichen Projektnamen verwenden, kein "/" im Dateinamen.

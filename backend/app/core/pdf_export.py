@@ -96,14 +96,15 @@ def _seitenzahl_zeichner(seiten_ohne_nummer: int):
 
 
 def buch_pdf_erzeugen(geruest_text: str, epoche: str | None, kapitel: list[tuple[int, str]],
-                       cover_bytes: bytes | None = None) -> bytes:
+                       cover_bytes: bytes | None = None, einleitungssatz_vorlage: str | None = None) -> bytes:
     """kapitel: Liste von (Kapitelnummer, Kapiteltext), in Lesereihenfolge.
     cover_bytes: optionales, per Bildgenerierung erzeugtes Deckblattbild
     (siehe app/core/bild_generierung.py) - wird als eigene Seite vor der
     bisherigen Titelseite eingefuegt. None (Standard) erzeugt weiterhin ein
-    PDF ohne Bildseite, unveraendert zum bisherigen Verhalten."""
+    PDF ohne Bildseite, unveraendert zum bisherigen Verhalten.
+    einleitungssatz_vorlage siehe app/core/geruest.py:titelseite_erzeugen."""
     titel = titel_erkennen(geruest_text) or "Ohne Titel"
-    titelseite = titelseite_erzeugen(geruest_text, epoche)
+    titelseite = titelseite_erzeugen(geruest_text, epoche, einleitungssatz_vorlage)
     untertitel_treffer = _UNTERTITEL_ZEILE_RE.search(titelseite)
     untertitel = untertitel_treffer.group(1).strip() if untertitel_treffer else None
 

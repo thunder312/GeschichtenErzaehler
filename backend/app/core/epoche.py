@@ -517,13 +517,24 @@ epochen/Zukunft/verbotsliste.md entstanden sind - nicht dem lokalen Modell
 '''
 
 
+def einleitungssatz_vorlage(a: EpocheAntworten) -> str:
+    """Satzvorlage fuer die Titelseiten-Zeile in Kapitel 1 (siehe
+    app/core/geruest.py:titelseite_erzeugen), mit dem Platzhalter "{jahr}".
+    Nutzt hier noch schlicht a.name im Rahmenfall (z.B. "Mittelalter") - bei
+    zusammengesetzten oder grammatikalisch unpassenden Epochennamen (z.B.
+    "Altes-Aegypten" statt "das alte Ägypten") lohnt sich eine manuelle
+    Korrektur ueber den Epochen-Editor, siehe app/api/epochen.py."""
+    return f"Eine Geschichte aus dem {a.name} im Jahre {{jahr}}"
+
+
 def epoche_dateien_erzeugen(a: EpocheAntworten) -> dict[str, str]:
-    """Liefert die vier Rohentwurf-Dateien als {dateiname: inhalt}."""
+    """Liefert die fuenf Rohentwurf-Dateien als {dateiname: inhalt}."""
     return {
         "architekt.txt": architekt_vorlage(a).strip() + "\n",
         "autor.txt": autor_vorlage(a).strip() + "\n",
         "pruefer_anachronismus.txt": pruefer_vorlage(a).strip() + "\n",
         "verbotsliste.md": verbotsliste_vorlage(a).strip() + "\n",
+        "einleitungssatz.txt": einleitungssatz_vorlage(a).strip() + "\n",
     }
 
 

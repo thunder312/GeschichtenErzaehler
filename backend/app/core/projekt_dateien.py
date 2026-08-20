@@ -58,6 +58,17 @@ def verbotsliste_datei(projekt: Path) -> Path:
     return projekt / "verbotsliste.md"
 
 
+def einleitungssatz_datei(projekt: Path) -> Path:
+    """Projekt-eigene Kopie von epochen/<Epoche>/einleitungssatz.txt (siehe
+    projekt_anlegen()) - die Satzvorlage fuer die Titelseiten-Zeile in
+    Kapitel 1 (siehe app/core/geruest.py:titelseite_erzeugen). Wie
+    verbotsliste_datei() eine eigene, von der zentralen Epochen-Bibliothek
+    unabhaengige Kopie, damit sie sich auch nachtraeglich je Projekt von
+    Hand korrigieren laesst (z.B. wenn die Epoche-Vorlage grammatikalisch
+    falsch war, als das Projekt angelegt wurde)."""
+    return projekt / "einleitungssatz.txt"
+
+
 def stilproben_datei(projekt: Path) -> Path:
     """Optionale, vom Nutzer gepflegte Sammlung kurzer Vorbild-Ausschnitte
     (siehe app/api/pipeline.py:_autor_system_prompt) - anders als
@@ -141,6 +152,10 @@ def projekt_anlegen(ziel: Path, epoche_ordner: Path, gemeinsame_personas_ordner:
     if verbotsliste_quelle.exists():
         shutil.copy(verbotsliste_quelle, verbotsliste_ziel)
 
+    einleitungssatz_quelle = epoche_ordner / "einleitungssatz.txt"
+    if einleitungssatz_quelle.exists():
+        shutil.copy(einleitungssatz_quelle, einleitungssatz_datei(ziel / "projekt"))
+
     if zweite_epoche_ordner is not None and zweite_epoche_name is not None:
         primaer_dateien = {datei: lies(personas_ziel / datei, pflicht=False, ersatz="")
                             for datei in EPOCHE_PERSONA_DATEIEN}
@@ -204,7 +219,7 @@ def _v2_pfad(quelle: Path) -> Path:
     return ziel
 
 
-_NEUSCHREIBEN_AUSGANGSDATEIEN = ("verbotsliste.md", "geruest.md", "stand_00.md")
+_NEUSCHREIBEN_AUSGANGSDATEIEN = ("verbotsliste.md", "geruest.md", "stand_00.md", "einleitungssatz.txt")
 
 # Marker im Duplikat-Ordner, siehe projekt_fuer_neuschreiben_duplizieren()/
 # neuschreiben_quelle() unten. Gleiches Muster wie ".epoche" oben: einfache

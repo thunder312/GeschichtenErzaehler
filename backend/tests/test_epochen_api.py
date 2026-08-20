@@ -37,13 +37,13 @@ def _reale_epoche(**overrides):
     return daten
 
 
-def test_epoche_erstellen_legt_vier_dateien_an(client, tmp_path):
+def test_epoche_erstellen_legt_fuenf_dateien_an(client, tmp_path):
     r = client.post("/api/epochen", json=_reale_epoche())
     assert r.status_code == 201
     body = r.json()
     assert body["ordner"] == "Viktorianisches-England"
     assert set(body["dateien"].keys()) == {
-        "architekt.txt", "autor.txt", "pruefer_anachronismus.txt", "verbotsliste.md",
+        "architekt.txt", "autor.txt", "pruefer_anachronismus.txt", "verbotsliste.md", "einleitungssatz.txt",
     }
 
     ziel = tmp_path / "epochen" / "Viktorianisches-England"
@@ -136,11 +136,13 @@ def test_epoche_loeschen_unbekannter_ordner_gibt_404(client):
     assert r.status_code == 404
 
 
-def test_epoche_dateien_auflisten_liefert_alle_vier(client):
+def test_epoche_dateien_auflisten_liefert_alle_fuenf(client):
     client.post("/api/epochen", json=_reale_epoche())
     r = client.get("/api/epochen/Viktorianisches-England/dateien")
     assert r.status_code == 200
-    assert set(r.json()) == {"architekt.txt", "autor.txt", "pruefer_anachronismus.txt", "verbotsliste.md"}
+    assert set(r.json()) == {
+        "architekt.txt", "autor.txt", "pruefer_anachronismus.txt", "verbotsliste.md", "einleitungssatz.txt",
+    }
 
 
 def test_epoche_dateien_auflisten_unbekannte_epoche_gibt_404(client):

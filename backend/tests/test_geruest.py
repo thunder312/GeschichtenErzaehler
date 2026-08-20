@@ -186,6 +186,24 @@ def test_titelseite_erzeugen_ohne_titel_liefert_leeren_string():
     assert g.titelseite_erzeugen("## Kein Titel-Abschnitt", None) == ""
 
 
+def test_titelseite_erzeugen_mit_einleitungssatz_vorlage_ersetzt_platzhalter():
+    # Regression: der rohe Epoche-Ordnername ("Altes-Aegypten") ergab im
+    # generischen Fallback grammatikalisch falschen Text ("aus dem
+    # Altes-Aegypten"). Die Vorlage aus projekt/einleitungssatz.txt hat
+    # Vorrang und darf den Ordnernamen nicht mehr verwenden.
+    seite = g.titelseite_erzeugen(
+        BEISPIEL_GERUEST, "Altes-Aegypten",
+        "Eine Geschichte aus dem alten Ägypten im Jahre {jahr} vor Christus",
+    )
+    assert "Eine Geschichte aus dem alten Ägypten im Jahre 1815 vor Christus" in seite
+    assert "Altes-Aegypten" not in seite
+
+
+def test_titelseite_erzeugen_ohne_vorlage_faellt_auf_epoche_zurueck():
+    seite = g.titelseite_erzeugen(BEISPIEL_GERUEST, "Regency", None)
+    assert "Eine Geschichte aus dem Regency im Jahre 1815" in seite
+
+
 def test_letztes_geplantes_kapitel():
     assert g.letztes_geplantes_kapitel(BEISPIEL_GERUEST) == 3
     assert g.letztes_geplantes_kapitel("kein Kapitelplan") is None

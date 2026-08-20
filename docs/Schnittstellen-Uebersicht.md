@@ -240,7 +240,7 @@ Modell, eigenen Denkmodus-Schalter, eigene Sampling-Parameter:
 
 | Rolle | Modell | think | temperature | num_ctx | num_predict | seed |
 |---|---|---|---|---|---|---|
-| `architekt` | gemma4 | true | 0.4 | 8192 | 4096 | 42 |
+| `architekt` | gemma4 | true | 0.4 | 32768 | 12288 | 42 |
 | `autor` | hermes3:8b | false | 0.85 | 8192 | 4096 | – |
 | `chronist` | gemma4 | false | 0.2 | 16384 | 1024 | 42 |
 | `anachronismus` | gemma4 | true | 0.1 | 16384 | 6144 | 42 |
