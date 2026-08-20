@@ -33,6 +33,15 @@ export interface GeruestMitKapitelplan {
   vor: string;
   kapitel: KapitelEintrag[];
   nach: string;
+  // Gesetzt, wenn ein vorhandener, NICHT-leerer "## Kapitelplan"-Abschnitt
+  // nicht sicher in Kapitel-Karten zerlegt werden konnte (siehe
+  // kapitelBloeckeParsen) - der Rohtext landet dann unangetastet in "nach",
+  // "kapitel" bleibt leer. Unterscheidet "wirklich noch kein Kapitelplan"
+  // von "einer ist da, nur nicht strukturiert erkannt" - ohne diese
+  // Unterscheidung wuerde ein Klick auf "+ Kapitel" den vorhandenen
+  // Kapitelplan NICHT ersetzen (er bleibt ja in "nach" erhalten), aber der
+  // Nutzer koennte faelschlich denken, das Projekt haette noch gar keinen.
+  warnung: string | null;
 }
 
 const ZAHLWORT_LISTE = [
@@ -57,17 +66,31 @@ export function leeresKapitel(): KapitelEintrag {
   };
 }
 
-// Erfasst NUR die fettgedruckte Kapitel-Ueberschrift am Zeilenanfang
-// ("*   **Kapitel eins: Titel**"), bewusst enger als das Backend-Pendant
-// (das jedes "Kapitel N" im ganzen Text matcht) - verhindert, dass ein
-// Fliesstext-Verweis wie "...wie in Kapitel drei..." innerhalb eines
-// Ereignis-Felds faelschlich als neuer Kapitel-Block erkannt wird.
-const KAPITEL_HEADING_MUSTER = /^[ \t]*[*-][ \t]*\*\*[ \t]*Kapitel[ \t]+(\d+|[a-zA-ZäöüÄÖÜß]+)[ \t]*:[ \t]*([^\n*]*?)\*\*/gim;
+// Erfasst die fettgedruckte Kapitel-Ueberschrift am Zeilenanfang, mit ODER
+// ohne vorangestellten Bullet-Marker ("*   **Kapitel eins: Titel**" ODER
+// "**Kapitel 1: Titel**" - beide Formen kommen in echten Projekten vor, der
+// Architekt haelt sich nicht immer an dieselbe Bullet-Konvention). Bewusst
+// trotzdem enger als das Backend-Pendant (das jedes "Kapitel N" im ganzen
+// Text matcht, auch ohne Fett-Markierung) - verhindert, dass ein Fliesstext-
+// Verweis wie "...wie in Kapitel drei..." innerhalb eines Ereignis-Felds
+// faelschlich als neuer Kapitel-Block erkannt wird. Siehe
+// kapitelBloeckeParsen() unten fuer die Gegenprobe, die diese Enge wieder
+// absichert: bemerkt sie moegliche Kapitel-Ueberschriften, die HIER nicht
+// matchen, wird gar nicht erst strukturiert geparst (kein Datenverlust).
+const KAPITEL_HEADING_MUSTER = /^[ \t]*(?:[*-][ \t]*)?\*\*[ \t]*Kapitel[ \t]+(\d+|[a-zA-ZäöüÄÖÜß]+)[ \t]*:[ \t]*([^\n*]*?)\*\*/gim;
+
+// Lockere Gegenprobe OHNE Fett-/Bullet-Zwang, aehnlich dem Backend-Muster
+// in geruest.py (_KAPITEL_MUSTER) - dient NUR als Bauchgefuehl-Test in
+// kapitelBloeckeParsen(), niemals zum eigentlichen Parsen.
+const KAPITEL_ERWAEHNUNG_MUSTER = /Kapitel[ \t]+(\d+|[a-zA-ZäöüÄÖÜß]+)[ \t]*:/gi;
 
 function feldExtrahieren(block: string, label: string): string {
-  const muster = new RegExp(`^[ \\t]*[*-][ \\t]*${label}[ \\t]*:[ \\t]*(.+)$`, "im");
+  // Sowohl "*   Ort: ..." als auch "*   **Ort:** ..." (Label komplett
+  // fettgedruckt inkl. Doppelpunkt) kommen in echten Projekten vor - die
+  // 0-2 optionalen "*" vor UND nach dem Label decken beide Formen ab.
+  const muster = new RegExp(`^[ \\t]*[*-][ \\t]*\\*{0,2}${label}[ \\t]*:[ \\t]*\\*{0,2}[ \\t]*(.+)$`, "im");
   const treffer = block.match(muster);
-  return treffer ? treffer[1].trim() : "";
+  return treffer ? treffer[1].replace(/\*+[ \t]*$/, "").trim() : "";
 }
 
 function zielwortzahlExtrahieren(block: string): number | null {
@@ -82,8 +105,22 @@ function zielwortzahlExtrahieren(block: string): number | null {
   return Number.isFinite(zahl) && zahl > 0 ? zahl : null;
 }
 
-function kapitelBloeckeParsen(body: string): KapitelEintrag[] {
+/** null = "nicht sicher genug geparst" (siehe Gegenprobe unten), NIE ein
+ * Grund, den Rohtext zu verwerfen - der Aufrufer (kapitelplanAusGeruest
+ * Extrahieren) faellt in diesem Fall auf Freitext zurueck. */
+function kapitelBloeckeParsen(body: string): KapitelEintrag[] | null {
   const treffer = [...body.matchAll(KAPITEL_HEADING_MUSTER)];
+  const erwaehnungen = [...body.matchAll(KAPITEL_ERWAEHNUNG_MUSTER)];
+  // Findet die lockere Gegenprobe MEHR "Kapitel N:"-Stellen als der
+  // strenge Parser oben Ueberschriften erkannt hat, gibt es vermutlich
+  // Kapitel in einem Format, das hier nicht erkannt wird - lieber gar
+  // nicht strukturiert anzeigen als welche zu verschlucken (Vorfall:
+  // Bayern-zur-Zeit-Koenig-Ludwigs-II/Das-Vergehen-des-Adels-..., 2026-08-20 -
+  // alle 6 Kapitel nutzten "**Kapitel 1: ...**" OHNE Bullet-Praefix und
+  // waeren mit dem alten, zu strengen Muster komplett verlorengegangen).
+  if (treffer.length === 0 || treffer.length < erwaehnungen.length) {
+    return null;
+  }
   return treffer.map((m, i) => {
     const start = (m.index ?? 0) + m[0].length;
     const ende = i + 1 < treffer.length ? (treffer[i + 1].index ?? body.length) : body.length;
@@ -106,23 +143,48 @@ function kapitelBloeckeParsen(body: string): KapitelEintrag[] {
  * naechsten "## "-Ueberschrift danach). Kein "## Kapitelplan" gefunden -
  * z.B. ein brandneues, noch leeres Geruest -> der komplette Text landet in
  * "vor", kapitel bleibt leer (kein Fehler, siehe kapitelplan_pruefen()
- * backend-seitig: ein fehlender Abschnitt ist kein Strukturfehler). */
-export function kapitelplanAusGeruestExtrahieren(geruest: string): GeruestMitKapitelplan {
+ * backend-seitig: ein fehlender Abschnitt ist kein Strukturfehler).
+ *
+ * Ein VORHANDENER, nicht-leerer Kapitelplan, der sich nicht sicher in
+ * Kapitel-Karten zerlegen laesst, wird NIE verworfen: er bleibt als Rohtext
+ * unangetastet in "nach" (samt "## Kapitelplan"-Ueberschrift), "kapitel"
+ * bleibt leer, und "warnung" erklaert dem Aufrufer warum - siehe
+ * kapitelBloeckeParsen() oben. */
+export function kapitelplanAusGeruestExtrahieren(geruestRoh: string): GeruestMitKapitelplan {
+  // Manche Projekte (z.B. waehrend lokaler Windows-Entwicklung gespeichert)
+  // haben CRLF-Zeilenenden statt LF - ALLE Regexe hier verankern auf "\n",
+  // ein liegen gebliebenes "\r" davor liesse jedes Muster stillschweigend
+  // scheitern (Vorfall Eine-unerwartete-Begegnung, 2026-08-20: "##
+  // Kapitelplan\r\n" wurde dadurch gar nicht erst als Abschnitt erkannt,
+  // der GESAMTE Text inkl. sechs fertig geschriebener Kapitel landete
+  // undifferenziert in "vor" - ohne Datenverlust, aber ohne Warnung).
+  const geruest = geruestRoh.replace(/\r\n/g, "\n");
   const headingMatch = geruest.match(/##[ \t]*Kapitelplan[ \t]*\n/i);
   if (!headingMatch || headingMatch.index === undefined) {
-    return { vor: geruest, kapitel: [], nach: "" };
+    return { vor: geruest, kapitel: [], nach: "", warnung: null };
   }
   const vorEnde = headingMatch.index;
   const bodyStart = headingMatch.index + headingMatch[0].length;
   const rest = geruest.slice(bodyStart);
   const nextHeadingMatch = rest.match(/\n##[ \t]/);
   const bodyEnde = nextHeadingMatch && nextHeadingMatch.index !== undefined ? nextHeadingMatch.index : rest.length;
+  const body = rest.slice(0, bodyEnde);
+  const nach = rest.slice(bodyEnde).replace(/^[ \t\n]+/, "");
+  const vor = geruest.slice(0, vorEnde).replace(/[ \t\n]+$/, "");
 
-  return {
-    vor: geruest.slice(0, vorEnde).replace(/[ \t\n]+$/, ""),
-    kapitel: kapitelBloeckeParsen(rest.slice(0, bodyEnde)),
-    nach: rest.slice(bodyEnde).replace(/^[ \t\n]+/, ""),
-  };
+  const kapitel = kapitelBloeckeParsen(body);
+  if (kapitel === null && body.trim()) {
+    return {
+      vor,
+      kapitel: [],
+      nach: [`## Kapitelplan\n${body.trim()}`, nach].filter((t) => t.length > 0).join("\n\n"),
+      warnung:
+        "Der vorhandene Kapitelplan konnte nicht in einzelne Kapitel-Karten zerlegt werden (unbekanntes " +
+        "Format) - er steht unverändert weiter unten als Freitext und wurde NICHT gelöscht. Bitte dort " +
+        "weiterbearbeiten, statt über \"+ Kapitel\" einen zweiten, separaten Kapitelplan anzulegen.",
+    };
+  }
+  return { vor, kapitel: kapitel ?? [], nach, warnung: null };
 }
 
 function kapitelBlockSerialisieren(kapitel: KapitelEintrag, index: number): string {

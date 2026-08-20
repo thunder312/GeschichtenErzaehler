@@ -45,6 +45,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   const [vor, setVor] = useState("");
   const [kapitel, setKapitel] = useState<KapitelEintrag[]>([]);
   const [nach, setNach] = useState("");
+  const [kapitelplanWarnung, setKapitelplanWarnung] = useState<string | null>(null);
   const [kapitelFehler, setKapitelFehler] = useState<KapitelplanFehler[]>([]);
   const [wirdGespeichert, setWirdGespeichert] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
@@ -65,6 +66,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
     setVor(geteilt.vor);
     setKapitel(geteilt.kapitel);
     setNach(geteilt.nach);
+    setKapitelplanWarnung(geteilt.warnung);
     setKapitelFehler([]);
     setVerbotslisteInhalt(projekt?.verbotsliste ?? "");
     setStilprobenInhalt(projekt?.stilproben ?? "");
@@ -177,6 +179,11 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
 
         <div className="border-b border-border">
           <h3 className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">Kapitelplan</h3>
+          {kapitelplanWarnung && (
+            <p className="mx-4 mt-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-300">
+              ⚠️ {kapitelplanWarnung}
+            </p>
+          )}
           <KapitelplanEditor
             kapitel={kapitel}
             onChange={(neu) => {
