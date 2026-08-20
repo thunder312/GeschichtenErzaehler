@@ -154,7 +154,7 @@ function App() {
             <span aria-hidden="true" className="text-2xl">
               📖
             </span>
-            <span className="heading-flourish inline-block bg-gradient-to-r from-accent-light to-accent bg-clip-text text-2xl font-bold tracking-tight text-transparent transition-transform duration-300 hover:-rotate-1 hover:scale-105 sm:text-3xl">
+            <span className="heading-flourish inline-block bg-gradient-to-r from-accent-light to-accent bg-clip-text text-2xl font-bold tracking-tight text-transparent sm:text-3xl">
               Geschichten Erzähler
             </span>
           </h1>
