@@ -26,11 +26,17 @@ export function StandExportPage({
   const [autoExport, setAutoExport] = useState(false);
   const [ladenStand, setLadenStand] = useState(false);
 
+  const [ladenStandNeu, setLadenStandNeu] = useState(false);
+
   const [von, setVon] = useState<number | undefined>(undefined);
   const [bis, setBis] = useState<number | undefined>(undefined);
   const [gesamtText, setGesamtText] = useState<string | null>(null);
   const [gesamtDateiname, setGesamtDateiname] = useState("");
   const [ladenExport, setLadenExport] = useState(false);
+  // Merkt sich, welche der beiden Export-Aktionen zuletzt lief, damit
+  // "🔄 Neu laden" (siehe standNeuLaden/exportNeuLaden unten) dieselbe
+  // Aktion wiederholen kann, statt zu raten.
+  const [letzteExportArt, setLetzteExportArt] = useState<"gesamt" | "zwischenstand" | null>(null);
 
   const bildZiele = sshZiele.filter((z) => z.bildki_port != null);
   const [bildZielId, setBildZielId] = useState("");
@@ -128,6 +134,23 @@ export function StandExportPage({
     }
   }
 
+  // Liest nur die bereits gespeicherte stand_NN.md neu ein (kein Chronist-
+  // Aufruf, also kein Ollama-Roundtrip) - fuer den Fall, dass sich Kapitel
+  // NACH dem letzten "Stand erzeugen" noch geaendert haben (z.B. im Tab
+  // "Rechtschreibung") und die hier angezeigte Vorschau veraltet ist, ohne
+  // dass man dafuer gleich eine komplette Neu-Zusammenfassung bezahlen will.
+  async function standNeuLaden() {
+    setLadenStandNeu(true);
+    setFehler(null);
+    try {
+      setStandText(await api.stand(ordner, n));
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLadenStandNeu(false);
+    }
+  }
+
   async function exportieren() {
     setLadenExport(true);
     setFehler(null);
@@ -135,6 +158,7 @@ export function StandExportPage({
       const antwort = await api.exportieren(ordner);
       setGesamtText(antwort.gesamt);
       setGesamtDateiname(antwort.dateiname);
+      setLetzteExportArt("gesamt");
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
@@ -149,11 +173,21 @@ export function StandExportPage({
       const antwort = await api.zusammenfassen(ordner, von, bis);
       setGesamtText(antwort.inhalt ?? antwort.gesamt ?? null);
       setGesamtDateiname(antwort.datei ?? antwort.dateiname ?? "gesamt.md");
+      setLetzteExportArt("zwischenstand");
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
       setLadenExport(false);
     }
+  }
+
+  // Wiederholt die zuletzt genutzte der beiden Export-Aktionen (beide lesen
+  // die Kapitel-Dateien ohnehin bei jedem Aufruf frisch von der Platte, kein
+  // Ollama-Aufruf - "neu laden" ist hier also einfach derselbe Klick nochmal,
+  // nur unter einem Namen, der den Zweck klarer macht).
+  function exportNeuLaden() {
+    if (letzteExportArt === "zwischenstand") zusammenfassen();
+    else exportieren();
   }
 
   return (
@@ -168,7 +202,15 @@ export function StandExportPage({
           <Button onClick={standErzeugen} disabled={ladenStand}>
             {ladenStand ? "Erzeugt..." : "Stand erzeugen"}
           </Button>
+          <Button variant="secondary" onClick={standNeuLaden} disabled={ladenStandNeu || ladenStand}>
+            {ladenStandNeu ? "Lädt..." : "🔄 Neu laden"}
+          </Button>
         </div>
+        <p className="mt-1 text-xs text-text-muted">
+          „Stand erzeugen" lässt den Chronisten neu zusammenfassen (KI-Aufruf). „Neu laden" zeigt nur den zuletzt
+          gespeicherten Stand erneut an - z.B. falls du seitdem im Tab „Rechtschreibung" etwas am Kapiteltext
+          geändert hast.
+        </p>
         {fehler && <p className="mt-2 text-sm text-red-400">{fehler}</p>}
         {standText && (
           <div className="mt-4">
@@ -310,7 +352,14 @@ export function StandExportPage({
         </div>
         {gesamtText && (
           <div className="mt-4">
-            <div className="mb-1 flex justify-end">
+            <div className="mb-1 flex justify-end gap-3">
+              <button
+                onClick={exportNeuLaden}
+                disabled={ladenExport}
+                className="text-xs text-accent-light hover:underline disabled:opacity-40"
+              >
+                {ladenExport ? "Lädt..." : "🔄 Neu laden"}
+              </button>
               <button
                 onClick={() => alsDateiHerunterladen(gesamtDateiname, gesamtText)}
                 className="text-xs text-accent-light hover:underline"
