@@ -3,7 +3,15 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { ProjektDetail } from "../api/types";
 import { CollapsibleCard } from "../components/CollapsibleCard";
+import { KapitelplanEditor } from "../components/KapitelplanEditor";
 import { Badge, Button, Card, CardTitle } from "../components/ui";
+import {
+  geruestAusKapitelplanZusammenbauen,
+  kapitelPflichtfelderPruefen,
+  kapitelplanAusGeruestExtrahieren,
+  type KapitelEintrag,
+  type KapitelplanFehler,
+} from "../utils/kapitelplan";
 
 // Anzeige-Mapping der intern aus dem Gerüst erkannten Content-Stufe (siehe
 // backend/app/core/rollen.py: STUFE_DIREKTIVEN) auf die aus Filmen bekannten
@@ -31,7 +39,13 @@ interface GeruestPageProps {
  * Kontrolle angezeigt. Verbotsliste (fuer die Anachronismus-Pruefung)
  * liegt gleich daneben, da beide Dateien zusammen das Setting definieren. */
 export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, onInterviewStarten }: GeruestPageProps) {
-  const [inhalt, setInhalt] = useState(projekt?.geruest ?? "");
+  // Kapitelplan strukturiert (KapitelplanEditor), Rest des Gerüsts bleibt
+  // Freitext in zwei Editoren links/rechts davon (siehe utils/kapitelplan.ts
+  // fuer die Begruendung, warum nur der Kapitelplan formalisiert wird).
+  const [vor, setVor] = useState("");
+  const [kapitel, setKapitel] = useState<KapitelEintrag[]>([]);
+  const [nach, setNach] = useState("");
+  const [kapitelFehler, setKapitelFehler] = useState<KapitelplanFehler[]>([]);
   const [wirdGespeichert, setWirdGespeichert] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
   const [geruestFehler, setGeruestFehler] = useState<string | null>(null);
@@ -47,7 +61,11 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   const [architektenGespraech, setArchitektenGespraech] = useState<string | null>(null);
 
   useEffect(() => {
-    setInhalt(projekt?.geruest ?? "");
+    const geteilt = kapitelplanAusGeruestExtrahieren(projekt?.geruest ?? "");
+    setVor(geteilt.vor);
+    setKapitel(geteilt.kapitel);
+    setNach(geteilt.nach);
+    setKapitelFehler([]);
     setVerbotslisteInhalt(projekt?.verbotsliste ?? "");
     setStilprobenInhalt(projekt?.stilproben ?? "");
     setArchitektenGespraech(null);
@@ -58,10 +76,25 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   }, [projekt?.geruest, projekt?.verbotsliste, projekt?.stilproben, ordner]);
 
   async function speichern() {
-    setWirdGespeichert(true);
     setGespeichertHinweis(null);
     setGeruestFehler(null);
+
+    // Pflichtfeld-Pruefung ZUERST, komplett ohne Server-Roundtrip - der
+    // eigentliche Punkt von Schritt 2 (siehe utils/kapitelplan.ts). Die
+    // serverseitige Pruefung (kapitelplan_pruefen()) bleibt trotzdem als
+    // zweite Verteidigungslinie bestehen, siehe geruest_schreiben().
+    const pflichtfeldFehler = kapitelPflichtfelderPruefen(kapitel);
+    setKapitelFehler(pflichtfeldFehler);
+    if (pflichtfeldFehler.length > 0) {
+      setGeruestFehler(
+        `Kapitelplan unvollständig:\n${pflichtfeldFehler.map((f) => f.meldung).join("\n")}`,
+      );
+      return;
+    }
+
+    setWirdGespeichert(true);
     try {
+      const inhalt = geruestAusKapitelplanZusammenbauen(vor, kapitel, nach);
       const antwort = await api.geruestSchreiben(ordner, inhalt);
       const zusatz = antwort.stand_00_aktualisiert ? " Ausgangslage vor Kapitel eins (stand_00.md) synchronisiert." : "";
       if (antwort.neuer_ordner) {
@@ -127,14 +160,52 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
             {geruestFehler}
           </p>
         )}
-        <Editor
-          height="clamp(320px, 60vh, 560px)"
-          defaultLanguage="markdown"
-          value={inhalt}
-          onChange={(v) => setInhalt(v ?? "")}
-          theme="vs-dark"
-          options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
-        />
+
+        <div className="border-b border-border p-4">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+            Rahmen, Titel, Figuren, Konflikt, Nebenstrang
+          </h3>
+          <Editor
+            height="clamp(200px, 32vh, 360px)"
+            defaultLanguage="markdown"
+            value={vor}
+            onChange={(v) => setVor(v ?? "")}
+            theme="vs-dark"
+            options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
+          />
+        </div>
+
+        <div className="border-b border-border">
+          <h3 className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">Kapitelplan</h3>
+          <KapitelplanEditor
+            kapitel={kapitel}
+            onChange={(neu) => {
+              // Jede Aenderung (auch Verschieben/Loeschen) macht die zuletzt
+              // berechneten Pflichtfeld-Fehler potenziell falsch - Index N
+              // zeigt nach einer Verschiebung auf ein ANDERES Kapitel als
+              // beim letzten Speicherversuch. Erst der naechste Speichern-
+              // Klick berechnet sie neu; bis dahin lieber keine (evtl.
+              // falsch zugeordnete) rote Markierung stehen lassen.
+              setKapitel(neu);
+              setKapitelFehler([]);
+            }}
+            fehler={kapitelFehler}
+          />
+        </div>
+
+        <div className="p-4">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+            Ausgangslage vor Kapitel eins, Offene Punkte, Regeln
+          </h3>
+          <Editor
+            height="clamp(200px, 32vh, 360px)"
+            defaultLanguage="markdown"
+            value={nach}
+            onChange={(v) => setNach(v ?? "")}
+            theme="vs-dark"
+            options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
+          />
+        </div>
       </CollapsibleCard>
 
       <div className="space-y-6">
