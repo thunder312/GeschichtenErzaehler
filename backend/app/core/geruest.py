@@ -265,7 +265,19 @@ def automatische_fortsetzung_aktiviert(geruest: str) -> bool:
 
 def titel_erkennen(geruest: str) -> str | None:
     treffer = re.search(r"##\s*Titel\s*\n+(.+)", geruest)
-    return treffer.group(1).strip() if treffer else None
+    if not treffer:
+        return None
+    titel = treffer.group(1).strip()
+    # Die Architekt-Persona verlangt laut Vorgabe GENAU einen Titel unter
+    # "## Titel" (siehe architekt.txt "## Ausgabe") - antwortet aber
+    # gelegentlich trotzdem mit der unaufgeloesten Mehrfachauswahl aus
+    # Frage 14 ("a) Vorschlag ... b) Eigener Titel"), z.B. wenn ein bereits
+    # vollstaendig ausgefuelltes Offline-Vorlage-Dokument im ersten Zug ohne
+    # Rueckfrage durchgereicht wird (siehe arch.erste_eingabe_mit_vorlage).
+    # Ohne dieses Abschneiden landete die Options-Bezeichnung "a) "
+    # unveraendert im Ordnernamen (Vorfall a-Blut-und-Ahornlaub-Die-Ehre-
+    # des-Verbotenen, 2026-08-20 - siehe ordnername_aus_titel() unten).
+    return re.sub(r"^[a-d]\)\s*", "", titel) or None
 
 
 def ordnername_aus_titel(titel: str) -> str:

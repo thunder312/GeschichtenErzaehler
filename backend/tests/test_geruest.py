@@ -212,6 +212,26 @@ def test_automatische_fortsetzung_bei_vom_architekten_verdoppeltem_label():
     assert g.automatische_fortsetzung_aktiviert("Automatische Fortsetzung: Automatische Fortsetzung: Aus") is False
 
 
+def test_titel_erkennen_liefert_einzeiligen_titel():
+    assert g.titel_erkennen(BEISPIEL_GERUEST) == "Der Markt von Rothenfeld"
+
+
+def test_titel_erkennen_schneidet_unaufgeloeste_mehrfachauswahl_ab():
+    # Regression: a-Blut-und-Ahornlaub-Die-Ehre-des-Verbotenen (2026-08-20) -
+    # der Architekt antwortete mit der unaufgeloesten Auswahl aus Frage 14
+    # ("a) Vorschlag ... b) Eigener Titel") statt EINEM Titel. Die Options-
+    # Bezeichnung "a) " landete dadurch unveraendert im Ordnernamen.
+    geruest = "## Titel\na) Blut und Ahornlaub: Die Ehre des Verbotenen\nb) Eigener Titel\n"
+    assert g.titel_erkennen(geruest) == "Blut und Ahornlaub: Die Ehre des Verbotenen"
+
+
+def test_titel_erkennen_laesst_normalen_titel_mit_klammer_unangetastet():
+    # "^[a-d]\\)" darf nur am Zeilenanfang greifen, nicht bei einem Titel,
+    # der zufaellig selbst mit einem Buchstaben+Klammer beginnt/eine
+    # Klammer enthaelt.
+    assert g.titel_erkennen("## Titel\nDer Fall d) Rothenfeld\n") == "Der Fall d) Rothenfeld"
+
+
 def test_ordnername_aus_titel_transliteriert_umlaute():
     assert g.ordnername_aus_titel("Der Markt von Rothenfeld") == "Der-Markt-von-Rothenfeld"
     assert g.ordnername_aus_titel("Über Äpfel & Bäume?!") == "Ueber-Aepfel-Baeume"
