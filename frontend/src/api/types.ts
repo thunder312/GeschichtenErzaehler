@@ -164,6 +164,33 @@ export interface AutomatikProtokollEintrag {
   unbekannte_woerter?: string[];
 }
 
+// Deckungsgleich mit EpocheFormularWerte (components/EpocheFormular.tsx) -
+// bewusst als eigener API-Antworttyp gefuehrt (kein Re-Export), damit
+// api/types.ts nicht von components/ abhaengt; AnalysatorPage.tsx weist das
+// Ergebnis direkt in ein EpocheFormularWerte-State, da beide Formen
+// strukturell identisch sind.
+export interface EpocheVorschlagAntwort {
+  name: string;
+  erfunden: boolean;
+  beschreibung: string;
+  zeitraum: string;
+  orte: string;
+  gesellschaft: string;
+  statusregel: string;
+  genre: string;
+  rang_wort: string;
+  anreden: string;
+  nebenstrang_typen: string;
+  vorbild_franchise: string;
+  verbote_start: string;
+}
+
+export interface EpocheErstellenAntwort {
+  name: string;
+  ordner: string;
+  dateien: Record<string, string>;
+}
+
 export interface AnalysatorStatus {
   laeuft: boolean;
   phase: string | null;

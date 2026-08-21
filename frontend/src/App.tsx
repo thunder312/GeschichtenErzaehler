@@ -308,7 +308,12 @@ function App() {
         )}
 
         <div className={activeTab === "analysator" ? "" : "hidden"}>
-          <AnalysatorPage epochen={epochen} sshZielId={sshZielId} onProjektErzeugt={projektAuswaehlen} />
+          <AnalysatorPage
+            epochen={epochen}
+            sshZielId={sshZielId}
+            onProjektErzeugt={projektAuswaehlen}
+            onEpochenGeaendert={epochenLaden}
+          />
         </div>
 
         <div className={activeTab === "epoche" ? "" : "hidden"}>

@@ -16,16 +16,24 @@ der naechste normale Speichervorgang in GeruestPage (app/api/projects.py:
 geruest_schreiben) benennt bei Bedarf ohnehin automatisch um."""
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from pydantic import ValidationError
 
 from app.auth import get_current_user
 from app.config import Settings, get_settings
 from app.core import analysator as an
 from app.core import architekt as arch
 from app.core import projekt_dateien as pd
+from app.core.epoche_vorschlag_schema import EpocheVorschlagAntwortLLM
 from app.core.ollama_client import OllamaFehler, sammle_antwort
 from app.core.textutil import woerter
-from app.schemas import AnalysatorStartAnfrage, AnalysatorStartAntwort, AnalysatorStatusAntwort, Benutzer
+from app.schemas import (
+    AnalysatorEpocheVorschlagAnfrage,
+    AnalysatorStartAnfrage,
+    AnalysatorStartAntwort,
+    AnalysatorStatusAntwort,
+    Benutzer,
+)
 from app.services import (
     neuer_projekt_pfad, ollama_basis_url, projekt_pfad, projekte_wurzel, rollen_modell_override,
 )
@@ -141,3 +149,46 @@ def analysator_status(ordner: str, settings: Settings = Depends(get_settings),
                        benutzer: Benutzer = Depends(get_current_user)):
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     return AnalysatorStatusAntwort(**an.status_lesen(projekt_root))
+
+
+@router.post("/analysator/epoche-vorschlagen", response_model=EpocheVorschlagAntwortLLM)
+async def analysator_epoche_vorschlagen(anfrage: AnalysatorEpocheVorschlagAnfrage,
+                                         ssh_ziel_id: str | None = Query(None),
+                                         settings: Settings = Depends(get_settings),
+                                         benutzer: Benutzer = Depends(get_current_user)):
+    """Dritter, eigenstaendiger Analysator-Weg neben "starten" (siehe ToDo.md
+    "erweitere den Analysator"): EIN kurzer, nicht-dialogischer Ollama-
+    Aufruf (kein Hintergrund-Task noetig, anders als die volle Kapitel-
+    Analyse) leitet aus dem importierten Text ein Epoche-Formular-Vorschlag
+    ab - dieselben Felder wie EpocheErstellenAnfrage/app/core/epoche.py:
+    EpocheAntworten. Erzeugt NOCH KEINE Epoche - der Nutzer prueft/
+    bearbeitet den Vorschlag im Frontend, bevor er ueber das bereits
+    bestehende POST /api/epochen (app/api/epochen.py) tatsaechlich
+    gespeichert wird. Bewusst nur ein knapper Auszug (nicht der komplette,
+    ggf. sehr lange Text) als Kontext - das Setting laesst sich aus Anfang/
+    Ende meist zuverlaessig genug ableiten, und ein schneller Aufruf ist
+    hier wichtiger als vollstaendige Abdeckung (der Nutzer bearbeitet das
+    Ergebnis ohnehin von Hand nach)."""
+    persona = pd.lies(settings.shared_personas_dir / "analysator.txt")
+    system = an.epoche_vorschlag_system(persona)
+    user = an.epoche_vorschlag_user(an.textauszug_bauen(anfrage.text, woerter_anfang=700, woerter_ende=400))
+    with ollama_basis_url(settings, ssh_ziel_id) as base_url:
+        try:
+            antwort_text, _meta = await sammle_antwort(
+                base_url, "analysator", system, user, format="json",
+                modell_override=rollen_modell_override(settings, "analysator"),
+            )
+        except OllamaFehler as e:
+            raise HTTPException(502, str(e)) from e
+    try:
+        vorschlag = EpocheVorschlagAntwortLLM.model_validate_json(antwort_text)
+    except ValidationError as e:
+        raise HTTPException(502, f"Antwort der KI konnte nicht gelesen werden: {e}") from e
+
+    # Sicherheitsnetz: der FanFic-Hinweis (app/core/epoche.py:
+    # einleitungssatz_vorlage) greift nur bei erfunden=True - ein Vorschlag,
+    # der ein Franchise nennt, MUSS deshalb konsistent auch erfunden=True
+    # setzen, unabhaengig davon, ob das Modell das selbst korrekt verknuepft.
+    if vorschlag.vorbild_franchise.strip():
+        vorschlag.erfunden = True
+    return vorschlag

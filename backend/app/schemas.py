@@ -317,6 +317,10 @@ class HandlungstextAnfrage(BaseModel):
     handlungstext: str = Field(min_length=1)
 
 
+class AnalysatorEpocheVorschlagAnfrage(BaseModel):
+    text: str = Field(min_length=1)
+
+
 class AnalysatorStartAnfrage(BaseModel):
     titel: str = ""
     epoche: str

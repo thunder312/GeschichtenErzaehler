@@ -523,8 +523,26 @@ def einleitungssatz_vorlage(a: EpocheAntworten) -> str:
     Nutzt hier noch schlicht a.name im Rahmenfall (z.B. "Mittelalter") - bei
     zusammengesetzten oder grammatikalisch unpassenden Epochennamen (z.B.
     "Altes-Aegypten" statt "das alte Ägypten") lohnt sich eine manuelle
-    Korrektur ueber den Epochen-Editor, siehe app/api/epochen.py."""
-    return f"Eine Geschichte aus dem {a.name} im Jahre {{jahr}}"
+    Korrektur ueber den Epochen-Editor, siehe app/api/epochen.py.
+
+    Ist ein Vorbild-Franchise angegeben (siehe markenhinweis oben, gleiche
+    Bedingung: nur bei erfunden=True), haengt sich ein FanFic-Hinweis direkt
+    an denselben Satz an (siehe ToDo.md "erweitere den Analysator" - v.a.
+    fuer per Analysator aus einer bestehenden, ggf. Franchise-basierten
+    Geschichte abgeleitete Epochen gedacht, gilt aber genauso fuer manuell
+    ueber "Epoche erstellen" angelegte). Bewusst EIN durchgehender Satz statt
+    ein eigener Absatz: titelseite_erzeugen() umschliesst den gesamten
+    Einleitungssatz mit einem einzelnen Markdown-Kursiv-Sternchenpaar
+    ("*...*") - ueber eine Leerzeile hinweg wuerde das in den meisten
+    Markdown-Renderern nicht mehr als Kursivtext erkannt."""
+    basis = f"Eine Geschichte aus dem {a.name} im Jahre {{jahr}}"
+    if a.erfunden and a.vorbild_franchise.strip():
+        franchise = a.vorbild_franchise.strip()
+        return (
+            f"{basis} – von {franchise} inspiriert, aber ein eigenständiges Fan-Projekt (FanFic) "
+            f"ohne jegliche Rechte am Original und ohne Absicht kommerzieller Nutzung"
+        )
+    return basis
 
 
 def epoche_dateien_erzeugen(a: EpocheAntworten) -> dict[str, str]:

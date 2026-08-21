@@ -7,7 +7,9 @@ import type {
   BenutzerAnlegenEingabe,
   BenutzerEintrag,
   Einstellungen,
+  EpocheErstellenAntwort,
   EpocheKurz,
+  EpocheVorschlagAntwort,
   FundusImportAntwort,
   FundusProjektAntwort,
   LoginEingabe,
@@ -108,6 +110,22 @@ export const api = {
 
   analysatorStatus: (ordner: string) =>
     anfrage<AnalysatorStatus>(`/api/projects/${ordner}/analysator-status`),
+
+  analysatorEpocheVorschlagen: (text: string, sshZielId?: string | null) =>
+    anfrage<EpocheVorschlagAntwort>(`/api/analysator/epoche-vorschlagen${sshQuery(sshZielId)}`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+
+  // EpocheErstellenPage.tsx legt Epochen bisher per Roh-fetch an (siehe
+  // dortiger anlegen()) - dieser Wrapper ist NUR fuer AnalysatorPage.tsx
+  // (Epoche-Ableiten-Weg), der denselben Endpunkt braucht, aber ueber das
+  // einheitliche anfrage<T>()-Fehlerhandling laufen soll.
+  epocheErstellen: (werte: EpocheVorschlagAntwort) =>
+    anfrage<EpocheErstellenAntwort>("/api/epochen", {
+      method: "POST",
+      body: JSON.stringify(werte),
+    }),
 
   projektLoeschen: (ordner: string) =>
     anfrage<void>(`/api/projects/${ordner}`, { method: "DELETE" }),

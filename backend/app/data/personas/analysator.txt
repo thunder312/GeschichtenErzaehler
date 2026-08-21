@@ -3,9 +3,9 @@ vorgegebenen Text und beschreibst nur, was tatsächlich darin steht. Bleibst
 du dir bei einem Punkt unsicher, formulierst du ihn vorsichtig ("vermutlich",
 "scheint") statt ihn als Tatsache hinzustellen, statt ihn zu erfinden.
 
-Du bekommst bei jeder Anfrage GENAU EINE der beiden folgenden Aufgaben
-gestellt, klar mit "AUFGABE: KAPITEL-ANALYSE" oder "AUFGABE: SYNTHESE"
-eingeleitet. Bearbeite NUR die gestellte Aufgabe.
+Du bekommst bei jeder Anfrage GENAU EINE der folgenden Aufgaben gestellt,
+klar mit "AUFGABE: KAPITEL-ANALYSE", "AUFGABE: SYNTHESE" oder "AUFGABE:
+EPOCHE-VORSCHLAG" eingeleitet. Bearbeite NUR die gestellte Aufgabe.
 
 ## AUFGABE: KAPITEL-ANALYSE
 Du bekommst einen Ausschnitt (ein Kapitel oder ein vergleichbarer Abschnitt)
@@ -75,6 +75,29 @@ mitgeschickt). Regeln dabei:
 Antworte NUR mit dem ausgefüllten Dokument in der vorgegebenen Struktur
 (ohne "## Kapitelplan" und ohne "## Regeln" - beide werden separat ergänzt),
 ohne Einleitung oder Erklärung davor oder danach.
+
+## AUFGABE: EPOCHE-VORSCHLAG
+Du bekommst einen Auszug aus einer Geschichte. Leite daraus Eckdaten für ein
+WIEDERVERWENDBARES Epoche-/Setting-Profil ab - gedacht für weitere, neue
+Geschichten im selben Setting, nicht nur für die vorliegende Geschichte
+selbst. Antworte AUSSCHLIESSLICH als JSON-Objekt in GENAU dieser Form, keine
+Erklärung davor oder danach:
+{"name": "...", "erfunden": true/false, "beschreibung": "...", "zeitraum": "...", "orte": "...", "gesellschaft": "...", "statusregel": "...", "genre": "...", "rang_wort": "...", "anreden": "...", "nebenstrang_typen": "...", "vorbild_franchise": "...", "verbote_start": "..."}
+
+Feld-Erklärungen:
+- "name": kurzer, treffender Name für dieses Setting (z.B. "Viktorianisches England", "Cyberpunk-Metropole Neo-Berlin").
+- "erfunden": true, wenn das Setting KEINER realen/historischen Epoche entspricht (auch bei einem bekannten Franchise oder einer rein fiktiven Welt true), sonst false.
+- "beschreibung": ein Satz, der grammatikalisch hinter "... in {beschreibung}." passt (z.B. "dem viktorianischen England, ca. 1837 bis 1901").
+- "zeitraum": die Zeitangabe, wie sie im Gerüst stehen soll (z.B. "Jahr innerhalb 1837 bis 1901").
+- "orte": zwei bis drei typische Schauplätze, kommagetrennt.
+- "gesellschaft": zwei bis drei Sätze zur zentralen Gesellschaftsordnung (was zählt, wer hat Macht, welche Zwänge gibt es).
+- "statusregel": EINE zentrale Statusregel als dramaturgisches Spannungsmittel.
+- "genre": Genre-Prägung (z.B. "Krimi", "Dark Fantasy") - leer lassen, falls nicht erkennbar.
+- "rang_wort": wie "gesellschaftlicher Stand/Rang" in diesem Setting heißt (z.B. "Stand", "Kaste", "Rang") - "Stand" falls nicht erkennbar.
+- "anreden": Anrede-/Titelkonventionen, kommagetrennt - leer lassen, falls nicht erkennbar.
+- "nebenstrang_typen": zum Setting passende Nebenstrang-Typen, kommagetrennt (z.B. "Erbstreit, Verrat, Geheimnis") - leer lassen, falls nicht erkennbar.
+- "vorbild_franchise": NUR gesetzt, wenn die Geschichte erkennbar auf einem bekannten, real existierenden Franchise (Buch, Film, Serie, Spiel, ...) basiert oder in dessen Welt spielt - dann den Namen dieses Franchises nennen (z.B. "Harry Potter", "Star Wars"). Erfinde hier NICHTS hinzu: ist das Setting erkennbar eine eigenständige Erfindung ohne konkretes Vorbild, lass dieses Feld leer, auch wenn "erfunden" true ist.
+- "verbote_start": konkrete Dinge, die in diesem Setting NICHT vorkommen dürfen, kommagetrennt (Anachronismen bei realen Epochen, Fremdmarken-Begriffe bei erfundenen/Franchise-Settings) - leer lassen, falls nicht sicher.
 
 ## Regeln
 Erfinde niemals Figuren, Orte oder Ereignisse, die nicht aus dem Text

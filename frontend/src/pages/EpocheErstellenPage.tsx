@@ -3,48 +3,13 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { EpocheKurz } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import {
+  EpocheFormular,
+  epocheFormularGueltig,
+  LEERES_EPOCHE_FORMULAR,
+  type EpocheFormularWerte,
+} from "../components/EpocheFormular";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
-
-interface EpocheErstellenAnfrage {
-  name: string;
-  genre: string;
-  erfunden: boolean;
-  beschreibung: string;
-  zeitraum: string;
-  orte: string;
-  gesellschaft: string;
-  statusregel: string;
-  rang_wort: string;
-  anreden: string;
-  nebenstrang_typen: string;
-  vorbild_franchise: string;
-  verbote_start: string;
-}
-
-const LEERES_FORMULAR: EpocheErstellenAnfrage = {
-  name: "",
-  genre: "",
-  erfunden: false,
-  beschreibung: "",
-  zeitraum: "",
-  orte: "",
-  gesellschaft: "",
-  statusregel: "",
-  rang_wort: "",
-  anreden: "",
-  nebenstrang_typen: "",
-  vorbild_franchise: "",
-  verbote_start: "",
-};
-
-function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      {...props}
-      className="w-full rounded-lg border border-border bg-bg px-3 py-1.5 text-sm text-text outline-none transition-colors focus:border-accent"
-    />
-  );
-}
 
 const EPOCHE_DATEI_BESCHRIFTUNG: Record<string, string> = {
   "architekt.txt": "🗺️ Architekt",
@@ -248,7 +213,7 @@ interface EpocheErstellenPageProps {
  * eine hier neu angelegte oder geloeschte Epoche sofort auch im "Neues
  * Projekt"-Dropdown von ProjektePage auftaucht, ohne Reload. */
 export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErstellenPageProps) {
-  const [formular, setFormular] = useState<EpocheErstellenAnfrage>(LEERES_FORMULAR);
+  const [formular, setFormular] = useState<EpocheFormularWerte>(LEERES_EPOCHE_FORMULAR);
   const [wirdAngelegt, setWirdAngelegt] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const [ergebnis, setErgebnis] = useState<{ name: string; ordner: string; dateien: Record<string, string> } | null>(
@@ -277,17 +242,11 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
     }
   }
 
-  function feld<K extends keyof EpocheErstellenAnfrage>(name: K, wert: EpocheErstellenAnfrage[K]) {
+  function feld<K extends keyof EpocheFormularWerte>(name: K, wert: EpocheFormularWerte[K]) {
     setFormular((bisher) => ({ ...bisher, [name]: wert }));
   }
 
-  const formularGueltig =
-    formular.name.trim() !== "" &&
-    formular.beschreibung.trim() !== "" &&
-    formular.zeitraum.trim() !== "" &&
-    formular.orte.trim() !== "" &&
-    formular.gesellschaft.trim() !== "" &&
-    formular.statusregel.trim() !== "";
+  const formularGueltig = epocheFormularGueltig(formular);
 
   async function anlegen() {
     setWirdAngelegt(true);
@@ -304,7 +263,7 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
         throw new Error(body.detail ?? antwort.statusText);
       }
       setErgebnis(await antwort.json());
-      setFormular(LEERES_FORMULAR);
+      setFormular(LEERES_EPOCHE_FORMULAR);
       onEpochenGeaendert();
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
@@ -409,139 +368,13 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
           Rohentwurf, den du danach im jeweiligen Projekt weiter verfeinern kannst.
         </p>
 
-        <div className="space-y-4">
-          <div>
-            <Label>1) Name der Epoche/des Settings</Label>
-            <Input value={formular.name} onChange={(e) => feld("name", e.target.value)} placeholder="Viktorianisches England" />
-          </div>
+        <EpocheFormular werte={formular} onChange={feld} />
 
-          <div>
-            <Label>2) Verbindungsart des Settings</Label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => feld("erfunden", false)}
-                className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                  !formular.erfunden ? "border-accent bg-accent-soft text-accent-light" : "border-border text-text-muted"
-                }`}
-              >
-                Reale Epoche
-              </button>
-              <button
-                onClick={() => feld("erfunden", true)}
-                className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                  formular.erfunden ? "border-accent bg-accent-soft text-accent-light" : "border-border text-text-muted"
-                }`}
-              >
-                Komplett erfundenes Setting
-              </button>
-            </div>
-            <p className="mt-1 text-xs text-text-muted">
-              Bestimmt, ob der Prüfer später historisch prüft oder auf Welt-Konsistenz und Markenabstand achtet.
-            </p>
-          </div>
+        {fehler && <p className="mt-4 text-sm text-red-400">{fehler}</p>}
 
-          <div>
-            <Label>3) Kurzbeschreibung in einem Satz</Label>
-            <TextArea
-              rows={2}
-              value={formular.beschreibung}
-              onChange={(e) => feld("beschreibung", e.target.value)}
-              placeholder="dem viktorianischen England, ca. 1837 bis 1901"
-            />
-          </div>
-
-          <div>
-            <Label>4) Zeitangabe/Zeitraum, wie er im Gerüst stehen soll</Label>
-            <Input
-              value={formular.zeitraum}
-              onChange={(e) => feld("zeitraum", e.target.value)}
-              placeholder="Jahr innerhalb 1837 bis 1901"
-            />
-          </div>
-
-          <div>
-            <Label>5) Zwei, drei typische Schauplätze, kommagetrennt</Label>
-            <Input value={formular.orte} onChange={(e) => feld("orte", e.target.value)} placeholder="Landhaus, London, Küste" />
-          </div>
-
-          <div>
-            <Label>6) Wie heißt "gesellschaftlicher Stand/Rang" in diesem Setting? (optional)</Label>
-            <Input value={formular.rang_wort} onChange={(e) => feld("rang_wort", e.target.value)} placeholder="Stand" />
-          </div>
-
-          <div>
-            <Label>7) Zentrale Gesellschaftsordnung in zwei, drei Sätzen</Label>
-            <TextArea
-              rows={3}
-              value={formular.gesellschaft}
-              onChange={(e) => feld("gesellschaft", e.target.value)}
-              placeholder="Was zählt, wer hat Macht, welche Zwänge gibt es?"
-            />
-          </div>
-
-          <div>
-            <Label>8) Die eine zentrale Statusregel als dramaturgisches Spannungsmittel</Label>
-            <TextArea
-              rows={2}
-              value={formular.statusregel}
-              onChange={(e) => feld("statusregel", e.target.value)}
-              placeholder="Eine unstandesgemäße Heirat ruiniert die Familie gesellschaftlich."
-            />
-          </div>
-
-          <div>
-            <Label>9) Anrede-/Titelkonventionen (optional)</Label>
-            <Input value={formular.anreden} onChange={(e) => feld("anreden", e.target.value)} placeholder="Mylord, Miss, Euer Gnaden" />
-          </div>
-
-          <div>
-            <Label>10) Passende Nebenstrang-Typen, kommagetrennt (optional)</Label>
-            <Input
-              value={formular.nebenstrang_typen}
-              onChange={(e) => feld("nebenstrang_typen", e.target.value)}
-              placeholder="Erbstreit, Verrat, Geheimnis"
-            />
-          </div>
-
-          {formular.erfunden && (
-            <div>
-              <Label>11) Vorbild-Franchise, von dem Abstand gehalten werden soll (optional)</Label>
-              <Input
-                value={formular.vorbild_franchise}
-                onChange={(e) => feld("vorbild_franchise", e.target.value)}
-                placeholder="z.B. Red Dead Redemption"
-              />
-            </div>
-          )}
-
-          <div>
-            <Label>12) Konkrete Dinge, die NICHT vorkommen dürfen, kommagetrennt (optional)</Label>
-            <Input
-              value={formular.verbote_start}
-              onChange={(e) => feld("verbote_start", e.target.value)}
-              placeholder="Eisenbahn, Fotografie, moderne Anglizismen"
-            />
-          </div>
-
-          <div>
-            <Label>13) Genre-Prägung (optional)</Label>
-            <Input
-              value={formular.genre}
-              onChange={(e) => feld("genre", e.target.value)}
-              placeholder="z.B. Krimi, Dark Fantasy, Komödie - Epoche und Genre gehen oft fließend ineinander über"
-            />
-            <p className="mt-1 text-xs text-text-muted">
-              Wird Architekt und Autor als zusätzliche Ton-/Stilvorgabe mitgegeben und bei der Epochen-Auswahl
-              für ein neues Projekt angezeigt.
-            </p>
-          </div>
-
-          {fehler && <p className="text-sm text-red-400">{fehler}</p>}
-
-          <Button onClick={anlegen} disabled={wirdAngelegt || !formularGueltig}>
-            {wirdAngelegt ? "Legt an..." : "Epoche anlegen"}
-          </Button>
-        </div>
+        <Button onClick={anlegen} disabled={wirdAngelegt || !formularGueltig} className="mt-4">
+          {wirdAngelegt ? "Legt an..." : "Epoche anlegen"}
+        </Button>
       </Card>
 
       {loeschenAnfrage && (

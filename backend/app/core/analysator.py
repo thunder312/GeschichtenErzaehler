@@ -326,6 +326,14 @@ def textauszug_bauen(text: str, woerter_anfang: int = 400, woerter_ende: int = 2
     return anfang + "\n\n[...]\n\n" + ende
 
 
+def epoche_vorschlag_system(persona_text: str) -> str:
+    return persona_text
+
+
+def epoche_vorschlag_user(textauszug: str) -> str:
+    return "AUFGABE: EPOCHE-VORSCHLAG\n\nAuszug aus der Geschichte:\n\n" + textauszug
+
+
 def synthese_user(kapitel_analysen_text: str, textauszug: str) -> str:
     return (
         "AUFGABE: SYNTHESE\n\n"
