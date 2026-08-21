@@ -317,6 +317,27 @@ class HandlungstextAnfrage(BaseModel):
     handlungstext: str = Field(min_length=1)
 
 
+class AnalysatorStartAnfrage(BaseModel):
+    titel: str = ""
+    epoche: str
+    zweite_epoche: str | None = None
+    text: str = Field(min_length=1)
+
+
+class AnalysatorStartAntwort(BaseModel):
+    ordner: str
+
+
+class AnalysatorStatusAntwort(BaseModel):
+    laeuft: bool
+    phase: str | None
+    aktuelles_kapitel: int | None
+    gesamt_kapitel: int | None
+    log: list[str]
+    abgeschlossen: bool
+    fehler: str | None
+
+
 class EinstellungenAntwort(BaseModel):
     projects_dir: str
     ist_standard: bool

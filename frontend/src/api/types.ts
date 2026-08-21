@@ -164,6 +164,16 @@ export interface AutomatikProtokollEintrag {
   unbekannte_woerter?: string[];
 }
 
+export interface AnalysatorStatus {
+  laeuft: boolean;
+  phase: string | null;
+  aktuelles_kapitel: number | null;
+  gesamt_kapitel: number | null;
+  log: string[];
+  abgeschlossen: boolean;
+  fehler: string | null;
+}
+
 export interface AutomatikStatus {
   laeuft: boolean;
   gestartet_am: string | null;

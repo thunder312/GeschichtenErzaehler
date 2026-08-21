@@ -84,6 +84,42 @@ ROLLEN: dict[str, dict] = {
             "num_predict": 6144,
         },
     },
+    # Analysator (siehe app/core/analysator.py, ToDo.md "groesseres Feature
+    # als neuen Haupt-Tab"): liest importierten Fremdtext (bestehende
+    # Geschichte/Novelle) kapitelweise und fasst ihn am Ende zu einem
+    # kompletten Story-Geruest zusammen, damit die Geschichte als Projekt
+    # zum Neu-Schreiben verfuegbar wird. Bewusst dasselbe Modell wie "autor"
+    # (explizite Vorgabe: "Analysator (powered by Mistral)") statt gemma4
+    # wie beim Architekten - bleibt so im selben Modell-Oekosystem wie der
+    # spaetere Neu-Schreiben-Durchlauf. Niedrigere Temperatur als "autor"
+    # (0.3 statt 0.7): Aufgabe ist FAKTEN aus vorgegebenem Text extrahieren,
+    # nicht frei erzaehlen - zu kreativ wuerde Ereignisse/Figuren erfinden,
+    # die im Originaltext gar nicht vorkommen.
+    # num_ctx bewusst NICHT groesser als "autor" (16384, nicht z.B. 24576):
+    # ein Live-Test gegen das CPU-only KI-Ziel "Athene" (siehe [[ssh-ziel-
+    # athene]]) brauchte fuer einen einzigen, sehr kurzen Kapitel-Analyse-
+    # Aufruf (~220 Woerter Eingabe) ueber 18 Minuten bei num_ctx=24576 - ein
+    # erster testweise gesenkter Wert auf 16384 (identisch zu "autor", das
+    # in echten Automatik-Laeufen auf derselben Hardware bereits akzeptabel
+    # lief) ist der naheliegendste Hebel, da CPU-Inferenz die Praefill-Zeit
+    # tendenziell mit der ALLOZIERTEN Kontextgroesse skaliert, nicht nur mit
+    # der tatsaechlichen Prompt-Laenge. Noch nicht erneut live verifiziert -
+    # falls weiterhin sehr langsam, ist das ein reines Hardware-/Ollama-
+    # Performance-Thema auf Athene, kein Logikfehler in diesem Modul.
+    "analysator": {
+        "modell": "mistral-small3.2:latest",
+        "think": False,
+        "optionen": {
+            "temperature": 0.3,
+            "top_p": 0.8,
+            "top_k": 20,
+            "min_p": 0.0,
+            "repeat_penalty": 1.1,
+            "repeat_last_n": 128,
+            "num_ctx": 16384,
+            "num_predict": 4096,
+        },
+    },
     "chronist": {
         "modell": "gemma4",
         "think": False,

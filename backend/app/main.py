@@ -17,9 +17,10 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import architekt, auth, benutzer, dokumentation, einstellungen, epochen, fundus, persona_modelle, pipeline, projects, ssh_targets, wissen
+from app.api import analysator, architekt, auth, benutzer, dokumentation, einstellungen, epochen, fundus, persona_modelle, pipeline, projects, ssh_targets, wissen
 from app.auth import get_current_admin, get_current_user
 from app.config import get_settings
+from app.core import analysator as an
 from app.core import automatik
 from app.core.ollama_client import OllamaFehler
 from app.core.projekt_dateien import DateiFehlt
@@ -45,6 +46,16 @@ if _verwaiste_laeufe:
         "%d verwaiste(n) Automatik-Lauf/Läufe beim Start zurückgesetzt (laeuft: true ohne "
         "lebenden Hintergrund-Task, vermutlich durch einen vorherigen Neustart).",
         _verwaiste_laeufe,
+    )
+
+# Dasselbe fuer verwaiste Analysator-Laeufe (siehe app/core/analysator.py:
+# verwaiste_laeufe_zuruecksetzen) - gleicher Grund, gleiches Muster.
+_verwaiste_analysen = an.verwaiste_laeufe_zuruecksetzen(projekte_wurzel_unskopiert(settings))
+if _verwaiste_analysen:
+    logging.getLogger(__name__).warning(
+        "%d verwaiste(n) Analysator-Lauf/Läufe beim Start zurückgesetzt (laeuft: true ohne "
+        "lebenden Hintergrund-Task, vermutlich durch einen vorherigen Neustart).",
+        _verwaiste_analysen,
     )
 
 # Einmalig beim Start befuellen, falls die Tabelle noch leer ist (z.B. beim
@@ -101,6 +112,7 @@ app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(pipeline.router)
 app.include_router(architekt.router)
+app.include_router(analysator.router)
 app.include_router(ssh_targets.router, dependencies=[Depends(get_current_user)])
 app.include_router(epochen.router, dependencies=[Depends(get_current_user)])
 # einstellungen (Speicherort) und benutzer (Benutzerverwaltung) sind

@@ -3,6 +3,7 @@ import { api } from "./api/client";
 import type { EpocheKurz, ProjektDetail, ProjektKurz, SSHZiel } from "./api/types";
 import { AboutDialog } from "./components/AboutDialog";
 import { TabBar } from "./components/TabBar";
+import { AnalysatorPage } from "./pages/AnalysatorPage";
 import { ArchitektInterviewPage } from "./pages/ArchitektInterviewPage";
 import { EinstellungenPage } from "./pages/EinstellungenPage";
 import { EpocheErstellenPage } from "./pages/EpocheErstellenPage";
@@ -129,6 +130,7 @@ function App() {
           { id: "personas", label: "Personas", icon: "🎭" },
         ]
       : []),
+    { id: "analysator", label: "Analysator", icon: "🔬" },
     { id: "epoche", label: "Epoche erstellen", icon: "🏛️" },
     { id: "fundus", label: "Personen-Fundus", icon: "🧬", align: "end" as const },
     // KI-Ziele verwalten, Speicherort-Einstellungen und Benutzerverwaltung
@@ -304,6 +306,10 @@ function App() {
             </div>
           </div>
         )}
+
+        <div className={activeTab === "analysator" ? "" : "hidden"}>
+          <AnalysatorPage epochen={epochen} sshZielId={sshZielId} onProjektErzeugt={projektAuswaehlen} />
+        </div>
 
         <div className={activeTab === "epoche" ? "" : "hidden"}>
           <EpocheErstellenPage epochen={epochen} onEpochenGeaendert={epochenLaden} />

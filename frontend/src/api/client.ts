@@ -1,4 +1,5 @@
 import type {
+  AnalysatorStatus,
   AutomatikStatus,
   AutomatikVerlaufEintrag,
   BefundeAntwort,
@@ -96,6 +97,17 @@ export const api = {
     }),
 
   projekt: (ordner: string) => anfrage<ProjektDetail>(`/api/projects/${ordner}`),
+
+  analysatorStarten: (
+    titel: string, epoche: string, text: string, zweiteEpoche?: string | null, sshZielId?: string | null,
+  ) =>
+    anfrage<{ ordner: string }>(`/api/analysator/starten${sshQuery(sshZielId)}`, {
+      method: "POST",
+      body: JSON.stringify({ titel, epoche, zweite_epoche: zweiteEpoche || null, text }),
+    }),
+
+  analysatorStatus: (ordner: string) =>
+    anfrage<AnalysatorStatus>(`/api/projects/${ordner}/analysator-status`),
 
   projektLoeschen: (ordner: string) =>
     anfrage<void>(`/api/projects/${ordner}`, { method: "DELETE" }),
