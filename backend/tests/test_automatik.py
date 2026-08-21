@@ -93,6 +93,28 @@ def test_befunde_anwenden_wendet_kurze_kasuskorrektur_trotz_geringem_wortueberla
     assert protokoll[0]["art"] == "angewendet"
 
 
+def test_befunde_anwenden_ueberspringt_kontext_duplizierenden_vorschlag():
+    """Regression (2026-08-21, 'Blut-und-Ahornlaub...'-Story): ein vorschlag,
+    der am Ende einen Satz wiederholt, der im Original direkt danach schon
+    steht, wuerde beim Splicen diesen Satz doppelt in den Kapiteltext
+    schreiben - siehe befunde_merge.py:vorschlag_dupliziert_kontext."""
+    text = (
+        "Sae hob eilig die Reiskörner vom Boden auf, die aus dem umgekippten "
+        "Kübel gefallen waren. Ihre Finger zitterten immer noch, doch ihre "
+        "Bewegungen waren präzise und geübt."
+    )
+    start, ende = 0, text.index("Ihre Finger zitterten")
+    vorschlag = (
+        "Sae hob eilig die Briefe vom Boden auf, die dort verstreut lagen. "
+        "Ihre Finger zitterten immer noch, doch ihre Bewegungen waren "
+        "präzise und geübt."
+    )
+    befunde = [_befund(text[start:ende], start, ende, vorschlag)]
+    neuer_text, protokoll = automatik.befunde_anwenden(text, befunde)
+    assert neuer_text == text
+    assert protokoll[0]["grund"] == "kontext_dupliziert"
+
+
 def test_befunde_anwenden_fund_am_textanfang_und_ende():
     text = "AAA Mitte ZZZ"
     befunde = [

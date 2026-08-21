@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from app.core.befunde_merge import vorschlag_verdaechtig
+from app.core.befunde_merge import vorschlag_dupliziert_kontext, vorschlag_verdaechtig
 
 AUTOMATIK_STATUS_DATEINAME = "automatik_status.json"
 AUTOMATIK_VERLAUF_DATEINAME = "automatik_verlauf.json"
@@ -220,11 +220,12 @@ def reste_vorhanden(status: dict[str, Any]) -> bool:
 # Anweisung gelegentlich ein Redaktionskommentar, ein unbeabsichtigt
 # dupliziertes Textstueck oder eine woertliche Anweisung ("Ersetzen Sie...")
 # als "vorschlag" durch. befunde_anwenden() prueft deshalb JEDEN Vorschlag
-# vor dem Splicen gegen befunde_merge.vorschlag_verdaechtig() - dieselbe
-# Pruefung laeuft bereits vorgelagert in app/api/pipeline.py beim Bauen der
-# Roh-Funde (nullt den Vorschlag dort statt den Fund zu verwerfen), diese
-# Pruefung hier ist ein zweites, unabhaengiges Sicherheitsnetz direkt vor
-# dem eigentlichen Text-Splice.
+# vor dem Splicen gegen befunde_merge.vorschlag_verdaechtig() UND
+# befunde_merge.vorschlag_dupliziert_kontext() - dieselben Pruefungen laufen
+# bereits vorgelagert in app/api/pipeline.py beim Bauen der Roh-Funde (nullt
+# den Vorschlag dort statt den Fund zu verwerfen), diese Pruefung hier ist
+# ein zweites, unabhaengiges Sicherheitsnetz direkt vor dem eigentlichen
+# Text-Splice.
 
 
 def befunde_anwenden(text: str, befunde: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
@@ -265,6 +266,12 @@ def befunde_anwenden(text: str, befunde: list[dict[str, Any]]) -> tuple[str, lis
         if vorschlag_verdaechtig(befund.get("fundstelle") or "", befund["vorschlag"]):
             protokoll.append({
                 "art": "uebersprungen", "grund": "verdaechtiger_vorschlag",
+                "fundstelle": befund.get("fundstelle"), "vorschlag": befund.get("vorschlag"),
+            })
+            continue
+        if vorschlag_dupliziert_kontext(text, befund["start"], befund["end"], befund["vorschlag"]):
+            protokoll.append({
+                "art": "uebersprungen", "grund": "kontext_dupliziert",
                 "fundstelle": befund.get("fundstelle"), "vorschlag": befund.get("vorschlag"),
             })
             continue

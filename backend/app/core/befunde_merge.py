@@ -8,6 +8,7 @@ als Konflikt markiert statt einen der beiden Vorschlaege zu bevorzugen.
 """
 from __future__ import annotations
 
+import difflib
 import re
 from dataclasses import dataclass
 
@@ -99,6 +100,66 @@ _VERDIKT_MUSTER = re.compile(
 )
 
 
+# FUENFTES Fehlerbild (2026-08-21, "Blut-und-Ahornlaub..."-Story,
+# Japanisches-Hochmittelalter): kein liegen gebliebener Kommentar und kein
+# Urteil, sondern ein "vorschlag", der zwar selbst lesbare Prosa ist, aber am
+# Anfang oder Ende einen Satz enthaelt, der im Original-Kapiteltext
+# UNMITTELBAR ausserhalb der eigenen "fundstelle" (davor bzw. danach) bereits
+# WORTGLEICH oder nur leicht umformuliert (z.B. mit vertauschtem Subjekt)
+# steht. Der Pruefer wollte offenbar genug Kontext liefern, um seinen
+# Vorschlag natuerlich klingen zu lassen, hat dabei aber einen Nachbarsatz
+# reproduziert, der beim Splicen (text[:start] + vorschlag + text[end:])
+# unveraendert stehen bleibt - Ergebnis: derselbe Satz taucht zweimal
+# hintereinander im Kapiteltext auf. Drei reale Vorkommen in derselben Story
+# (Kapitel 1, Kapitel 4 zweimal), siehe test_befunde_merge.py fuer die
+# (gekuerzten) Originalzitate. Weder Laengen- noch Anweisungs- noch Regel-
+# noch Verdikt-Heuristik greift hier, weil der Vorschlag selbst weder zu lang
+# noch eine Anweisung/ein Urteil ist - deshalb ein eigener, kontextbasierter
+# Check statt einer weiteren Textmuster-Heuristik.
+_KONTEXT_FENSTER = 180
+_KONTEXT_AEHNLICHKEIT_SCHWELLE = 0.6
+_KONTEXT_MIN_LAENGE = 25
+
+
+def _normalisiert_locker(text: str) -> str:
+    """Wie _normalisiert(), aber behaelt keine Anfuehrungszeichen - fuer den
+    Vergleich von Prosa-Fragmenten, bei denen sich Zitatzeichen an der
+    Bruchstelle unterscheiden koennen, ohne dass das inhaltlich relevant
+    waere."""
+    text = re.sub(r"[„“\"'’`]", "", text.lower())
+    return " ".join(text.split()).strip()
+
+
+def vorschlag_dupliziert_kontext(text: str, start: int, end: int, vorschlag: str) -> bool:
+    """True, wenn `vorschlag` an Anfang oder Ende einen Textabschnitt
+    enthaelt, der dem Text UNMITTELBAR vor `start` bzw. nach `end` im
+    Original bereits (fast) entspricht - siehe Kommentar oben. Bewusst ein
+    Fenster- statt Satz-Vergleich: eine Duplizierung kann sich ueber eine
+    krumme Anzahl Saetze erstrecken (realer Fall: zwei volle Saetze), ein
+    reiner Satzgrenzen-Abgleich wuerde das verfehlen. difflib statt
+    Wortueberlapp, weil leichte Umformulierungen (vertauschtes Subjekt: "Er
+    kuesste sie" -> "Sie kuesste ihn") trotzdem erkannt werden sollen."""
+    vorschlag_norm = _normalisiert_locker(vorschlag)
+    if len(vorschlag_norm) < _KONTEXT_MIN_LAENGE:
+        return False
+
+    danach = _normalisiert_locker(text[end:end + _KONTEXT_FENSTER])
+    ende_vorschlag = vorschlag_norm[-_KONTEXT_FENSTER:]
+    anfang_danach = danach[:len(ende_vorschlag)]
+    if len(anfang_danach) >= _KONTEXT_MIN_LAENGE:
+        if difflib.SequenceMatcher(None, ende_vorschlag, anfang_danach).ratio() >= _KONTEXT_AEHNLICHKEIT_SCHWELLE:
+            return True
+
+    davor = _normalisiert_locker(text[max(0, start - _KONTEXT_FENSTER):start])
+    anfang_vorschlag = vorschlag_norm[:_KONTEXT_FENSTER]
+    ende_davor = davor[-len(anfang_vorschlag):] if davor else ""
+    if len(ende_davor) >= _KONTEXT_MIN_LAENGE:
+        if difflib.SequenceMatcher(None, anfang_vorschlag, ende_davor).ratio() >= _KONTEXT_AEHNLICHKEIT_SCHWELLE:
+            return True
+
+    return False
+
+
 def vorschlag_verdaechtig(fundstelle: str, vorschlag: str) -> bool:
     """True, wenn `vorschlag` eher nach einem liegen gebliebenen
     Redaktionskommentar, einem duplizierten Textfragment, einer Anweisung
@@ -129,6 +190,24 @@ class RoherBefund:
 
 
 _SICHERHEIT_RANG = {"hoch": 2, "mittel": 1, "gering": 0}
+
+# Realer Vorfall (2026-08-21, Kapitel 7 derselben "Blut-und-Ahornlaub..."-
+# Story): der Kontinuitaets-Pruefer meldete zu Recht offene Faeden fuer eine
+# grosse Spanne (~220 Zeichen), setzte aber "vorschlag": null (korrekt laut
+# Persona-Regel - eine fehlende Aufloesung laesst sich nicht per Ersatztext
+# beheben). Der Anachronismus-Pruefer markierte fuer denselben Bereich nur
+# ein kurzes Teilstueck (~49 Zeichen, "Siegel" -> "Zeichen") MIT vorschlag.
+# Da nur ein einziger nicht-leerer vorschlag im Cluster uebrig blieb, hat
+# befunde_zusammenfuehren() ihn bisher unhinterfragt fuer die GESAMTE
+# (durch das Clustering vergroesserte) Fundstelle uebernommen - er deckte
+# davon aber nur ~22% ab. Ergebnis beim Splicen: fast der ganze Absatz wurde
+# durch das kurze Fragment ersetzt, der Rest des Satzes blieb als
+# Textruine stehen. Deshalb: wenn im Cluster mehrere Funde stecken, aber nur
+# einer einen vorschlag beisteuert, MUSS dessen EIGENE (Vor-Merge-)Fundstelle
+# einen Mindestanteil der gemeinsamen (Nach-Merge-)Fundstelle abdecken -
+# sonst wie bei einem echten Widerspruch als Konflikt behandeln, statt den
+# Fragment-Vorschlag stillschweigend auf die ganze Spanne anzuwenden.
+_SCOPE_MISMATCH_MINDESTANTEIL = 0.6
 
 
 def _normalisiert(text: str) -> str:
@@ -170,12 +249,23 @@ def befunde_zusammenfuehren(kapiteltext: str, roh_befunde: list[RoherBefund]) ->
             if b.kategorie not in kategorien:
                 kategorien.append(b.kategorie)
 
-        vorschlaege = [(b.kategorie, b.vorschlag) for b in gruppe if b.vorschlag]
-        distinct = {_normalisiert(v) for _, v in vorschlaege}
+        vorschlaege = [(b.kategorie, b.vorschlag, b.start, b.end) for b in gruppe if b.vorschlag]
+        distinct = {_normalisiert(v) for _, v, _, _ in vorschlaege}
         konflikt = len(distinct) > 1
+
+        gesamt_laenge = end - start
+        if (
+            not konflikt and len(vorschlaege) == 1 and len(gruppe) > 1
+            and gesamt_laenge > 0
+        ):
+            _, _, eigener_start, eigener_end = vorschlaege[0]
+            eigene_laenge = eigener_end - eigener_start
+            if eigene_laenge < gesamt_laenge * _SCOPE_MISMATCH_MINDESTANTEIL:
+                konflikt = True
+
         vorschlag = None if konflikt else (vorschlaege[0][1] if vorschlaege else None)
         konflikt_vorschlaege = (
-            [{"quelle": q, "text": v} for q, v in vorschlaege] if konflikt else None
+            [{"quelle": q, "text": v} for q, v, _, _ in vorschlaege] if konflikt else None
         )
 
         ergebnisse.append({

@@ -33,6 +33,15 @@ Suche Widersprüche zwischen beiden Texten und innerhalb des neuen Kapitels:
   Text steht
 - Zeit: Wochentage, Tageszeiten, Kirchenfeste, Dauer von Wegen und Handlungen
 - Wissen: Eine Figur weiß etwas, das sie nicht wissen kann
+- Vorgezogene Ereignisse: Eine Figur erinnert sich an ein Gespräch, eine
+  Geste oder eine Information, die laut Stand und neuem Kapiteltext bisher
+  gar nicht stattgefunden hat - auch dann, wenn dieses Ereignis später (in
+  einer ANDEREN Szene desselben oder eines künftigen Kapitels) tatsächlich
+  erzählt wird. Prüfe insbesondere Zeitangaben wie "am Vortag", "gestern"
+  oder "vorhin": Ist im bisherigen Stand überhaupt Raum für dieses Ereignis,
+  oder widerspricht die behauptete Vorgeschichte dem letzten bekannten
+  Zustand der Figuren zueinander (z.B. kennen sie laut Stand noch nicht
+  einmal den Namen der anderen Person)?
 - Gegenstände, die auftauchen oder verschwinden
 - Wetter und Jahreszeit
 - Stand der Liebeshandlung: Überspringt das Kapitel eine Stufe, die laut Stand
@@ -46,7 +55,12 @@ Suche Widersprüche zwischen beiden Texten und innerhalb des neuen Kapitels:
   bereits eingeführt wurde? Das ist ein eigener Kontinuitätsbruch (Figur oder
   Indiz "verschwindet" aus der Handlung), auch wenn innerhalb des neuen
   Kapitels selbst kein Widerspruch sichtbar ist - melde ihn trotzdem, mit
-  "unsicher": true, wenn du dir bei der Absicht nicht sicher bist
+  "unsicher": true, wenn du dir bei der Absicht nicht sicher bist. Lieferst
+  du in "vorschlag" das fehlende Indiz nach: Legt der Nebenstrang-Plan fest,
+  WELCHE Figur die Handlung ausführt (z.B. "Genzō ... mit versiegelten
+  Briefen unterwegs"), muss dein Ersatztext exakt diese Figur die Handlung
+  ausführen lassen - nicht eine andere Figur (insbesondere nicht die
+  beobachtende Figur selbst), auch wenn das grammatisch näherliegend wäre.
 - Angekündigte, aber nie ausgesprochene Informationen: Eine Figur setzt an,
   ein Geheimnis oder eine Tatsache zu offenbaren, der Inhalt bleibt aber
   unklar, ohne dass ein erkennbarer Grund für die Unterbrechung im Text steht
@@ -154,5 +168,14 @@ formell bleiben (Sie/Euch)." (eine Aussage über den Text, kein Text selbst).
 RICHTIG ist "zitat" die konkrete Stelle mit der falschen Anrede und
 "vorschlag" genau diese Stelle, wörtlich mit der korrekten Anrede ersetzt
 (z.B. "Ihr wart" statt "Sie waren").
+Kontext-Grenzen: "vorschlag" ersetzt beim Einsetzen NUR die Zeichen von
+"zitat" - alles, was im Kapiteltext unmittelbar DAVOR oder DANACH steht,
+bleibt unverändert stehen. Nimm deshalb in "vorschlag" NIE einen Satz auf,
+der im Kapiteltext direkt vor oder nach "zitat" schon steht - auch nicht
+leicht umformuliert (z.B. mit vertauschtem Subjekt: "Er küsste sie" statt
+"Sie küsste ihn"). Sonst erscheint dieser Satz doppelt hintereinander im
+fertigen Text. Brauchst du mehr Kontext, um einen flüssigen Übergang zu
+formulieren, erweitere stattdessen "zitat" selbst um die betroffenen
+Nachbarsätze, statt sie unverändert in "vorschlag" zu wiederholen.
 Antworte inhaltlich auf Deutsch, aber halte dich exakt an die JSON-Struktur
 oben. Findest du nichts, gib {"befunde": []} zurück.

@@ -39,7 +39,12 @@ from app.core import geruest as g
 from app.core import heuristik as h
 from app.core import projekt_dateien as pd
 from app.core import ssh_manager
-from app.core.befunde_merge import RoherBefund, befunde_zusammenfuehren, vorschlag_verdaechtig
+from app.core.befunde_merge import (
+    RoherBefund,
+    befunde_zusammenfuehren,
+    vorschlag_dupliziert_kontext,
+    vorschlag_verdaechtig,
+)
 from app.core.bild_generierung import BildGenerierungFehler
 from app.core.fundstellen import finde_fundstelle
 from app.core.ollama_client import OllamaFehler, chat_stream
@@ -168,6 +173,8 @@ def _anachronismus_roh_befunde(kapiteltext: str, antwort_text: str) -> list[Rohe
         if not _ist_echte_korrektur(eintrag.fundstelle, vorschlag):
             continue
         bereich = finde_fundstelle(kapiteltext, eintrag.fundstelle)
+        if vorschlag and bereich and vorschlag_dupliziert_kontext(kapiteltext, bereich[0], bereich[1], vorschlag):
+            vorschlag = None
         ergebnis.append(RoherBefund(
             kategorie=eintrag.kategorie,
             fundstelle=eintrag.fundstelle,
@@ -197,6 +204,8 @@ def _kontinuitaet_roh_befunde(kapiteltext: str, antwort_text: str) -> list[Roher
         if not _ist_echte_korrektur(eintrag.zitat, vorschlag):
             continue
         bereich = finde_fundstelle(kapiteltext, eintrag.zitat)
+        if vorschlag and bereich and vorschlag_dupliziert_kontext(kapiteltext, bereich[0], bereich[1], vorschlag):
+            vorschlag = None
         beschreibung = eintrag.widerspruch
         if eintrag.beleg:
             beschreibung += f" (Beleg: {eintrag.beleg})"
@@ -229,6 +238,8 @@ def _lektor_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefund
         if not _ist_echte_korrektur(eintrag.fundstelle, vorschlag):
             continue
         bereich = finde_fundstelle(kapiteltext, eintrag.fundstelle)
+        if vorschlag and bereich and vorschlag_dupliziert_kontext(kapiteltext, bereich[0], bereich[1], vorschlag):
+            vorschlag = None
         ergebnis.append(RoherBefund(
             kategorie="lektorat",
             fundstelle=eintrag.fundstelle,
@@ -269,6 +280,8 @@ def _satzbau_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefun
         if not _ist_echte_korrektur(eintrag.fundstelle, vorschlag):
             continue
         bereich = finde_fundstelle(kapiteltext, eintrag.fundstelle)
+        if vorschlag and bereich and vorschlag_dupliziert_kontext(kapiteltext, bereich[0], bereich[1], vorschlag):
+            vorschlag = None
         ergebnis.append(RoherBefund(
             kategorie="lektorat",
             fundstelle=eintrag.fundstelle,

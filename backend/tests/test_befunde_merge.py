@@ -1,4 +1,9 @@
-from app.core.befunde_merge import RoherBefund, befunde_zusammenfuehren, vorschlag_verdaechtig
+from app.core.befunde_merge import (
+    RoherBefund,
+    befunde_zusammenfuehren,
+    vorschlag_dupliziert_kontext,
+    vorschlag_verdaechtig,
+)
 
 
 def test_einzelner_fund_bleibt_unveraendert():
@@ -207,3 +212,142 @@ def test_vorschlag_verdaechtig_laesst_beibehalten_als_verb_im_satz_durch():
         "Sie wollte die alte Sitte fortführen.",
         "Sie wollte die alte Sitte ihrer Mutter beibehalten.",
     ) is False
+
+
+# FUENFTES Fehlerbild (2026-08-21, "Blut-und-Ahornlaub..."-Story,
+# Japanisches-Hochmittelalter): der vorschlag selbst ist lesbare Prosa (keine
+# der obigen Heuristiken greift), dupliziert aber einen Nachbarsatz, der im
+# Original unmittelbar ausserhalb von [start, end) bereits steht. Alle drei
+# folgenden Faelle sind woertlich (bis auf Kuerzung) aus dieser echten Story.
+def test_vorschlag_dupliziert_kontext_erkennt_dopplung_am_ende():
+    """Kapitel 1: der Kontinuitaets-Pruefer haengt an seinen vorschlag zwei
+    Saetze an, die im Original direkt NACH der fundstelle schon stehen."""
+    text = (
+        "Doch dann hörte er ein leises Rascheln hinter sich. Als er sich "
+        "umdrehte, sah er, wie Sae eilig etwas vom Boden aufhob – ein paar "
+        "verstreute Reiskörner, die aus dem umgekippten Kübel gefallen waren."
+        " Ihre Finger zitterten immer noch, doch ihre Bewegungen waren "
+        "präzise und geübt. Plötzlich spürte er eine seltsame Verbindung zu "
+        "dieser jungen Magd, deren Name er nicht einmal kannte. Es war, als "
+        "ob etwas Unausgesprochenes zwischen ihnen floss."
+    )
+    start = text.index("Doch dann")
+    end = text.index("Ihre Finger zitterten")
+    vorschlag = (
+        "Doch dann hörte er ein leises Rascheln hinter sich. Sae stand etwas "
+        "abseits und hielt einen Stapel versiegelter Briefe in den Händen, "
+        "die sie eilig vom Boden aufhob. Ihre Finger zitterten immer noch, "
+        "doch ihre Bewegungen waren präzise und geübt. Plötzlich spürte er "
+        "eine seltsame Verbindung zu dieser jungen Magd, deren Name er nicht "
+        "einmal kannte."
+    )
+    assert vorschlag_dupliziert_kontext(text, start, end, vorschlag) is True
+
+
+def test_vorschlag_dupliziert_kontext_erkennt_dopplung_am_anfang():
+    """Kapitel 4: der vorschlag stellt zwei Saetze VORAN, die im Original
+    direkt VOR der fundstelle schon stehen (dort mit vertauschtem Subjekt:
+    'Er küsste sie' statt 'Sie küsste ihn')."""
+    text = (
+        "Er küsste sie noch einmal, voller Zärtlichkeit und Bedauern. Dann "
+        "stand er auf und half ihr, sich wieder anzuziehen. Als sie fertig "
+        "waren, gingen sie schweigend zum Herrenhof zurück.\n\n"
+        "Doch in ihren Herzen wussten sie, dass dies erst der Anfang war."
+    )
+    start = text.index("Doch in ihren Herzen")
+    end = len(text)
+    vorschlag = (
+        "Sie küsste ihn noch einmal, voller Zärtlichkeit und Bedauern. Dann "
+        "stand er auf und half ihr, sich wieder anzuziehen. Als sie fertig "
+        "waren, gingen sie schweigend zum Herrenhof zurück. Doch in ihren "
+        "Herzen wussten sie, dass die Konsequenzen ihres Kusses weit über "
+        "diesen Moment hinausreichten."
+    )
+    assert vorschlag_dupliziert_kontext(text, start, end, vorschlag) is True
+
+
+def test_vorschlag_dupliziert_kontext_laesst_echte_korrektur_durch():
+    """Gegenprobe: ein vorschlag, der lediglich den Ortsnamen korrigiert und
+    danach zwei NEUE (nicht schon vorhandene) Saetze ergaenzt, darf nicht
+    blockiert werden - Kapitel 4, konkreter Ortswechsel-Fix desselben
+    Vorfalls, diesmal OHNE Dopplung."""
+    text = (
+        "Die Abendsonne tauchte den Biwa-See in goldenes Licht, als Yorinaga "
+        "durch den Garten schlenderte. Die Luft war erfüllt vom Duft der "
+        "blühenden Kirschbäume.\n\nEr betrat den Pavillon, wo seine Mutter "
+        "bereits wartete."
+    )
+    start = text.index("Die Abendsonne")
+    end = text.index("Die Luft war erfüllt") + len(
+        "Die Luft war erfüllt vom Duft der blühenden Kirschbäume."
+    )
+    vorschlag = (
+        "Die Abendsonne tauchte den Herrenhof in goldenes Licht, als "
+        "Yorinaga durch den Garten schlenderte. Die Luft war erfüllt vom "
+        "Duft der blühenden Kirschbäume."
+    )
+    assert vorschlag_dupliziert_kontext(text, start, end, vorschlag) is False
+
+
+def test_scope_mismatch_bei_ueberlappenden_funden_ergibt_konflikt():
+    """Kapitel 7: zwei Pruefer melden ueberlappende Funde fuer denselben
+    Bereich - Kontinuitaet mit vorschlag=None fuer eine GROSSE Spanne (korrekt
+    laut Persona, eine fehlende Aufloesung laesst sich nicht per Ersatztext
+    beheben), Anachronismus mit einem vorschlag fuer nur ein kleines
+    Teilstueck davon. Ohne Scope-Check wuerde der kleine Vorschlag auf die
+    ganze grosse Spanne angewendet und den Rest verschlucken - deshalb muss
+    das als Konflikt (nicht automatisch anwendbar) markiert werden."""
+    text = (
+        "Die Wachen sind zwar noch nicht gekommen, doch die Unstimmigkeit am "
+        "Siegel, die Sae bemerkt hat, lässt uns wissen: Wir sind beobachtet."
+    )
+    grosse_spanne_start = text.index("Die Wachen")
+    grosse_spanne_end = len(text)
+    kleine_spanne_start = text.index("die Unstimmigkeit am Siegel")
+    kleine_spanne_end = kleine_spanne_start + len("die Unstimmigkeit am Siegel, die Sae bemerkt hat")
+
+    roh = [
+        RoherBefund(
+            kategorie="kontinuitaet", fundstelle=text[grosse_spanne_start:grosse_spanne_end],
+            beschreibung="Offener Faden am Ende der Geschichte nicht aufgelöst",
+            sicherheit=None, vorschlag=None,
+            start=grosse_spanne_start, end=grosse_spanne_end,
+        ),
+        RoherBefund(
+            kategorie="anachronismus", fundstelle=text[kleine_spanne_start:kleine_spanne_end],
+            beschreibung="'Siegel' ist anachronistisch",
+            sicherheit="mittel", vorschlag="die Unstimmigkeit am Zeichen, die Sae bemerkt hat",
+            start=kleine_spanne_start, end=kleine_spanne_end,
+        ),
+    ]
+    ergebnisse = befunde_zusammenfuehren(text, roh)
+    assert len(ergebnisse) == 1
+    fund = ergebnisse[0]
+    assert fund["konflikt"] is True
+    assert fund["vorschlag"] is None
+    assert fund["konflikt_vorschlaege"] == [
+        {"quelle": "anachronismus", "text": "die Unstimmigkeit am Zeichen, die Sae bemerkt hat"}
+    ]
+
+
+def test_scope_match_bei_aehnlich_grossen_ueberlappenden_funden_bleibt_anwendbar():
+    """Gegenprobe: deckt der einzige vorschlag im Cluster fast die gesamte
+    gemeinsame Spanne ab, bleibt er weiterhin automatisch anwendbar - nur ein
+    deutliches Groessen-Missverhaeltnis soll als Konflikt gelten."""
+    text = "Der Butler nannte ihn Mr. Hartwell waehrend des Gespraechs."
+    start, ende = text.index("Mr. Hartwell"), text.index("Mr. Hartwell") + len("Mr. Hartwell")
+    roh = [
+        RoherBefund(
+            kategorie="anachronismus", fundstelle="Mr. Hartwell", beschreibung="falsche Anrede fuer den Rang",
+            sicherheit="hoch", vorschlag="Lord Hartwell", start=start, end=ende,
+        ),
+        RoherBefund(
+            kategorie="kontinuitaet", fundstelle="Mr. Hartwell", beschreibung="unsicher, kein Ersatztext",
+            sicherheit=None, vorschlag=None, start=start, end=ende,
+        ),
+    ]
+    ergebnisse = befunde_zusammenfuehren(text, roh)
+    assert len(ergebnisse) == 1
+    fund = ergebnisse[0]
+    assert fund["konflikt"] is False
+    assert fund["vorschlag"] == "Lord Hartwell"
