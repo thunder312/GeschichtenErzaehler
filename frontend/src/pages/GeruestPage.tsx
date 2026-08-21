@@ -23,6 +23,22 @@ const JUGENDSCHUTZ_ANZEIGE: Record<string, { label: string; tone: "green" | "amb
   voll: { label: "FSK 18 · voll explizit", tone: "amber" },
 };
 
+/** Kopfzeile fuer einen der drei "Haupt-Container" INNERHALB des äußeren
+ * "🗺️ geruest.md"-CollapsibleCard - bewusst kein verschachteltes
+ * CollapsibleCard (das wuerde eine zweite Card-Umrandung ineinander
+ * schachteln), sondern derselbe Titel+Toggle-Aufbau, nur ohne eigene
+ * Card-Border. */
+function AbschnittKopf({ titel, offen, onToggle }: { titel: string; offen: boolean; onToggle: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 pt-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">{titel}</h3>
+      <button type="button" onClick={onToggle} className="text-xs text-accent-light hover:underline">
+        {offen ? "Einklappen" : "Ausklappen"}
+      </button>
+    </div>
+  );
+}
+
 interface GeruestPageProps {
   ordner: string;
   projekt: ProjektDetail | null;
@@ -60,6 +76,15 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   const [stilprobenHinweis, setStilprobenHinweis] = useState<string | null>(null);
 
   const [architektenGespraech, setArchitektenGespraech] = useState<string | null>(null);
+
+  // Einklappzustand der drei "Haupt-Container" innerhalb des geruest.md-
+  // Editors (siehe ToDo.md: mehr Platz fuer den Block, an dem gerade
+  // gearbeitet wird) - unabhaengig vom aeusseren "🗺️ geruest.md"-
+  // CollapsibleCard und unabhaengig voneinander. Default offen, damit sich
+  // fuer bestehende Nutzung nichts aendert, solange niemand aktiv einklappt.
+  const [rahmenOffen, setRahmenOffen] = useState(true);
+  const [kapitelplanOffen, setKapitelplanOffen] = useState(true);
+  const [ausgangslageOffen, setAusgangslageOffen] = useState(true);
 
   useEffect(() => {
     const geteilt = kapitelplanAusGeruestExtrahieren(projekt?.geruest ?? "");
@@ -163,55 +188,71 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
           </p>
         )}
 
-        <div className="border-b border-border p-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
-            Rahmen, Titel, Figuren, Konflikt, Nebenstrang
-          </h3>
-          <Editor
-            height="clamp(200px, 32vh, 360px)"
-            defaultLanguage="markdown"
-            value={vor}
-            onChange={(v) => setVor(v ?? "")}
-            theme="vs-dark"
-            options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
+        <div className="border-b border-border">
+          <AbschnittKopf
+            titel="Rahmen, Titel, Figuren, Konflikt, Nebenstrang"
+            offen={rahmenOffen}
+            onToggle={() => setRahmenOffen((o) => !o)}
           />
+          {rahmenOffen && (
+            <div className="p-4 pt-2">
+              <Editor
+                height="clamp(200px, 32vh, 360px)"
+                defaultLanguage="markdown"
+                value={vor}
+                onChange={(v) => setVor(v ?? "")}
+                theme="vs-dark"
+                options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
+              />
+            </div>
+          )}
         </div>
 
         <div className="border-b border-border">
-          <h3 className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">Kapitelplan</h3>
-          {kapitelplanWarnung && (
-            <p className="mx-4 mt-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-300">
-              ⚠️ {kapitelplanWarnung}
-            </p>
+          <AbschnittKopf titel="Kapitelplan" offen={kapitelplanOffen} onToggle={() => setKapitelplanOffen((o) => !o)} />
+          {kapitelplanOffen && (
+            <>
+              {kapitelplanWarnung && (
+                <p className="mx-4 mt-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-300">
+                  ⚠️ {kapitelplanWarnung}
+                </p>
+              )}
+              <KapitelplanEditor
+                kapitel={kapitel}
+                onChange={(neu) => {
+                  // Jede Aenderung (auch Verschieben/Loeschen) macht die zuletzt
+                  // berechneten Pflichtfeld-Fehler potenziell falsch - Index N
+                  // zeigt nach einer Verschiebung auf ein ANDERES Kapitel als
+                  // beim letzten Speicherversuch. Erst der naechste Speichern-
+                  // Klick berechnet sie neu; bis dahin lieber keine (evtl.
+                  // falsch zugeordnete) rote Markierung stehen lassen.
+                  setKapitel(neu);
+                  setKapitelFehler([]);
+                }}
+                fehler={kapitelFehler}
+              />
+            </>
           )}
-          <KapitelplanEditor
-            kapitel={kapitel}
-            onChange={(neu) => {
-              // Jede Aenderung (auch Verschieben/Loeschen) macht die zuletzt
-              // berechneten Pflichtfeld-Fehler potenziell falsch - Index N
-              // zeigt nach einer Verschiebung auf ein ANDERES Kapitel als
-              // beim letzten Speicherversuch. Erst der naechste Speichern-
-              // Klick berechnet sie neu; bis dahin lieber keine (evtl.
-              // falsch zugeordnete) rote Markierung stehen lassen.
-              setKapitel(neu);
-              setKapitelFehler([]);
-            }}
-            fehler={kapitelFehler}
-          />
         </div>
 
-        <div className="p-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
-            Ausgangslage vor Kapitel eins, Offene Punkte, Regeln
-          </h3>
-          <Editor
-            height="clamp(200px, 32vh, 360px)"
-            defaultLanguage="markdown"
-            value={nach}
-            onChange={(v) => setNach(v ?? "")}
-            theme="vs-dark"
-            options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
+        <div>
+          <AbschnittKopf
+            titel="Ausgangslage vor Kapitel eins, Offene Punkte, Regeln"
+            offen={ausgangslageOffen}
+            onToggle={() => setAusgangslageOffen((o) => !o)}
           />
+          {ausgangslageOffen && (
+            <div className="p-4 pt-2">
+              <Editor
+                height="clamp(200px, 32vh, 360px)"
+                defaultLanguage="markdown"
+                value={nach}
+                onChange={(v) => setNach(v ?? "")}
+                theme="vs-dark"
+                options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
+              />
+            </div>
+          )}
         </div>
       </CollapsibleCard>
 

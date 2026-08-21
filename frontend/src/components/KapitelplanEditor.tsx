@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { KapitelEintrag, KapitelplanFehler } from "../utils/kapitelplan";
 import { leeresKapitel } from "../utils/kapitelplan";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -27,6 +27,45 @@ export function KapitelplanEditor({ kapitel, onChange, fehler }: KapitelplanEdit
   const [zuLoeschenderIndex, setZuLoeschenderIndex] = useState<number | null>(null);
   const fehlerKeys = new Set(fehler.map((f) => `${f.index}:${f.feld}`));
 
+  // Einklappzustand je Kapitel-Karte (siehe ToDo.md: mehr Platz fuer den
+  // Block, an dem gerade gearbeitet wird, bei vielen Kapiteln sonst viel
+  // Scrollen). Enthaelt die Indizes der EINGEKLAPPTEN Karten - default leer
+  // (alle offen), damit sich am bisherigen Verhalten nichts aendert, solange
+  // niemand aktiv einklappt. Ein Index mit einem Pflichtfeld-Fehler bleibt
+  // beim Einklappen-Versuch trotzdem sichtbar offen (siehe toggle()), sonst
+  // waere die rote Markierung unsichtbar, ohne dass der Nutzer weiss, wo.
+  const [eingeklappt, setEingeklappt] = useState<Set<number>>(new Set());
+  const indizesMitFehler = new Set(fehler.map((f) => f.index));
+
+  // Ein neu gemeldeter Pflichtfeld-Fehler klappt seine Karte automatisch
+  // wieder auf - sonst bliebe die rote Markierung in einer eingeklappten
+  // Karte unsichtbar und der Nutzer muesste sie erst suchen gehen.
+  useEffect(() => {
+    if (fehler.length === 0) return;
+    setEingeklappt((bisher) => {
+      const neu = new Set(bisher);
+      for (const f of fehler) neu.delete(f.index);
+      return neu;
+    });
+  }, [fehler]);
+
+  function toggle(index: number) {
+    setEingeklappt((bisher) => {
+      const neu = new Set(bisher);
+      if (neu.has(index)) neu.delete(index);
+      else if (!indizesMitFehler.has(index)) neu.add(index);
+      return neu;
+    });
+  }
+
+  function alleEinklappen() {
+    setEingeklappt(new Set(kapitel.map((_, i) => i).filter((i) => !indizesMitFehler.has(i))));
+  }
+
+  function alleAusklappen() {
+    setEingeklappt(new Set());
+  }
+
   function feldAendern<K extends keyof KapitelEintrag>(index: number, feld: K, wert: KapitelEintrag[K]) {
     onChange(kapitel.map((k, i) => (i === index ? { ...k, [feld]: wert } : k)));
   }
@@ -37,7 +76,20 @@ export function KapitelplanEditor({ kapitel, onChange, fehler }: KapitelplanEdit
 
   function entfernenBestaetigt() {
     if (zuLoeschenderIndex === null) return;
-    onChange(kapitel.filter((_, i) => i !== zuLoeschenderIndex));
+    const geloeschterIndex = zuLoeschenderIndex;
+    onChange(kapitel.filter((_, i) => i !== geloeschterIndex));
+    // Einklapp-Zustand haengt am Inhalt, nicht an der Array-Position - nach
+    // dem Loeschen ruecken alle nachfolgenden Kapitel eine Nummer auf, ihr
+    // Einklapp-Zustand muss mitwandern, sonst zeigt Index N ploetzlich den
+    // Zustand des FALSCHEN (jetzt an dieser Stelle stehenden) Kapitels.
+    setEingeklappt((bisher) => {
+      const neu = new Set<number>();
+      for (const i of bisher) {
+        if (i < geloeschterIndex) neu.add(i);
+        else if (i > geloeschterIndex) neu.add(i - 1);
+      }
+      return neu;
+    });
     setZuLoeschenderIndex(null);
   }
 
@@ -47,6 +99,16 @@ export function KapitelplanEditor({ kapitel, onChange, fehler }: KapitelplanEdit
     const kopie = [...kapitel];
     [kopie[index], kopie[ziel]] = [kopie[ziel], kopie[index]];
     onChange(kopie);
+    // Wie oben: Einklapp-Zustand tauscht mit den beiden vertauschten Karten.
+    setEingeklappt((bisher) => {
+      const indexOffen = bisher.has(index);
+      const zielOffen = bisher.has(ziel);
+      if (indexOffen === zielOffen) return bisher;
+      const neu = new Set(bisher);
+      if (zielOffen) neu.add(index); else neu.delete(index);
+      if (indexOffen) neu.add(ziel); else neu.delete(ziel);
+      return neu;
+    });
   }
 
   function klasse(index: number, feld: string): string {
@@ -59,11 +121,36 @@ export function KapitelplanEditor({ kapitel, onChange, fehler }: KapitelplanEdit
         <p className="text-sm text-text-muted">Noch kein Kapitelplan. Mit „+ Kapitel" das erste Kapitel anlegen.</p>
       )}
 
-      {kapitel.map((k, index) => (
+      {kapitel.length > 1 && (
+        <div className="flex justify-end gap-3 text-xs">
+          <button type="button" onClick={alleEinklappen} className="text-accent-light hover:underline">
+            Alle einklappen
+          </button>
+          <button type="button" onClick={alleAusklappen} className="text-accent-light hover:underline">
+            Alle ausklappen
+          </button>
+        </div>
+      )}
+
+      {kapitel.map((k, index) => {
+        const offen = !eingeklappt.has(index);
+        return (
         <div key={index} className="rounded-xl border border-border bg-bg/40 p-4">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <span className="font-heading text-sm font-semibold text-text">Kapitel {index + 1}</span>
-            <div className="flex items-center gap-1">
+          <div className={offen ? "mb-3 flex items-center justify-between gap-2" : "flex items-center justify-between gap-2"}>
+            <button
+              type="button"
+              onClick={() => toggle(index)}
+              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            >
+              <span className="text-xs text-text-muted">{offen ? "▾" : "▸"}</span>
+              <span className="font-heading text-sm font-semibold text-text">Kapitel {index + 1}</span>
+              {!offen && (
+                <span className="truncate text-xs text-text-muted">
+                  {[k.titel, k.ort].filter(Boolean).join(" · ") || "(noch leer)"}
+                </span>
+              )}
+            </button>
+            <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
                 onClick={() => verschieben(index, -1)}
@@ -93,7 +180,8 @@ export function KapitelplanEditor({ kapitel, onChange, fehler }: KapitelplanEdit
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {offen && (
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <Label>Titel</Label>
               <Input
@@ -161,8 +249,10 @@ export function KapitelplanEditor({ kapitel, onChange, fehler }: KapitelplanEdit
               />
             </div>
           </div>
+          )}
         </div>
-      ))}
+        );
+      })}
 
       <Button variant="secondary" onClick={hinzufuegen} className="w-full">
         + Kapitel

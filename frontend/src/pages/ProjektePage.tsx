@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import type { AutomatikZustand, EpocheKurz, ProjektKurz } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
+import { leeresGeruestSkelett } from "../utils/geruestVorlage";
 
 function AutomatikBadge({ zustand }: { zustand: AutomatikZustand }) {
   if (zustand === "laeuft") return <Badge tone="amber">🤖 Automatik läuft</Badge>;
@@ -37,6 +38,13 @@ export function ProjektePage({
   onNeuSchreibenGestartet,
 }: ProjektePageProps) {
   const [titel, setTitel] = useState("");
+  // Alternative zum Architekten-Interview (siehe ToDo.md): statt der
+  // conversational KI-Befragung kann der Gerüst-Editor (GeruestPage) direkt
+  // mit einem Platzhalter-Skelett geoeffnet werden. App.tsx entscheidet rein
+  // danach, ob `projektDetail.geruest` bereits gesetzt ist - ein frisch
+  // angelegtes Projekt hat das nur, wenn wir hier "manuell" waehlen und
+  // sofort nach dem Anlegen leeresGeruestSkelett() speichern.
+  const [startModus, setStartModus] = useState<"interview" | "manuell">("interview");
   const [epoche, setEpoche] = useState("");
   const [zweiteEpoche, setZweiteEpoche] = useState("");
   const [epocheEinleitungssatz, setEpocheEinleitungssatz] = useState<string | null>(null);
@@ -195,6 +203,20 @@ export function ProjektePage({
     setFehler(null);
     try {
       const neues = await api.projektAnlegen(titel.trim(), epoche, zweiteEpoche);
+      // "Gerüst selbst schreiben": das frisch angelegte Projekt hat noch
+      // kein geruest.md - App.tsx wuerde ohne dieses Skelett automatisch das
+      // Architekten-Interview erzwingen (siehe dortiger Kommentar bei
+      // `interviewErzwungen || !projektDetail?.geruest`). Ein Fehler hier
+      // (z.B. Netzwerkaussetzer) darf das bereits angelegte Projekt nicht
+      // verstecken - Projekt bleibt in jedem Fall nutzbar, notfalls landet
+      // man dann eben doch im Interview und kann spaeter manuell wechseln.
+      if (startModus === "manuell") {
+        try {
+          await api.geruestSchreiben(neues.ordner, leeresGeruestSkelett(titel.trim()));
+        } catch {
+          // Bewusst verschluckt, siehe Kommentar oben.
+        }
+      }
       setTitel("");
       setZweiteEpoche("");
       onProjekteGeaendert();
@@ -362,6 +384,39 @@ export function ProjektePage({
               Autor und Prüfer bekommen dann beide Settings und fragen im Interview zusätzlich nach dem
               Zeitsprung-Mechanismus.
             </p>
+          </div>
+          <div>
+            <Label>Wie soll das Gerüst entstehen?</Label>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setStartModus("interview")}
+                className={`rounded-lg border p-3 text-left text-sm transition-colors ${
+                  startModus === "interview"
+                    ? "border-accent bg-accent/10 text-text"
+                    : "border-border text-text-muted hover:bg-surface-hover"
+                }`}
+              >
+                <span className="font-medium">🗣️ Architekten-Interview</span>
+                <p className="mt-0.5 text-xs text-text-muted">
+                  Die KI befragt dich Schritt für Schritt und baut das Gerüst aus den Antworten.
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStartModus("manuell")}
+                className={`rounded-lg border p-3 text-left text-sm transition-colors ${
+                  startModus === "manuell"
+                    ? "border-accent bg-accent/10 text-text"
+                    : "border-border text-text-muted hover:bg-surface-hover"
+                }`}
+              >
+                <span className="font-medium">📝 Gerüst selbst schreiben</span>
+                <p className="mt-0.5 text-xs text-text-muted">
+                  Öffnet direkt den Gerüst-Editor mit einem Platzhalter-Skelett zum Ausfüllen - kein Gespräch.
+                </p>
+              </button>
+            </div>
           </div>
           {fehler && <p className="text-sm text-red-400">{fehler}</p>}
           <Button onClick={anlegen} disabled={wirdAngelegt || !epoche}>
