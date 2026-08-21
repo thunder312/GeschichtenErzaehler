@@ -1,3 +1,5 @@
+🇬🇧 [English version](Bedienungsanleitung.en.md)
+
 # Bedienungsanleitung: novelle.py
 
 Automatisierte Fünf-Rollen-Pipeline für KI-geschriebene Kurzgeschichten und

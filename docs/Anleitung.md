@@ -1,3 +1,5 @@
+🇬🇧 [English version](Anleitung.en.md)
+
 # Anleitung: Geschichten Erzähler
 
 Diese Anleitung beschreibt die Bedienung über die **Weboberfläche** (nicht

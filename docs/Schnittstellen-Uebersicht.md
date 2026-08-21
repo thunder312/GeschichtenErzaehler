@@ -1,3 +1,5 @@
+🇬🇧 [English version](Schnittstellen-Uebersicht.en.md)
+
 # Schnittstellen-Übersicht: novelle.py
 
 Technisches Referenzdokument für die Entwicklung einer GUI. Beschreibt die

@@ -1,3 +1,5 @@
+🇬🇧 [English version](Hilfe.en.md)
+
 # Hilfe
 
 ## 1. Eine komplett neue Geschichte — Schritt für Schritt

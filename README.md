@@ -1,41 +1,47 @@
-# Geschichten Erzähler
+🇩🇪 [Deutsche Version](README.de.md)
 
-Browserbasierte GUI für die KI-Pipeline, die historische Novellen schreibt
-(ursprünglich `novelle.py`, CLI-basiert). Führt den Nutzer schrittweise
-durch Architekt → Schreiben → Prüfen → Anwenden → Lektorieren → Stand/Export,
-mit einem Merge-Editor für die manuellen Korrekturschritte und einer
-SSH-Anbindung an entfernte Ollama-Server/Docker-Container.
+# Geschichten Erzähler ("Storyteller")
 
-## Projektstruktur
+Browser-based GUI for an AI pipeline that writes historical (and invented)
+novellas (originally `novelle.py`, a CLI script). Guides the user through
+Architect/Analyzer → Write → Review → Apply → Copy-edit → State/Export,
+with a merge editor for manual correction steps and SSH connectivity to
+remote Ollama servers/Docker containers.
+
+The app's own user interface is currently German-only; this README and the
+`/docs` folder are also available in English for anyone browsing the
+repository. See [Language scope](#language-scope) below.
+
+## Project structure
 
 ```
-backend/    FastAPI-Backend (Python 3.12+) - Pipeline-Logik, Ollama-/SSH-Anbindung
-frontend/   React + TypeScript + Vite + Tailwind - Tab-basierte Bedienoberfläche
-docs/       Bedienungsanleitung + Schnittstellen-Übersicht (Referenz aus der CLI-Zeit)
-pre-GUI/    Unveränderte Sicherung des ursprünglichen CLI-Skripts (nicht mehr bearbeiten)
+backend/    FastAPI backend (Python 3.12+) - pipeline logic, Ollama/SSH connectivity
+frontend/   React + TypeScript + Vite + Tailwind - tab-based user interface
+docs/       User guide + interface overview (German originals + English translations, *.en.md)
+pre-GUI/    Unmodified backup of the original CLI script (no longer edited)
 ```
 
-Tech-Stack-Begründung siehe Gesprächsverlauf; Kurzfassung: Backend in Python,
-weil die komplette Prompt-/Heuristik-Logik aus `novelle.py` 1:1 portiert
-werden konnte statt in einer Zweitsprache neu erfunden zu werden.
+Tech stack rationale: the backend is in Python because the entire prompt/
+heuristics logic from `novelle.py` could be ported 1:1 instead of being
+reinvented in a second language.
 
-## Backend starten
+## Running the backend
 
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate        # Windows; unter Linux/macOS: source .venv/bin/activate
+.venv\Scripts\activate        # Windows; on Linux/macOS: source .venv/bin/activate
 pip install -r requirements-dev.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-Tests: `python -m pytest` (im aktivierten venv, aus `backend/`).
+Tests: `python -m pytest` (inside the activated venv, from `backend/`).
 
-Ohne weitere Konfiguration spricht das Backend `http://localhost:11434`
-(lokales Ollama) an. Für entfernte Server: SSH-Ziel im Tab „SSH-Ziele"
-anlegen und bei den einzelnen Schritten auswählen.
+Without further configuration, the backend talks to `http://localhost:11434`
+(local Ollama). For remote servers: create an SSH target under the "SSH
+Targets" tab and select it in the individual pipeline steps.
 
-## Frontend starten
+## Running the frontend
 
 ```bash
 cd frontend
@@ -43,19 +49,39 @@ npm install
 npm run dev
 ```
 
-Läuft unter `http://localhost:5173`, der Vite-Dev-Server proxied `/api/*`
-automatisch zum Backend auf Port 8000 (siehe `frontend/vite.config.ts`).
+Runs at `http://localhost:5173`; the Vite dev server automatically proxies
+`/api/*` to the backend on port 8000 (see `frontend/vite.config.ts`).
 
-## Stand dieser ersten Fassung
+## Feature overview
 
-Bereits vorhanden: Projekte anlegen/verwalten, Gerüst bearbeiten (als
-Markdown, noch kein geführtes Architekten-Interview), Kapitel schreiben
-(live streamend inkl. aller automatischen Sicherheitsnetze), Prüfen,
-Anachronismen automatisch anwenden, Lektorieren, Rechtschreibprüfung via
-hunspell (lokal oder per SSH-Remote-Exec), Stand/Export, SSH-Ziel-Verwaltung
-mit Verbindungstest.
+- **Three ways to get a story outline ("Gerüst"):** a guided Architect
+  interview (multiple-choice dialogue), writing the outline by hand, or
+  importing an existing story and letting the "Analyzer" ("Analysator")
+  automatically derive a complete outline (including a chapter plan) from
+  it.
+- **Era/setting management:** create real historical eras or entirely
+  invented settings, including settings derived by the Analyzer (with an
+  automatic fan-fiction/rights disclaimer when a known franchise is
+  detected).
+- **Chapter writing:** live-streamed, with a structured chapter-plan
+  editor and all the automatic safety nets carried over from the CLI era.
+- **Automatic mode:** writes, reviews and corrects several chapters in a
+  row unattended, with run history and a resume function.
+- **Review pipeline:** anachronism, continuity and sentence-structure
+  reviewers plus a copy editor, results applicable via a merge editor;
+  spell-checking via hunspell (local or remote over SSH).
+- **Character pool:** characters reusable across projects within the same
+  era/setting.
+- **Cover generation, PDF export, state/export.**
+- **Multi-user support** with login, **SSH target management** with a
+  connection test for remote Ollama servers.
 
-Noch offen (siehe auch `ToDo.md`): geführtes Architekten-Interview als Dialog
-statt Rohtext-Editor, geführte Epochen-Erstellung, automatische Fortsetzung
-bei zu kurzen Kapiteln, Hermes-vs-Qwen-Vergleich (`testen`), Persona-/
-Verbotsliste-Editor, Installer/Docker-Compose.
+See `ToDo.md` for open items (German only).
+
+## Language scope
+
+This project's UI, AI personas and generated stories are German. Only the
+repository-facing documentation (this README and `/docs`) has been
+translated to English for accessibility on GitHub - the running
+application itself does not currently offer an English interface or
+English story generation.
