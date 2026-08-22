@@ -73,12 +73,14 @@ export function ProjektePage({
   // hier als Initialwert, weil `projekte` beim ersten Rendern noch leer
   // sein kann (Ladezustand von App.tsx).
   const [eingeklappteOrdner, setEingeklappteOrdner] = useState<Set<string>>(new Set());
-  // Drag&Drop einer Projektzeile auf einen anderen Epoche-Ordner (siehe
-  // projektZeile()/Ordner-Header unten) - `gezogen` ist der Ordnerpfad des
-  // gerade gezogenen Projekts, `dragZiel` der Epoche-Schluessel des Ordners,
-  // ueber dem gerade gehovert wird (nur fuer die visuelle Hervorhebung).
-  const [gezogen, setGezogen] = useState<string | null>(null);
-  const [dragZiel, setDragZiel] = useState<string | null>(null);
+  // Epoche einer Geschichte verschieben (siehe projektZeile() unten) -
+  // `verschiebenOffenFuer` ist der Ordnerpfad des Projekts, dessen Epoche-
+  // Auswahl gerade eingeblendet ist. Urspruenglich als Drag&Drop geplant,
+  // das aber in der Praxis bei mind. einem Nutzer/Browser zuverlaessig gar
+  // nicht ausgeloest hat (vermutlich Interaktion zwischen den Zeilen-Klick-
+  // Handlern und dem nativen HTML5-Drag-Events) - eine explizite Auswahl
+  // per Klick ist robuster und braucht keine Maus-Drag-Geste.
+  const [verschiebenOffenFuer, setVerschiebenOffenFuer] = useState<string | null>(null);
   const [verschiebenFehler, setVerschiebenFehler] = useState<string | null>(null);
   // Inline-Umbenennen einer Epoche direkt im Ordner-Header - `schluessel`
   // ist der Ordner-/Identifier-Name (siehe EpocheKurz.name), NICHT der
@@ -159,16 +161,6 @@ export function ProjektePage({
   // immer A -> Z, unabhaengig von `sortierungAbsteigend` (die betrifft nur
   // die Projekte innerhalb eines Ordners), sonst wirkt der Toggle bei
   // aktiver Ordner-Ansicht widerspruechlich.
-  // WICHTIG: haengt bewusst NICHT von `gezogen` ab, und die Menge/
-  // Reihenfolge der Eintraege aendert sich beim Start eines Drags NIE -
-  // sonst wuerde React beim Setzen von `gezogen` (siehe projektZeile()
-  // onDragStart) Ordner-Divs neu einfuegen oder verschieben, und der
-  // native Browser-Drag wird durch diese DOM-Umbaumassnahme lautlos
-  // abgebrochen (kein Fehler, dragover/drop feuern danach einfach nicht
-  // mehr). Deshalb immer ALLE bekannten Epochen als Eintrag fuehren -
-  // welche davon sichtbar sind, entscheidet ausschliesslich eine CSS-
-  // Klasse beim Rendern (siehe `sichtbar` weiter unten), nie bedingtes
-  // Ein-/Ausblenden aus dem Baum.
   const gruppierteProjekte = useMemo(() => {
     const gruppen = new Map<string, ProjektKurz[]>();
     for (const p of gefilterteProjekte) {
@@ -177,7 +169,13 @@ export function ProjektePage({
       if (liste) liste.push(p);
       else gruppen.set(schluessel, [p]);
     }
-    for (const e of epochen) if (!gruppen.has(e.name)) gruppen.set(e.name, []);
+    // "Unbekannt" ist die feste Sammelablage fuer Geschichten mit noch
+    // ungeklaerter Epoche (siehe app/data/epochen/Unbekannt) - bleibt
+    // IMMER sichtbar, auch leer, damit man jederzeit etwas dorthin
+    // verschieben kann.
+    if (epochen.some((e) => e.name === "Unbekannt") && !gruppen.has("Unbekannt")) {
+      gruppen.set("Unbekannt", []);
+    }
     return Array.from(gruppen.entries())
       .map(([epoche, liste]) => ({ epoche: epoche || null, liste }))
       .sort((a, b) => (a.epoche ?? "unbekannte Epoche").localeCompare(b.epoche ?? "unbekannte Epoche", "de"));
@@ -233,8 +231,8 @@ export function ProjektePage({
     });
   }
 
-  // Drag&Drop-Ziel: Projekt `ordner` in die Epoche `neueEpoche` verschieben
-  // (siehe PUT .../epoche in app/api/projects.py) - verschiebt bei aktiver
+  // Projekt `ordner` in die Epoche `neueEpoche` verschieben (siehe PUT
+  // .../epoche in app/api/projects.py) - verschiebt bei aktiver
   // "Unterordner je Epoche"-Einstellung serverseitig auch den physischen
   // Projektordner, der zurueckgegebene `ordner` kann sich dadurch aendern.
   async function projektEpocheVerschieben(ordner: string, neueEpoche: string) {
@@ -378,25 +376,14 @@ export function ProjektePage({
   // damit Klick-/Loeschen-/Neu-schreiben-Verhalten nicht doppelt gepflegt
   // werden muss.
   function projektZeile(p: ProjektKurz) {
+    const verschiebenOffen = verschiebenOffenFuer === p.ordner;
     return (
       <li
         key={p.ordner}
         onClick={() => onProjektAuswaehlen(p.ordner)}
-        // Draggable nur in der Ordner-Ansicht (siehe Aufrufer) - in der
-        // flachen Liste gibt es keine Epoche-Ordner als Drop-Ziel.
-        draggable={ordnerAnsicht}
-        onDragStart={(e) => {
-          e.dataTransfer.effectAllowed = "move";
-          setGezogen(p.ordner);
-          setVerschiebenFehler(null);
-        }}
-        onDragEnd={() => {
-          setGezogen(null);
-          setDragZiel(null);
-        }}
-        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-surface-hover ${
-          ordnerAnsicht ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
-        } ${aktuellesProjekt === p.ordner ? "bg-accent-soft" : ""} ${gezogen === p.ordner ? "opacity-40" : ""}`}
+        className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-surface-hover ${
+          aktuellesProjekt === p.ordner ? "bg-accent-soft" : ""
+        }`}
       >
         <button
           onClick={(e) => loeschenAnfordern(e, p)}
@@ -416,6 +403,44 @@ export function ProjektePage({
             className="shrink-0 text-sm leading-none text-text-muted/60 transition-colors hover:text-text disabled:opacity-40"
           >
             🔄
+          </button>
+        )}
+        {verschiebenOffen ? (
+          <select
+            autoFocus
+            defaultValue=""
+            onClick={(e) => e.stopPropagation()}
+            onBlur={() => setVerschiebenOffenFuer(null)}
+            onChange={(e) => {
+              const neueEpoche = e.target.value;
+              setVerschiebenOffenFuer(null);
+              if (neueEpoche) projektEpocheVerschieben(p.ordner, neueEpoche);
+            }}
+            className="shrink-0 rounded-lg border border-accent bg-bg px-2 py-1 text-xs text-text outline-none"
+          >
+            <option value="" disabled>
+              Wohin verschieben?
+            </option>
+            {epochen
+              .filter((e) => e.name !== p.epoche)
+              .map((e) => (
+                <option key={e.name} value={e.name}>
+                  {e.anzeigename}
+                </option>
+              ))}
+          </select>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setVerschiebenFehler(null);
+              setVerschiebenOffenFuer(p.ordner);
+            }}
+            title={`"${p.titel ?? p.ordner}" in eine andere Epoche verschieben`}
+            aria-label={`"${p.titel ?? p.ordner}" in eine andere Epoche verschieben`}
+            className="shrink-0 text-sm leading-none text-text-muted/60 transition-colors hover:text-text"
+          >
+            📁
           </button>
         )}
         <div className="min-w-0 flex-1">
@@ -571,40 +596,17 @@ export function ProjektePage({
               const farbe = epoche ? epocheFarbe.get(epoche) : undefined;
               const schluessel = epoche ?? "";
               const eingeklappt = eingeklappteOrdner.has(schluessel);
-              // Drop-Ziel nur fuer eine ECHTE Epoche (nicht die "unbekannte
-              // Epoche"-Sammelgruppe, der man ein Projekt nicht zuordnen
-              // kann) und nicht auf die Epoche, in der es schon liegt.
-              const kannDropZiel = gezogen != null && epoche != null
-                && projekte.find((p) => p.ordner === gezogen)?.epoche !== epoche;
               const wirdUmbenannt = epoche != null && umbenennenSchluessel === epoche;
-              // Ausserhalb eines Drags nur Ordner mit eigenem Projekt (oder
-              // die feste Sammelablage "Unbekannt") zeigen - waehrend eines
-              // Drags zusaetzlich jede Epoche, auf die aktuell fallengelassen
-              // werden koennte. Rein visuell (siehe gruppierteProjekte oben),
-              // NICHT durch Weglassen aus dem Baum.
-              const sichtbar = liste.length > 0 || schluessel === "Unbekannt" || kannDropZiel;
+              // Nur Ordner mit eigenem Projekt zeigen, plus die feste
+              // Sammelablage "Unbekannt" (siehe gruppierteProjekte oben).
+              const sichtbar = liste.length > 0 || schluessel === "Unbekannt";
+              if (!sichtbar) return null;
               return (
-                <div
-                  key={schluessel || "__unbekannt"}
-                  className={`rounded-lg border border-border ${sichtbar ? "" : "hidden"}`}
-                >
+                <div key={schluessel || "__unbekannt"} className="rounded-lg border border-border">
                   <div
-                    onDragOver={(e) => {
-                      if (!kannDropZiel) return;
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                      setDragZiel(schluessel);
-                    }}
-                    onDragLeave={() => setDragZiel((z) => (z === schluessel ? null : z))}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDragZiel(null);
-                      if (kannDropZiel && gezogen && epoche) projektEpocheVerschieben(gezogen, epoche);
-                      setGezogen(null);
-                    }}
                     className={`flex items-center gap-2 border-border px-3 py-2 transition-colors ${
                       eingeklappt ? "rounded-lg" : "rounded-t-lg border-b"
-                    } ${dragZiel === schluessel ? "ring-2 ring-accent ring-inset" : ""}`}
+                    }`}
                     style={{ backgroundColor: farbe ? `${farbe}22` : undefined }}
                   >
                     <button
