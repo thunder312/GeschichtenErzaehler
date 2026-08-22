@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import shutil
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
@@ -42,6 +43,29 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 # eigener Router, der in main.py bewusst ALS LETZTER unter allen
 # projekt-bezogenen Routern eingebunden wird.
 fallback_router = APIRouter(prefix="/api/projects", tags=["projects"])
+
+
+def _zeitstempel(sekunden: float) -> str:
+    return datetime.fromtimestamp(sekunden).strftime("%Y-%m-%d %H:%M")
+
+
+def _erstellt_am(pfad) -> str | None:
+    # st_ctime ist unter Windows (NTFS) die tatsaechliche Erstellungszeit und
+    # bleibt beim spaeteren Umbenennen des Projektordners (siehe
+    # projektordner_umbenennen(), nach Abschluss des Architekten-Interviews)
+    # unveraendert - auf Linux waere st_ctime stattdessen die Zeit der
+    # letzten Metadatenaenderung und wuerde durch das Umbenennen verfaelscht.
+    if not pfad.exists():
+        return None
+    return _zeitstempel(pfad.stat().st_ctime)
+
+
+def _zuletzt_bearbeitet_am(geruest_pfad, projekt_ordner) -> str | None:
+    if geruest_pfad.exists():
+        return _zeitstempel(geruest_pfad.stat().st_mtime)
+    if projekt_ordner.exists():
+        return _zeitstempel(projekt_ordner.stat().st_mtime)
+    return None
 
 
 def _epoche_genre_lesen(epoche_ordner) -> str | None:
@@ -80,7 +104,8 @@ def _projekt_kurz(pfad, wurzel, settings: Settings) -> ProjektKurz:
     # (siehe app/services.py:neuer_projekt_pfad) liegt ein Projekt eine
     # Ebene tiefer, z.B. "Mittelalter/Im-Feuer-gestaehlt".
     projekt_unterordner = pfad / "projekt"
-    geruest_text = pd.lies(pd.geruest_datei(projekt_unterordner), pflicht=False, ersatz="")
+    geruest_pfad = pd.geruest_datei(projekt_unterordner)
+    geruest_text = pd.lies(geruest_pfad, pflicht=False, ersatz="")
     titel = g.titel_erkennen(geruest_text) if geruest_text else None
     return ProjektKurz(
         ordner=pfad.relative_to(wurzel).as_posix(),
@@ -91,6 +116,8 @@ def _projekt_kurz(pfad, wurzel, settings: Settings) -> ProjektKurz:
         letztes_geplantes_kapitel=g.letztes_geplantes_kapitel(geruest_text) if geruest_text else None,
         automatik_zustand=automatik.zustand_zusammenfassen(automatik.status_lesen(pfad)),
         neu_geschrieben_aus=pd.neuschreiben_quelle(pfad),
+        erstellt_am=_erstellt_am(pfad),
+        zuletzt_bearbeitet_am=_zuletzt_bearbeitet_am(geruest_pfad, projekt_unterordner),
     )
 
 

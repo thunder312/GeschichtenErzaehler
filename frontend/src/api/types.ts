@@ -26,6 +26,10 @@ export interface ProjektKurz {
   // 1:1 mitkopiert, ohne dieses Feld waeren beide Projekte in der Liste
   // nicht unterscheidbar).
   neu_geschrieben_aus?: string | null;
+  // "YYYY-MM-DD HH:MM", siehe backend/app/api/projects.py:_erstellt_am /
+  // _zuletzt_bearbeitet_am.
+  erstellt_am?: string | null;
+  zuletzt_bearbeitet_am?: string | null;
 }
 
 export interface ProjektDetail {

@@ -59,6 +59,15 @@ export function ProjektePage({
   const [suchtext, setSuchtext] = useState("");
   const [epocheFilter, setEpocheFilter] = useState("");
   const [sortierungAbsteigend, setSortierungAbsteigend] = useState(false);
+  // Ordner-Darstellung ist die Standardsicht (siehe ToDo.md) - flache Liste
+  // bleibt als Alternative per Toggle erreichbar.
+  const [ordnerAnsicht, setOrdnerAnsicht] = useState(true);
+  // Epoche-Schluessel (wie in gruppierteProjekte, "" = unbekannte Epoche)
+  // der eingeklappten Ordner - Standard ist "alle eingeklappt bis auf den
+  // Ordner mit dem zuletzt bearbeiteten Projekt" (siehe Effekt unten), nicht
+  // hier als Initialwert, weil `projekte` beim ersten Rendern noch leer
+  // sein kann (Ladezustand von App.tsx).
+  const [eingeklappteOrdner, setEingeklappteOrdner] = useState<Set<string>>(new Set());
 
   // Nur tatsaechlich vorkommende Epochen zur Auswahl anbieten, nicht alle
   // jemals angelegten (siehe `epochen`-Prop unten fuer "Neues Projekt") -
@@ -93,6 +102,24 @@ export function ProjektePage({
     return sortiert;
   }, [projekte, suchtext, epocheFilter, sortierungAbsteigend]);
 
+  // Fuer die Ordner-Darstellung: `gefilterteProjekte` (bereits sortiert)
+  // nach Epoche gruppieren - Reihenfolge der Ordner selbst bleibt bewusst
+  // immer A -> Z, unabhaengig von `sortierungAbsteigend` (die betrifft nur
+  // die Projekte innerhalb eines Ordners), sonst wirkt der Toggle bei
+  // aktiver Ordner-Ansicht widerspruechlich.
+  const gruppierteProjekte = useMemo(() => {
+    const gruppen = new Map<string, ProjektKurz[]>();
+    for (const p of gefilterteProjekte) {
+      const schluessel = p.epoche ?? "";
+      const liste = gruppen.get(schluessel);
+      if (liste) liste.push(p);
+      else gruppen.set(schluessel, [p]);
+    }
+    return Array.from(gruppen.entries())
+      .map(([epoche, liste]) => ({ epoche: epoche || null, liste }))
+      .sort((a, b) => (a.epoche ?? "unbekannte Epoche").localeCompare(b.epoche ?? "unbekannte Epoche", "de"));
+  }, [gefilterteProjekte]);
+
   // Vorbelegung nur EINMAL setzen, sobald die (von App.tsx geladene) Liste
   // erstmals nicht leer ist - nicht bei jeder spaeteren Aenderung von
   // `epochen` (z.B. weil im Tab "Epoche erstellen" eine neue Epoche
@@ -110,6 +137,38 @@ export function ProjektePage({
     const vorbelegung = letzte && epochen.some((e) => e.name === letzte) ? letzte : epochen[0].name;
     setEpoche(vorbelegung);
   }, [epochen]);
+
+  // Ordner-Darstellung: beim ersten Laden der (von App.tsx gelieferten)
+  // Projektliste alle Ordner einklappen AUSSER dem, der das zuletzt
+  // bearbeitete Projekt enthaelt (hoechstes zuletzt_bearbeitet_am) - danach
+  // nicht mehr automatisch eingreifen, sonst wuerde jeder manuelle Auf-/
+  // Zuklapp-Klick durch einen spaeteren Datenrefresh (z.B. nach dem
+  // Speichern eines Geruests) wieder zurueckgesetzt.
+  const ordnerVorbelegungGesetzt = useRef(false);
+  useEffect(() => {
+    if (ordnerVorbelegungGesetzt.current || projekte.length === 0) return;
+    ordnerVorbelegungGesetzt.current = true;
+    let zuletztBearbeitetSchluessel = "";
+    let neuesteZeit = "";
+    for (const p of projekte) {
+      if (p.zuletzt_bearbeitet_am && p.zuletzt_bearbeitet_am > neuesteZeit) {
+        neuesteZeit = p.zuletzt_bearbeitet_am;
+        zuletztBearbeitetSchluessel = p.epoche ?? "";
+      }
+    }
+    const alleSchluessel = new Set(projekte.map((p) => p.epoche ?? ""));
+    alleSchluessel.delete(zuletztBearbeitetSchluessel);
+    setEingeklappteOrdner(alleSchluessel);
+  }, [projekte]);
+
+  function ordnerUmschalten(schluessel: string) {
+    setEingeklappteOrdner((bisher) => {
+      const kopie = new Set(bisher);
+      if (kopie.has(schluessel)) kopie.delete(schluessel);
+      else kopie.add(schluessel);
+      return kopie;
+    });
+  }
 
   // Einleitungssatz-Vorlage der gewaehlten Epoche fuer die Info-Box unten im
   // "Neues Projekt anlegen"-Container (siehe app/api/epochen.py - eine der
@@ -188,6 +247,92 @@ export function ProjektePage({
     }
   }
 
+  // Epoche.name kommt vom Backend 1:1 als Dateisystem-Ordnername (siehe
+  // app/core/geruest.py:ordnername_aus_titel - Leerzeichen wurden dort beim
+  // Anlegen der Epoche durch "-" ersetzt, der urspruengliche Titel ist
+  // nicht gesondert gespeichert). Fuer die Ordner-Darstellung hier nur die
+  // Bindestriche wieder in Leerzeichen zurueckverwandeln - Filter/Farb-
+  // Zuordnung bleiben am rohen Namen, nur die Anzeige aendert sich.
+  function epocheAnzeigename(name: string) {
+    return name.replace(/-/g, " ");
+  }
+
+  // Backend liefert "YYYY-MM-DD HH:MM" (siehe app/api/projects.py -
+  // _erstellt_am/_zuletzt_bearbeitet_am) - hier nur fuers deutsche
+  // Anzeigeformat auseinandernehmen statt ueber Date() zu parsen (der
+  // Bindestrich-Zeitstempel ist ohne Zeitzone nicht ueberall verlaesslich
+  // interpretierbar).
+  function formatDatum(zeitstempel: string | null | undefined, mitUhrzeit: boolean): string {
+    if (!zeitstempel) return "–";
+    const [datum, uhrzeit] = zeitstempel.split(" ");
+    const [jahr, monat, tag] = datum.split("-");
+    return mitUhrzeit ? `${tag}.${monat}.${jahr} ${uhrzeit}` : `${tag}.${monat}.${jahr}`;
+  }
+
+  // Eine einzelne Projektzeile - identisch fuer Ordner- und flache Sicht,
+  // damit Klick-/Loeschen-/Neu-schreiben-Verhalten nicht doppelt gepflegt
+  // werden muss.
+  function projektZeile(p: ProjektKurz) {
+    return (
+      <li
+        key={p.ordner}
+        onClick={() => onProjektAuswaehlen(p.ordner)}
+        className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-surface-hover ${
+          aktuellesProjekt === p.ordner ? "bg-accent-soft" : ""
+        }`}
+      >
+        <button
+          onClick={(e) => loeschenAnfordern(e, p)}
+          disabled={wirdGeloescht === p.ordner}
+          title={`"${p.titel ?? p.ordner}" löschen`}
+          aria-label={`"${p.titel ?? p.ordner}" löschen`}
+          className="shrink-0 text-sm leading-none text-red-400/60 transition-colors hover:text-red-400 disabled:opacity-40"
+        >
+          ✕
+        </button>
+        {p.letztes_geplantes_kapitel && (
+          <button
+            onClick={(e) => neuSchreibenAnfordern(e, p)}
+            disabled={wirdNeuGeschrieben === p.ordner || p.automatik_zustand === "laeuft"}
+            title={`"${p.titel ?? p.ordner}" als Kopie neu schreiben lassen (Schreiber: Mistral)`}
+            aria-label={`"${p.titel ?? p.ordner}" neu schreiben`}
+            className="shrink-0 text-sm leading-none text-text-muted/60 transition-colors hover:text-text disabled:opacity-40"
+          >
+            🔄
+          </button>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            {p.epoche && epocheFarbe.get(p.epoche) && (
+              <span
+                aria-hidden="true"
+                title={p.epoche}
+                className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                style={{ backgroundColor: epocheFarbe.get(p.epoche) }}
+              />
+            )}
+            <div className="font-medium text-text">{p.titel ?? p.ordner}</div>
+            {p.neu_geschrieben_aus && (
+              <span title={`Neu geschrieben - Kopie von "${p.neu_geschrieben_aus}"`} className="cursor-help text-sm">
+                🔄
+              </span>
+            )}
+            <AutomatikBadge zustand={p.automatik_zustand} />
+          </div>
+          <div className="text-xs text-text-muted">
+            {p.epoche ?? "unbekannte Epoche"}
+            {p.zweite_epoche ? ` ↔ ${p.zweite_epoche} (Zeitsprung)` : ""} · {p.anzahl_kapitel} Kapitel
+            {p.letztes_geplantes_kapitel ? ` von ${p.letztes_geplantes_kapitel} geplant` : ""}
+          </div>
+        </div>
+        <div className="shrink-0 text-right text-[11px] leading-tight text-text-muted">
+          <div title="Anlage-Datum des Projektordners">Erstellt: {formatDatum(p.erstellt_am, false)}</div>
+          <div title="Letzte Aenderung am Gerüst">Bearbeitet: {formatDatum(p.zuletzt_bearbeitet_am, true)}</div>
+        </div>
+      </li>
+    );
+  }
+
   function epocheAuswaehlen(name: string) {
     setEpoche(name);
     window.localStorage.setItem("letzte-epoche", name);
@@ -256,6 +401,17 @@ export function ProjektePage({
             >
               {sortierungAbsteigend ? "Z → A" : "A → Z"}
             </button>
+            <button
+              onClick={() => setOrdnerAnsicht((bisher) => !bisher)}
+              title={ordnerAnsicht ? "Zur flachen Liste wechseln" : "Zur Ordner-Darstellung (nach Epoche) wechseln"}
+              className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                ordnerAnsicht
+                  ? "border-accent bg-accent/10 text-text"
+                  : "border-border text-text-muted hover:bg-surface-hover hover:text-text"
+              }`}
+            >
+              {ordnerAnsicht ? "🗂️ Ordner" : "📋 Liste"}
+            </button>
           </div>
         )}
         {projekte.length === 0 ? (
@@ -273,63 +429,38 @@ export function ProjektePage({
               Filter zurücksetzen
             </button>
           </p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {gefilterteProjekte.map((p) => (
-              <li
-                key={p.ordner}
-                onClick={() => onProjektAuswaehlen(p.ordner)}
-                className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-surface-hover ${
-                  aktuellesProjekt === p.ordner ? "bg-accent-soft" : ""
-                }`}
-              >
-                <button
-                  onClick={(e) => loeschenAnfordern(e, p)}
-                  disabled={wirdGeloescht === p.ordner}
-                  title={`"${p.titel ?? p.ordner}" löschen`}
-                  aria-label={`"${p.titel ?? p.ordner}" löschen`}
-                  className="shrink-0 text-sm leading-none text-red-400/60 transition-colors hover:text-red-400 disabled:opacity-40"
-                >
-                  ✕
-                </button>
-                {p.letztes_geplantes_kapitel && (
+        ) : ordnerAnsicht ? (
+          <div className="space-y-4">
+            {gruppierteProjekte.map(({ epoche, liste }) => {
+              const farbe = epoche ? epocheFarbe.get(epoche) : undefined;
+              const schluessel = epoche ?? "";
+              const eingeklappt = eingeklappteOrdner.has(schluessel);
+              return (
+                <div key={schluessel || "__unbekannt"} className="rounded-lg border border-border">
                   <button
-                    onClick={(e) => neuSchreibenAnfordern(e, p)}
-                    disabled={wirdNeuGeschrieben === p.ordner || p.automatik_zustand === "laeuft"}
-                    title={`"${p.titel ?? p.ordner}" als Kopie neu schreiben lassen (Schreiber: Mistral)`}
-                    aria-label={`"${p.titel ?? p.ordner}" neu schreiben`}
-                    className="shrink-0 text-sm leading-none text-text-muted/60 transition-colors hover:text-text disabled:opacity-40"
+                    type="button"
+                    onClick={() => ordnerUmschalten(schluessel)}
+                    className={`flex w-full items-center gap-2 border-border px-3 py-2 text-left transition-colors hover:brightness-110 ${
+                      eingeklappt ? "rounded-lg" : "rounded-t-lg border-b"
+                    }`}
+                    style={{ backgroundColor: farbe ? `${farbe}22` : undefined }}
                   >
-                    🔄
+                    <span className="text-xs text-text-muted">{eingeklappt ? "▶" : "▼"}</span>
+                    {farbe && <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: farbe }} />}
+                    <span className="text-sm font-semibold text-text">
+                      📁 {epoche ? epocheAnzeigename(epoche) : "unbekannte Epoche"}
+                    </span>
+                    <span className="text-xs text-text-muted">
+                      ({liste.length} {liste.length === 1 ? "Projekt" : "Projekte"})
+                    </span>
                   </button>
-                )}
-                <div>
-                  <div className="flex items-center gap-2">
-                    {p.epoche && epocheFarbe.get(p.epoche) && (
-                      <span
-                        aria-hidden="true"
-                        title={p.epoche}
-                        className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                        style={{ backgroundColor: epocheFarbe.get(p.epoche) }}
-                      />
-                    )}
-                    <div className="font-medium text-text">{p.titel ?? p.ordner}</div>
-                    {p.neu_geschrieben_aus && (
-                      <span title={`Neu geschrieben - Kopie von "${p.neu_geschrieben_aus}"`} className="cursor-help text-sm">
-                        🔄
-                      </span>
-                    )}
-                    <AutomatikBadge zustand={p.automatik_zustand} />
-                  </div>
-                  <div className="text-xs text-text-muted">
-                    {p.epoche ?? "unbekannte Epoche"}
-                    {p.zweite_epoche ? ` ↔ ${p.zweite_epoche} (Zeitsprung)` : ""} · {p.anzahl_kapitel} Kapitel
-                    {p.letztes_geplantes_kapitel ? ` von ${p.letztes_geplantes_kapitel} geplant` : ""}
-                  </div>
+                  {!eingeklappt && <ul className="divide-y divide-border">{liste.map((p) => projektZeile(p))}</ul>}
                 </div>
-              </li>
-            ))}
-          </ul>
+              );
+            })}
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">{gefilterteProjekte.map((p) => projektZeile(p))}</ul>
         )}
       </Card>
 

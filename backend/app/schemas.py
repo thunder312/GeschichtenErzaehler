@@ -66,6 +66,13 @@ class ProjektKurz(BaseModel):
     # - Ordnerpfad des Quellprojekts, fuer die Unterscheidung gleichnamiger
     # Projekte in der Uebersicht (Titel/Gerüst werden 1:1 mitkopiert).
     neu_geschrieben_aus: str | None = None
+    # "YYYY-MM-DD HH:MM", Anlage-Zeitpunkt des Projektordners (Dateisystem-
+    # Erstellungszeit - siehe app/api/projects.py:_projekt_kurz).
+    erstellt_am: str | None = None
+    # "YYYY-MM-DD HH:MM", letzte Aenderung an geruest.md - faellt auf den
+    # Projektordner selbst zurueck, solange geruest.md noch nicht existiert
+    # (Projekt angelegt, Architekten-Interview aber noch nicht abgeschlossen).
+    zuletzt_bearbeitet_am: str | None = None
 
 
 class ProjektAnlegenAnfrage(BaseModel):
