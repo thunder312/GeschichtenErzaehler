@@ -138,6 +138,16 @@ export function ProjektePage({
   // immer A -> Z, unabhaengig von `sortierungAbsteigend` (die betrifft nur
   // die Projekte innerhalb eines Ordners), sonst wirkt der Toggle bei
   // aktiver Ordner-Ansicht widerspruechlich.
+  // WICHTIG: haengt bewusst NICHT von `gezogen` ab, und die Menge/
+  // Reihenfolge der Eintraege aendert sich beim Start eines Drags NIE -
+  // sonst wuerde React beim Setzen von `gezogen` (siehe projektZeile()
+  // onDragStart) Ordner-Divs neu einfuegen oder verschieben, und der
+  // native Browser-Drag wird durch diese DOM-Umbaumassnahme lautlos
+  // abgebrochen (kein Fehler, dragover/drop feuern danach einfach nicht
+  // mehr). Deshalb immer ALLE bekannten Epochen als Eintrag fuehren -
+  // welche davon sichtbar sind, entscheidet ausschliesslich eine CSS-
+  // Klasse beim Rendern (siehe `sichtbar` weiter unten), nie bedingtes
+  // Ein-/Ausblenden aus dem Baum.
   const gruppierteProjekte = useMemo(() => {
     const gruppen = new Map<string, ProjektKurz[]>();
     for (const p of gefilterteProjekte) {
@@ -146,25 +156,11 @@ export function ProjektePage({
       if (liste) liste.push(p);
       else gruppen.set(schluessel, [p]);
     }
-    // Waehrend eine Projektzeile gezogen wird (siehe projektZeile()),
-    // zusaetzlich JEDE bekannte Epoche ohne eigenes Projekt als leerer
-    // Ordner einblenden - sonst gaebe es fuer eine frisch angelegte,
-    // noch leere Epoche gar keine Kachel, auf die man ein Projekt ziehen
-    // koennte.
-    if (gezogen) {
-      for (const e of epochen) if (!gruppen.has(e.name)) gruppen.set(e.name, []);
-    }
-    // "Unbekannt" ist die feste Sammelablage fuer Geschichten mit noch
-    // ungeklaerter Epoche (siehe app/data/epochen/Unbekannt) - bleibt
-    // IMMER sichtbar, auch leer und ohne laufenden Drag, damit man jederzeit
-    // etwas dorthin ablegen kann.
-    if (epochen.some((e) => e.name === "Unbekannt") && !gruppen.has("Unbekannt")) {
-      gruppen.set("Unbekannt", []);
-    }
+    for (const e of epochen) if (!gruppen.has(e.name)) gruppen.set(e.name, []);
     return Array.from(gruppen.entries())
       .map(([epoche, liste]) => ({ epoche: epoche || null, liste }))
       .sort((a, b) => (a.epoche ?? "unbekannte Epoche").localeCompare(b.epoche ?? "unbekannte Epoche", "de"));
-  }, [gefilterteProjekte, gezogen, epochen]);
+  }, [gefilterteProjekte, epochen]);
 
   // Vorbelegung nur EINMAL setzen, sobald die (von App.tsx geladene) Liste
   // erstmals nicht leer ist - nicht bei jeder spaeteren Aenderung von
@@ -544,8 +540,17 @@ export function ProjektePage({
               const kannDropZiel = gezogen != null && epoche != null
                 && projekte.find((p) => p.ordner === gezogen)?.epoche !== epoche;
               const wirdUmbenannt = epoche != null && umbenennenSchluessel === epoche;
+              // Ausserhalb eines Drags nur Ordner mit eigenem Projekt (oder
+              // die feste Sammelablage "Unbekannt") zeigen - waehrend eines
+              // Drags zusaetzlich jede Epoche, auf die aktuell fallengelassen
+              // werden koennte. Rein visuell (siehe gruppierteProjekte oben),
+              // NICHT durch Weglassen aus dem Baum.
+              const sichtbar = liste.length > 0 || schluessel === "Unbekannt" || kannDropZiel;
               return (
-                <div key={schluessel || "__unbekannt"} className="rounded-lg border border-border">
+                <div
+                  key={schluessel || "__unbekannt"}
+                  className={`rounded-lg border border-border ${sichtbar ? "" : "hidden"}`}
+                >
                   <div
                     onDragOver={(e) => {
                       if (!kannDropZiel) return;
