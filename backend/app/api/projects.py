@@ -26,9 +26,16 @@ from app.schemas import (
     ProjektAnlegenAnfrage,
     ProjektBereinigenAntwort,
     ProjektDetail,
+    ProjektEpocheAnfrage,
     ProjektKurz,
 )
-from app.services import neuer_projekt_pfad, ordner_nach_umbenennung, projekt_pfad, projekte_wurzel
+from app.services import (
+    neuer_projekt_pfad,
+    ordner_nach_umbenennung,
+    projekt_epoche_verschieben,
+    projekt_pfad,
+    projekte_wurzel,
+)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -82,12 +89,32 @@ def _epoche_farbe_lesen(epoche_ordner) -> str | None:
     return marker.read_text(encoding="utf-8").strip() or None
 
 
+def _epoche_anzeigename_lesen(epoche_ordner) -> str:
+    # ".name"-Marker (siehe app/api/epochen.py:epoche_umbenennen) haelt den
+    # frei editierbaren Anzeigenamen GETRENNT vom Ordnernamen - dieser bleibt
+    # der stabile Identifikator (Projekt-".epoche"-Marker, Filter,
+    # Farbzuordnung) und aendert sich beim Umbenennen nicht zwangslaeufig.
+    # Ohne Marker (Epochen aus der Zeit vor diesem Feature) ersatzweise die
+    # Bindestriche im Ordnernamen wieder in Leerzeichen zurueckwandeln.
+    marker = epoche_ordner / ".name"
+    if marker.exists():
+        text = marker.read_text(encoding="utf-8").strip()
+        if text:
+            return text
+    return epoche_ordner.name.replace("-", " ")
+
+
 @router.get("/epochen", response_model=list[EpocheKurz])
 def epochen_auflisten(settings: Settings = Depends(get_settings)):
     if not settings.epochen_dir.is_dir():
         return []
     return [
-        EpocheKurz(name=p.name, genre=_epoche_genre_lesen(p), farbe=_epoche_farbe_lesen(p))
+        EpocheKurz(
+            name=p.name,
+            anzeigename=_epoche_anzeigename_lesen(p),
+            genre=_epoche_genre_lesen(p),
+            farbe=_epoche_farbe_lesen(p),
+        )
         for p in sorted(settings.epochen_dir.iterdir()) if p.is_dir()
     ]
 
@@ -169,6 +196,28 @@ def projekt_anlegen(anfrage: ProjektAnlegenAnfrage, settings: Settings = Depends
     pd.projekt_anlegen(ziel, epoche_ordner, settings.shared_personas_dir, anfrage.epoche,
                         zweite_epoche_ordner, zweite_epoche_name)
     return _projekt_kurz(ziel, projekte_wurzel(settings, benutzer.username), settings)
+
+
+@router.put("/{ordner:path}/epoche", response_model=ProjektKurz)
+def projekt_epoche_aendern(ordner: str, anfrage: ProjektEpocheAnfrage, settings: Settings = Depends(get_settings),
+                            benutzer: Benutzer = Depends(get_current_user)):
+    """Ordnet ein bestehendes Projekt einer anderen Epoche zu (Drag&Drop
+    zwischen den Epoche-Ordnern in der Projektuebersicht). Verschiebt bei
+    aktiver "Unterordner je Epoche"-Einstellung auch den physischen
+    Projektordner (siehe app/services.py:projekt_epoche_verschieben) - die
+    personas/ und verbotsliste.md des Projekts bleiben dabei bewusst
+    unveraendert (siehe pd.epoche_setzen), das Projekt wird also NICHT
+    rueckwirkend mit den Persona-/Verbotslisten-Texten der neuen Epoche
+    ueberschrieben."""
+    pfad = projekt_pfad(settings, benutzer.username, ordner)
+    if automatik.status_lesen(pfad)["laeuft"]:
+        raise HTTPException(409, "Automatikmodus läuft für dieses Projekt gerade - bitte zuerst stoppen.")
+    neue_epoche_ordner = settings.epochen_dir / anfrage.epoche
+    if not neue_epoche_ordner.is_dir():
+        raise HTTPException(404, f"Epoche '{anfrage.epoche}' nicht gefunden.")
+    neuer_pfad = projekt_epoche_verschieben(settings, benutzer.username, pfad, anfrage.epoche)
+    pd.epoche_setzen(neuer_pfad, anfrage.epoche)
+    return _projekt_kurz(neuer_pfad, projekte_wurzel(settings, benutzer.username), settings)
 
 
 @router.delete("/{ordner:path}", status_code=204)

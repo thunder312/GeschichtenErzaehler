@@ -183,6 +183,16 @@ def epoche_von_projekt(ziel: Path) -> str | None:
     return marker.read_text(encoding="utf-8").strip() if marker.exists() else None
 
 
+def epoche_setzen(ziel: Path, epoche_name: str) -> None:
+    """Aendert die Epoche-Zuordnung eines BESTEHENDEN Projekts (siehe
+    app/api/projects.py:projekt_epoche_aendern, Drag&Drop in der Ordner-
+    Ansicht) - schreibt NUR den Marker, personas/ und verbotsliste.md
+    bleiben unangetastet (waren beim Anlegen einmalig aus der alten Epoche
+    kopiert worden, siehe projekt_anlegen() oben, und wuerden sich sonst
+    unbemerkt mitten in einer laufenden Geschichte aendern)."""
+    (ziel / ".epoche").write_text(epoche_name, encoding="utf-8")
+
+
 def zweite_epoche_von_projekt(ziel: Path) -> str | None:
     """Siehe projekt_anlegen() - nur gesetzt bei einem Zeitsprung-Projekt."""
     marker = ziel / ".epoche_zweite"

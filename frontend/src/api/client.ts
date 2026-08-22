@@ -9,6 +9,7 @@ import type {
   Einstellungen,
   EpocheErstellenAntwort,
   EpocheKurz,
+  EpocheUmbenennenAntwort,
   EpocheVorschlagAntwort,
   FundusImportAntwort,
   FundusProjektAntwort,
@@ -129,6 +130,18 @@ export const api = {
 
   projektLoeschen: (ordner: string) =>
     anfrage<void>(`/api/projects/${ordner}`, { method: "DELETE" }),
+
+  projektEpocheAendern: (ordner: string, epoche: string) =>
+    anfrage<ProjektKurz>(`/api/projects/${ordner}/epoche`, {
+      method: "PUT",
+      body: JSON.stringify({ epoche }),
+    }),
+
+  epocheUmbenennen: (ordner: string, name: string) =>
+    anfrage<EpocheUmbenennenAntwort>(`/api/epochen/${encodeURIComponent(ordner)}/name`, {
+      method: "PUT",
+      body: JSON.stringify({ name }),
+    }),
 
   projektNeuSchreiben: (ordner: string) =>
     anfrage<ProjektKurz>(`/api/projects/${ordner}/neu-schreiben`, { method: "POST" }),

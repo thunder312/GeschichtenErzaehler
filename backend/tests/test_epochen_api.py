@@ -258,3 +258,110 @@ def test_epoche_ohne_farbe_hat_keine_farbe_in_liste(client):
     liste = client.get("/api/projects/epochen").json()
     eintrag = next(e for e in liste if e["name"] == "Viktorianisches-England")
     assert eintrag["farbe"] is None
+
+
+def test_epoche_erstellen_setzt_anzeigename_gleich_dem_getippten_namen(client):
+    client.post("/api/epochen", json=_reale_epoche())
+    liste = client.get("/api/projects/epochen").json()
+    eintrag = next(e for e in liste if e["name"] == "Viktorianisches-England")
+    assert eintrag["anzeigename"] == "Viktorianisches England"
+
+
+def test_epoche_ohne_name_marker_hat_bindestriche_als_leerzeichen_im_anzeigenamen(client, tmp_path):
+    # Epochen aus der Zeit vor dem ".name"-Marker (siehe
+    # app/api/projects.py:_epoche_anzeigename_lesen) - Ersatzstrategie statt
+    # eines echten Anzeigenamens.
+    (tmp_path / "epochen" / "Jetzt-2026").mkdir(parents=True)
+    liste = client.get("/api/projects/epochen").json()
+    eintrag = next(e for e in liste if e["name"] == "Jetzt-2026")
+    assert eintrag["anzeigename"] == "Jetzt 2026"
+
+
+def test_epoche_umbenennen_aendert_nur_anzeigename_wenn_ordnername_gleich_bleibt(client, tmp_path):
+    client.post("/api/epochen", json=_reale_epoche(name="Mittelalter"))
+    r = client.put("/api/epochen/Mittelalter/name", json={"name": "Mittelalter"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ordner"] == "Mittelalter"
+    assert body["anzeigename"] == "Mittelalter"
+    assert body["aktualisierte_projekte"] == 0
+    assert (tmp_path / "epochen" / "Mittelalter").is_dir()
+
+
+def test_epoche_umbenennen_verschiebt_ordner_und_behaelt_leerzeichen(client, tmp_path):
+    client.post("/api/epochen", json=_reale_epoche())
+    r = client.put("/api/epochen/Viktorianisches-England/name", json={"name": "Viktorianisches England (spät)"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ordner"] == "Viktorianisches England (spät)"
+    assert body["anzeigename"] == "Viktorianisches England (spät)"
+
+    assert not (tmp_path / "epochen" / "Viktorianisches-England").exists()
+    neuer_pfad = tmp_path / "epochen" / "Viktorianisches England (spät)"
+    assert neuer_pfad.is_dir()
+    assert (neuer_pfad / ".name").read_text(encoding="utf-8") == "Viktorianisches England (spät)"
+
+    liste = client.get("/api/projects/epochen").json()
+    assert any(e["name"] == "Viktorianisches England (spät)" for e in liste)
+    assert not any(e["name"] == "Viktorianisches-England" for e in liste)
+
+
+def test_epoche_umbenennen_zieht_bestehende_projekte_nach(client, tmp_path):
+    client.post("/api/epochen", json=_reale_epoche())
+    projekt = client.post(
+        "/api/projects", json={"titel": "Testgeschichte", "epoche": "Viktorianisches-England"},
+    ).json()["ordner"]
+
+    r = client.put("/api/epochen/Viktorianisches-England/name", json={"name": "Viktorianisches England (spät)"})
+    assert r.status_code == 200
+    assert r.json()["aktualisierte_projekte"] == 1
+
+    marker = tmp_path / "projects" / "daniel" / projekt / ".epoche"
+    assert marker.read_text(encoding="utf-8") == "Viktorianisches England (spät)"
+
+    liste = client.get("/api/projects").json()
+    eintrag = next(p for p in liste if p["ordner"] == projekt)
+    assert eintrag["epoche"] == "Viktorianisches England (spät)"
+
+
+def test_epoche_umbenennen_zieht_unterordner_je_epoche_gruppenordner_nach(client, tmp_path):
+    from app import db
+
+    settings = client.app.dependency_overrides[get_settings]()
+    db.einstellung_unterordner_je_epoche_schreiben(settings.database_path, True)
+
+    client.post("/api/epochen", json=_reale_epoche())
+    projekt = client.post(
+        "/api/projects", json={"titel": "Testgeschichte", "epoche": "Viktorianisches-England"},
+    ).json()["ordner"]
+    assert projekt == "Viktorianisches-England/Testgeschichte"
+
+    client.put("/api/epochen/Viktorianisches-England/name", json={"name": "Viktorianisches England (spät)"})
+
+    alter_gruppenordner = tmp_path / "projects" / "daniel" / "Viktorianisches-England"
+    neuer_gruppenordner = tmp_path / "projects" / "daniel" / "Viktorianisches England (spät)"
+    assert not alter_gruppenordner.exists()
+    assert (neuer_gruppenordner / "Testgeschichte").is_dir()
+
+
+def test_epoche_umbenennen_konflikt_bei_bereits_existierendem_zielordner(client, tmp_path):
+    client.post("/api/epochen", json=_reale_epoche())
+    # Direkt als Ordner angelegt (nicht ueber /api/epochen, das fuer den
+    # Ordnernamen die ASCII-Kurzform ordnername_aus_titel() verwendet,
+    # waehrend das Umbenennen unten ordner_lesbarer_name() mit echten
+    # Leerzeichen nutzt - fuer einen garantierten Namenskonflikt muss das
+    # Zielverzeichnis exakt so heissen, wie epoche_umbenennen() es berechnet).
+    (tmp_path / "epochen" / "Belle Epoque").mkdir()
+    r = client.put("/api/epochen/Viktorianisches-England/name", json={"name": "Belle Epoque"})
+    assert r.status_code == 409
+
+
+def test_epoche_umbenennen_leerer_name_wird_abgelehnt(client):
+    client.post("/api/epochen", json=_reale_epoche())
+    r = client.put("/api/epochen/Viktorianisches-England/name", json={"name": "   "})
+    assert r.status_code == 422
+
+
+def test_epoche_umbenennen_unbekannte_epoche_gibt_404(client):
+    r = client.put("/api/epochen/Nicht-Vorhanden/name", json={"name": "Neuer Name"})
+    assert r.status_code == 404

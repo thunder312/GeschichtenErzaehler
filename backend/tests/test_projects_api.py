@@ -383,3 +383,58 @@ def test_geruest_schreiben_ohne_kapitelplan_abschnitt_bleibt_erlaubt(client, pro
     })
 
     assert r.status_code == 200
+
+
+def test_projekt_epoche_aendern_setzt_marker_ohne_unterordner_je_epoche(client, projekt, tmp_path):
+    # Standard-Einstellung (siehe db.einstellung_unterordner_je_epoche_lesen)
+    # - der Projektordner bleibt physisch an Ort und Stelle, nur der
+    # ".epoche"-Marker aendert sich.
+    r = client.put(f"/api/projects/{projekt}/epoche", json={"epoche": "Mittelalter"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["epoche"] == "Mittelalter"
+    assert body["ordner"] == projekt
+
+    marker = tmp_path / "projects" / "daniel" / projekt / ".epoche"
+    assert marker.read_text(encoding="utf-8") == "Mittelalter"
+
+
+def test_projekt_epoche_aendern_unbekannte_epoche_gibt_404(client, projekt):
+    r = client.put(f"/api/projects/{projekt}/epoche", json={"epoche": "Nicht-Vorhanden"})
+    assert r.status_code == 404
+
+
+def test_projekt_epoche_aendern_blockiert_waehrend_automatik_laeuft(client, projekt, tmp_path):
+    from app.core import automatik
+
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    status = automatik.status_lesen(projekt_root)
+    status["laeuft"] = True
+    automatik.status_schreiben(projekt_root, status)
+
+    r = client.put(f"/api/projects/{projekt}/epoche", json={"epoche": "Mittelalter"})
+
+    assert r.status_code == 409
+    assert (projekt_root / ".epoche").read_text(encoding="utf-8") == "Regency"
+
+
+def test_projekt_epoche_aendern_verschiebt_ordner_wenn_unterordner_je_epoche_aktiv(client, projekt, tmp_path):
+    from app import db
+
+    settings = client.app.dependency_overrides[get_settings]()
+    db.einstellung_unterordner_je_epoche_schreiben(settings.database_path, True)
+
+    r = client.put(f"/api/projects/{projekt}/epoche", json={"epoche": "Mittelalter"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ordner"] == f"Mittelalter/{projekt}"
+
+    alter_pfad = tmp_path / "projects" / "daniel" / projekt
+    neuer_pfad = tmp_path / "projects" / "daniel" / "Mittelalter" / projekt
+    assert not alter_pfad.exists()
+    assert neuer_pfad.is_dir()
+    assert (neuer_pfad / ".epoche").read_text(encoding="utf-8") == "Mittelalter"
+
+    # Ueber die Liste weiterhin auffindbar, jetzt unter dem neuen Pfad.
+    liste = client.get("/api/projects").json()
+    assert any(p["ordner"] == f"Mittelalter/{projekt}" and p["epoche"] == "Mittelalter" for p in liste)

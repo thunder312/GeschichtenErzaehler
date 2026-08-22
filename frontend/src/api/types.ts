@@ -1,9 +1,19 @@
 // Spiegelt backend/app/schemas.py - bei Aenderungen dort bitte hier nachziehen.
 
 export interface EpocheKurz {
+  // Ordner-/Identifier-Name - stabil, siehe backend/app/schemas.py:
+  // EpocheKurz. Fuer Anzeigezwecke immer `anzeigename` verwenden.
   name: string;
+  anzeigename: string;
   genre?: string | null;
   farbe?: string | null;
+}
+
+// PUT /api/epochen/{ordner}/name
+export interface EpocheUmbenennenAntwort {
+  ordner: string;
+  anzeigename: string;
+  aktualisierte_projekte: number;
 }
 
 // Siehe app/core/automatik.py:zustand_zusammenfassen() für die Bedeutung

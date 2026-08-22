@@ -308,6 +308,21 @@ def ordnername_aus_titel(titel: str) -> str:
     return titel or "Neues-Projekt"
 
 
+def ordner_lesbarer_name(titel: str) -> str:
+    """Wie ordnername_aus_titel(), behaelt aber Leerzeichen/Umlaute/ß bei -
+    fuer app/api/epochen.py:epoche_umbenennen(), wo der Ordner der zentralen
+    Epochen-Bibliothek lesbar bleiben soll (anders als bei Projektordnern
+    gibt es hier keine URLs/Skripte, die auf die ASCII-Kurzform angewiesen
+    waeren). Nur echte Dateisystem-Sonderzeichen werden entfernt - Leer-
+    zeichen in Ordnernamen sind unter Windows/NTFS und Linux/ext4 gleichermassen
+    unproblematisch, solange Aufrufer (wie hier) Pfade nie als rohen
+    Shell-String zusammenbauen (siehe app/core/ssh_manager.py:exec_command,
+    das dafuer durchgehend shlex.quote() nutzt)."""
+    titel = re.sub(r'[\\/:*?"<>|]', "", titel.strip())
+    titel = re.sub(r"\s+", " ", titel).strip(" .")
+    return titel or "Neue-Epoche"
+
+
 def titelseite_erzeugen(geruest: str, epoche: str | None, einleitungssatz_vorlage: str | None = None) -> str:
     """Baut Titel + Untertitel-Zeile fuer die erste Kapiteldatei. epoche
     kommt in der GUI aus den Projekt-Metadaten statt aus einer '.epoche'-

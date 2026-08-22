@@ -230,6 +230,7 @@ function App() {
             epochen={epochen}
             aktuellesProjekt={aktuellesProjekt}
             onProjekteGeaendert={projekteLaden}
+            onEpochenGeaendert={epochenLaden}
             onProjektAuswaehlen={projektAuswaehlen}
             onProjektGeloescht={projektGeloescht}
             onNeuSchreibenGestartet={projektAuswaehlen}

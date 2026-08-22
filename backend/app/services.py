@@ -85,6 +85,30 @@ def neuer_projekt_pfad(settings: Settings, username: str, titel: str, epoche: st
     return ziel
 
 
+def projekt_epoche_verschieben(settings: Settings, username: str, pfad: Path, neue_epoche: str) -> Path:
+    """Verschiebt den Projektordner in den Unterordner der neuen Epoche
+    (Drag&Drop in der Ordner-Ansicht, siehe app/api/projects.py:
+    projekt_epoche_aendern) - NUR falls "Unterordner je Epoche" aktiv ist
+    (siehe neuer_projekt_pfad oben), sonst bleibt der Projektordner an Ort
+    und Stelle, da es dann gar keine Epoche-Unterordner gibt, in die
+    verschoben werden koennte. Gibt den (ggf. unveraenderten) neuen
+    absoluten Pfad zurueck."""
+    if not db.einstellung_unterordner_je_epoche_lesen(settings.database_path):
+        return pfad
+    wurzel = projekte_wurzel(settings, username)
+    ziel_ordner = wurzel / ordnername_aus_titel(neue_epoche)
+    ziel_ordner.mkdir(parents=True, exist_ok=True)
+    ziel = ziel_ordner / pfad.name
+    if ziel == pfad:
+        return pfad
+    zaehler = 2
+    while ziel.exists():
+        ziel = ziel_ordner / f"{pfad.name}-{zaehler}"
+        zaehler += 1
+    shutil.move(str(pfad), str(ziel))
+    return ziel
+
+
 def benutzer_projekte_uebertragen(settings: Settings, von_username: str, zu_username: str) -> None:
     """Verschiebt alle Projektordner eines Benutzers zu einem anderen -
     gedacht fuer app/api/benutzer.py: wird ein Benutzer geloescht, sollen

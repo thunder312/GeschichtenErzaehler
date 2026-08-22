@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent } from "react";
+import type { FormEvent, MouseEvent } from "react";
 import { api } from "../api/client";
 import type { AutomatikZustand, EpocheKurz, ProjektKurz } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -23,6 +23,7 @@ interface ProjektePageProps {
   epochen: EpocheKurz[];
   aktuellesProjekt: string | null;
   onProjekteGeaendert: () => void;
+  onEpochenGeaendert: () => void;
   onProjektAuswaehlen: (ordner: string) => void;
   onProjektGeloescht: (ordner: string) => void;
   onNeuSchreibenGestartet: (ordner: string) => void;
@@ -33,6 +34,7 @@ export function ProjektePage({
   epochen,
   aktuellesProjekt,
   onProjekteGeaendert,
+  onEpochenGeaendert,
   onProjektAuswaehlen,
   onProjektGeloescht,
   onNeuSchreibenGestartet,
@@ -68,6 +70,20 @@ export function ProjektePage({
   // hier als Initialwert, weil `projekte` beim ersten Rendern noch leer
   // sein kann (Ladezustand von App.tsx).
   const [eingeklappteOrdner, setEingeklappteOrdner] = useState<Set<string>>(new Set());
+  // Drag&Drop einer Projektzeile auf einen anderen Epoche-Ordner (siehe
+  // projektZeile()/Ordner-Header unten) - `gezogen` ist der Ordnerpfad des
+  // gerade gezogenen Projekts, `dragZiel` der Epoche-Schluessel des Ordners,
+  // ueber dem gerade gehovert wird (nur fuer die visuelle Hervorhebung).
+  const [gezogen, setGezogen] = useState<string | null>(null);
+  const [dragZiel, setDragZiel] = useState<string | null>(null);
+  const [verschiebenFehler, setVerschiebenFehler] = useState<string | null>(null);
+  // Inline-Umbenennen einer Epoche direkt im Ordner-Header - `schluessel`
+  // ist der Ordner-/Identifier-Name (siehe EpocheKurz.name), NICHT der
+  // Anzeigename, der gerade bearbeitet wird.
+  const [umbenennenSchluessel, setUmbenennenSchluessel] = useState<string | null>(null);
+  const [umbenennenText, setUmbenennenText] = useState("");
+  const [umbenennenLaedt, setUmbenennenLaedt] = useState(false);
+  const [umbenennenFehler, setUmbenennenFehler] = useState<string | null>(null);
 
   // Nur tatsaechlich vorkommende Epochen zur Auswahl anbieten, nicht alle
   // jemals angelegten (siehe `epochen`-Prop unten fuer "Neues Projekt") -
@@ -85,6 +101,21 @@ export function ProjektePage({
     for (const e of epochen) if (e.farbe) map.set(e.name, e.farbe);
     return map;
   }, [epochen]);
+
+  // Ordner-/Identifier-Name -> Anzeigename (siehe EpocheKurz.anzeigename) -
+  // fuer Projekte, deren ".epoche"-Marker keiner (mehr) bekannten Epoche
+  // entspricht (z.B. geloescht, oder ein per Analysator-Import roh
+  // uebernommener Ordnername), ersatzweise Bindestriche in Leerzeichen
+  // zurueckwandeln statt gar nichts anzuzeigen.
+  const epocheAnzeigenameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of epochen) map.set(e.name, e.anzeigename);
+    return map;
+  }, [epochen]);
+
+  function epocheAnzeige(name: string): string {
+    return epocheAnzeigenameMap.get(name) ?? name.replace(/-/g, " ");
+  }
 
   const gefilterteProjekte = useMemo(() => {
     const suchtextNormalisiert = suchtext.trim().toLowerCase();
@@ -115,10 +146,25 @@ export function ProjektePage({
       if (liste) liste.push(p);
       else gruppen.set(schluessel, [p]);
     }
+    // Waehrend eine Projektzeile gezogen wird (siehe projektZeile()),
+    // zusaetzlich JEDE bekannte Epoche ohne eigenes Projekt als leerer
+    // Ordner einblenden - sonst gaebe es fuer eine frisch angelegte,
+    // noch leere Epoche gar keine Kachel, auf die man ein Projekt ziehen
+    // koennte.
+    if (gezogen) {
+      for (const e of epochen) if (!gruppen.has(e.name)) gruppen.set(e.name, []);
+    }
+    // "Unbekannt" ist die feste Sammelablage fuer Geschichten mit noch
+    // ungeklaerter Epoche (siehe app/data/epochen/Unbekannt) - bleibt
+    // IMMER sichtbar, auch leer und ohne laufenden Drag, damit man jederzeit
+    // etwas dorthin ablegen kann.
+    if (epochen.some((e) => e.name === "Unbekannt") && !gruppen.has("Unbekannt")) {
+      gruppen.set("Unbekannt", []);
+    }
     return Array.from(gruppen.entries())
       .map(([epoche, liste]) => ({ epoche: epoche || null, liste }))
       .sort((a, b) => (a.epoche ?? "unbekannte Epoche").localeCompare(b.epoche ?? "unbekannte Epoche", "de"));
-  }, [gefilterteProjekte]);
+  }, [gefilterteProjekte, gezogen, epochen]);
 
   // Vorbelegung nur EINMAL setzen, sobald die (von App.tsx geladene) Liste
   // erstmals nicht leer ist - nicht bei jeder spaeteren Aenderung von
@@ -168,6 +214,58 @@ export function ProjektePage({
       else kopie.add(schluessel);
       return kopie;
     });
+  }
+
+  // Drag&Drop-Ziel: Projekt `ordner` in die Epoche `neueEpoche` verschieben
+  // (siehe PUT .../epoche in app/api/projects.py) - verschiebt bei aktiver
+  // "Unterordner je Epoche"-Einstellung serverseitig auch den physischen
+  // Projektordner, der zurueckgegebene `ordner` kann sich dadurch aendern.
+  async function projektEpocheVerschieben(ordner: string, neueEpoche: string) {
+    setVerschiebenFehler(null);
+    try {
+      const aktualisiert = await api.projektEpocheAendern(ordner, neueEpoche);
+      onProjekteGeaendert();
+      if (aktuellesProjekt === ordner && aktualisiert.ordner !== ordner) {
+        onProjektAuswaehlen(aktualisiert.ordner);
+      }
+    } catch (e) {
+      setVerschiebenFehler(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  function umbenennenStarten(ereignis: MouseEvent, epocheOrdner: string) {
+    // Verhindert, dass der Klick zusaetzlich den Auf-/Zuklapp-Handler des
+    // Ordner-Headers ausloest.
+    ereignis.stopPropagation();
+    setUmbenennenSchluessel(epocheOrdner);
+    setUmbenennenText(epocheAnzeige(epocheOrdner));
+    setUmbenennenFehler(null);
+  }
+
+  async function umbenennenBestaetigen(ereignis: FormEvent, alterOrdner: string) {
+    ereignis.preventDefault();
+    ereignis.stopPropagation();
+    const neuerName = umbenennenText.trim();
+    if (!neuerName) {
+      setUmbenennenSchluessel(null);
+      return;
+    }
+    setUmbenennenLaedt(true);
+    setUmbenennenFehler(null);
+    try {
+      await api.epocheUmbenennen(alterOrdner, neuerName);
+      setUmbenennenSchluessel(null);
+      // Ordnername der Epoche kann sich mitgeaendert haben (siehe
+      // app/api/epochen.py:epoche_umbenennen) - dann tragen bestehende
+      // Projekte serverseitig bereits den neuen Namen im ".epoche"-Marker,
+      // die Projektliste muss das nur noch nachladen.
+      onEpochenGeaendert();
+      onProjekteGeaendert();
+    } catch (e) {
+      setUmbenennenFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUmbenennenLaedt(false);
+    }
   }
 
   // Einleitungssatz-Vorlage der gewaehlten Epoche fuer die Info-Box unten im
@@ -247,16 +345,6 @@ export function ProjektePage({
     }
   }
 
-  // Epoche.name kommt vom Backend 1:1 als Dateisystem-Ordnername (siehe
-  // app/core/geruest.py:ordnername_aus_titel - Leerzeichen wurden dort beim
-  // Anlegen der Epoche durch "-" ersetzt, der urspruengliche Titel ist
-  // nicht gesondert gespeichert). Fuer die Ordner-Darstellung hier nur die
-  // Bindestriche wieder in Leerzeichen zurueckverwandeln - Filter/Farb-
-  // Zuordnung bleiben am rohen Namen, nur die Anzeige aendert sich.
-  function epocheAnzeigename(name: string) {
-    return name.replace(/-/g, " ");
-  }
-
   // Backend liefert "YYYY-MM-DD HH:MM" (siehe app/api/projects.py -
   // _erstellt_am/_zuletzt_bearbeitet_am) - hier nur fuers deutsche
   // Anzeigeformat auseinandernehmen statt ueber Date() zu parsen (der
@@ -277,9 +365,21 @@ export function ProjektePage({
       <li
         key={p.ordner}
         onClick={() => onProjektAuswaehlen(p.ordner)}
-        className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-surface-hover ${
-          aktuellesProjekt === p.ordner ? "bg-accent-soft" : ""
-        }`}
+        // Draggable nur in der Ordner-Ansicht (siehe Aufrufer) - in der
+        // flachen Liste gibt es keine Epoche-Ordner als Drop-Ziel.
+        draggable={ordnerAnsicht}
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = "move";
+          setGezogen(p.ordner);
+          setVerschiebenFehler(null);
+        }}
+        onDragEnd={() => {
+          setGezogen(null);
+          setDragZiel(null);
+        }}
+        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-surface-hover ${
+          ordnerAnsicht ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+        } ${aktuellesProjekt === p.ordner ? "bg-accent-soft" : ""} ${gezogen === p.ordner ? "opacity-40" : ""}`}
       >
         <button
           onClick={(e) => loeschenAnfordern(e, p)}
@@ -306,7 +406,7 @@ export function ProjektePage({
             {p.epoche && epocheFarbe.get(p.epoche) && (
               <span
                 aria-hidden="true"
-                title={p.epoche}
+                title={epocheAnzeige(p.epoche)}
                 className="h-2.5 w-2.5 shrink-0 rounded-sm"
                 style={{ backgroundColor: epocheFarbe.get(p.epoche) }}
               />
@@ -320,8 +420,8 @@ export function ProjektePage({
             <AutomatikBadge zustand={p.automatik_zustand} />
           </div>
           <div className="text-xs text-text-muted">
-            {p.epoche ?? "unbekannte Epoche"}
-            {p.zweite_epoche ? ` ↔ ${p.zweite_epoche} (Zeitsprung)` : ""} · {p.anzahl_kapitel} Kapitel
+            {p.epoche ? epocheAnzeige(p.epoche) : "unbekannte Epoche"}
+            {p.zweite_epoche ? ` ↔ ${epocheAnzeige(p.zweite_epoche)} (Zeitsprung)` : ""} · {p.anzahl_kapitel} Kapitel
             {p.letztes_geplantes_kapitel ? ` von ${p.letztes_geplantes_kapitel} geplant` : ""}
           </div>
         </div>
@@ -390,7 +490,7 @@ export function ProjektePage({
               <option value="">Alle Epochen</option>
               {vorhandeneEpochen.map((name) => (
                 <option key={name} value={name}>
-                  {name}
+                  {epocheAnzeige(name)}
                 </option>
               ))}
             </Select>
@@ -414,6 +514,9 @@ export function ProjektePage({
             </button>
           </div>
         )}
+        {(verschiebenFehler || umbenennenFehler) && (
+          <p className="mb-3 text-sm text-red-400">{verschiebenFehler || umbenennenFehler}</p>
+        )}
         {projekte.length === 0 ? (
           <p className="text-sm text-text-muted">Noch kein Projekt angelegt.</p>
         ) : gefilterteProjekte.length === 0 ? (
@@ -435,25 +538,95 @@ export function ProjektePage({
               const farbe = epoche ? epocheFarbe.get(epoche) : undefined;
               const schluessel = epoche ?? "";
               const eingeklappt = eingeklappteOrdner.has(schluessel);
+              // Drop-Ziel nur fuer eine ECHTE Epoche (nicht die "unbekannte
+              // Epoche"-Sammelgruppe, der man ein Projekt nicht zuordnen
+              // kann) und nicht auf die Epoche, in der es schon liegt.
+              const kannDropZiel = gezogen != null && epoche != null
+                && projekte.find((p) => p.ordner === gezogen)?.epoche !== epoche;
+              const wirdUmbenannt = epoche != null && umbenennenSchluessel === epoche;
               return (
                 <div key={schluessel || "__unbekannt"} className="rounded-lg border border-border">
-                  <button
-                    type="button"
-                    onClick={() => ordnerUmschalten(schluessel)}
-                    className={`flex w-full items-center gap-2 border-border px-3 py-2 text-left transition-colors hover:brightness-110 ${
+                  <div
+                    onDragOver={(e) => {
+                      if (!kannDropZiel) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      setDragZiel(schluessel);
+                    }}
+                    onDragLeave={() => setDragZiel((z) => (z === schluessel ? null : z))}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragZiel(null);
+                      if (kannDropZiel && gezogen && epoche) projektEpocheVerschieben(gezogen, epoche);
+                      setGezogen(null);
+                    }}
+                    className={`flex items-center gap-2 border-border px-3 py-2 transition-colors ${
                       eingeklappt ? "rounded-lg" : "rounded-t-lg border-b"
-                    }`}
+                    } ${dragZiel === schluessel ? "ring-2 ring-accent ring-inset" : ""}`}
                     style={{ backgroundColor: farbe ? `${farbe}22` : undefined }}
                   >
-                    <span className="text-xs text-text-muted">{eingeklappt ? "▶" : "▼"}</span>
-                    {farbe && <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: farbe }} />}
-                    <span className="text-sm font-semibold text-text">
-                      📁 {epoche ? epocheAnzeigename(epoche) : "unbekannte Epoche"}
-                    </span>
-                    <span className="text-xs text-text-muted">
-                      ({liste.length} {liste.length === 1 ? "Projekt" : "Projekte"})
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => ordnerUmschalten(schluessel)}
+                      className="flex flex-1 items-center gap-2 text-left outline-none"
+                    >
+                      <span className="text-xs text-text-muted">{eingeklappt ? "▶" : "▼"}</span>
+                      {farbe && <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: farbe }} />}
+                      {!wirdUmbenannt && (
+                        <>
+                          <span className="text-sm font-semibold text-text">
+                            📁 {epoche ? epocheAnzeige(epoche) : "unbekannte Epoche"}
+                          </span>
+                          <span className="text-xs text-text-muted">
+                            ({liste.length} {liste.length === 1 ? "Projekt" : "Projekte"})
+                          </span>
+                        </>
+                      )}
+                    </button>
+                    {wirdUmbenannt && epoche && (
+                      <form
+                        onSubmit={(e) => umbenennenBestaetigen(e, epoche)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex flex-1 items-center gap-1"
+                      >
+                        <input
+                          autoFocus
+                          value={umbenennenText}
+                          onChange={(e) => setUmbenennenText(e.target.value)}
+                          disabled={umbenennenLaedt}
+                          className="min-w-0 flex-1 rounded border border-border bg-bg px-2 py-0.5 text-sm text-text outline-none focus:border-accent"
+                        />
+                        <button
+                          type="submit"
+                          disabled={umbenennenLaedt}
+                          title="Übernehmen"
+                          className="shrink-0 text-sm text-accent-light hover:underline disabled:opacity-40"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setUmbenennenSchluessel(null)}
+                          disabled={umbenennenLaedt}
+                          title="Abbrechen"
+                          className="shrink-0 text-sm text-text-muted hover:text-text disabled:opacity-40"
+                        >
+                          ✕
+                        </button>
+                      </form>
+                    )}
+                    {epoche && !wirdUmbenannt && (
+                      <button
+                        type="button"
+                        onClick={(e) => umbenennenStarten(e, epoche)}
+                        title="Epoche umbenennen"
+                        aria-label="Epoche umbenennen"
+                        className="shrink-0 text-xs text-text-muted/70 transition-colors hover:text-text"
+                      >
+                        ✏️
+                      </button>
+                    )}
+                  </div>
                   {!eingeklappt && <ul className="divide-y divide-border">{liste.map((p) => projektZeile(p))}</ul>}
                 </div>
               );
@@ -481,7 +654,7 @@ export function ProjektePage({
             <Select value={epoche} onChange={(e) => epocheAuswaehlen(e.target.value)}>
               {epochen.map((e) => (
                 <option key={e.name} value={e.name}>
-                  {e.name}
+                  {e.anzeigename}
                 </option>
               ))}
             </Select>
@@ -506,7 +679,7 @@ export function ProjektePage({
                 .filter((e) => e.name !== epoche)
                 .map((e) => (
                   <option key={e.name} value={e.name}>
-                    {e.name}
+                    {e.anzeigename}
                   </option>
                 ))}
             </Select>

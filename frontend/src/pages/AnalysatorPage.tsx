@@ -239,7 +239,7 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
                   <Select value={epoche} onChange={(e) => setEpoche(e.target.value)}>
                     {epochen.map((e) => (
                       <option key={e.name} value={e.name}>
-                        {e.name}
+                        {e.anzeigename}
                       </option>
                     ))}
                   </Select>
@@ -252,7 +252,7 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
                       .filter((e) => e.name !== epoche)
                       .map((e) => (
                         <option key={e.name} value={e.name}>
-                          {e.name}
+                          {e.anzeigename}
                         </option>
                       ))}
                   </Select>

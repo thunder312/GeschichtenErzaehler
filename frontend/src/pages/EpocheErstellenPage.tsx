@@ -31,14 +31,23 @@ const FARBE_FALLBACK = "#94a3b8";
 
 function EpocheBearbeiten({
   ordner,
+  anzeigename,
   genre,
   farbe,
   onEpochenGeaendert,
+  onOrdnerGeaendert,
 }: {
   ordner: string;
+  anzeigename: string;
   genre: string | null;
   farbe: string | null;
   onEpochenGeaendert: () => void;
+  // Nur aufgerufen, wenn epoche_umbenennen() auch den physischen Ordner
+  // mitgezogen hat (siehe app/api/epochen.py) - der Aufrufer haelt den
+  // aktuell bearbeiteten Ordnernamen im State (bearbeiteOrdner) und muss
+  // ihn nachziehen, sonst klappt das Bearbeiten-Panel beim naechsten Klick
+  // unerwartet zu, weil der alte Name nicht mehr existiert.
+  onOrdnerGeaendert: (neuerOrdner: string) => void;
 }) {
   const [dateinamen, setDateinamen] = useState<string[]>([]);
   const [ausgewaehlt, setAusgewaehlt] = useState<string | null>(null);
@@ -46,6 +55,10 @@ function EpocheBearbeiten({
   const [wirdGeladen, setWirdGeladen] = useState(true);
   const [wirdGespeichert, setWirdGespeichert] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
+
+  const [nameEntwurf, setNameEntwurf] = useState(anzeigename);
+  const [nameWirdGespeichert, setNameWirdGespeichert] = useState(false);
+  const [nameFehler, setNameFehler] = useState<string | null>(null);
 
   const [genreEntwurf, setGenreEntwurf] = useState(genre ?? "");
   const [genreWirdGespeichert, setGenreWirdGespeichert] = useState(false);
@@ -84,6 +97,22 @@ function EpocheBearbeiten({
     }
   }
 
+  async function nameSpeichern() {
+    const neuerName = nameEntwurf.trim();
+    if (!neuerName) return;
+    setNameWirdGespeichert(true);
+    setNameFehler(null);
+    try {
+      const antwort = await api.epocheUmbenennen(ordner, neuerName);
+      onEpochenGeaendert();
+      if (antwort.ordner !== ordner) onOrdnerGeaendert(antwort.ordner);
+    } catch (e) {
+      setNameFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setNameWirdGespeichert(false);
+    }
+  }
+
   async function genreSpeichern() {
     setGenreWirdGespeichert(true);
     setGenreGespeichertHinweis(null);
@@ -112,6 +141,20 @@ function EpocheBearbeiten({
   return (
     <div className="grid grid-cols-1 gap-4 border-t border-border bg-bg/40 p-4 lg:grid-cols-[1fr_2fr]">
       <div className="space-y-4">
+        <div>
+          <Label>Name</Label>
+          <div className="flex gap-2">
+            <Input
+              value={nameEntwurf}
+              onChange={(e) => setNameEntwurf(e.target.value)}
+              placeholder="z.B. Viktorianisches England"
+            />
+            <Button variant="secondary" onClick={nameSpeichern} disabled={nameWirdGespeichert || !nameEntwurf.trim()}>
+              {nameWirdGespeichert ? "..." : "OK"}
+            </Button>
+          </div>
+          {nameFehler && <p className="mt-1 text-xs text-red-400">{nameFehler}</p>}
+        </div>
         <div>
           <Label>Genre-Prägung</Label>
           <div className="flex gap-2">
@@ -327,7 +370,7 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
                           style={{ backgroundColor: e.farbe }}
                         />
                       )}
-                      <span className="font-medium text-text">{e.name}</span>
+                      <span className="font-medium text-text">{e.anzeigename}</span>
                     </div>
                     {e.genre && <div className="text-xs text-text-muted">{e.genre}</div>}
                   </div>
@@ -346,9 +389,11 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
                   <EpocheBearbeiten
                     key={e.name}
                     ordner={e.name}
+                    anzeigename={e.anzeigename}
                     genre={e.genre ?? null}
                     farbe={e.farbe ?? null}
                     onEpochenGeaendert={onEpochenGeaendert}
+                    onOrdnerGeaendert={setBearbeiteOrdner}
                   />
                 )}
               </li>

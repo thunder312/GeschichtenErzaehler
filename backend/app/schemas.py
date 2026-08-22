@@ -7,7 +7,16 @@ from pydantic import BaseModel, Field
 
 
 class EpocheKurz(BaseModel):
+    # Ordner-/Identifier-Name - stabil, wird als Wert fuer die Epoche-Auswahl
+    # beim Anlegen eines Projekts verwendet und landet 1:1 im ".epoche"-
+    # Marker des Projekts (siehe app/core/projekt_dateien.py). AENDERT SICH
+    # NICHT zwangslaeufig beim Umbenennen (siehe epoche_umbenennen()) - fuer
+    # die Anzeige immer `anzeigename` verwenden, nie `name`.
     name: str
+    # Frei editierbarer Anzeigename (".name"-Marker, siehe
+    # app/api/projects.py:_epoche_anzeigename_lesen) - faellt ohne
+    # gespeicherten Marker auf `name` mit Leerzeichen statt "-" zurueck.
+    anzeigename: str
     genre: str | None = None
     # Hex-Farbcode (z.B. "#a16207") fuer die farbige Markierung in der
     # Projektliste (siehe app/api/epochen.py:epoche_farbe_schreiben) -
@@ -49,6 +58,22 @@ class EpocheFarbeAnfrage(BaseModel):
     farbe: str = ""
 
 
+class EpocheNameAnfrage(BaseModel):
+    name: str = Field(min_length=1)
+
+
+class EpocheUmbenennenAntwort(BaseModel):
+    # Neuer Ordner-/Identifier-Name (nur veraendert, wenn der physische
+    # Ordner mitgezogen werden konnte, siehe epoche_umbenennen()).
+    ordner: str
+    anzeigename: str
+    # Anzahl bereits bestehender Projekte (aller Benutzer), deren
+    # ".epoche"/".epoche_zweite"-Marker dabei auf den neuen Ordnernamen
+    # nachgezogen wurden - nur > 0, wenn sich `ordner` tatsaechlich
+    # geaendert hat.
+    aktualisierte_projekte: int
+
+
 class ProjektKurz(BaseModel):
     ordner: str
     titel: str | None = None
@@ -73,6 +98,12 @@ class ProjektKurz(BaseModel):
     # Projektordner selbst zurueck, solange geruest.md noch nicht existiert
     # (Projekt angelegt, Architekten-Interview aber noch nicht abgeschlossen).
     zuletzt_bearbeitet_am: str | None = None
+
+
+class ProjektEpocheAnfrage(BaseModel):
+    # Ordner-/Identifier-Name der Ziel-Epoche (siehe EpocheKurz.name) - NICHT
+    # der Anzeigename, siehe app/api/projects.py:projekt_epoche_aendern.
+    epoche: str = Field(min_length=1)
 
 
 class ProjektAnlegenAnfrage(BaseModel):
