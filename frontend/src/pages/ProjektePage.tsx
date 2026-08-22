@@ -178,7 +178,15 @@ export function ProjektePage({
     }
     return Array.from(gruppen.entries())
       .map(([epoche, liste]) => ({ epoche: epoche || null, liste }))
-      .sort((a, b) => (a.epoche ?? "unbekannte Epoche").localeCompare(b.epoche ?? "unbekannte Epoche", "de"));
+      .sort((a, b) => {
+        // "Unbekannt" ist keine echte Epoche, sondern eine Sammelablage -
+        // steht deshalb immer ganz unten, unabhaengig von der Alphabet-
+        // Reihenfolge der echten Epochen.
+        const aUnbekannt = a.epoche === "Unbekannt";
+        const bUnbekannt = b.epoche === "Unbekannt";
+        if (aUnbekannt !== bUnbekannt) return aUnbekannt ? 1 : -1;
+        return (a.epoche ?? "unbekannte Epoche").localeCompare(b.epoche ?? "unbekannte Epoche", "de");
+      });
   }, [gefilterteProjekte, epochen]);
 
   // Vorbelegung nur EINMAL setzen, sobald die (von App.tsx geladene) Liste
@@ -618,7 +626,12 @@ export function ProjektePage({
                       {!wirdUmbenannt && (
                         <>
                           <span className="text-sm font-semibold text-text">
-                            📁 {epoche ? epocheAnzeige(epoche) : "unbekannte Epoche"}
+                            {/* "Unbekannt" ist keine echte Epoche, sondern eine
+                                Sammelablage (siehe app/data/epochen/Unbekannt) -
+                                eigenes Symbol, damit sie sich optisch von den
+                                echten Epoche-Ordnern abhebt. */}
+                            {epoche === "Unbekannt" ? "📥" : "📁"}{" "}
+                            {epoche ? epocheAnzeige(epoche) : "unbekannte Epoche"}
                           </span>
                           <span className="text-xs text-text-muted">
                             ({liste.length} {liste.length === 1 ? "Projekt" : "Projekte"})
