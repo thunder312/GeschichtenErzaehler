@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { AnalysatorStatus, EpocheKurz } from "../api/types";
+import type { AnalyseEintrag, AnalysatorStatus, EpocheKurz } from "../api/types";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { EpocheFormular, epocheFormularGueltig, type EpocheFormularWerte } from "../components/EpocheFormular";
 import { Button, Card, CardTitle, Input, Label, Select, Textarea } from "../components/ui";
 
@@ -52,6 +53,56 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
   const [epocheGespeichert, setEpocheGespeichert] = useState<{ name: string; ordner: string } | null>(null);
   const [wirdEpocheGespeichert, setWirdEpocheGespeichert] = useState(false);
   const [epocheSpeichernFehler, setEpocheSpeichernFehler] = useState<string | null>(null);
+
+  // Dauerhaft gespeicherte Rohtexte (siehe app/core/analysator.py:
+  // analyse_speichern) - jeder Start einer Analyse sichert den Text hier,
+  // damit er spaeter erneut geoeffnet oder fuer einen zweiten Versuch
+  // wiederverwendet werden kann, ohne ihn erneut einfuegen zu muessen.
+  const [analysen, setAnalysen] = useState<AnalyseEintrag[]>([]);
+  const [analysenFehler, setAnalysenFehler] = useState<string | null>(null);
+  const [wirdGeoeffnet, setWirdGeoeffnet] = useState<string | null>(null);
+  const [loeschenAnfrage, setLoeschenAnfrage] = useState<AnalyseEintrag | null>(null);
+  const [wirdGeloescht, setWirdGeloescht] = useState<string | null>(null);
+
+  function analysenLaden() {
+    api.analysenAuflisten().then(setAnalysen).catch(() => {
+      // Bewusst verschluckt - die Liste ist ein Komfort-Feature, ein
+      // Ladefehler soll den restlichen Analysator-Tab nicht blockieren.
+    });
+  }
+
+  useEffect(() => {
+    analysenLaden();
+  }, []);
+
+  async function analyseOeffnen(eintrag: AnalyseEintrag) {
+    setWirdGeoeffnet(eintrag.dateiname);
+    setAnalysenFehler(null);
+    try {
+      const geladenerText = await api.analyseLesen(eintrag.dateiname);
+      setText(geladenerText);
+      if (!titel.trim()) setTitel(eintrag.titel);
+    } catch (e) {
+      setAnalysenFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWirdGeoeffnet(null);
+    }
+  }
+
+  async function analyseLoeschenBestaetigt() {
+    if (!loeschenAnfrage) return;
+    const dateiname = loeschenAnfrage.dateiname;
+    setWirdGeloescht(dateiname);
+    try {
+      await api.analyseLoeschen(dateiname);
+      setLoeschenAnfrage(null);
+      setAnalysen((bisher) => bisher.filter((a) => a.dateiname !== dateiname));
+    } catch (e) {
+      setAnalysenFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWirdGeloescht(null);
+    }
+  }
 
   useEffect(() => {
     if (epoche || epochen.length === 0) return;
@@ -155,6 +206,10 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
       const antwort = await api.analysatorStarten(titel.trim(), zielEpoche, text, zweiteEpoche, sshZielId);
       setOrdner(antwort.ordner);
       setStatus(null);
+      // "starten" sichert den Rohtext serverseitig immer neu (siehe
+      // app/api/analysator.py) - Liste hier nachladen, damit der frische
+      // Eintrag sofort sichtbar ist.
+      analysenLaden();
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
@@ -434,6 +489,54 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
           handelt (sichtbar auf der Titelseite jeder damit geschriebenen Geschichte).
         </p>
       </Card>
+
+      {!ordner && (
+        <Card>
+          <CardTitle>📂 Gespeicherte Analysen</CardTitle>
+          {analysenFehler && <p className="mb-3 text-sm text-red-400">{analysenFehler}</p>}
+          {analysen.length === 0 ? (
+            <p className="text-sm text-text-muted">Noch keine importierten Texte gespeichert.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {analysen.map((a) => (
+                <li key={a.dateiname} className="flex items-center gap-3 py-2.5 text-sm">
+                  <button
+                    onClick={() => setLoeschenAnfrage(a)}
+                    disabled={wirdGeloescht === a.dateiname}
+                    title={`"${a.titel}" endgültig löschen`}
+                    aria-label={`"${a.titel}" endgültig löschen`}
+                    className="shrink-0 text-sm leading-none text-red-400/60 transition-colors hover:text-red-400 disabled:opacity-40"
+                  >
+                    ✕
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium text-text">{a.titel}</div>
+                    <div className="text-xs text-text-muted">{a.erstellt_am} · {a.woerter} Wörter</div>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={() => analyseOeffnen(a)}
+                    disabled={wirdGeoeffnet === a.dateiname}
+                  >
+                    {wirdGeoeffnet === a.dateiname ? "Öffnet..." : "Öffnen"}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
+
+      {loeschenAnfrage && (
+        <ConfirmDialog
+          titel="Analyse löschen?"
+          beschreibung={`Der gespeicherte Text "${loeschenAnfrage.titel}" wird unwiderruflich gelöscht - keine .bak-Sicherung wie sonst üblich. Bereits daraus erzeugte Projekte sind davon nicht betroffen.`}
+          bestaetigenText="Endgültig löschen"
+          wirdAusgefuehrt={wirdGeloescht === loeschenAnfrage.dateiname}
+          onBestaetigen={analyseLoeschenBestaetigt}
+          onAbbrechen={() => setLoeschenAnfrage(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import type {
+  AnalyseEintrag,
   AnalysatorStatus,
   AutomatikStatus,
   AutomatikVerlaufEintrag,
@@ -111,6 +112,14 @@ export const api = {
 
   analysatorStatus: (ordner: string) =>
     anfrage<AnalysatorStatus>(`/api/projects/${ordner}/analysator-status`),
+
+  analysenAuflisten: () => anfrage<AnalyseEintrag[]>("/api/analysator/analysen"),
+
+  analyseLesen: (dateiname: string) =>
+    anfrage<string>(`/api/analysator/analysen/${encodeURIComponent(dateiname)}`),
+
+  analyseLoeschen: (dateiname: string) =>
+    anfrage<void>(`/api/analysator/analysen/${encodeURIComponent(dateiname)}`, { method: "DELETE" }),
 
   analysatorEpocheVorschlagen: (text: string, sshZielId?: string | null) =>
     anfrage<EpocheVorschlagAntwort>(`/api/analysator/epoche-vorschlagen${sshQuery(sshZielId)}`, {

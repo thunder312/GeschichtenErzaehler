@@ -380,6 +380,15 @@ class AnalysatorStatusAntwort(BaseModel):
     fehler: str | None
 
 
+class AnalyseEintrag(BaseModel):
+    # Dateiname im "Analyse"-Ordner (siehe app/core/analysator.py:
+    # analyse_speichern) - eindeutiger Identifikator fuer Lesen/Loeschen.
+    dateiname: str
+    titel: str
+    erstellt_am: str
+    woerter: int
+
+
 class EinstellungenAntwort(BaseModel):
     projects_dir: str
     ist_standard: bool

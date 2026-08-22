@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.core import architekt as arch
+from app.core.geruest import ordnername_aus_titel
 from app.core.textutil import woerter
 
 ANALYSATOR_STATUS_DATEINAME = "analysator_status.json"
@@ -492,3 +493,40 @@ def verwaiste_laeufe_zuruecksetzen(projects_root: Path) -> int:
             continue
         zurueckgesetzt += 1
     return zurueckgesetzt
+
+
+# ---------------------------------------------------------------------------
+# Dauerhafte Ablage der importierten Rohtexte (Tab "Analysator", eigener
+# "Analyse"-Ordner unterhalb der Projekte-Wurzel) - VOR dieser Funktion wurde
+# der eingefuegte/hochgeladene Text nur im Browser-State gehalten und beim
+# Verlassen der Seite bzw. nach dem Start der Analyse unwiderruflich
+# verworfen; ein spaeteres erneutes Anschauen oder ein zweiter Analyse-Versuch
+# mit demselben Text war nicht mehr moeglich.
+# ---------------------------------------------------------------------------
+
+ANALYSE_ORDNERNAME = "Analyse"
+
+
+def analysen_ordner(projekte_wurzel: Path) -> Path:
+    ordner = projekte_wurzel / ANALYSE_ORDNERNAME
+    ordner.mkdir(parents=True, exist_ok=True)
+    return ordner
+
+
+def analyse_speichern(projekte_wurzel: Path, titel: str, text: str) -> str:
+    """Speichert einen importierten Rohtext dauerhaft ab - gibt den
+    (kollisionsfrei gewaehlten) Dateinamen zurueck. Ueberschreibt bewusst NIE
+    eine bestehende Datei (siehe Zaehler-Suffix unten), auch nicht bei
+    identischem Titel - jeder Analyse-Lauf bekommt seine eigene Kopie, analog
+    zu app/services.py:neuer_projekt_pfad."""
+    ordner = analysen_ordner(projekte_wurzel)
+    basis = ordnername_aus_titel(titel.strip() or "Import")
+    name = f"{basis}.md"
+    ziel = ordner / name
+    zaehler = 2
+    while ziel.exists():
+        name = f"{basis}-{zaehler}.md"
+        ziel = ordner / name
+        zaehler += 1
+    ziel.write_text(text, encoding="utf-8")
+    return name

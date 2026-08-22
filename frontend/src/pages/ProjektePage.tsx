@@ -61,6 +61,9 @@ export function ProjektePage({
   const [suchtext, setSuchtext] = useState("");
   const [epocheFilter, setEpocheFilter] = useState("");
   const [sortierungAbsteigend, setSortierungAbsteigend] = useState(false);
+  // Filter "Unfertig" (siehe istUnfertig() unten) - zeigt nur Projekte mit
+  // noch offener Pruefung oder weniger geschriebenen als geplanten Kapiteln.
+  const [nurUnfertige, setNurUnfertige] = useState(false);
   // Ordner-Darstellung ist die Standardsicht (siehe ToDo.md) - flache Liste
   // bleibt als Alternative per Toggle erreichbar.
   const [ordnerAnsicht, setOrdnerAnsicht] = useState(true);
@@ -117,10 +120,28 @@ export function ProjektePage({
     return epocheAnzeigenameMap.get(name) ?? name.replace(/-/g, " ");
   }
 
+  // Filter "Unfertig": weniger Kapitel geschrieben als geplant, ODER die
+  // Pruefung ist noch nicht sauber abgeschlossen (siehe automatik_zustand -
+  // app/core/automatik.py:zustand_zusammenfassen). "null" (Automatikmodus
+  // fuer dieses Projekt noch nie gestartet) zaehlt NICHT automatisch als
+  // unfertig - sonst waere jedes rein manuell geschriebene/geprüfte Projekt
+  // faelschlich dauerhaft "unfertig", nur weil es die Automatik-Pipeline nie
+  // genutzt hat.
+  function istUnfertig(p: ProjektKurz): boolean {
+    const zuWenigeKapitel = p.letztes_geplantes_kapitel != null && p.anzahl_kapitel < p.letztes_geplantes_kapitel;
+    const pruefungOffen =
+      p.automatik_zustand === "laeuft" ||
+      p.automatik_zustand === "fehler" ||
+      p.automatik_zustand === "gestoppt" ||
+      p.automatik_zustand === "abgeschlossen_mit_resten";
+    return zuWenigeKapitel || pruefungOffen;
+  }
+
   const gefilterteProjekte = useMemo(() => {
     const suchtextNormalisiert = suchtext.trim().toLowerCase();
     const gefiltert = projekte.filter((p) => {
       if (epocheFilter && p.epoche !== epocheFilter) return false;
+      if (nurUnfertige && !istUnfertig(p)) return false;
       if (suchtextNormalisiert && !(p.titel ?? p.ordner).toLowerCase().includes(suchtextNormalisiert)) {
         return false;
       }
@@ -131,7 +152,7 @@ export function ProjektePage({
     );
     if (sortierungAbsteigend) sortiert.reverse();
     return sortiert;
-  }, [projekte, suchtext, epocheFilter, sortierungAbsteigend]);
+  }, [projekte, suchtext, epocheFilter, nurUnfertige, sortierungAbsteigend]);
 
   // Fuer die Ordner-Darstellung: `gefilterteProjekte` (bereits sortiert)
   // nach Epoche gruppieren - Reihenfolge der Ordner selbst bleibt bewusst
@@ -491,6 +512,21 @@ export function ProjektePage({
               ))}
             </Select>
             <button
+              onClick={() => setNurUnfertige((bisher) => !bisher)}
+              title={
+                nurUnfertige
+                  ? "Filter aufheben (alle Projekte zeigen)"
+                  : "Nur Projekte mit offener Prüfung oder fehlenden Kapiteln zeigen"
+              }
+              className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                nurUnfertige
+                  ? "border-accent bg-accent/10 text-text"
+                  : "border-border text-text-muted hover:bg-surface-hover hover:text-text"
+              }`}
+            >
+              ⚠️ Unfertig
+            </button>
+            <button
               onClick={() => setSortierungAbsteigend((bisher) => !bisher)}
               title={sortierungAbsteigend ? "Sortierung: Z → A (klicken für A → Z)" : "Sortierung: A → Z (klicken für Z → A)"}
               className="rounded-lg border border-border px-3 py-1.5 text-sm text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
@@ -522,6 +558,7 @@ export function ProjektePage({
               onClick={() => {
                 setSuchtext("");
                 setEpocheFilter("");
+                setNurUnfertige(false);
               }}
               className="text-accent-light hover:underline"
             >
@@ -576,7 +613,6 @@ export function ProjektePage({
                       className="flex flex-1 items-center gap-2 text-left outline-none"
                     >
                       <span className="text-xs text-text-muted">{eingeklappt ? "▶" : "▼"}</span>
-                      {farbe && <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: farbe }} />}
                       {!wirdUmbenannt && (
                         <>
                           <span className="text-sm font-semibold text-text">

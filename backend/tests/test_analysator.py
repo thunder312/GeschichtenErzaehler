@@ -246,3 +246,26 @@ def test_verwaiste_laeufe_zuruecksetzen_laesst_abgeschlossene_laeufe_unangetaste
     assert anzahl == 0
     status = an.status_lesen(projekt_root)
     assert status["fehler"] is None
+
+
+def test_analyse_speichern_legt_ordner_an_und_schreibt_text(tmp_path):
+    name = an.analyse_speichern(tmp_path, "Mein Titel", "Der Rohtext.")
+
+    assert name == "Mein-Titel.md"
+    ziel = tmp_path / "Analyse" / "Mein-Titel.md"
+    assert ziel.read_text(encoding="utf-8") == "Der Rohtext."
+
+
+def test_analyse_speichern_ohne_titel_faellt_auf_import_zurueck(tmp_path):
+    name = an.analyse_speichern(tmp_path, "", "Text")
+    assert name == "Import.md"
+
+
+def test_analyse_speichern_haengt_bei_kollision_zaehler_an(tmp_path):
+    erster = an.analyse_speichern(tmp_path, "Titel", "Erster Text")
+    zweiter = an.analyse_speichern(tmp_path, "Titel", "Zweiter Text")
+
+    assert erster == "Titel.md"
+    assert zweiter == "Titel-2.md"
+    assert (tmp_path / "Analyse" / "Titel.md").read_text(encoding="utf-8") == "Erster Text"
+    assert (tmp_path / "Analyse" / "Titel-2.md").read_text(encoding="utf-8") == "Zweiter Text"

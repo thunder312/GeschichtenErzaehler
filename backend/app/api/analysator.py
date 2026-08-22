@@ -16,7 +16,10 @@ der naechste normale Speichervorgang in GeruestPage (app/api/projects.py:
 geruest_schreiben) benennt bei Bedarf ohnehin automatisch um."""
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from pydantic import ValidationError
 
 from app.auth import get_current_user
@@ -28,6 +31,7 @@ from app.core.epoche_vorschlag_schema import EpocheVorschlagAntwortLLM
 from app.core.ollama_client import OllamaFehler, sammle_antwort
 from app.core.textutil import woerter
 from app.schemas import (
+    AnalyseEintrag,
     AnalysatorEpocheVorschlagAnfrage,
     AnalysatorStartAnfrage,
     AnalysatorStartAntwort,
@@ -135,13 +139,69 @@ def analysator_starten(anfrage: AnalysatorStartAnfrage, background_tasks: Backgr
             raise HTTPException(404, f"Zweite Epoche '{zweite_epoche_name}' nicht gefunden.")
 
     basis_titel = anfrage.titel.strip() or "neu"
+    wurzel = projekte_wurzel(settings, benutzer.username)
     ziel = neuer_projekt_pfad(settings, benutzer.username, basis_titel, anfrage.epoche)
     pd.projekt_anlegen(ziel, epoche_ordner, settings.shared_personas_dir, anfrage.epoche,
                         zweite_epoche_ordner, zweite_epoche_name)
+    # Rohtext dauerhaft sichern, BEVOR die eigentliche (lang laufende, evtl.
+    # fehlschlagende) Analyse angestossen wird - siehe app/core/analysator.py:
+    # analyse_speichern. Erst dadurch laesst sich ein Import spaeter erneut
+    # anschauen oder nochmal versuchen, ohne den Text erneut einfuegen zu
+    # muessen.
+    an.analyse_speichern(wurzel, basis_titel, anfrage.text)
 
-    ordner = ziel.relative_to(projekte_wurzel(settings, benutzer.username)).as_posix()
+    ordner = ziel.relative_to(wurzel).as_posix()
     background_tasks.add_task(_analysieren_lauf, settings, ziel, ssh_ziel_id, anfrage.text)
     return AnalysatorStartAntwort(ordner=ordner)
+
+
+def _analyse_pfad(settings: Settings, username: str, dateiname: str):
+    """Verhindert Path-Traversal, analog app/services.py:projekt_pfad - der
+    Dateiname muss eine direkte Datei im (benutzerspezifischen) "Analyse"-
+    Ordner sein."""
+    ordner = an.analysen_ordner(projekte_wurzel(settings, username)).resolve()
+    kandidat = (ordner / dateiname).resolve()
+    if ordner not in kandidat.parents:
+        raise HTTPException(400, "Ungültiger Dateiname.")
+    if not kandidat.is_file():
+        raise HTTPException(404, f"Analyse '{dateiname}' nicht gefunden.")
+    return kandidat
+
+
+@router.get("/analysator/analysen", response_model=list[AnalyseEintrag])
+def analysen_auflisten(settings: Settings = Depends(get_settings),
+                        benutzer: Benutzer = Depends(get_current_user)):
+    ordner = an.analysen_ordner(projekte_wurzel(settings, benutzer.username))
+    # Nach der ROHEN (sekundengenauen) Zeit sortieren, nicht nach dem auf
+    # Minuten gerundeten Anzeige-String - sonst landen zwei innerhalb
+    # derselben Minute gespeicherte Analysen in Dateisystem- statt
+    # zeitlicher Reihenfolge (stabiler Sort haelt bei gleichem String-
+    # Schluessel die urspruengliche glob()-Reihenfolge).
+    dateien = sorted(ordner.glob("*.md"), key=lambda d: d.stat().st_ctime, reverse=True)
+    ergebnis = []
+    for datei in dateien:
+        text = pd.lies(datei, pflicht=False, ersatz="")
+        ergebnis.append(AnalyseEintrag(
+            dateiname=datei.name,
+            titel=datei.stem.replace("-", " "),
+            erstellt_am=datetime.fromtimestamp(datei.stat().st_ctime).strftime("%Y-%m-%d %H:%M"),
+            woerter=woerter(text),
+        ))
+    return ergebnis
+
+
+@router.get("/analysator/analysen/{dateiname}", response_class=PlainTextResponse)
+def analyse_lesen(dateiname: str, settings: Settings = Depends(get_settings),
+                   benutzer: Benutzer = Depends(get_current_user)):
+    pfad = _analyse_pfad(settings, benutzer.username, dateiname)
+    return pfad.read_text(encoding="utf-8")
+
+
+@router.delete("/analysator/analysen/{dateiname}", status_code=204)
+def analyse_loeschen(dateiname: str, settings: Settings = Depends(get_settings),
+                      benutzer: Benutzer = Depends(get_current_user)):
+    pfad = _analyse_pfad(settings, benutzer.username, dateiname)
+    pfad.unlink()
 
 
 @router.get("/projects/{ordner:path}/analysator-status", response_model=AnalysatorStatusAntwort)

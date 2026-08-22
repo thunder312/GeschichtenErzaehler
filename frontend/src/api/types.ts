@@ -215,6 +215,15 @@ export interface AnalysatorStatus {
   fehler: string | null;
 }
 
+// /api/analysator/analysen - dauerhaft gespeicherte Rohtexte importierter
+// Geschichten (siehe backend/app/core/analysator.py:analyse_speichern).
+export interface AnalyseEintrag {
+  dateiname: string;
+  titel: string;
+  erstellt_am: string;
+  woerter: number;
+}
+
 export interface AutomatikStatus {
   laeuft: boolean;
   gestartet_am: string | null;
