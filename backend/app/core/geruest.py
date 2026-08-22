@@ -211,12 +211,30 @@ def figuren_abschnitt_erkennen(geruest: str) -> str | None:
 
 
 def jahr_erkennen(geruest: str) -> str:
-    """Fallback-Kette: 'Jahr: 1815' -> irgendeine 4-stellige 12../19../20..-
-    Zahl -> 'unbekannt'."""
-    treffer = re.search(r"Jahr\s*[:\-]?\s*(\d{1,5})", geruest, re.IGNORECASE)
-    if not treffer:
-        treffer = re.search(r"\b([12][0-9]{3})\b", geruest)
-    return treffer.group(1) if treffer else "unbekannt"
+    """Fallback-Kette: explizite 'Jahr: 1815'-Angabe (laut Architekt-Vorgabe
+    MUSS die Zeitangabe im Geruest mit dem Wort "Jahr" davor stehen) -> erste
+    vierstellige Zahl im Wert der "Zeitangabe:"-Zeile im Rahmen (z.B.
+    "Zeitangabe: 1960er Jahre" oder "Zeitangabe: 1864 bis 1886", falls sich
+    die KI nicht exakt an die Vorgabe gehalten hat) -> 'unbekannt'.
+
+    Bewusst KEIN dokumentweiter Fallback-Scan mehr nach irgendeiner
+    vierstelligen Zahl (frueherer Stand): der griff leicht daneben, sobald
+    die Zeitangabe nicht dem "Jahr davor"-Format entsprach, und fand dann
+    z.B. eine Zielwortzahl aus dem Kapitelplan ("1250 Woerter") statt eines
+    echten Jahres - mit spuerbaren Folgen, da dieser Wert auch in den
+    Anachronismus-Pruefer-Prompt einfliesst (siehe app/api/pipeline.py:
+    _pruefe_kapitel)."""
+    # "Jahre?" statt nur "Jahr", damit auch die natuerliche Formulierung
+    # "im Jahre 1920" (nicht nur "Jahr: 1920") direkt erkannt wird.
+    treffer = re.search(r"Jahre?\s*[:\-]?\s*(\d{1,5})", geruest, re.IGNORECASE)
+    if treffer:
+        return treffer.group(1)
+    zeitangabe_zeile = re.search(r"Zeitangabe\s*:?\s*(.+)", geruest, re.IGNORECASE)
+    if zeitangabe_zeile:
+        zahl = re.search(r"(\d{4})", zeitangabe_zeile.group(1))
+        if zahl:
+            return zahl.group(1)
+    return "unbekannt"
 
 
 def jahr_fuer_kapitel_erkennen(geruest: str, n: int) -> str:
@@ -230,7 +248,7 @@ def jahr_fuer_kapitel_erkennen(geruest: str, n: int) -> str:
     faelschlich nach historischen Anachronismen suchen."""
     block = kapitel_block_erkennen(geruest, n)
     if block:
-        treffer = re.search(r"Jahr\s*[:\-]?\s*(\d{1,5})", block, re.IGNORECASE)
+        treffer = re.search(r"Jahre?\s*[:\-]?\s*(\d{1,5})", block, re.IGNORECASE)
         if treffer:
             return treffer.group(1)
     return jahr_erkennen(geruest)

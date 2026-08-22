@@ -207,6 +207,31 @@ def test_jahr_erkennen_unbekannt_ohne_treffer():
     assert g.jahr_erkennen("Kein Datum hier.") == "unbekannt"
 
 
+def test_jahr_erkennen_liest_erste_zahl_aus_zeitangabe_bei_dekaden_angabe():
+    # Regression (2026-08-22): eine ungenaue Zeitangabe ohne "Jahr davor"
+    # (siehe architekt.txt-Vorgabe) fuehrte dazu, dass der alte dokumentweite
+    # Fallback-Scan stattdessen eine Zielwortzahl aus dem Kapitelplan als
+    # "Jahr" erkannte.
+    geruest = (
+        "## Rahmen\n"
+        "Zeitangabe: 1960er Jahre\n"
+        "Ort: Burg Schreckenstein\n\n"
+        "## Kapitelplan\n"
+        "Kapitel 1: Ankunft. Zielwortzahl: 1250 Woerter.\n"
+    )
+    assert g.jahr_erkennen(geruest) == "1960"
+
+
+def test_jahr_erkennen_zeitangabe_mit_zeitraum():
+    geruest = "## Rahmen\nZeitangabe: Jahr innerhalb 1864 bis 1886\n"
+    assert g.jahr_erkennen(geruest) == "1864"
+
+
+def test_jahr_erkennen_ohne_zeitangabe_und_ohne_jahr_bleibt_unbekannt():
+    geruest = "## Rahmen\nOrt: Irgendwo\n\n## Kapitelplan\nKapitel 1: Start. Zielwortzahl: 1250 Woerter.\n"
+    assert g.jahr_erkennen(geruest) == "unbekannt"
+
+
 ZEITSPRUNG_GERUEST = """
 # STORY-GERUEST
 
