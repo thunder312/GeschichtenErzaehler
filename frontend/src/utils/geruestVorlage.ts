@@ -4,11 +4,15 @@
 // backend/app/data/personas/architekt.txt (bzw. der epochenspezifischen
 // Kopie) - exakt das Dokument, das am Ende eines gefuehrten Interviews
 // entsteht, nur mit Platzhaltern statt fertigem Inhalt. Bewusst OHNE
-// "## Kapitelplan"-Ueberschrift: ein komplett fehlender Abschnitt ist laut
-// kapitelplanAusGeruestExtrahieren()/kapitelplan_pruefen() kein Fehler,
-// der Nutzer legt das erste Kapitel stattdessen bequem per "+ Kapitel" im
-// (jetzt einklappbaren) KapitelplanEditor an, statt den Bullet-Syntax hier
-// von Hand nachzubauen.
+// "## Kapitelplan"-Ueberschrift: geruest_schreiben() im Backend (siehe
+// app/api/projects.py) lehnt ein deklariertes Kapitel ohne Zielwortzahl per
+// kapitelplan_pruefen() ab - ein hier mitgeliefertes, noch unbefuelltes
+// Startkapitel wuerde also den allerersten (in anlegen() unten sofort
+// ausgeloesten) Speicherversuch scheitern lassen und der try/catch dort
+// wuerde das Scheitern verschlucken, sodass das Projekt am Ende OHNE
+// geruest.md dastuende. Das erste, noch leere Kapitel bekommt der Nutzer
+// stattdessen automatisch beim Oeffnen des Gerüst-Editors (siehe
+// GeruestPage.tsx), wo es erst beim tatsaechlichen Speichern validiert wird.
 //
 // Die drei woertlichen Pflicht-Marker (Jugendschutz-Stufe, Autor-Modell,
 // Automatische Fortsetzung) sind mit sinnvollen Standardwerten vorbelegt
@@ -16,16 +20,49 @@
 // *_erkennen()-Funktionen ohnehin als Fallback, wenn das Feld fehlt oder
 // unlesbar ist - hier stehen sie nur bereits sichtbar und korrekt
 // geschrieben, statt dass der Nutzer die exakte Syntax erraten muss).
-export function leeresGeruestSkelett(titel: string): string {
+
+// Ort/Zeitraum, die bei der Epochen-Erstellung frei eingegeben wurden (siehe
+// backend/app/core/epoche.py:EpocheAntworten.orte/.zeitraum) - werden dort
+// NICHT strukturiert gespeichert, sondern landen nur eingebettet im
+// generierten architekt.txt-Fliesstext (Fragenkatalog Punkt 4/5). Diese
+// beiden Saetze sind beim Erzeugen wortgleich fest verdrahtet, siehe
+// architekt_vorlage() dort - eine Epoche, deren architekt.txt seither frei
+// umformuliert wurde, liefert hier einfach nichts (best effort, kein Fehler).
+export function epochenAnhaltspunkteAusArchitektTxt(
+  architektText: string,
+): { ort: string | null; zeitraum: string | null } {
+  const ort = architektText.match(/Ort und Region:\s*([^\n]+?)\.\s*Fiktiv oder an reale Orte angelehnt\?/i);
+  const zeitraum = architektText.match(/Zeitangabe:\s*([^\n]+?)\.\s*Wichtig, weil daran später die Prüfung hängt\.?/i);
+  return {
+    ort: ort ? ort[1].trim() : null,
+    zeitraum: zeitraum ? zeitraum[1].trim() : null,
+  };
+}
+
+export interface EpochenAnhaltspunkte {
+  ort?: string | null;
+  zeitraum?: string | null;
+  genre?: string | null;
+}
+
+export function leeresGeruestSkelett(titel: string, epoche?: EpochenAnhaltspunkte): string {
   const titelZeile = titel.trim() || "[Arbeitstitel]";
+  const zeitangabeZeile = epoche?.zeitraum
+    ? `*   **Zeitangabe:** Jahr [genaue vierstellige Jahreszahl eintragen, passend zu "${epoche.zeitraum}"]`
+    : `*   **Zeitangabe:** Jahr [hier die vierstellige Jahreszahl eintragen]`;
+  const ortZeile = epoche?.ort ? `*   **Ort:** ${epoche.ort}` : `*   **Ort:** [Schauplatz]`;
+  const tonlageZeile = epoche?.genre
+    ? `*   **Tonlage:** [z.B. leidenschaftlich, tragisch, leicht ...] (Genre-Prägung der Epoche: ${epoche.genre})`
+    : `*   **Tonlage:** [z.B. leidenschaftlich, tragisch, leicht ...]`;
+
   return `# STORY-GERUEST
 
 ## Rahmen
-*   **Zeitangabe:** Jahr [hier die vierstellige Jahreszahl eintragen]
-*   **Ort:** [Schauplatz]
+${zeitangabeZeile}
+${ortZeile}
 *   **Erzählperspektive:** Dritte Person
 *   **Tempus:** Vergangenheitsform
-*   **Tonlage:** [z.B. leidenschaftlich, tragisch, leicht ...]
+${tonlageZeile}
 *   **Jugendschutz-Stufe:** Jugendschutz-Stufe: Voll
 *   **Autor-Modell:** Autor-Modell: Mistral
 *   **Automatische Fortsetzung:** Automatische Fortsetzung: Aus

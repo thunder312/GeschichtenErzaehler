@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import type { AutomatikZustand, EpocheKurz, ProjektKurz } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
-import { leeresGeruestSkelett } from "../utils/geruestVorlage";
+import { epochenAnhaltspunkteAusArchitektTxt, leeresGeruestSkelett } from "../utils/geruestVorlage";
 
 function AutomatikBadge({ zustand }: { zustand: AutomatikZustand }) {
   if (zustand === "laeuft") return <Badge tone="amber">🤖 Automatik läuft</Badge>;
@@ -51,6 +51,13 @@ export function ProjektePage({
   const [zweiteEpoche, setZweiteEpoche] = useState("");
   const [epocheEinleitungssatz, setEpocheEinleitungssatz] = useState<string | null>(null);
   const [epocheInfoLaedt, setEpocheInfoLaedt] = useState(false);
+  // Ort/Zeitraum-Anhaltspunkte fuer leeresGeruestSkelett() (Weg "Gerüst
+  // selbst schreiben"), extrahiert aus dem architekt.txt der gewaehlten
+  // Epoche - siehe geruestVorlage.ts:epochenAnhaltspunkteAusArchitektTxt.
+  const [epocheAnhaltspunkte, setEpocheAnhaltspunkte] = useState<{ ort: string | null; zeitraum: string | null }>({
+    ort: null,
+    zeitraum: null,
+  });
   const [fehler, setFehler] = useState<string | null>(null);
   const [wirdAngelegt, setWirdAngelegt] = useState(false);
   const [wirdGeloescht, setWirdGeloescht] = useState<string | null>(null);
@@ -297,6 +304,7 @@ export function ProjektePage({
   useEffect(() => {
     if (!epoche) {
       setEpocheEinleitungssatz(null);
+      setEpocheAnhaltspunkte({ ort: null, zeitraum: null });
       return;
     }
     let abgebrochen = false;
@@ -311,6 +319,14 @@ export function ProjektePage({
       })
       .finally(() => {
         if (!abgebrochen) setEpocheInfoLaedt(false);
+      });
+    api
+      .epocheDateiLesen(epoche, "architekt.txt")
+      .then((text) => {
+        if (!abgebrochen) setEpocheAnhaltspunkte(epochenAnhaltspunkteAusArchitektTxt(text));
+      })
+      .catch(() => {
+        if (!abgebrochen) setEpocheAnhaltspunkte({ ort: null, zeitraum: null });
       });
     return () => {
       abgebrochen = true;
@@ -507,7 +523,11 @@ export function ProjektePage({
       // man dann eben doch im Interview und kann spaeter manuell wechseln.
       if (startModus === "manuell") {
         try {
-          await api.geruestSchreiben(neues.ordner, leeresGeruestSkelett(titel.trim()));
+          const skelett = leeresGeruestSkelett(titel.trim(), {
+            ...epocheAnhaltspunkte,
+            genre: epochen.find((e) => e.name === epoche)?.genre,
+          });
+          await api.geruestSchreiben(neues.ordner, skelett);
         } catch {
           // Bewusst verschluckt, siehe Kommentar oben.
         }

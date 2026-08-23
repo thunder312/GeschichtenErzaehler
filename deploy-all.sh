@@ -19,7 +19,12 @@ echo "============================================"
 echo "============================================"
 echo "2/6: Backend-Tarball packen..."
 echo "============================================"
-(cd backend && tar --exclude=__pycache__ --exclude='*.pyc' -czf "$TMPDIR/geschichten-backend.tar.gz" app requirements.txt scripts)
+# app/data (Epochen-Konfigurationen + Personas) NICHT mitpacken: das wird
+# auf dem Server live ueber die GUI gepflegt (Epochen anlegen/loeschen,
+# Prompt-Anpassungen). Ein Deploy soll diese Struktur nicht mit dem
+# lokalen Git-Stand ueberschreiben, sonst kommen dort geloeschte Epochen
+# bei jedem Deploy zurueck.
+(cd backend && tar --exclude=__pycache__ --exclude='*.pyc' --exclude='app/data' -czf "$TMPDIR/geschichten-backend.tar.gz" app requirements.txt scripts)
 
 echo "============================================"
 echo "3/6: Backend hochladen und neu starten..."

@@ -9,6 +9,7 @@ import {
   geruestAusKapitelplanZusammenbauen,
   kapitelPflichtfelderPruefen,
   kapitelplanAusGeruestExtrahieren,
+  leeresKapitel,
   type KapitelEintrag,
   type KapitelplanFehler,
 } from "../utils/kapitelplan";
@@ -89,7 +90,16 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   useEffect(() => {
     const geteilt = kapitelplanAusGeruestExtrahieren(projekt?.geruest ?? "");
     setVor(geteilt.vor);
-    setKapitel(geteilt.kapitel);
+    // Ein Gerüst, das WIRKLICH noch keinen Kapitelplan hat (kein "kann nicht
+    // geparst werden"-Fall, siehe warnung-Kommentar in kapitelplan.ts), zeigt
+    // sofort ein erstes leeres Kapitel zum Ausfuellen statt der bisherigen
+    // "Noch kein Kapitelplan"-Leermeldung - erspart den Klick auf "+ Kapitel"
+    // bei jedem neu angelegten Projekt (z.B. frisch ueber "Gerüst selbst
+    // schreiben" angelegt, siehe ProjektePage.tsx:anlegen). Rein lokaler
+    // Editor-Zustand, wird erst beim Speichern validiert/persistiert - siehe
+    // geruestVorlage.ts, warum das Startkapitel nicht schon im initial
+    // gespeicherten Skelett steckt.
+    setKapitel(geteilt.kapitel.length === 0 && !geteilt.warnung ? [leeresKapitel()] : geteilt.kapitel);
     setNach(geteilt.nach);
     setKapitelplanWarnung(geteilt.warnung);
     setKapitelFehler([]);
