@@ -521,13 +521,24 @@ export function ProjektePage({
       // (z.B. Netzwerkaussetzer) darf das bereits angelegte Projekt nicht
       // verstecken - Projekt bleibt in jedem Fall nutzbar, notfalls landet
       // man dann eben doch im Interview und kann spaeter manuell wechseln.
+      let ordnerZumOeffnen = neues.ordner;
       if (startModus === "manuell") {
         try {
           const skelett = leeresGeruestSkelett(titel.trim(), {
             ...epocheAnhaltspunkte,
             genre: epochen.find((e) => e.name === epoche)?.genre,
           });
-          await api.geruestSchreiben(neues.ordner, skelett);
+          const antwort = await api.geruestSchreiben(neues.ordner, skelett);
+          // geruest_schreiben() benennt den Projektordner serverseitig sofort
+          // nach dem im Geruest gefundenen Titel um (siehe
+          // app/core/projekt_dateien.py:projektordner_umbenennen - greift
+          // schon bei 0 Kapiteln, auch beim Platzhaltertitel "[Arbeitstitel]").
+          // Ohne diesen Schwenk auf den NEUEN Ordnernamen wuerde
+          // onProjektAuswaehlen() unten den bereits verschwundenen alten
+          // ".../neu"-Pfad oeffnen - App.tsx faende dafuer kein geruest mehr
+          // und wuerde faelschlich doch das Architekten-Interview erzwingen
+          // (Bug: manueller Modus landete dadurch immer im Interview).
+          if (antwort.neuer_ordner) ordnerZumOeffnen = antwort.neuer_ordner;
         } catch {
           // Bewusst verschluckt, siehe Kommentar oben.
         }
@@ -535,7 +546,7 @@ export function ProjektePage({
       setTitel("");
       setZweiteEpoche("");
       onProjekteGeaendert();
-      onProjektAuswaehlen(neues.ordner);
+      onProjektAuswaehlen(ordnerZumOeffnen);
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
