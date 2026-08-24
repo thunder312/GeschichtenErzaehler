@@ -102,14 +102,25 @@ Im erzeugten Gerüst legst du unter anderem fest:
   kein offenes Ende.
 
 Das Gerüst lässt sich im selben Tab auch von Hand nachbearbeiten — wirkt
-sich ab dem nächsten Schreiben-Aufruf aus. Rahmen/Titel/Figuren/Konflikt/
-Nebenstrang sowie Ausgangslage/Offene-Punkte/Regeln bleiben Freitext
-(Monaco-Editor oben bzw. unten), der **Kapitelplan** dazwischen ist eine
-eigene Karte pro Kapitel mit einzelnen Feldern (Ort, Anwesende Figuren,
-Ereignis, Zielwortzahl, Funktion im Spannungsbogen, Stand der
-Liebeshandlung, Zustand am Kapitelende) statt einer Freitext-Bulletliste.
-Zielwortzahl ist ein Pflicht-Zahlenfeld — fehlt sie oder ein anderes Feld,
-markiert „Speichern“ die betroffene Karte rot, statt den Fehler erst beim
+sich ab dem nächsten Schreiben-Aufruf aus. **Rahmen** (Zeitangabe, Ort,
+Erzählperspektive, Tempus, Tonlage, Jugendschutz-Stufe, Automatische
+Fortsetzung), **Titel**, **Unerhörte Begebenheit**, **Figuren** (je eine
+Karte mit Name und Details) sowie **Konflikt** und **Nebenstrang** sind
+eigene, beschriftete Felder statt eines einzigen Freitext-Blocks —
+Nebenstrang ist dabei wirklich optional und bleibt leer, wenn nichts
+eingetragen wird. Lässt sich ein Abschnitt nicht sicher in Felder
+zerlegen (z. B. ein sehr altes, abweichend formatiertes Gerüst), fällt nur
+dieser eine Abschnitt auf einen rohen Markdown-Editor mit Warnhinweis
+zurück, ohne dass etwas verloren geht. Ausgangslage vor Kapitel eins/
+Offene Punkte/Regeln bleiben Freitext (Monaco-Editor unten). Der
+**Kapitelplan** dazwischen ist eine eigene Karte pro Kapitel mit
+einzelnen Feldern (Ort, Anwesende Figuren, Ereignis, Zielwortzahl,
+Funktion im Spannungsbogen, Stand der Liebeshandlung, Zustand am
+Kapitelende) statt einer Freitext-Bulletliste. Zielwortzahl ist ein
+Pflicht-Zahlenfeld und bei einem neuen Kapitel schon mit einem Vorschlag
+(1500 Wörter, gängiger Richtwert für Kurzgeschichten/Novellen)
+vorbefüllt — überschreibbar. Fehlt sie oder ein anderes Feld, markiert
+„Speichern“ die betroffene Karte rot, statt den Fehler erst beim
 Automatik-Schreiben Tage später bemerken zu lassen. Über „+ Kapitel“/▲▼/
 „Löschen“ lassen sich Kapitel ergänzen, verschieben oder entfernen; die
 Kapitelnummer ergibt sich automatisch aus der Position. Ein vorhandener
@@ -118,6 +129,33 @@ Kapitelplan in einem bisher unbekannten Format wird nie stillschweigend
 darunter lassen sich außerdem **Stilproben** hinterlegen: ein bis drei
 kurze Textausschnitte, an deren Sprache/Satzrhythmus/Ton sich der Autor
 orientieren soll, ohne deren Handlung oder Figuren zu übernehmen.
+
+**Funktion im Spannungsbogen** (Dropdown je Kapitel, nach Freytags
+Pyramide) legt fest, welche dramaturgische Aufgabe ein Kapitel in der
+Gesamtgeschichte hat — der Autor kennt dieselben sechs Kategorien und
+schreibt entsprechend:
+
+- **Exposition** — Einstieg: Figuren, Ort und Ausgangslage werden bekannt
+  gemacht, die Spannung ist noch niedrig. Typisch für Kapitel 1.
+- **Erregendes Moment** — das Ereignis, das die eigentliche Geschichte
+  lostritt. Oft noch Kapitel 1 oder früh in Kapitel 2, direkt nach der
+  Exposition.
+- **Steigende Handlung** — die Mitte: der Konflikt verschärft sich, es
+  gibt Hindernisse, die Einsätze werden höher. Meist der größte Teil der
+  mittleren Kapitel.
+- **Höhepunkt/Peripetie** — der Wendepunkt: die entscheidende
+  Konfrontation, das größte Risiko, die zentrale Entscheidung.
+- **Fallende Handlung** — unmittelbar danach: die Folgen des Höhepunkts
+  zeigen sich, eventuell noch ein letzter Rückschlag.
+- **Auflösung/Lösung** — der Schluss: Konflikt (und ein eventueller
+  Nebenstrang) lösen sich endgültig, kein offener Cliffhanger. Das letzte
+  Kapitel.
+
+Bei zwei Kapiteln reicht meist Exposition + Erregendes Moment fürs erste,
+Höhepunkt + Auflösung fürs zweite. Bei mehr Kapiteln füllt Steigende
+Handlung die Mitte. Passt keine der sechs Kategorien exakt, lässt sich
+auch ein eigener Freitext eintragen — der Autor orientiert sich dann
+sinngemäß an der nächstliegenden Funktion.
 
 ---
 
