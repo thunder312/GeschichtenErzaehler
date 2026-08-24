@@ -62,17 +62,40 @@ ARCHITEKT_INSERT_SENTENCE = (
 )
 
 
+AUTOR_HEADING_ANKER_MUSTER = re.compile(r"^## Ton und Stil[ \t]*$", re.MULTILINE)
+
+
 def patch_autor(path: Path, apply: bool) -> str:
+    """Primaerer Anker ist die Ueberschrift "## Ton und Stil" - der neue
+    Abschnitt wird direkt DAVOR eingefuegt (siehe AUTOR_INSERT, endet auf eine
+    Leerzeile). Robuster als ein Anker auf den vorangehenden Satz "Du stellst
+    KEINE Fragen...": in mehreren Bestandsdateien steht dort die ASCII-
+    Transliteration "gefuehrt" statt "geführt" (aeltere Kopie oder von Hand
+    bearbeitet), wodurch der woertliche Satz-Anker sie faelschlich als
+    "stark abweichend formuliert" uebersprungen hat (Vorfall 2026-08-24).
+    Der alte Satz-Anker bleibt als zweiter Versuch bestehen, falls eine Datei
+    aus irgendeinem Grund gar kein "## Ton und Stil" hat."""
     text = path.read_text(encoding="utf-8")
     if AUTOR_MARKER in text:
         return "übersprungen (bereits vorhanden)"
-    if AUTOR_ANCHOR not in text:
-        return "ÜBERSPRUNGEN (Anker-Satz nicht gefunden, evtl. stark abweichend formuliert)"
-    if apply:
-        neu = text.replace(AUTOR_ANCHOR, AUTOR_ANCHOR + AUTOR_INSERT, 1)
-        path.write_text(neu, encoding="utf-8", newline="\n")
-        return "geändert"
-    return "würde ändern"
+
+    m = AUTOR_HEADING_ANKER_MUSTER.search(text)
+    if m:
+        if apply:
+            einschub = AUTOR_INSERT.strip("\n") + "\n\n"
+            neu = text[: m.start()] + einschub + text[m.start() :]
+            path.write_text(neu, encoding="utf-8", newline="\n")
+            return "geändert"
+        return "würde ändern"
+
+    if AUTOR_ANCHOR in text:
+        if apply:
+            neu = text.replace(AUTOR_ANCHOR, AUTOR_ANCHOR + AUTOR_INSERT, 1)
+            path.write_text(neu, encoding="utf-8", newline="\n")
+            return "geändert"
+        return "würde ändern"
+
+    return "ÜBERSPRUNGEN (weder '## Ton und Stil' noch der Anker-Satz gefunden)"
 
 
 def patch_architekt(path: Path, apply: bool) -> str:
