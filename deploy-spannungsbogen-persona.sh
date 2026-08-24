@@ -92,7 +92,14 @@ echo "============================================"
 while IFS= read -r wurzel; do
   [[ -z "$wurzel" ]] && continue
   echo "--- $wurzel ---"
-  ssh -i "$KEY" "$HOST" "cd $REMOTE/backend && .venv/bin/python3 scripts/patch_spannungsbogen_persona.py \"$wurzel\" $APPLY"
+  # "< /dev/null": ohne das liest ssh von genau dem Stdin, aus dem auch
+  # die while-Schleife hier ihre Zeilen liest (das Here-String <<< unten) -
+  # der ssh-Prozess wuerde den Rest von $WURZELN "wegschnappen", bevor die
+  # naechste read-Iteration ihn sieht, und die Schleife bricht nach der
+  # ERSTEN Wurzel klaglos ab (Vorfall 2026-08-24: "test"-Benutzer wurde
+  # dadurch beim --apply-Lauf stillschweigend uebersprungen, ohne jede
+  # Fehlermeldung).
+  ssh -i "$KEY" "$HOST" "cd $REMOTE/backend && .venv/bin/python3 scripts/patch_spannungsbogen_persona.py \"$wurzel\" $APPLY" < /dev/null
 done <<< "$WURZELN"
 
 echo
