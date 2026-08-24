@@ -446,9 +446,16 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
               <Button variant="secondary" onClick={neuLaden}>
                 Neu laden
               </Button>
+              {/* Frueher zusaetzlich an automatikStatus.abgeschlossen geknuepft -
+                  das blieb nach einem manuell per "Stoppen" abgebrochenen Lauf
+                  (status "gestoppt") fuer immer False, der Button verschwand
+                  also genau dann, wenn der Nutzer die noch offenen Funde selbst
+                  als "reicht so" abhaken wollte. Der Backend-Endpunkt
+                  (automatik_reste_bestaetigen) prueft ohnehin nur "laeuft",
+                  kein abgeschlossen - das Freigeben hier ist also rein eine
+                  Anzeige-Korrektur, keine neue Backend-Faehigkeit. */}
               {automatikStatus &&
                 !automatikStatus.laeuft &&
-                automatikStatus.abgeschlossen &&
                 hatReste(automatikStatus.protokoll) &&
                 (automatikStatus.resten_bestaetigt ? (
                   <span className="text-xs text-accent-light">✅ Prüfung als abgeschlossen bestätigt.</span>
