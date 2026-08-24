@@ -53,13 +53,42 @@ function zahlwort(n: number): string {
   return ZAHLWORT_LISTE[n - 1] ?? String(n);
 }
 
-export function leeresKapitel(): KapitelEintrag {
+// Vorbelegter Zielwortzahl-Mittelwert fuer ein neu angelegtes Kapitel (siehe
+// KapitelplanEditor.tsx "+ Kapitel" und GeruestPage.tsx: automatisches erstes
+// Kapitel bei einem noch leeren Gerüst). Recherche zu gaengigen Kapitellaengen
+// bei Kurzgeschichten/Novellen (1-6 Kapitel) ergibt uebereinstimmend ca.
+// 1.000 bis 2.000 Woerter pro Kapitel - deckt sich mit den in dieser App
+// selbst schon verwendeten Richtwerten aus dem Architekten-Interview (siehe
+// backend/app/core/epoche.py: "Kurz" 2 Kapitel a ca. 1.250 Woerter, "Mittel"
+// 4 Kapitel a ca. 1.250 Woerter, "Erzaehlung" 6 Kapitel a ca. 1.580 Woerter).
+// 1.500 liegt als flacher Mittelwert innerhalb all dieser Spannen und ist nur
+// ein Vorschlag - der Nutzer kann ihn jederzeit ueberschreiben.
+export const ZIELWORTZAHL_VORSCHLAG = 1500;
+
+// Gaengige Kategorien fuer "Funktion im Spannungsbogen" bei (Kurz-)Geschichten
+// und Novellen, nach Freytags Pyramide (Exposition, steigende Handlung,
+// Hoehepunkt/Peripetie, fallende Handlung, Ausgang/Loesung), ergaenzt um das
+// "erregende Moment" als eigenen, in der Praxis oft vom Rest der Exposition
+// getrennten Auftakt. Dieselben sechs Werte kennt auch die Autor-Persona
+// (siehe backend/app/core/epoche.py:autor_vorlage, "## Funktion im
+// Spannungsbogen") - Architekt und Autor sollen dieselbe, konsistente
+// Kategorisierung verwenden wie das Dropdown hier.
+export const FUNKTION_IM_SPANNUNGSBOGEN_OPTIONEN = [
+  "Exposition",
+  "Erregendes Moment",
+  "Steigende Handlung",
+  "Höhepunkt/Peripetie",
+  "Fallende Handlung",
+  "Auflösung/Lösung",
+] as const;
+
+export function leeresKapitel(zielwortzahl: number | null = ZIELWORTZAHL_VORSCHLAG): KapitelEintrag {
   return {
     titel: "",
     ort: "",
     anwesendeFiguren: "",
     ereignis: "",
-    zielwortzahl: null,
+    zielwortzahl,
     funktionImSpannungsbogen: "",
     standDerLiebeshandlung: "",
     zustandAmKapitelende: "",

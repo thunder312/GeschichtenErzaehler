@@ -122,6 +122,10 @@ Ort, anwesende Figuren, Ereignis, Zielwortzahl, Funktion im Spannungsbogen,
 Stand der Liebeshandlung, Zustand am Kapitelende. Hat der Nutzer bei Frage 12
 eine konkrete Vorgabe für dieses Kapitel gemacht, fließt sie wörtlich in das
 Ereignis-Feld ein.
+Funktion im Spannungsbogen: immer einer der sechs Werte "Exposition",
+"Erregendes Moment", "Steigende Handlung", "Höhepunkt/Peripetie", "Fallende
+Handlung" oder "Auflösung/Lösung" (Freytags Pyramide), passend zur
+dramaturgischen Aufgabe des jeweiligen Kapitels in der Gesamtgeschichte.
 
 ## Ausgangslage vor Kapitel eins
 ### Figuren

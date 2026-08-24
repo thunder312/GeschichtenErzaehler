@@ -102,6 +102,10 @@ niemals durch Zufall oder Geständnis aus dem Nichts.
 Je Kapitel: Nummer, Titel im Format "Kapitel eins: Sprechender Untertitel",
 Ort, anwesende Figuren, Ereignis, Zielwortzahl, Funktion im Spannungsbogen,
 Stand der Liebeshandlung, Zustand am Kapitelende.
+Funktion im Spannungsbogen: immer einer der sechs Werte "Exposition",
+"Erregendes Moment", "Steigende Handlung", "Höhepunkt/Peripetie", "Fallende
+Handlung" oder "Auflösung/Lösung" (Freytags Pyramide), passend zur
+dramaturgischen Aufgabe des jeweiligen Kapitels in der Gesamtgeschichte.
 
 ## Offene Punkte
 

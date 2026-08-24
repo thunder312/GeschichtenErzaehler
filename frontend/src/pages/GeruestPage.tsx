@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import type { ProjektDetail } from "../api/types";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { KapitelplanEditor } from "../components/KapitelplanEditor";
+import { RahmenEditor } from "../components/RahmenEditor";
 import { Badge, Button, Card, CardTitle } from "../components/ui";
 import {
   geruestAusKapitelplanZusammenbauen,
@@ -13,6 +14,7 @@ import {
   type KapitelEintrag,
   type KapitelplanFehler,
 } from "../utils/kapitelplan";
+import { bearbeitetZuVor, vorZuBearbeitet, type VorAbschnittBearbeitet } from "../utils/rahmen";
 
 // Anzeige-Mapping der intern aus dem Gerüst erkannten Content-Stufe (siehe
 // backend/app/core/rollen.py: STUFE_DIREKTIVEN) auf die aus Filmen bekannten
@@ -59,7 +61,17 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   // Kapitelplan strukturiert (KapitelplanEditor), Rest des Gerüsts bleibt
   // Freitext in zwei Editoren links/rechts davon (siehe utils/kapitelplan.ts
   // fuer die Begruendung, warum nur der Kapitelplan formalisiert wird).
-  const [vor, setVor] = useState("");
+  // Praeambel ("# STORY-GERUEST") + strukturierte "## "-Abschnitte des Teils
+  // VOR "## Kapitelplan" (Rahmen, Titel, Unerhörte Begebenheit, Figuren,
+  // Konflikt, Nebenstrang, ...) - siehe utils/rahmen.ts und RahmenEditor.tsx.
+  // rahmenAbschnitte===null bedeutet: im Text wurde ueberhaupt keine
+  // "## "-Ueberschrift gefunden (z.B. ein von Hand komplett geleertes oder
+  // sehr altes Gerüst) - dann bleibt rahmenRohFallback die einzige
+  // Wahrheitsquelle und wird im rohen Markdown-Editor angezeigt, analog zur
+  // "warnung" bei einem unparsbaren Kapitelplan weiter unten.
+  const [rahmenPraeambel, setRahmenPraeambel] = useState("");
+  const [rahmenAbschnitte, setRahmenAbschnitte] = useState<VorAbschnittBearbeitet[] | null>(null);
+  const [rahmenRohFallback, setRahmenRohFallback] = useState("");
   const [kapitel, setKapitel] = useState<KapitelEintrag[]>([]);
   const [nach, setNach] = useState("");
   const [kapitelplanWarnung, setKapitelplanWarnung] = useState<string | null>(null);
@@ -89,7 +101,10 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
 
   useEffect(() => {
     const geteilt = kapitelplanAusGeruestExtrahieren(projekt?.geruest ?? "");
-    setVor(geteilt.vor);
+    const { praeambel, abschnitte } = vorZuBearbeitet(geteilt.vor);
+    setRahmenPraeambel(praeambel);
+    setRahmenAbschnitte(abschnitte);
+    setRahmenRohFallback(abschnitte === null ? geteilt.vor : "");
     // Ein Gerüst, das WIRKLICH noch keinen Kapitelplan hat (kein "kann nicht
     // geparst werden"-Fall, siehe warnung-Kommentar in kapitelplan.ts), zeigt
     // sofort ein erstes leeres Kapitel zum Ausfuellen statt der bisherigen
@@ -131,7 +146,8 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
 
     setWirdGespeichert(true);
     try {
-      const inhalt = geruestAusKapitelplanZusammenbauen(vor, kapitel, nach);
+      const vorText = rahmenAbschnitte !== null ? bearbeitetZuVor(rahmenPraeambel, rahmenAbschnitte) : rahmenRohFallback;
+      const inhalt = geruestAusKapitelplanZusammenbauen(vorText, kapitel, nach);
       const antwort = await api.geruestSchreiben(ordner, inhalt);
       const zusatz = antwort.stand_00_aktualisiert ? " Ausgangslage vor Kapitel eins (stand_00.md) synchronisiert." : "";
       if (antwort.neuer_ordner) {
@@ -204,18 +220,25 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
             offen={rahmenOffen}
             onToggle={() => setRahmenOffen((o) => !o)}
           />
-          {rahmenOffen && (
-            <div className="p-4 pt-2">
-              <Editor
-                height="clamp(200px, 32vh, 360px)"
-                defaultLanguage="markdown"
-                value={vor}
-                onChange={(v) => setVor(v ?? "")}
-                theme="vs-dark"
-                options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
-              />
-            </div>
-          )}
+          {rahmenOffen &&
+            (rahmenAbschnitte !== null ? (
+              <RahmenEditor abschnitte={rahmenAbschnitte} onChange={setRahmenAbschnitte} />
+            ) : (
+              <div className="p-4 pt-2">
+                <p className="mb-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-300">
+                  ⚠️ Dieser Abschnitt konnte nicht in einzelne Felder zerlegt werden (keine erkennbare
+                  "## "-Struktur) - er steht unverändert als Rohtext zur Bearbeitung.
+                </p>
+                <Editor
+                  height="clamp(200px, 32vh, 360px)"
+                  defaultLanguage="markdown"
+                  value={rahmenRohFallback}
+                  onChange={(v) => setRahmenRohFallback(v ?? "")}
+                  theme="vs-dark"
+                  options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
+                />
+              </div>
+            ))}
         </div>
 
         <div className="border-b border-border">

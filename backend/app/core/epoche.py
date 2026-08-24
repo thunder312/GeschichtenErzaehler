@@ -242,6 +242,10 @@ Ort, anwesende Figuren, Ereignis, Zielwortzahl, Funktion im Spannungsbogen,
 Stand der Liebeshandlung, Zustand am Kapitelende. Hat der Nutzer bei Frage 12
 eine konkrete Vorgabe für dieses Kapitel gemacht, fliesst sie wörtlich in
 das Ereignis-Feld ein.
+Funktion im Spannungsbogen: immer einer der sechs Werte "Exposition",
+"Erregendes Moment", "Steigende Handlung", "Höhepunkt/Peripetie", "Fallende
+Handlung" oder "Auflösung/Lösung" (Freytags Pyramide), passend zur
+dramaturgischen Aufgabe des jeweiligen Kapitels in der Gesamtgeschichte.
 
 ## Ausgangslage vor Kapitel eins
 ### Figuren
@@ -317,6 +321,26 @@ Du wiederholst keine Bilder aus der Liste bereits verwendeter Formulierungen -
 das gilt genauso INNERHALB des Kapitels: Ein Vergleich oder eine Metapher
 taucht in einem Kapitel nur einmal auf, auch in leicht abgewandelter Form.
 Du stellst KEINE Fragen. Das Interview ist bereits geführt, das Geruest liegt vor.
+
+## Funktion im Spannungsbogen
+Das Feld "Funktion im Spannungsbogen" im Kapitelplan sagt dir, welche
+dramaturgische Aufgabe dieses eine Kapitel in der Gesamtgeschichte hat
+(Freytags Pyramide). Du kennst die sechs möglichen Werte und schreibst das
+Kapitel entsprechend:
+- Exposition: Figuren, Ort und Ausgangslage werden eingeführt, die Spannung
+  beginnt erst leicht zu steigen.
+- Erregendes Moment: Das Ereignis, das die eigentliche Handlung auslöst,
+  tritt jetzt ein.
+- Steigende Handlung: Der Konflikt verschärft sich, Hindernisse und Einsätze
+  wachsen, die Spannung steigt spürbar.
+- Höhepunkt/Peripetie: Die entscheidende Konfrontation, Entscheidung oder
+  Wendung mit der größten Spannung der gesamten Geschichte.
+- Fallende Handlung: Die unmittelbaren Folgen des Höhepunkts zeigen sich,
+  eventuell noch ein letzter Rückschlag, die Spannung nimmt sichtbar ab.
+- Auflösung/Lösung: Der Kernkonflikt (und ein eventueller Nebenstrang) lösen
+  sich endgültig auf, kein neuer offener Spannungsbogen am Ende.
+Steht im Geruest ein anderer, frei formulierter Wert in diesem Feld,
+orientierst du dich sinngemäß an der nächstliegenden dieser sechs Funktionen.
 
 ## Ton und Stil
 Sprache: immer Deutsch.

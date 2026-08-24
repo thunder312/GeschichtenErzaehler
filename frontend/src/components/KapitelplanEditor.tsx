@@ -1,8 +1,19 @@
 import { useEffect, useState } from "react";
 import type { KapitelEintrag, KapitelplanFehler } from "../utils/kapitelplan";
-import { leeresKapitel } from "../utils/kapitelplan";
+import { FUNKTION_IM_SPANNUNGSBOGEN_OPTIONEN, leeresKapitel } from "../utils/kapitelplan";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { Button, Input, Label, Textarea } from "./ui";
+import { Button, Input, Label, Select, Textarea } from "./ui";
+
+const EIGENE_ANGABE = "__eigene__";
+
+/** true, wenn der gespeicherte Wert (Freitext-Feld, siehe KapitelEintrag.
+ * funktionImSpannungsbogen) exakt einer der bekannten Kategorien entspricht -
+ * Bestandsprojekte koennen hier aber auch aelteren, frei formulierten Text
+ * stehen haben (das Feld war bis jetzt reiner Freitext), deshalb bewusst KEIN
+ * erzwungenes Uebersetzen/Verwerfen, siehe Select unten. */
+function istBekannteFunktion(wert: string): boolean {
+  return (FUNKTION_IM_SPANNUNGSBOGEN_OPTIONEN as readonly string[]).includes(wert.trim());
+}
 
 interface KapitelplanEditorProps {
   kapitel: KapitelEintrag[];
@@ -35,6 +46,21 @@ export function KapitelplanEditor({ kapitel, onChange, fehler }: KapitelplanEdit
   // beim Einklappen-Versuch trotzdem sichtbar offen (siehe toggle()), sonst
   // waere die rote Markierung unsichtbar, ohne dass der Nutzer weiss, wo.
   const [eingeklappt, setEingeklappt] = useState<Set<number>>(new Set());
+
+  // Indizes, die der Nutzer explizit auf "Eigene Angabe" im Funktion-im-
+  // Spannungsbogen-Dropdown umgeschaltet hat, OBWOHL das Feld gerade leer ist
+  // (sonst wuerde die Auswahl sofort wieder auf den Platzhalter zurueckfallen,
+  // siehe istEigeneAngabe() unten - ein bereits mit unbekanntem Freitext
+  // befuelltes Feld erkennt den Freitext-Modus ohnehin automatisch, dafuer ist
+  // dieses Set nicht noetig). Bewusst kein Reindexieren bei Loeschen/
+  // Verschieben wie bei `eingeklappt` - betrifft im schlimmsten Fall kurz das
+  // falsche Kapitel, ohne dass dabei je Text verloren geht.
+  const [eigeneAngabeIndizes, setEigeneAngabeIndizes] = useState<Set<number>>(new Set());
+
+  function istEigeneAngabe(index: number, wert: string): boolean {
+    if (wert.trim() && !istBekannteFunktion(wert)) return true;
+    return eigeneAngabeIndizes.has(index);
+  }
   const indizesMitFehler = new Set(fehler.map((f) => f.index));
 
   // Ein neu gemeldeter Pflichtfeld-Fehler klappt seine Karte automatisch
@@ -225,11 +251,50 @@ export function KapitelplanEditor({ kapitel, onChange, fehler }: KapitelplanEdit
             </div>
             <div>
               <Label>Funktion im Spannungsbogen</Label>
-              <Input
-                value={k.funktionImSpannungsbogen}
-                onChange={(e) => feldAendern(index, "funktionImSpannungsbogen", e.target.value)}
-                className={klasse(index, "funktionImSpannungsbogen")}
-              />
+              {istEigeneAngabe(index, k.funktionImSpannungsbogen) ? (
+                <div className="space-y-1">
+                  <Input
+                    value={k.funktionImSpannungsbogen}
+                    onChange={(e) => feldAendern(index, "funktionImSpannungsbogen", e.target.value)}
+                    placeholder="Eigene Angabe"
+                    className={klasse(index, "funktionImSpannungsbogen")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEigeneAngabeIndizes((bisher) => {
+                        const neu = new Set(bisher);
+                        neu.delete(index);
+                        return neu;
+                      });
+                      feldAendern(index, "funktionImSpannungsbogen", "");
+                    }}
+                    className="text-xs text-accent-light hover:underline"
+                  >
+                    Kategorie stattdessen auswählen
+                  </button>
+                </div>
+              ) : (
+                <Select
+                  value={k.funktionImSpannungsbogen}
+                  onChange={(e) => {
+                    if (e.target.value === EIGENE_ANGABE) {
+                      setEigeneAngabeIndizes((bisher) => new Set(bisher).add(index));
+                      return;
+                    }
+                    feldAendern(index, "funktionImSpannungsbogen", e.target.value);
+                  }}
+                  className={klasse(index, "funktionImSpannungsbogen")}
+                >
+                  <option value="">– auswählen –</option>
+                  {FUNKTION_IM_SPANNUNGSBOGEN_OPTIONEN.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                  <option value={EIGENE_ANGABE}>Eigene Angabe...</option>
+                </Select>
+              )}
             </div>
             <div>
               <Label>Stand der Liebeshandlung</Label>
