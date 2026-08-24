@@ -668,12 +668,16 @@ async def _kapitel_schreiben_kern(
             await on_event({"phase": "autor", "typ": "done", "meta": event.meta})
 
     text = "".join(teile).strip()
+    text, findings_ueberschrift = h.kapitelueberschrift_sicherstellen(text, kapitel_block)
     text, findings_markdown = h.fuehrende_markdown_ueberschrift_entfernen(text)
     text, findings_neustart = h.kapitel_neustart_abschneiden(text)
     text, findings_ende = h.vorzeitige_kapitelende_abschneiden(text)
     text, findings_wiederholung = h.interne_wiederholung_abschneiden(text)
     text, findings_block = h.wiederholten_absatzblock_ausschneiden(text)
-    findings = findings_markdown + findings_neustart + findings_ende + findings_wiederholung + findings_block
+    findings = (
+        findings_ueberschrift + findings_markdown + findings_neustart
+        + findings_ende + findings_wiederholung + findings_block
+    )
 
     if ziel and g.automatische_fortsetzung_aktiviert(geruest_text):
         text, findings_fortsetzung = await _bei_bedarf_fortsetzen(

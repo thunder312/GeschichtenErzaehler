@@ -250,6 +250,52 @@ def fuehrende_markdown_ueberschrift_entfernen(text: str) -> tuple[str, list[Find
     return text[treffer.end():], [finding]
 
 
+_KAPITEL_UEBERSCHRIFT_VORHANDEN_MUSTER = re.compile(
+    r"^\s*\*{0,2}Kapitel\s+\S+\s*[:\-–—]", re.IGNORECASE,
+)
+
+# Holt die komplette "Kapitel <Zahlwort>: <Titel>"-Zeile aus dem
+# Kapitelplan-Block (siehe geruest.py:kapitel_block_erkennen) - bewusst
+# derselbe locker gefasste Titel-Rest wie beim Vorhanden-Check oben (bis zum
+# naechsten "*", nicht bis zum Zeilenende), da der Kapitelplan-Titel selbst
+# als "*   **Kapitel eins: Titel**" mit schliessenden Sternchen endet.
+_KAPITELPLAN_UEBERSCHRIFT_MUSTER = re.compile(
+    r"Kapitel\s+(?:\d{1,2}|[a-zA-ZäöüÄÖÜß]+)\s*:\s*[^\n*]+", re.IGNORECASE,
+)
+
+
+def kapitelueberschrift_sicherstellen(text: str, kapitel_block: str | None) -> tuple[str, list[Finding]]:
+    """Ergaenzt die laut Autor-Formatregeln vorgeschriebene Kapitelueberschrift
+    ("Kapitel eins: Sprechender Untertitel"), falls das Modell sie komplett
+    ausgelassen hat - beobachteter Vorfall (Hermines-Grenzen, 2026-08-24):
+    Kapitel 1 bis 3 einer Geschichte begannen direkt mit Fliesstext ohne jede
+    Ueberschrift, Kapitel 4 hatte dagegen eine (wenn auch abweichend in
+    Markdown-Fettdruck statt reinem Text). Ohne Ueberschrift zeigt "Pruefen &
+    Anwenden" fuer das betroffene Kapitel nur den generischen "## Kapitel N"-
+    Platzhalter ohne erkennbaren Titel (siehe frontend/src/utils/
+    kapitelKombiniert.ts), und die Gliederung geht verloren.
+
+    Erkennt auch eine bereits vorhandene, nur abweichend formatierte
+    Ueberschrift (z.B. mit Markdown-Fettdruck) und fasst sie NICHT an - nur
+    eine wirklich fehlende Ueberschrift wird ergaenzt. `kapitel_block` ist
+    der Kapitelplan-Textblock dieses Kapitels (kapitel_block_erkennen()) -
+    fehlt er (kein Kapitelplan-Eintrag gefunden), wird nichts eingefuegt, um
+    keine falsche oder leere Ueberschrift zu erzeugen."""
+    if not kapitel_block or _KAPITEL_UEBERSCHRIFT_VORHANDEN_MUSTER.match(text):
+        return text, []
+    treffer = _KAPITELPLAN_UEBERSCHRIFT_MUSTER.search(kapitel_block)
+    if not treffer:
+        return text, []
+    ueberschrift = treffer.group(0).strip()
+    finding = Finding(
+        "kapitelueberschrift_fehlt",
+        f"Der Text begann ohne die vorgeschriebene Kapitelüberschrift - "
+        f"'{ueberschrift}' aus dem Kapitelplan automatisch ergänzt.",
+        schwere="info",
+    )
+    return f"{ueberschrift}\n\n{text}", [finding]
+
+
 _KAPITEL_UEBERSCHRIFT_MUSTER = re.compile(r"^\s*Kapitel\s+\S+\s*:", re.IGNORECASE | re.MULTILINE)
 
 

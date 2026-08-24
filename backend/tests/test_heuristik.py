@@ -82,6 +82,37 @@ def test_fuehrende_markdown_ueberschrift_entfernen_ohne_markdown_unveraendert():
     assert findings == []
 
 
+def test_kapitelueberschrift_sicherstellen_ergaenzt_fehlende_ueberschrift():
+    kapitel_block = (
+        "*   **Kapitel eins: Die letzte Chance**\n"
+        "    *   Ort: Zauberei-Ministerium\n"
+        "    *   Zielwortzahl: ca. 1500 Wörter."
+    )
+    text = "Das Zauberei-Ministerium war an diesem Sommermorgen so geschäftig wie eh und je."
+    ergaenzt, findings = h.kapitelueberschrift_sicherstellen(text, kapitel_block)
+    assert ergaenzt == "Kapitel eins: Die letzte Chance\n\n" + text
+    assert len(findings) == 1
+    assert findings[0].code == "kapitelueberschrift_fehlt"
+
+
+def test_kapitelueberschrift_sicherstellen_laesst_vorhandene_ueberschrift_unangetastet():
+    kapitel_block = "*   **Kapitel vier: Das soll lecker sein?**\n    *   Ort: Daniels Labor"
+    # Vorhandene Ueberschrift in Markdown-Fettdruck statt reinem Text (wie
+    # beim realen Vorfall) - gilt trotzdem als "vorhanden", wird NICHT
+    # nochmal davorgesetzt.
+    text = "**Kapitel vier: Das soll lecker sein?**\n\nPünktlich erschien Hermine um 8 Uhr im Labor."
+    ergaenzt, findings = h.kapitelueberschrift_sicherstellen(text, kapitel_block)
+    assert ergaenzt == text
+    assert findings == []
+
+
+def test_kapitelueberschrift_sicherstellen_ohne_kapitelplan_block_unveraendert():
+    text = "Ein Kapitel ohne jede Ueberschrift und ohne bekannten Kapitelplan-Block."
+    ergaenzt, findings = h.kapitelueberschrift_sicherstellen(text, None)
+    assert ergaenzt == text
+    assert findings == []
+
+
 def test_kapitel_neustart_abschneiden_erkennt_doppelte_ueberschrift():
     text = (
         "Kapitel eins: Ankunft\n\nErster Absatz.\n\n"
