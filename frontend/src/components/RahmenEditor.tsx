@@ -167,11 +167,27 @@ export function RahmenEditor({ abschnitte, onChange }: RahmenEditorProps) {
             />
           );
         }
+        const istNebenstrang = a.heading.toLowerCase() === "nebenstrang";
         return (
           <AbschnittBlock key={index} titel={a.heading}>
             <Textarea
-              rows={a.heading.toLowerCase() === "nebenstrang" ? 4 : 3}
+              rows={istNebenstrang ? 4 : 3}
               value={a.text}
+              // Nebenstrang ist als einziger Abschnitt hier wirklich optional
+              // (siehe leeresGeruestSkelett() in geruestVorlage.ts - bleibt
+              // dort bewusst LEER statt mit Klammer-Hinweistext vorbefuellt):
+              // backend/app/core/geruest.py:nebenstrang_abschnitt_erkennen()
+              // haengt ein NICHT-leeres "## Nebenstrang" direkt an den
+              // Kontinuitaets-Pruefer-Prompt - ein bloss stehen gelassener
+              // Hinweistext wuerde dort faelschlich als echter Nebenstrang
+              // interpretiert. Der Hinweis lebt deshalb NUR als echtes
+              // HTML-Placeholder (verschwindet beim Tippen, wird bei leerem
+              // Feld nie mitgespeichert), nicht als vorbefuellter Wert.
+              placeholder={
+                istNebenstrang
+                  ? "Optional. Falls gewünscht: welche Indizien werden in welchem Kapitel gelegt, wie wird aufgelöst. Leer lassen, falls kein Nebenstrang gewünscht ist."
+                  : undefined
+              }
               onChange={(e) => abschnittAendern(index, { ...a, text: e.target.value })}
             />
           </AbschnittBlock>

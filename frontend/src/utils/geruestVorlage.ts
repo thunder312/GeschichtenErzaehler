@@ -80,7 +80,6 @@ ${titelZeile}
 [Was will die Hauptfigur, was steht dagegen - ein Satz.]
 
 ## Nebenstrang
-[Optional. Falls gewünscht: welche Indizien werden in welchem Kapitel gelegt, wie wird aufgelöst. Sonst diesen Abschnitt einfach löschen.]
 
 ## Offene Punkte
 [Fragen, die beim Schreiben noch zu klären sind - kann auch leer bleiben.]
