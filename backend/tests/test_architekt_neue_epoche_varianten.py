@@ -62,20 +62,29 @@ def test_architekt_vorlage_liefert_echtes_geruest_fuer_neu_angelegte_epoche(clie
     assert "## Regeln" not in vorlage
 
 
-def test_architekt_vorlage_figuren_abschnitt_verlangt_ueberschrift_statt_aufzaehlung(client, projekt):
-    # Regression: "Je Figur: ... in einem Satz" hielt sich das Modell (Mistral)
-    # bei reichhaltigen Fundus-Figuren nicht zuverlaessig dran und zerlegte
-    # stattdessen jedes einzelne Merkmal in einen eigenen, gleichrangigen
-    # Aufzaehlungspunkt neben dem Figurennamen - nicht mehr unterscheidbar,
-    # welche Punkte Figurennamen und welche nur Feld-Bezeichner sind (Live-
-    # Vorfall "Die-Schleier-zwischen-den-Welten": "Blutstatus"/"Rolle" sahen
-    # strukturell identisch aus wie "Daniel Ertl"/"Luna Lovegood"). Die
-    # Vorgabe verlangt jetzt explizit "### Name"-Ueberschriften statt Fliesstext.
+def test_architekt_vorlage_figuren_abschnitt_verlangt_einen_punkt_pro_figur(client, projekt):
+    # Regression, zweistufig: "Je Figur: ... in einem Satz" hielt sich das
+    # Modell (Mistral) bei reichhaltigen Fundus-Figuren nicht zuverlaessig
+    # dran und zerlegte stattdessen jedes einzelne Merkmal in einen eigenen,
+    # gleichrangigen Aufzaehlungspunkt neben dem Figurennamen - nicht mehr
+    # unterscheidbar, welche Punkte Figurennamen und welche nur Feld-
+    # Bezeichner sind (Live-Vorfall "Die-Schleier-zwischen-den-Welten":
+    # "Blutstatus"/"Rolle" sahen strukturell identisch aus wie "Daniel Ertl").
+    # Ein erster Fix (Umstieg auf "### Name"-Ueberschriften + "- Feld: Wert"-
+    # Unterpunkte) behob das LLM-Problem, brach aber den bestehenden
+    # strukturierten Figuren-Editor im Frontend (frontend/src/utils/rahmen.ts:
+    # figurenAusBody() erwartet GENAU EINEN Bullet pro Figur, "*   **Name:**
+    # Freitext" - "### "-Ueberschriften werden dort stillschweigend
+    # uebersprungen, jeder "- Feld: Wert"-Unterpunkt wird faelschlich als
+    # eigene Figur geparst). Die Vorgabe bleibt daher beim Ein-Punkt-pro-
+    # Figur-Format, jetzt aber mit explizitem FALSCH/RICHTIG-Beispiel gegen
+    # das Aufsplitten.
     r = client.get(f"/api/projects/{projekt}/architekt-vorlage")
     assert r.status_code == 200
     vorlage = r.json()["vorlage"]
-    assert "### Name der Figur" in vorlage
+    assert "### Name der Figur" not in vorlage
     assert "in einem Satz" not in vorlage
+    assert "FALSCH (Merkmale als eigene Punkte" in vorlage
 
 
 def test_architekt_extraktion_system_enthaelt_volle_struktur_fuer_neu_angelegte_epoche(client, projekt, monkeypatch):

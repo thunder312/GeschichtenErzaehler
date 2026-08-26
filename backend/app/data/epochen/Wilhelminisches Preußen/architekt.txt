@@ -210,33 +210,45 @@ Ein Satz.
 
 ## Figuren
 
-Je Figur als eigener Block, Name IMMER als eigene "### "-Überschrift (nicht
+Je Figur GENAU EIN Aufzählungspunkt im Format "*   **Name:** ...". ALLE
 
-als Aufzählungspunkt und nicht fett im Fliesstext), darunter jedes Merkmal
+Merkmale (Alter, Stand, Aussehen, Eigenschaften, Ziel, größte Angst,
 
-als eigener Punkt "- Feld: Wert" - niemals mehrere Merkmale in einem
+Geheimnis, Entwicklungsbogen) stehen als EIN zusammenhängender Fliesstext
 
-Fliesstext-Satz zusammengefasst. Merkmale: Alter, Stand, Aussehen,
+hinter diesem EINEN Doppelpunkt, durch Semikolons getrennt - NIEMALS als
 
-Eigenschaften, Ziel, größte Angst, Geheimnis, Entwicklungsbogen. Format:
+eigene Zeilen oder weitere "**Label:**"-Punkte darunter, auch nicht bei
 
-### Name der Figur
+vielen Merkmalen (z.B. bei aus dem Fundus übernommenen Figuren).
 
-- Alter: ...
 
-- (Stand): ...
 
-- Aussehen: ...
+FALSCH (Merkmale als eigene Punkte, strukturell nicht von einer neuen Figur
 
-- Eigenschaften: ...
+zu unterscheiden):
 
-- Ziel: ...
+"*   **Elena Varga:**
 
-- Angst: ...
+*   **Rolle:** Spionin
 
-- Geheimnis: ...
+*   **Ziel:** Den Verräter finden"
 
-- Entwicklungsbogen: ...
+
+
+RICHTIG (alles in EINEM Punkt, durch Semikolons getrennt):
+
+"*   **Elena Varga:** 34 Jahre; Spionin im Dienst der Krone; kühl und
+
+    berechnend, aber loyal zu ihren wenigen Vertrauten; schlank, dunkles
+
+    kurzes Haar, eine Narbe über der linken Braue; will den Verräter im
+
+    eigenen Hof finden; fürchtet, selbst als Verräterin verdächtigt zu
+
+    werden; verbirgt eine alte Schuld gegenüber ihrem toten Mentor; lernt
+
+    im Verlauf, wieder jemandem zu vertrauen."
 
 
 

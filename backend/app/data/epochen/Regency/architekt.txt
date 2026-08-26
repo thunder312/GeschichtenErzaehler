@@ -110,20 +110,26 @@ Ein Titel, der auf den Plot hindeutet und Spannung erzeugt.
 Ein Satz.
 
 ## Figuren
-Je Figur als eigener Block, Name IMMER als eigene "### "-Überschrift (nicht
-als Aufzählungspunkt und nicht fett im Fliesstext), darunter jedes Merkmal
-als eigener Punkt "- Feld: Wert" - niemals mehrere Merkmale in einem
-Fliesstext-Satz zusammengefasst. Merkmale: Alter, Rang/Titel, Aussehen,
-Eigenschaften, Ziel, größte Angst, Geheimnis, Entwicklungsbogen. Format:
-### Name der Figur
-- Alter: ...
-- (Rang/Titel): ...
-- Aussehen: ...
-- Eigenschaften: ...
-- Ziel: ...
-- Angst: ...
-- Geheimnis: ...
-- Entwicklungsbogen: ...
+Je Figur GENAU EIN Aufzählungspunkt im Format "*   **Name:** ...". ALLE
+Merkmale (Alter, Rang/Titel, Aussehen, Eigenschaften, Ziel, größte Angst,
+Geheimnis, Entwicklungsbogen) stehen als EIN zusammenhängender Fliesstext
+hinter diesem EINEN Doppelpunkt, durch Semikolons getrennt - NIEMALS als
+eigene Zeilen oder weitere "**Label:**"-Punkte darunter, auch nicht bei
+vielen Merkmalen (z.B. bei aus dem Fundus übernommenen Figuren).
+
+FALSCH (Merkmale als eigene Punkte, strukturell nicht von einer neuen Figur
+zu unterscheiden):
+"*   **Elena Varga:**
+*   **Rolle:** Spionin
+*   **Ziel:** Den Verräter finden"
+
+RICHTIG (alles in EINEM Punkt, durch Semikolons getrennt):
+"*   **Elena Varga:** 34 Jahre; Spionin im Dienst der Krone; kühl und
+    berechnend, aber loyal zu ihren wenigen Vertrauten; schlank, dunkles
+    kurzes Haar, eine Narbe über der linken Braue; will den Verräter im
+    eigenen Hof finden; fürchtet, selbst als Verräterin verdächtigt zu
+    werden; verbirgt eine alte Schuld gegenüber ihrem toten Mentor; lernt
+    im Verlauf, wieder jemandem zu vertrauen."
 
 ## Konflikt
 Ein Satz.
