@@ -16,9 +16,11 @@ from app.auth import get_current_user
 from app.config import Settings, get_settings
 from app.core import architekt as arch
 from app.core import automatik
+from app.core import befunde_ablehnung
 from app.core import geruest as g
 from app.core import projekt_dateien as pd
 from app.schemas import (
+    BefundAblehnenAnfrage,
     BefundeAntwort,
     Benutzer,
     EpocheKurz,
@@ -473,6 +475,35 @@ def befunde_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings
         antwort.veraltet = antwort.quelltext_sha256 != aktueller_hash
 
     return antwort
+
+
+@router.post("/{ordner:path}/befunde/{n}/ablehnen")
+def befund_ablehnen(ordner: str, n: int, anfrage: BefundAblehnenAnfrage,
+                     settings: Settings = Depends(get_settings),
+                     benutzer: Benutzer = Depends(get_current_user)):
+    """Button "Ablehnen" im Tab "Pruefen & Anwenden" (parallel zu
+    "Uebernehmen") - entfernt den Fund SOFORT aus dem gespeicherten
+    befunde_{n}.json (damit er nicht durch einen simplen Reload wieder
+    auftaucht) UND merkt sich (Kategorie, Fundstelle) dauerhaft projektweit
+    vor (app/core/befunde_ablehnung.py), damit er bei einer kuenftigen
+    erneuten Pruefung dieses oder eines anderen Kapitels nicht wieder
+    gemeldet wird - z.B. fuer eine in einer FanFic-Epoche bewusst
+    gewuenschte Kanon-Abweichung, die der Nutzer ein fuer alle Mal nicht
+    mehr sehen will."""
+    pfad = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
+    datei = pd.befunde_datei(pfad, n)
+    if not datei.exists():
+        raise HTTPException(404, f"Befunde zu Kapitel {n} nicht gefunden.")
+    antwort = BefundeAntwort.model_validate_json(pd.lies(datei))
+    ziel = next((b for b in antwort.befunde if b.id == anfrage.befund_id), None)
+    if ziel is None:
+        raise HTTPException(404, f"Fund {anfrage.befund_id} nicht gefunden.")
+
+    befunde_ablehnung.hinzufuegen(pfad, ziel.kategorien, ziel.fundstelle)
+
+    antwort.befunde = [b for b in antwort.befunde if b.id != anfrage.befund_id]
+    datei.write_text(antwort.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    return {"abgelehnt": True}
 
 
 @router.get("/{ordner:path}/gesamt", response_class=PlainTextResponse)

@@ -438,3 +438,59 @@ def test_projekt_epoche_aendern_verschiebt_ordner_wenn_unterordner_je_epoche_akt
     # Ueber die Liste weiterhin auffindbar, jetzt unter dem neuen Pfad.
     liste = client.get("/api/projects").json()
     assert any(p["ordner"] == f"Mittelalter/{projekt}" and p["epoche"] == "Mittelalter" for p in liste)
+
+
+def _befunde_json_schreiben(projekt_root, n, befunde):
+    from app.core import projekt_dateien as pd
+
+    inhalt = {
+        "kapitel": n, "erzeugt_am": "2026-01-01 12:00", "jahr": "1811",
+        "befunde": befunde, "quelltext_sha256": None,
+    }
+    import json
+    pd.befunde_datei(projekt_root / "projekt", n).write_text(
+        json.dumps(inhalt, ensure_ascii=False, indent=2), encoding="utf-8",
+    )
+
+
+def _beispiel_befund(id_="b1", kategorien=None, fundstelle="Der Zauberer reiste nach London"):
+    return {
+        "id": id_, "kategorien": kategorien or ["stimmigkeit"], "fundstelle": fundstelle,
+        "beschreibungen": [{"quelle": "stimmigkeit", "text": "Ort weicht vom Kanon ab"}],
+        "sicherheit": "mittel", "vorschlag": "Der Zauberer reiste nach Berlin",
+        "konflikt": False, "konflikt_vorschlaege": None, "gefunden": True,
+        "start": 0, "end": len("Der Zauberer reiste nach London"),
+    }
+
+
+def test_befund_ablehnen_entfernt_ihn_sofort_und_dauerhaft(client, projekt, tmp_path):
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    _befunde_json_schreiben(projekt_root, 1, [_beispiel_befund()])
+
+    r = client.post(f"/api/projects/{projekt}/befunde/1/ablehnen", json={"befund_id": "b1"})
+    assert r.status_code == 200
+    assert r.json() == {"abgelehnt": True}
+
+    # Sofort aus der gespeicherten Datei entfernt - ein simpler Reload zeigt
+    # den Fund nicht wieder.
+    gelesen = client.get(f"/api/projects/{projekt}/befunde/1").json()
+    assert gelesen["befunde"] == []
+
+    # Und projektweit als dauerhaft abgelehnt vermerkt, damit ein kuenftiger
+    # /pruefen-Lauf ihn nicht erneut meldet.
+    from app.core import befunde_ablehnung
+    abgelehnte = befunde_ablehnung.lesen(projekt_root / "projekt")
+    assert any(e["kategorie"] == "stimmigkeit" for e in abgelehnte)
+
+
+def test_befund_ablehnen_unbekannte_id_gibt_404(client, projekt, tmp_path):
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    _befunde_json_schreiben(projekt_root, 1, [_beispiel_befund()])
+
+    r = client.post(f"/api/projects/{projekt}/befunde/1/ablehnen", json={"befund_id": "b-nicht-vorhanden"})
+    assert r.status_code == 404
+
+
+def test_befund_ablehnen_ohne_befunde_datei_gibt_404(client, projekt):
+    r = client.post(f"/api/projects/{projekt}/befunde/1/ablehnen", json={"befund_id": "b1"})
+    assert r.status_code == 404

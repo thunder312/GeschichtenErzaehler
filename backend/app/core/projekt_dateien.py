@@ -46,6 +46,16 @@ def befunde_datei(projekt: Path, n: int) -> Path:
     return projekt / f"befunde_{n:02d}.json"
 
 
+def abgelehnte_befunde_datei(projekt: Path) -> Path:
+    """Vom Nutzer dauerhaft abgelehnte Pruefer-Vorschlaege (Button
+    "Ablehnen" im Tab "Pruefen & Anwenden", siehe
+    app/core/befunde_ablehnung.py) - PROJEKTWEIT statt pro Kapitel, damit
+    z.B. eine in einer FanFic-Epoche bewusst gewuenschte Kanon-Abweichung
+    (andere Figuren/Orte als im Original) nicht in jedem Kapitel einzeln
+    abgelehnt werden muss."""
+    return projekt / "abgelehnte_befunde.json"
+
+
 def geruest_datei(projekt: Path) -> Path:
     return projekt / "geruest.md"
 

@@ -33,6 +33,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
   const [aktiveId, setAktiveId] = useState<string | null>(null);
   const [orphanIds, setOrphanIds] = useState<Set<string>>(new Set());
   const [uebernommenIds, setUebernommenIds] = useState<Set<string>>(new Set());
+  const [abgelehntIds, setAbgelehntIds] = useState<Set<string>>(new Set());
   const [speichertLaedt, setSpeichertLaedt] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
   const [automatikStatus, setAutomatikStatus] = useState<AutomatikStatus | null>(null);
@@ -205,7 +206,14 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
     return liste;
   }, [bloecke, spannen, kapitelNummern]);
 
-  const shiftedBefunde = useMemo(() => alleShiftedBefunde.map((x) => x.shifted), [alleShiftedBefunde]);
+  // Abgelehnte Funde (Button "Ablehnen", siehe aufFundAblehnen unten) werden
+  // SOFORT komplett ausgeblendet - anders als "Übernommen" bleibt hier
+  // nichts im Text zu markieren, ein weiterhin gelisteter Eintrag waere nur
+  // verwirrend (siehe BefundListe.tsx).
+  const shiftedBefunde = useMemo(
+    () => alleShiftedBefunde.map((x) => x.shifted).filter((b) => !abgelehntIds.has(b.id)),
+    [alleShiftedBefunde, abgelehntIds],
+  );
   const kapitelVonId = useMemo(() => {
     const map = new Map<string, number>();
     for (const x of alleShiftedBefunde) map.set(x.shifted.id, x.kapitel);
@@ -297,6 +305,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
     }
     setOrphanIds(new Set());
     setUebernommenIds(new Set());
+    setAbgelehntIds(new Set());
     setReloadToken((t) => t + 1);
   }
 
@@ -375,6 +384,26 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
   function aufFundKlicken(befund: Befund) {
     setAktiveId(befund.id);
     editorRef.current?.springeZu(befund);
+  }
+
+  // "Ablehnen" markiert den Fund im Backend dauerhaft (projektweit) als
+  // "kein Fehler" (app/core/befunde_ablehnung.py) - er verschwindet sofort
+  // aus der Liste UND wird bei einer kuenftigen Pruefung nicht wieder
+  // gemeldet, z.B. fuer eine in einer FanFic-Epoche bewusst gewuenschte
+  // Kanon-Abweichung. befund.id ist die ueber Kapitel hinweg eindeutig
+  // gemachte, "{n}-"-praefigierte id (siehe alleShiftedBefunde oben) - fuer
+  // den Backend-Aufruf wird sie wieder auf Kapitelnummer + Original-id
+  // aufgespalten.
+  async function aufFundAblehnen(befund: Befund) {
+    const n = kapitelVonId.get(befund.id);
+    if (n === undefined) return;
+    const originalId = befund.id.slice(String(n).length + 1);
+    try {
+      await api.befundAblehnen(ordner, n, originalId);
+      setAbgelehntIds((s) => new Set(s).add(befund.id));
+    } catch (e) {
+      window.alert(`Ablehnen fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   return (
@@ -492,6 +521,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
                 kapitelVon={(befund) => kapitelVonId.get(befund.id) ?? 0}
                 onUebernehmen={(befund) => editorRef.current?.uebernehmen(befund.id)}
                 onUebernehmenAlle={(alle) => editorRef.current?.uebernehmenMehrere(alle.map((b) => b.id))}
+                onAblehnen={aufFundAblehnen}
               />
             </div>
           </div>

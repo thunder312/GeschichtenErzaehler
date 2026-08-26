@@ -241,6 +241,15 @@ class Befund(BaseModel):
     end: int | None
 
 
+class BefundAblehnenAnfrage(BaseModel):
+    """Button "Ablehnen" im Tab "Pruefen & Anwenden" - siehe
+    app/core/befunde_ablehnung.py. `befund_id` ist die id des Funds
+    INNERHALB des zuletzt gespeicherten befunde_{n}.json (also OHNE das vom
+    Frontend fuer die kapitelweite Anzeige vorangestellte "{n}-", siehe
+    PruefenAnwendenPage.tsx:alleShiftedBefunde)."""
+    befund_id: str
+
+
 class BefundeAntwort(BaseModel):
     kapitel: int
     erzeugt_am: str

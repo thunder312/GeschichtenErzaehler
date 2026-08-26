@@ -167,7 +167,7 @@ starten" is clicked — the old version is automatically backed up as a
 
 | Tab | Effect |
 |---|---|
-| **Prüfen & Anwenden** (Review & Apply) | Shows the entire, cross-chapter chapter text in an editor, with all findings from all four reviewer roles (anachronism, plausibility, continuity, copy-editing) next to it, color-coded by category. Any finding with a concrete, unambiguous replacement suggestion can be applied with a click (editor widget or list button) — a plain text replacement in the browser, no further AI call. "Erneut prüfen" (Review again) per chapter restarts the four reviewer roles. |
+| **Prüfen & Anwenden** (Review & Apply) | Shows the entire, cross-chapter chapter text in an editor, with all findings from all four reviewer roles (anachronism, plausibility, continuity, copy-editing) next to it, color-coded by category. Any finding with a concrete, unambiguous replacement suggestion can be applied with a click (editor widget or list button) — a plain text replacement in the browser, no further AI call. "Erneut prüfen" (Review again) per chapter restarts the four reviewer roles. "Ablehnen" (Reject) instead marks a finding permanently as "not an error" — e.g. an intentionally chosen canon deviation in a fan-fiction era (different characters/locations than the original). The finding disappears immediately and is not reported again on a future review, project-wide, not just for this chapter. |
 | **Rechtschreibung** (Spelling) | Interactive: go through unknown words (hunspell) one by one with sentence context — clicking jumps to the spot in the editor, correct it there by hand |
 
 Contradictory suggestions from two reviewers, as well as findings whose

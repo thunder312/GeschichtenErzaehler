@@ -35,6 +35,7 @@ from app.auth import get_current_user, get_current_user_ws
 from app.config import Settings, get_settings
 from app.core import automatik
 from app.core import bild_generierung
+from app.core import befunde_ablehnung
 from app.core import geruest as g
 from app.core import heuristik as h
 from app.core import projekt_dateien as pd
@@ -537,6 +538,12 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
     # sonst denselben Fund doppelt melden, wenn sich Text ueberschneidet
     # oder derselbe Satz wortgleich mehrfach im Kapitel vorkommt.
     roh_befunde = _ohne_eigene_duplikate(roh_befunde, ("kategorie", "fundstelle", "vorschlag"))
+    # Funde, die der Nutzer ueber den "Ablehnen"-Button im Tab
+    # "Pruefen & Anwenden" bereits als "kein Fehler" markiert hat (z.B. eine
+    # bewusste Kanon-Abweichung in einer FanFic-Epoche), sollen bei einer
+    # erneuten Pruefung nicht wieder auftauchen - siehe
+    # app/core/befunde_ablehnung.py.
+    roh_befunde = befunde_ablehnung.herausfiltern(projekt, roh_befunde)
     befunde = [Befund(**b) for b in befunde_zusammenfuehren(kapiteltext, roh_befunde)]
 
     antwort = BefundeAntwort(

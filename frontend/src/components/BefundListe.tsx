@@ -30,6 +30,12 @@ interface BefundListeProps {
    * werden soll (BefundEditor) - ohne diese Prop (z.B. in SchreibenPage) ist
    * die Liste rein informativ. */
   onUebernehmen?: (befund: Befund) => void;
+  /** Nur uebergeben, wenn ein "Ablehnen"-Button parallel zu "Uebernehmen"
+   * angeboten werden soll (PruefenAnwendenPage) - markiert den Fund
+   * dauerhaft (projektweit) als "kein Fehler", er wird auch bei einer
+   * erneuten Pruefung nicht wieder gemeldet, siehe
+   * app/core/befunde_ablehnung.py. */
+  onAblehnen?: (befund: Befund) => void;
   /** Nur uebergeben, wenn zusaetzlich ein Sammel-Button "Alle Lektorat-Funde
    * uebernehmen" angeboten werden soll - Lektorat liefert typischerweise
    * viele kleine Einzelfunde pro Kapitel (Endungen, Kommata, Tippfehler),
@@ -54,6 +60,7 @@ export function BefundListe({
   uebernommenIds,
   onUebernehmen,
   onUebernehmenAlle,
+  onAblehnen,
   kapitelVon,
 }: BefundListeProps) {
   // Verwaiste Funde (Fundstelle stimmt nicht mehr mit dem aktuellen Text
@@ -139,6 +146,19 @@ export function BefundListe({
                 <span className="rounded-full border border-accent/40 bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent-light">
                   ✓ Übernommen
                 </span>
+              )}
+              {onAblehnen && !uebernommen && (
+                <button
+                  type="button"
+                  title="Diesen Fund dauerhaft als 'kein Fehler' markieren - er wird auch bei einer erneuten Prüfung nicht wieder gemeldet."
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAblehnen(befund);
+                  }}
+                  className="ml-auto shrink-0 rounded-md border border-border px-2 py-0.5 text-xs font-medium text-text-muted hover:border-red-400/40 hover:bg-red-400/10 hover:text-red-200"
+                >
+                  Ablehnen
+                </button>
               )}
             </div>
 

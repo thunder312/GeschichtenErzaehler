@@ -198,7 +198,7 @@ gesichert, nichts geht verloren.
 
 | Tab | Wirkung |
 |---|---|
-| **Prüfen & Anwenden** | Zeigt den gesamten, kapitelübergreifenden Kapiteltext in einem Editor mit allen Funden aller vier Prüfer-Rollen (Anachronismus, Stimmigkeit, Kontinuität, Lektorat) daneben, farblich nach Kategorie unterschieden. Jeder Fund mit konkretem, unzweideutigem Ersatzvorschlag lässt sich per Klick (Editor-Widget oder Listen-Button) übernehmen — reiner Text-Ersatz im Browser, kein weiterer KI-Aufruf. „Erneut prüfen“ je Kapitel startet die vier Prüfer-Rollen neu. |
+| **Prüfen & Anwenden** | Zeigt den gesamten, kapitelübergreifenden Kapiteltext in einem Editor mit allen Funden aller vier Prüfer-Rollen (Anachronismus, Stimmigkeit, Kontinuität, Lektorat) daneben, farblich nach Kategorie unterschieden. Jeder Fund mit konkretem, unzweideutigem Ersatzvorschlag lässt sich per Klick (Editor-Widget oder Listen-Button) übernehmen — reiner Text-Ersatz im Browser, kein weiterer KI-Aufruf. „Erneut prüfen“ je Kapitel startet die vier Prüfer-Rollen neu. Über „Ablehnen“ lässt sich ein Fund stattdessen dauerhaft als „kein Fehler“ markieren — z. B. eine in einer FanFic-Epoche bewusst gewählte Kanon-Abweichung (andere Figuren/Orte als im Original). Der Fund verschwindet sofort und wird auch bei einer erneuten Prüfung nicht wieder gemeldet (projektweit, nicht nur für dieses Kapitel). |
 | **Rechtschreibung** | Interaktiv: unbekannte Wörter (hunspell) einzeln mit Satzkontext durchgehen — Klick springt an die Stelle im Editor, dort von Hand korrigieren |
 
 Widersprüchliche Vorschläge zweier Prüfer sowie Funde, deren Textstelle

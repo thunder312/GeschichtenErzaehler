@@ -181,6 +181,12 @@ export const api = {
   befunde: (ordner: string, n: number) =>
     anfrage<BefundeAntwort>(`/api/projects/${ordner}/befunde/${n}`),
 
+  befundAblehnen: (ordner: string, n: number, befundId: string) =>
+    anfrage<{ abgelehnt: boolean }>(
+      `/api/projects/${ordner}/befunde/${n}/ablehnen`,
+      { method: "POST", body: JSON.stringify({ befund_id: befundId }) },
+    ),
+
   gesamt: (ordner: string) => anfrage<string>(`/api/projects/${ordner}/gesamt`),
 
   architektenGespraech: (ordner: string) =>
