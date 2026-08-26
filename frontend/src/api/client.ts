@@ -12,6 +12,8 @@ import type {
   EpocheKurz,
   EpocheUmbenennenAntwort,
   EpocheVorschlagAntwort,
+  FundusFigur,
+  FundusFigurenAntwort,
   FundusImportAntwort,
   FundusProjektAntwort,
   LoginEingabe,
@@ -417,6 +419,44 @@ export const api = {
 
   fundusProjektAktualisieren: (ordner: string, sshZielId?: string | null) =>
     anfrage<FundusProjektAntwort>(`/api/fundus/projekt/${ordner}${sshQuery(sshZielId)}`, { method: "POST" }),
+
+  fundusFigurenLesen: () => anfrage<FundusFigurenAntwort>("/api/fundus/figuren"),
+
+  fundusFigurAnlegen: (epoche: string, name: string, felder: Record<string, string>) =>
+    anfrage<FundusFigur>("/api/fundus/figuren", {
+      method: "POST",
+      body: JSON.stringify({ epoche, name, felder }),
+    }),
+
+  fundusFigurAktualisieren: (
+    epoche: string,
+    name: string,
+    felder: Record<string, string>,
+    neuerName?: string,
+    neueEpoche?: string,
+  ) =>
+    anfrage<FundusFigur>("/api/fundus/figuren", {
+      method: "PUT",
+      body: JSON.stringify({ epoche, name, neuer_name: neuerName ?? null, neue_epoche: neueEpoche ?? null, felder }),
+    }),
+
+  fundusFigurLoeschen: (epoche: string, name: string) =>
+    anfrage<{ gelöscht: boolean }>(
+      `/api/fundus/figuren?${new URLSearchParams({ epoche, name })}`,
+      { method: "DELETE" },
+    ),
+
+  fundusFigurKopieren: (epoche: string, name: string, zielEpoche: string, neuerName?: string) =>
+    anfrage<FundusFigur>("/api/fundus/figuren/kopieren", {
+      method: "POST",
+      body: JSON.stringify({ epoche, name, ziel_epoche: zielEpoche, neuer_name: neuerName ?? null }),
+    }),
+
+  fundusFeldHinzufuegen: (epoche: string, name: string, feldName: string, wert: string, fuerAlle: boolean) =>
+    anfrage<FundusFigur>("/api/fundus/felder", {
+      method: "POST",
+      body: JSON.stringify({ epoche, name, feld_name: feldName, wert, fuer_alle: fuerAlle }),
+    }),
 };
 
 export function schreibenWebSocketUrl(

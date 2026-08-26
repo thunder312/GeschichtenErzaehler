@@ -49,6 +49,24 @@ def leere_vorlage() -> str:
     return _VORLAGE
 
 
+_ERSTE_EPOCHE_MUSTER = re.compile(r"^##[ \t]", re.MULTILINE)
+
+
+def kopf_kommentar_extrahieren(fundus_text: str) -> str:
+    """Liefert den einleitenden Kommentarblock (alles vor der ersten
+    '## <Epoche>'-Ueberschrift) unveraendert - wird beim Zusammenbauen mit
+    fundus_serialisieren() vorangestellt, da diese Funktion selbst keinen
+    Kopf erzeugt (siehe app/api/fundus.py). Faellt auf leere_vorlage()
+    zurueck, wenn der Text (noch) keine Epoche enthaelt. ^ in MULTILINE
+    matcht bewusst auch Zeile 1 (Text OHNE Kopf-Kommentar, faengt direkt mit
+    '## Epoche' an - z.B. in Tests) - eine reine '\\n## '-Suche wuerde
+    diesen Fall verfehlen, weil vor Zeile 1 kein Zeilenumbruch steht."""
+    treffer = _ERSTE_EPOCHE_MUSTER.search(fundus_text)
+    if not treffer:
+        return fundus_text if fundus_text.strip() else leere_vorlage()
+    return fundus_text[: treffer.start()]
+
+
 def epoche_abschnitt_erkennen(fundus_text: str, epoche: str) -> str | None:
     """Extrahiert den Textblock unter '## <epoche>' bis zur naechsten
     '## '-Ueberschrift oder Textende. None, wenn die Epoche (noch) keinen
@@ -154,6 +172,104 @@ def _geschichten_ergaenzen(block: str, story_titel: str) -> str:
         vorhandene.append(story_titel.strip())
     neue_zeile = f"- Geschichten: {', '.join(vorhandene)}"
     return block[:treffer.start()] + neue_zeile + block[treffer.end():]
+
+
+STANDARD_FELDER = ["Alter", "Stand/Rolle", "Eigenschaften", "Aussehen", "Ziel", "Angst", "Geheimnis"]
+# "Geschichten" bewusst NICHT hier drin - es steht in jedem Block als feste
+# Sonderposition ganz am Ende (siehe figur_block_erzeugen), unabhaengig
+# davon, welche sonstigen (Standard- oder Custom-)Felder dazwischenstehen.
+
+_FELD_ZEILE_MUSTER = re.compile(r"^-[ \t]*([^:\n]+?)[ \t]*:[ \t]*(.*)$")
+
+
+@dataclass
+class Figur:
+    """Eine Figur als strukturierte (Feldname -> Wert)-Abbildung statt
+    Roh-Markdown - Grundlage fuer den strukturierten Personen-Editor (siehe
+    app/api/fundus.py). `felder` ist insertion-ordered (Python-dict), die
+    Reihenfolge entspricht der im Markdown-Block; 'Geschichten' ist ein
+    normaler Schluessel darin, keine Sonderbehandlung noetig, solange neue
+    Felder ueber feld_setzen() ergaenzt werden."""
+    epoche: str
+    name: str
+    felder: dict[str, str]
+
+
+def feld_setzen(felder: dict[str, str], name: str, wert: str) -> None:
+    """Setzt felder[name] = wert - ist der Schluessel neu, wird er direkt
+    VOR 'Geschichten' eingefuegt (statt einfach ans Ende), damit
+    'Geschichten' beim Serialisieren weiterhin die letzte Zeile jedes
+    Blocks bleibt, wie es die Standard-Vorlage vorgibt."""
+    if name in felder:
+        felder[name] = wert
+        return
+    geschichten = felder.pop("Geschichten", None)
+    felder[name] = wert
+    if geschichten is not None:
+        felder["Geschichten"] = geschichten
+
+
+def fundus_parsen(fundus_text: str) -> list[Figur]:
+    """Zerlegt die gesamte fundus.md (ohne den einleitenden Kopf-Kommentar)
+    in eine flache, geordnete Liste aller Figuren ueber alle Epochen hinweg.
+    Rein lesend - Grundlage fuer den strukturierten Personen-Editor, der
+    GET /api/fundus/figuren liefert. Toleriert unbekannte/eigene Feldzeilen
+    (alles im Muster '- Label: Wert' wird als Feld uebernommen); Zeilen, die
+    diesem Muster nicht entsprechen (z.B. Reste alter freier Fliesstext-
+    Eintraege), werden stillschweigend uebersprungen statt einen Fehler zu
+    werfen."""
+    treffer = _ERSTE_EPOCHE_MUSTER.search(fundus_text)
+    if not treffer:
+        return []
+    rumpf = fundus_text[treffer.start():]
+
+    ergebnis: list[Figur] = []
+    epochen_treffer = list(re.finditer(r"^##[ \t]+(.+?)[ \t]*$", rumpf, re.MULTILINE))
+    for i, epoche_treffer in enumerate(epochen_treffer):
+        epoche = epoche_treffer.group(1).strip()
+        ende = epochen_treffer[i + 1].start() if i + 1 < len(epochen_treffer) else len(rumpf)
+        abschnitt = rumpf[epoche_treffer.end():ende]
+        for name, block in _figur_bloecke_mit_namen(abschnitt):
+            felder: dict[str, str] = {}
+            for zeile in block.splitlines()[1:]:
+                feld_treffer = _FELD_ZEILE_MUSTER.match(zeile)
+                if not feld_treffer:
+                    continue
+                feld_name = feld_treffer.group(1).strip()
+                wert = feld_treffer.group(2).strip()
+                if feld_name in felder and felder[feld_name]:
+                    felder[feld_name] = f"{felder[feld_name]} {wert}".strip()
+                else:
+                    felder[feld_name] = wert
+            ergebnis.append(Figur(epoche=epoche, name=name, felder=felder))
+    return ergebnis
+
+
+def fundus_serialisieren(figuren: list[Figur]) -> str:
+    """Baut eine komplette fundus.md aus einer flachen Figuren-Liste neu auf
+    - Inverse von fundus_parsen(), OHNE den Kopf-Kommentar (der bleibt beim
+    Aufrufer erhalten, siehe app/api/fundus.py). Epochen erscheinen in der
+    Reihenfolge ihres ERSTEN Auftretens in `figuren`, Figuren innerhalb
+    einer Epoche in der Reihenfolge, in der sie in der Liste stehen. Jede
+    Figur listet NUR die Felder auf, die in ihrem eigenen `felder`-Dict
+    stehen (siehe feld_setzen fuer die Merge-Regel
+    "nur diese Person" vs. "alle Personen" beim Hinzufuegen eines neuen
+    Feldes) - anders als figur_block_erzeugen() erzwingt diese Funktion
+    KEINE einheitliche Acht-Felder-Struktur, damit Custom-Felder gezielt
+    auf einzelne Figuren beschraenkt bleiben koennen."""
+    epochen: dict[str, list[Figur]] = {}
+    for figur in figuren:
+        epochen.setdefault(figur.epoche, []).append(figur)
+
+    abschnitte = []
+    for epoche, figuren_in_epoche in epochen.items():
+        bloecke = []
+        for figur in figuren_in_epoche:
+            zeilen = [f"### {figur.name}"]
+            zeilen += [f"- {name}: {wert}" for name, wert in figur.felder.items()]
+            bloecke.append("\n".join(zeilen) + "\n")
+        abschnitte.append(f"## {epoche}\n\n" + "\n".join(bloecke))
+    return "\n".join(abschnitte).rstrip("\n") + "\n"
 
 
 def figuren_zusammenfuehren(

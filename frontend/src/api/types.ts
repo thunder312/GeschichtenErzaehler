@@ -277,6 +277,18 @@ export interface FundusProjektAntwort {
   uebersprungen: boolean;
 }
 
+export interface FundusFigur {
+  epoche: string;
+  name: string;
+  /** Insertion-geordnet: Standardfelder zuerst, dann eigene Zusatzfelder, "Geschichten" immer zuletzt. */
+  felder: Record<string, string>;
+}
+
+export interface FundusFigurenAntwort {
+  figuren: FundusFigur[];
+  standard_felder: string[];
+}
+
 export interface ProjektBereinigenAntwort {
   geloeschte_bak: number;
   geloeschte_stand: number;

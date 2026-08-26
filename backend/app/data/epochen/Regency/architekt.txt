@@ -110,7 +110,7 @@ Ein Titel, der auf den Plot hindeutet und Spannung erzeugt.
 Ein Satz.
 
 ## Figuren
-Je Figur: Name, Alter, Rang/Titel, Ziel, größte Angst, Geheimnis,
+Je Figur: Name, Alter, Rang/Titel, Aussehen, Ziel, größte Angst, Geheimnis,
 Entwicklungsbogen in einem Satz.
 
 ## Konflikt
@@ -187,7 +187,7 @@ unter den Augen der Gesellschaft, Widerstand durch Konvention oder Standesunters
 ehrliches Geständnis, körperliche Erfüllung. Kein Sprung von Fremdheit zu
 Intimität.
 Ist eine Figur laut Frage 6 aus dem Fundus übernommen, behältst du deren dort
-bereits festgelegte Merkmale (Alter, Rang/Titel, Eigenschaften und - sofern sie
+bereits festgelegte Merkmale (Alter, Rang/Titel, Eigenschaften, Aussehen und - sofern sie
 Hauptfigur ist - Ziel, größte Angst, Geheimnis, Entwicklungsbogen) unverändert
 bei, statt sie neu zu erfinden. Nur wirklich fehlende Angaben ergänzt du frei.
 Adelstitel werden in England ganz überwiegend männlich vererbt (Primogenitur);

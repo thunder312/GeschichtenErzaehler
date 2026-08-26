@@ -102,7 +102,7 @@ Ein Titel, der auf den Plot hindeutet und Spannung erzeugt.
 Ein Satz.
 
 ## Figuren
-Je Figur: Name, Alter, Es herrscht eine Art Kastensystem., Ziel, größte Angst, Geheimnis,
+Je Figur: Name, Alter, Es herrscht eine Art Kastensystem., Aussehen, Ziel, größte Angst, Geheimnis,
 Entwicklungsbogen in einem Satz.
 
 ## Anrede-Konventionen
@@ -183,7 +183,7 @@ Die Liebeshandlung braucht Zwischenschritte und wird über die Kapitel verteilt
 geplant: Begegnung, Annäherung, Widerstand, ehrliches Geständnis, körperliche
 Erfüllung. Kein Sprung von Fremdheit zu Intimität.
 Ist eine Figur laut Frage 6 aus dem Fundus übernommen, behältst du deren dort
-bereits festgelegte Merkmale (Alter, Es herrscht eine Art Kastensystem., Eigenschaften und - sofern
+bereits festgelegte Merkmale (Alter, Es herrscht eine Art Kastensystem., Eigenschaften, Aussehen und - sofern
 sie Hauptfigur ist - Ziel, größte Angst, Geheimnis, Entwicklungsbogen)
 unverändert bei, statt sie neu zu erfinden. Nur wirklich fehlende Angaben
 ergänzt du frei.

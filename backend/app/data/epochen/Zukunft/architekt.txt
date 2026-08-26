@@ -115,7 +115,7 @@ Ein Titel, der auf den Plot hindeutet und Spannung erzeugt.
 Ein Satz.
 
 ## Figuren
-Je Figur: Name, Alter, Rang, Spezies, Ziel, größte Angst, Geheimnis,
+Je Figur: Name, Alter, Rang, Spezies, Aussehen, Ziel, größte Angst, Geheimnis,
 Entwicklungsbogen in einem Satz.
 
 ## Konflikt
@@ -192,7 +192,7 @@ geplant: Begegnung, Annäherung unter dem Druck von Dienst und Rangordnung,
 Widerstand durch den Weitenflotte-Kodex oder Artfremdheit, ehrliches
 Geständnis, körperliche Erfüllung. Kein Sprung von Fremdheit zu Intimität.
 Ist eine Figur laut Frage 6 aus dem Fundus übernommen, behältst du deren dort
-bereits festgelegte Merkmale (Alter, Rang, Spezies, Eigenschaften und - sofern
+bereits festgelegte Merkmale (Alter, Rang, Spezies, Eigenschaften, Aussehen und - sofern
 sie Hauptfigur ist - Ziel, größte Angst, Geheimnis, Entwicklungsbogen)
 unverändert bei, statt sie neu zu erfinden. Nur wirklich fehlende Angaben
 ergänzt du frei.

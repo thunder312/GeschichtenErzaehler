@@ -421,6 +421,66 @@ class FundusProjektAntwort(BaseModel):
     uebersprungen: bool
 
 
+class FundusFigurAntwort(BaseModel):
+    """Eine Figur fuer den strukturierten Personen-Editor (siehe
+    app/core/fundus.py:Figur) - `felder` ist insertion-ordered (Standard-
+    felder zuerst, dann eigene Zusatzfelder), 'Geschichten' als normaler
+    Schluessel darin."""
+    epoche: str
+    name: str
+    felder: dict[str, str]
+
+
+class FundusFigurenAntwort(BaseModel):
+    figuren: list[FundusFigurAntwort]
+    # STANDARD_FELDER + "Geschichten" aus app/core/fundus.py - dem Frontend
+    # bekannt gegeben, damit es beim Anlegen einer neuen Figur die
+    # Standard-Feldreihenfolge kennt, ohne sie im TS-Code zu duplizieren.
+    standard_felder: list[str]
+
+
+class FundusFigurAnlegenAnfrage(BaseModel):
+    epoche: str
+    name: str
+    felder: dict[str, str] = {}
+
+
+class FundusFigurAktualisierenAnfrage(BaseModel):
+    epoche: str
+    # Aktueller Name - identifiziert die zu aendernde Figur (zusammen mit
+    # epoche). Bei Umbenennung bitte NICHT hier den neuen Namen eintragen,
+    # sondern in neuer_name.
+    name: str
+    neuer_name: str | None = None
+    # Gesetzt = Figur in eine andere Epoche VERSCHIEBEN (Figur existiert
+    # danach nur noch dort). Fuer eine Kopie stattdessen
+    # FundusFigurKopierenAnfrage/POST /figuren/kopieren verwenden - das
+    # laesst das Original unangetastet.
+    neue_epoche: str | None = None
+    felder: dict[str, str]
+
+
+class FundusFigurKopierenAnfrage(BaseModel):
+    epoche: str
+    name: str
+    ziel_epoche: str
+    # Optional - falls im Ziel schon eine gleichnamige Figur existiert oder
+    # die Kopie bewusst einen anderen Namen bekommen soll. Sonst wird der
+    # Name der Quelle uebernommen.
+    neuer_name: str | None = None
+
+
+class FundusFeldHinzufuegenAnfrage(BaseModel):
+    epoche: str
+    name: str
+    feld_name: str
+    wert: str = ""
+    # True: das Feld (leer) auch bei allen anderen Figuren im gesamten
+    # Fundus ergaenzen, die es noch nicht haben - False: nur bei dieser
+    # einen Figur.
+    fuer_alle: bool = False
+
+
 class ProjektBereinigenAntwort(BaseModel):
     geloeschte_bak: int
     geloeschte_stand: int

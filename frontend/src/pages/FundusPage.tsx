@@ -1,6 +1,8 @@
 import Editor from "@monaco-editor/react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { CollapsibleCard } from "../components/CollapsibleCard";
+import { PersonenEditor } from "../components/PersonenEditor";
 import { Button, Card, CardTitle } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 
@@ -8,13 +10,15 @@ interface FundusPageProps {
   sshZielId: string;
 }
 
-/** Editor fuer den Personen-Fundus (fundus.md) - eine einzige, nutzerweite
- * Datei statt einer Auswahlliste wie bei PersonasPage, da es hier keine
- * mehreren Rollen-Dateien gibt (siehe backend/app/core/fundus.py). Der
- * Import-Button braucht sshZielId wie jede andere Ollama-aufrufende Seite
- * (siehe SchreibenPage/PruefenAnwendenPage) - ohne das faellt der Aufruf
- * serverseitig auf das lokale Standard-Ollama zurueck, das z.B. auf dem
- * Produktivserver gar nicht existiert. */
+/** Personen-Fundus: strukturierter Editor (PersonenEditor.tsx) als
+ * Standardansicht - durchsuchen/filtern/Feld-fuer-Feld bearbeiten statt
+ * rohes Markdown. Die rohe fundus.md bleibt als Kontroll-/Notfall-Ansicht
+ * verfuegbar (eingeklappte CollapsibleCard, Nutzer-Vorgabe 2026-08 "im
+ * Standard nicht sichtbar"), z.B. fuer Bearbeitungen, die der strukturierte
+ * Editor (noch) nicht abdeckt. Der Import-Button braucht sshZielId wie jede
+ * andere Ollama-aufrufende Seite (siehe SchreibenPage/PruefenAnwendenPage) -
+ * ohne das faellt der Aufruf serverseitig auf das lokale Standard-Ollama
+ * zurueck, das z.B. auf dem Produktivserver gar nicht existiert. */
 export function FundusPage({ sshZielId }: FundusPageProps) {
   const [inhalt, setInhalt] = useState("");
   const [wirdGeladen, setWirdGeladen] = useState(true);
@@ -65,7 +69,7 @@ export function FundusPage({ sshZielId }: FundusPageProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_3fr]">
+    <div className="space-y-6 p-4 sm:p-6">
       <Card>
         <CardTitle>🧬 Personen-Fundus</CardTitle>
         <p className="text-sm text-text-muted">
@@ -73,7 +77,7 @@ export function FundusPage({ sshZielId }: FundusPageProps) {
           Geschichten vorschlagen kann.
         </p>
         <Button
-          className="mt-4 w-full"
+          className="mt-4"
           variant="secondary"
           onClick={importieren}
           disabled={!!aktivitaet}
@@ -83,9 +87,13 @@ export function FundusPage({ sshZielId }: FundusPageProps) {
         {importHinweis && <p className="mt-2 text-xs text-text-muted">{importHinweis}</p>}
       </Card>
 
-      <Card className="p-0">
+      <PersonenEditor onGeaendert={laden} />
+
+      <CollapsibleCard title="📄 Rohtext (.md) zur Kontrolle" defaultOffen={false}>
         <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-          <h2 className="font-heading text-lg font-semibold tracking-wide text-text">Personen-Fundus</h2>
+          <p className="text-xs text-text-muted">
+            Nur zur Kontrolle oder für Bearbeitungen, die der Editor oben (noch) nicht abdeckt.
+          </p>
           <div className="flex items-center gap-3">
             {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
             <Button onClick={speichern} disabled={wirdGespeichert || wirdGeladen}>
@@ -101,7 +109,7 @@ export function FundusPage({ sshZielId }: FundusPageProps) {
           theme="vs-dark"
           options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
         />
-      </Card>
+      </CollapsibleCard>
     </div>
   );
 }

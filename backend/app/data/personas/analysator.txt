@@ -38,9 +38,10 @@ mitgeschickt). Regeln dabei:
   Jugendfrei) - rate NICHT, sondern urteile anhand dessen, was in den
   Zusammenfassungen tatsächlich beschrieben ist.
 - "## Figuren": nur Figuren, die in mindestens einer Kapitel-Zusammenfassung
-  als "Anwesende Figuren" auftauchen. Leite Ziel/größte Angst/Geheimnis/
-  Entwicklungsbogen aus dem Verlauf über alle Kapitel ab, nicht nur aus
-  einem einzelnen.
+  als "Anwesende Figuren" auftauchen. Leite Aussehen/Ziel/größte Angst/
+  Geheimnis/Entwicklungsbogen aus dem Verlauf über alle Kapitel ab, nicht
+  nur aus einem einzelnen. Aussehen nur, wenn im Text tatsächlich
+  beschrieben - nicht erfinden.
 - "## Unerhörte Begebenheit" und "## Konflikt": aus dem Gesamtbogen aller
   Kapitel, nicht nur aus dem ersten.
 - "## Nebenstrang": nur ausfüllen, wenn über mehrere Kapitel hinweg

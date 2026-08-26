@@ -140,3 +140,112 @@ def test_figuren_zusammenfuehren_mehrere_figuren_gleiche_geschichte():
     )
     assert "### Lady Amelia" in ergebnis
     assert "### Lord Whitmore" in ergebnis
+
+
+_BEISPIEL_FUNDUS = (
+    "## Regency\n\n"
+    "### Lady Amelia Hartwell\n"
+    "- Alter: 24\n"
+    "- Stand/Rolle: Baronesse\n"
+    "- Eigenschaften: eigensinnig\n"
+    "- Aussehen: \n"
+    "- Ziel: \n"
+    "- Angst: \n"
+    "- Geheimnis: \n"
+    "- Geschichten: Der Markt von Rothenfeld\n"
+    "\n"
+    "### Lord Whitmore\n"
+    "- Alter: 30\n"
+    "- Stand/Rolle: Earl\n"
+    "- Eigenschaften: \n"
+    "- Aussehen: \n"
+    "- Ziel: \n"
+    "- Angst: \n"
+    "- Geheimnis: \n"
+    "- Geschichten: Der Markt von Rothenfeld\n"
+    "\n"
+    "## Mittelalter\n\n"
+    "### Bertram\n"
+    "- Alter: 40\n"
+    "- Stand/Rolle: Ritter\n"
+    "- Eigenschaften: \n"
+    "- Aussehen: \n"
+    "- Ziel: \n"
+    "- Angst: \n"
+    "- Geheimnis: \n"
+    "- Geschichten: Das Tabu\n"
+)
+
+
+def test_fundus_parsen_liefert_alle_figuren_ueber_alle_epochen():
+    figuren = fu.fundus_parsen(fu.leere_vorlage() + "\n" + _BEISPIEL_FUNDUS)
+    namen = [(f.epoche, f.name) for f in figuren]
+    assert namen == [
+        ("Regency", "Lady Amelia Hartwell"),
+        ("Regency", "Lord Whitmore"),
+        ("Mittelalter", "Bertram"),
+    ]
+
+
+def test_fundus_parsen_liest_felder_in_ordnung_und_ignoriert_vorlage_beispiel():
+    figuren = fu.fundus_parsen(fu.leere_vorlage() + "\n" + _BEISPIEL_FUNDUS)
+    amelia = figuren[0]
+    assert list(amelia.felder.keys()) == fu.STANDARD_FELDER + ["Geschichten"]
+    assert amelia.felder["Alter"] == "24"
+    assert amelia.felder["Stand/Rolle"] == "Baronesse"
+    assert amelia.felder["Geschichten"] == "Der Markt von Rothenfeld"
+    # Das "### Vollständiger Name"-Beispiel im Kopf-Kommentar darf nicht als
+    # echte Figur auftauchen.
+    assert all(f.name != "Vollständiger Name" for f in figuren)
+
+
+def test_fundus_parsen_serialisieren_ist_stabiler_roundtrip():
+    figuren = fu.fundus_parsen(_BEISPIEL_FUNDUS)
+    neu = fu.fundus_serialisieren(figuren)
+    figuren2 = fu.fundus_parsen("## Platzhalter\n\n" + neu)
+    # "## Platzhalter\n\n" nur noetig, damit fundus_parsen() (das vor der
+    # ERSTEN "## "-Zeile alles verwirft) auch den allerersten Abschnitt von
+    # `neu` sieht - fundus_serialisieren() selbst erzeugt ja direkt mit der
+    # echten ersten Epoche.
+    figuren_direkt = fu.fundus_parsen("\n" + neu)
+    assert [(f.epoche, f.name, f.felder) for f in figuren_direkt] == \
+        [(f.epoche, f.name, f.felder) for f in figuren]
+
+
+def test_fundus_serialisieren_gruppiert_nach_epoche_in_erstauftrittsreihenfolge():
+    figuren = [
+        fu.Figur(epoche="Regency", name="A", felder={"Alter": "1", "Geschichten": ""}),
+        fu.Figur(epoche="Mittelalter", name="B", felder={"Alter": "2", "Geschichten": ""}),
+        fu.Figur(epoche="Regency", name="C", felder={"Alter": "3", "Geschichten": ""}),
+    ]
+    text = fu.fundus_serialisieren(figuren)
+    assert text.index("## Regency") < text.index("## Mittelalter")
+    assert text.index("### A") < text.index("### C")
+    assert text.index("## Mittelalter") < text.index("### B")
+
+
+def testfeld_setzen_haengt_neues_feld_vor_geschichten_ein():
+    felder = {"Alter": "20", "Geschichten": "Testgeschichte"}
+    fu.feld_setzen(felder, "Blutgruppe", "0 negativ")
+    assert list(felder.keys()) == ["Alter", "Blutgruppe", "Geschichten"]
+    assert felder["Blutgruppe"] == "0 negativ"
+
+
+def testfeld_setzen_ueberschreibt_bestehendes_feld_an_ort_und_stelle():
+    felder = {"Alter": "20", "Blutgruppe": "0 negativ", "Geschichten": "Testgeschichte"}
+    fu.feld_setzen(felder, "Blutgruppe", "AB positiv")
+    assert list(felder.keys()) == ["Alter", "Blutgruppe", "Geschichten"]
+    assert felder["Blutgruppe"] == "AB positiv"
+
+
+def test_kopf_kommentar_extrahieren_liefert_alles_vor_erster_epoche():
+    text = fu.leere_vorlage() + "\n" + _BEISPIEL_FUNDUS
+    kopf = fu.kopf_kommentar_extrahieren(text)
+    assert kopf.startswith(fu.leere_vorlage())
+    assert kopf + "## Regency" in text
+    assert "## Regency" not in kopf
+
+
+def test_kopf_kommentar_extrahieren_faellt_auf_vorlage_zurueck_ohne_epoche():
+    assert fu.kopf_kommentar_extrahieren("") == fu.leere_vorlage()
+    assert fu.kopf_kommentar_extrahieren("   ") == fu.leere_vorlage()

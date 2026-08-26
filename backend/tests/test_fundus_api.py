@@ -248,3 +248,273 @@ def test_fundus_projekt_aktualisieren_ueberspringt_wenn_nur_feld_bezeichner_geme
 
     r3 = client.get("/api/fundus")
     assert "### Ziel" not in r3.text
+
+
+# --- Strukturierter Personen-Editor (GET/POST/PUT/DELETE /api/fundus/figuren, POST /api/fundus/felder) ---
+
+def _fundus_seed(client, inhalt: str) -> None:
+    client.put("/api/fundus", json={"inhalt": inhalt})
+
+
+_ZWEI_FIGUREN = (
+    "## Regency\n\n"
+    "### Lady Amelia Hartwell\n"
+    "- Alter: 24\n"
+    "- Stand/Rolle: Baronesse\n"
+    "- Eigenschaften: eigensinnig\n"
+    "- Aussehen: \n"
+    "- Ziel: \n"
+    "- Angst: \n"
+    "- Geheimnis: \n"
+    "- Geschichten: Der Markt von Rothenfeld\n"
+    "\n"
+    "### Lord Whitmore\n"
+    "- Alter: 30\n"
+    "- Stand/Rolle: Earl\n"
+    "- Eigenschaften: \n"
+    "- Aussehen: \n"
+    "- Ziel: \n"
+    "- Angst: \n"
+    "- Geheimnis: \n"
+    "- Geschichten: Der Markt von Rothenfeld\n"
+)
+
+
+def test_fundus_figuren_lesen_liefert_strukturierte_liste(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.get("/api/fundus/figuren")
+    assert r.status_code == 200
+    daten = r.json()
+    assert daten["standard_felder"] == ["Alter", "Stand/Rolle", "Eigenschaften", "Aussehen", "Ziel", "Angst",
+                                         "Geheimnis", "Geschichten"]
+    namen = [(f["epoche"], f["name"]) for f in daten["figuren"]]
+    assert namen == [("Regency", "Lady Amelia Hartwell"), ("Regency", "Lord Whitmore")]
+    amelia = daten["figuren"][0]
+    assert amelia["felder"]["Alter"] == "24"
+    assert amelia["felder"]["Stand/Rolle"] == "Baronesse"
+
+
+def test_fundus_figuren_lesen_ohne_datei_liefert_leere_liste(client):
+    r = client.get("/api/fundus/figuren")
+    assert r.status_code == 200
+    assert r.json()["figuren"] == []
+
+
+def test_fundus_figur_anlegen(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.post("/api/fundus/figuren", json={
+        "epoche": "Mittelalter", "name": "Bertram", "felder": {"Alter": "40", "Stand/Rolle": "Ritter"},
+    })
+    assert r.status_code == 201
+    daten = r.json()
+    assert daten["felder"]["Alter"] == "40"
+    assert daten["felder"]["Geschichten"] == ""
+    assert list(daten["felder"].keys())[-1] == "Geschichten"
+
+    r2 = client.get("/api/fundus/figuren")
+    namen = [(f["epoche"], f["name"]) for f in r2.json()["figuren"]]
+    assert ("Mittelalter", "Bertram") in namen
+
+
+def test_fundus_figur_anlegen_verweigert_feld_bezeichner_als_namen(client):
+    r = client.post("/api/fundus/figuren", json={"epoche": "Regency", "name": "Ziel", "felder": {}})
+    assert r.status_code == 400
+
+
+def test_fundus_figur_anlegen_verweigert_duplikat(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.post("/api/fundus/figuren", json={"epoche": "Regency", "name": "lady amelia hartwell", "felder": {}})
+    assert r.status_code == 409
+
+
+def test_fundus_figur_aktualisieren_ersetzt_felder(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.put("/api/fundus/figuren", json={
+        "epoche": "Regency", "name": "Lady Amelia Hartwell",
+        "felder": {"Alter": "25", "Stand/Rolle": "Baronesse", "Eigenschaften": "eigensinnig, klug",
+                   "Aussehen": "", "Ziel": "", "Angst": "", "Geheimnis": "", "Geschichten": "Der Markt von Rothenfeld"},
+    })
+    assert r.status_code == 200
+    assert r.json()["felder"]["Alter"] == "25"
+    assert r.json()["felder"]["Eigenschaften"] == "eigensinnig, klug"
+
+    text = client.get("/api/fundus").text
+    assert "- Alter: 25" in text
+    assert "eigensinnig, klug" in text
+
+
+def test_fundus_figur_aktualisieren_kann_umbenennen(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.put("/api/fundus/figuren", json={
+        "epoche": "Regency", "name": "Lord Whitmore", "neuer_name": "Lord Marcus Whitmore",
+        "felder": {"Alter": "30"},
+    })
+    assert r.status_code == 200
+    assert r.json()["name"] == "Lord Marcus Whitmore"
+    text = client.get("/api/fundus").text
+    assert "### Lord Marcus Whitmore" in text
+    assert "### Lord Whitmore\n" not in text
+
+
+def test_fundus_figur_aktualisieren_verweigert_umbenennen_auf_bestehenden_namen(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.put("/api/fundus/figuren", json={
+        "epoche": "Regency", "name": "Lord Whitmore", "neuer_name": "Lady Amelia Hartwell", "felder": {},
+    })
+    assert r.status_code == 409
+
+
+def test_fundus_figur_aktualisieren_unbekannte_figur_gibt_404(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.put("/api/fundus/figuren", json={"epoche": "Regency", "name": "Nicht Vorhanden", "felder": {}})
+    assert r.status_code == 404
+
+
+def test_fundus_figur_loeschen(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.delete("/api/fundus/figuren", params={"epoche": "Regency", "name": "Lord Whitmore"})
+    assert r.status_code == 200
+
+    text = client.get("/api/fundus").text
+    assert "Lord Whitmore" not in text
+    assert "Lady Amelia Hartwell" in text
+
+
+def test_fundus_figur_loeschen_unbekannte_figur_gibt_404(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.delete("/api/fundus/figuren", params={"epoche": "Regency", "name": "Nicht Vorhanden"})
+    assert r.status_code == 404
+
+
+def test_fundus_feld_hinzufuegen_nur_eine_person(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.post("/api/fundus/felder", json={
+        "epoche": "Regency", "name": "Lady Amelia Hartwell", "feld_name": "Blutgruppe",
+        "wert": "0 negativ", "fuer_alle": False,
+    })
+    assert r.status_code == 200
+    daten = r.json()
+    assert daten["felder"]["Blutgruppe"] == "0 negativ"
+    # Direkt vor "Geschichten" eingefuegt, nicht ans Ende.
+    schluessel = list(daten["felder"].keys())
+    assert schluessel[-2:] == ["Blutgruppe", "Geschichten"]
+
+    figuren = client.get("/api/fundus/figuren").json()["figuren"]
+    whitmore = next(f for f in figuren if f["name"] == "Lord Whitmore")
+    assert "Blutgruppe" not in whitmore["felder"]
+
+
+def test_fundus_feld_hinzufuegen_fuer_alle(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    client.post("/api/fundus/felder", json={
+        "epoche": "Regency", "name": "Lady Amelia Hartwell", "feld_name": "Blutgruppe",
+        "wert": "0 negativ", "fuer_alle": True,
+    })
+
+    figuren = client.get("/api/fundus/figuren").json()["figuren"]
+    amelia = next(f for f in figuren if f["name"] == "Lady Amelia Hartwell")
+    whitmore = next(f for f in figuren if f["name"] == "Lord Whitmore")
+    assert amelia["felder"]["Blutgruppe"] == "0 negativ"
+    assert whitmore["felder"]["Blutgruppe"] == ""
+
+
+def test_fundus_feld_hinzufuegen_unbekannte_figur_gibt_404(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.post("/api/fundus/felder", json={
+        "epoche": "Regency", "name": "Nicht Vorhanden", "feld_name": "Blutgruppe", "wert": "", "fuer_alle": False,
+    })
+    assert r.status_code == 404
+
+
+# --- Verschieben (PUT .../figuren mit neue_epoche) und Kopieren (POST .../figuren/kopieren) ---
+
+def test_fundus_figur_verschieben_in_andere_epoche(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.put("/api/fundus/figuren", json={
+        "epoche": "Regency", "name": "Lord Whitmore", "neue_epoche": "Mittelalter",
+        "felder": {"Alter": "30", "Stand/Rolle": "Earl"},
+    })
+    assert r.status_code == 200
+    assert r.json()["epoche"] == "Mittelalter"
+
+    figuren = client.get("/api/fundus/figuren").json()["figuren"]
+    namen = [(f["epoche"], f["name"]) for f in figuren]
+    assert ("Mittelalter", "Lord Whitmore") in namen
+    assert ("Regency", "Lord Whitmore") not in namen
+    # Original nicht dupliziert - weiterhin nur 2 Figuren insgesamt.
+    assert len(figuren) == 2
+
+    text = client.get("/api/fundus").text
+    assert "## Mittelalter" in text and "## Regency" in text
+    mittelalter_index = text.index("## Mittelalter")
+    assert "Lord Whitmore" in text[mittelalter_index:]
+
+
+def test_fundus_figur_verschieben_verweigert_kollision_im_ziel(client):
+    _fundus_seed(client, _ZWEI_FIGUREN + "\n## Mittelalter\n\n### Lord Whitmore\n- Alter: \n- Geschichten: \n")
+    # Jetzt gibt es "Lord Whitmore" auch in Mittelalter - Verschieben von
+    # Regency nach Mittelalter muss daran scheitern.
+    r = client.put("/api/fundus/figuren", json={
+        "epoche": "Regency", "name": "Lord Whitmore", "neue_epoche": "Mittelalter", "felder": {},
+    })
+    assert r.status_code == 409
+
+
+def test_fundus_figur_verschieben_und_umbenennen_gleichzeitig(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.put("/api/fundus/figuren", json={
+        "epoche": "Regency", "name": "Lord Whitmore", "neuer_name": "Graf Whitmore",
+        "neue_epoche": "Mittelalter", "felder": {},
+    })
+    assert r.status_code == 200
+    assert r.json() == {"epoche": "Mittelalter", "name": "Graf Whitmore", "felder": {}}
+
+
+def test_fundus_figur_kopieren(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.post("/api/fundus/figuren/kopieren", json={
+        "epoche": "Regency", "name": "Lady Amelia Hartwell", "ziel_epoche": "Mittelalter",
+    })
+    assert r.status_code == 201
+    kopie = r.json()
+    assert kopie["epoche"] == "Mittelalter"
+    assert kopie["name"] == "Lady Amelia Hartwell"
+    assert kopie["felder"]["Stand/Rolle"] == "Baronesse"
+    assert kopie["felder"]["Geschichten"] == "Der Markt von Rothenfeld"
+
+    figuren = client.get("/api/fundus/figuren").json()["figuren"]
+    namen = [(f["epoche"], f["name"]) for f in figuren]
+    # Original bleibt bestehen, Kopie kommt zusaetzlich dazu.
+    assert ("Regency", "Lady Amelia Hartwell") in namen
+    assert ("Mittelalter", "Lady Amelia Hartwell") in namen
+    assert len(figuren) == 3
+
+
+def test_fundus_figur_kopieren_mit_neuem_namen(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.post("/api/fundus/figuren/kopieren", json={
+        "epoche": "Regency", "name": "Lady Amelia Hartwell", "ziel_epoche": "Regency",
+        "neuer_name": "Amelias Zwillingsschwester",
+    })
+    assert r.status_code == 201
+    assert r.json()["name"] == "Amelias Zwillingsschwester"
+
+    figuren = client.get("/api/fundus/figuren").json()["figuren"]
+    assert any(f["name"] == "Amelias Zwillingsschwester" and f["epoche"] == "Regency" for f in figuren)
+    assert any(f["name"] == "Lady Amelia Hartwell" and f["epoche"] == "Regency" for f in figuren)
+
+
+def test_fundus_figur_kopieren_verweigert_kollision_im_ziel(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.post("/api/fundus/figuren/kopieren", json={
+        "epoche": "Regency", "name": "Lady Amelia Hartwell", "ziel_epoche": "Regency",
+    })
+    assert r.status_code == 409
+
+
+def test_fundus_figur_kopieren_unbekannte_quelle_gibt_404(client):
+    _fundus_seed(client, _ZWEI_FIGUREN)
+    r = client.post("/api/fundus/figuren/kopieren", json={
+        "epoche": "Regency", "name": "Nicht Vorhanden", "ziel_epoche": "Mittelalter",
+    })
+    assert r.status_code == 404
