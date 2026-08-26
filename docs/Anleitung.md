@@ -325,6 +325,25 @@ Geschichte automatisch in den Fundus; im Architekten-Interview lassen sie
 sich danach für eine neue Geschichte derselben Epoche wiederverwenden,
 statt jede Figur neu zu erfinden.
 
+Jede Figur hat dieselben acht Felder, jedes davon wird immer aufgeführt —
+auch wenn dazu nichts bekannt ist, dann bleibt es einfach leer (z. B.
+„- Aussehen: “):
+
+| Feld | Inhalt |
+|---|---|
+| Alter | Altersangabe, falls bekannt |
+| Stand/Rolle | Stand, Rang, Titel oder gesellschaftliche Rolle |
+| Eigenschaften | Charakterzüge, Wesensart |
+| Aussehen | körperliche Erscheinung |
+| Ziel | was die Figur erreichen will |
+| Angst | ihre größte Angst/Furcht |
+| Geheimnis | ihr Geheimnis |
+| Geschichten | Titel der Geschichten, in denen sie vorkommt — wird beim erneuten Importieren automatisch ergänzt |
+
+Alle Felder außer „Geschichten“ lassen sich jederzeit von Hand im Editor
+nachbessern; ein erneutes Zusammenführen überschreibt sie nicht, nur die
+Geschichten-Liste wächst.
+
 ---
 
 ## 9. KI-Ziele und Einstellungen

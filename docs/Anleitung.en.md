@@ -294,6 +294,24 @@ automatically brings characters from a completed story into the pool;
 they can then be reused in the Architect interview for a new story in the
 same era/setting, instead of inventing every character anew.
 
+Every character has the same eight fields, and each one is always listed —
+even when nothing is known for it, in which case it's simply left empty
+(e.g. "- Aussehen: "):
+
+| Field | Content |
+|---|---|
+| Alter (Age) | age, if known |
+| Stand/Rolle (Standing/Role) | standing, rank, title, or social role |
+| Eigenschaften (Traits) | character traits, personality |
+| Aussehen (Appearance) | physical appearance |
+| Ziel (Goal) | what the character wants to achieve |
+| Angst (Fear) | their greatest fear |
+| Geheimnis (Secret) | their secret |
+| Geschichten (Stories) | titles of the stories they appear in — extended automatically on a repeat import |
+
+Every field except "Geschichten" can be edited by hand in the editor at
+any time; a later merge won't overwrite them, only the story list grows.
+
 ---
 
 ## 9. AI targets and settings
