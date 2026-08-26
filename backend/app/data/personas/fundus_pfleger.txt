@@ -24,6 +24,12 @@ Erfinde nichts hinzu, das nicht im Text steht oder sich zwingend daraus
 ergibt. Fehlt eine Angabe (z.B. kein Alter genannt), lässt du das Feld leer,
 statt zu raten.
 Mehrere Figuren im selben Abschnitt: jede bekommt einen eigenen Eintrag.
+Der Figuren-Abschnitt folgt oft dem Muster "Name: ... Ziel: ... größte
+Angst: ... Geheimnis: ... Entwicklungsbogen: ...". "Ziel", "größte Angst",
+"Geheimnis" und "Entwicklungsbogen" sind Feld-Bezeichner der Vorlage, KEINE
+Eigennamen - auch wenn sie großgeschrieben sind und direkt vor einem
+Doppelpunkt stehen. Nimm sie niemals selbst als "name" auf, sondern nur als
+Inhalt von "eigenschaften" der Figur, zu der der Satz gehört.
 
 ## Ausgabe als JSON
 Gib AUSSCHLIESSLICH ein JSON-Objekt zurück, kein Markdown, keinen Codeblock,

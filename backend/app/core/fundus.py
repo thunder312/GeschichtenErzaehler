@@ -64,6 +64,36 @@ class FigurEintrag:
     geschichten: list[str] = field(default_factory=list)
 
 
+# JEDE Epoche-Vorlage schreibt fuer den "## Figuren"-Abschnitt dieselbe
+# Satzstruktur vor: "Je Figur: Name, Alter, Stand, Ziel, größte Angst,
+# Geheimnis, Entwicklungsbogen in einem Satz" (siehe z.B.
+# app/data/epochen/Wilhelminisches Preußen/architekt.txt). Deutsche
+# Grossschreibung ALLER Substantive macht diese wiederkehrenden Feld-
+# Bezeichner fuer ein schwaches lokales Modell (Rolle "fundus_pfleger",
+# siehe app/core/rollen.py) leicht mit einem Eigennamen verwechselbar, wenn
+# sie - wie von der Vorlage selbst erzeugt - unmittelbar nach einem Punkt
+# vor einem Doppelpunkt stehen (".. Ziel: ... größte Angst: ... Geheimnis:
+# ... Entwicklungsbogen: ..."). Realer Vorfall (2026-08, "Dunkle-
+# Geheimnisse-im-Gutshaus"): der fundus_pfleger trug "Ziel"/"Geheimnis" als
+# eigene Figuren in den Fundus ein - Eigenschaften der echten Figuren
+# wurden so faelschlich zu neuen Personen. Deterministischer Filter statt
+# alleinigem Prompt-Vertrauen, analog zu app/core/befunde_merge.py.
+_KEIN_FIGURENNAME = {
+    "ziel", "geheimnis", "geheimnisse", "angst", "ängste", "aengste",
+    "größte angst", "groesste angst", "entwicklungsbogen", "eigenschaften",
+    "konflikt", "stand", "rolle", "stand/rolle", "alter",
+    "charakterzug", "charakterzüge", "charakterzuege",
+}
+
+
+def ist_plausibler_figurenname(name: str) -> bool:
+    """False fuer einen von der Fundus-Pfleger-Rolle gemeldeten 'name', der
+    tatsaechlich einer der wiederkehrenden Feld-Bezeichner aus der Figuren-
+    Vorlage ist (siehe _KEIN_FIGURENNAME oben), statt eines echten
+    Figurennamens."""
+    return name.strip().lower() not in _KEIN_FIGURENNAME
+
+
 def figur_block_erzeugen(figur: FigurEintrag, story_titel: str) -> str:
     """Baut einen neuen '### Name'-Block, wie er von Hand oder beim
     automatischen Zusammenfuehren einer bisher unbekannten Figur angelegt

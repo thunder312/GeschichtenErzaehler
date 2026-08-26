@@ -151,3 +151,65 @@ def test_fundus_projekt_aktualisieren_extrahiert_nur_figuren_dieses_projekts(cli
 
     r4 = client.get("/api/fundus")
     assert "### Lady Amelia Hartwell" in r4.text
+
+
+def test_fundus_projekt_aktualisieren_verwirft_feld_bezeichner_als_figur(client, monkeypatch):
+    # Regression (2026-08, "Dunkle-Geheimnisse-im-Gutshaus" auf Prod): die
+    # Rolle "fundus_pfleger" trug bei einer dicht mit "Ziel: ... größte
+    # Angst: ... Geheimnis: ... Entwicklungsbogen: ..." formulierten
+    # Figuren-Referenz (Standard-Satzstruktur JEDER Epoche-Vorlage, siehe
+    # app/core/fundus.py:_KEIN_FIGURENNAME) diese Feld-Bezeichner faelschlich
+    # als eigene Figuren in den Fundus ein.
+    r = client.post("/api/projects", json={"titel": "Dunkle Geheimnisse", "epoche": "Wilhelminisches Preußen"})
+    ordner = r.json()["ordner"]
+    client.put(f"/api/projects/{ordner}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nDunkle Geheimnisse\n\n"
+                  "## Figuren\nAgnes: Protagonistin. Ziel: Vergangenheit aufarbeiten. "
+                  "größte Angst: Überwältigt werden. Geheimnis: Ihre Herkunft.\n\n"
+                  "## Konflikt\nSie kehrt zurueck.\n",
+    })
+
+    async def fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
+        return (
+            '{"figuren": ['
+            '{"name": "Agnes", "alter": "", "stand": "Protagonistin", "eigenschaften": "erschoepft"},'
+            '{"name": "Ziel", "alter": "", "stand": "", "eigenschaften": "Vergangenheit aufarbeiten"},'
+            '{"name": "Geheimnis", "alter": "", "stand": "", "eigenschaften": "Ihre Herkunft"}'
+            ']}',
+            {},
+        )
+
+    monkeypatch.setattr(api_fundus, "sammle_antwort", fake_sammle_antwort)
+
+    r2 = client.post(f"/api/fundus/projekt/{ordner}")
+    assert r2.status_code == 200
+    daten = r2.json()
+    assert daten["gefundene_figuren"] == 1
+    assert daten["uebersprungen"] is False
+
+    r3 = client.get("/api/fundus")
+    assert "### Agnes" in r3.text
+    assert "### Ziel" not in r3.text
+    assert "### Geheimnis" not in r3.text
+
+
+def test_fundus_projekt_aktualisieren_ueberspringt_wenn_nur_feld_bezeichner_gemeldet(client, monkeypatch):
+    r = client.post("/api/projects", json={"titel": "Nur Feld-Bezeichner", "epoche": "Regency"})
+    ordner = r.json()["ordner"]
+    client.put(f"/api/projects/{ordner}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nNur Feld-Bezeichner\n\n"
+                  "## Figuren\nZiel: unklar. Geheimnis: unklar.\n\n## Konflikt\nUnklar.\n",
+    })
+
+    async def fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
+        return ('{"figuren": [{"name": "Ziel", "alter": "", "stand": "", "eigenschaften": "unklar"}]}', {})
+
+    monkeypatch.setattr(api_fundus, "sammle_antwort", fake_sammle_antwort)
+
+    r2 = client.post(f"/api/fundus/projekt/{ordner}")
+    daten = r2.json()
+    assert daten["gefundene_figuren"] == 0
+    assert daten["uebersprungen"] is False
+
+    r3 = client.get("/api/fundus")
+    assert "### Ziel" not in r3.text

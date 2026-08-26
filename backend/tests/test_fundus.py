@@ -18,6 +18,16 @@ def test_epoche_abschnitt_erkennen_findet_abschnitt():
     assert "Bertram" not in abschnitt
 
 
+def test_ist_plausibler_figurenname_verwirft_feld_bezeichner():
+    for wort in ("Ziel", "geheimnis", "Größte Angst", "Entwicklungsbogen", "  Eigenschaften  "):
+        assert fu.ist_plausibler_figurenname(wort) is False
+
+
+def test_ist_plausibler_figurenname_akzeptiert_echte_namen():
+    for name in ("Agnes", "Lady Amelia Hartwell", "Pastor Jennrich"):
+        assert fu.ist_plausibler_figurenname(name) is True
+
+
 def test_figuren_zusammenfuehren_legt_neue_epoche_und_figur_an():
     ergebnis = fu.figuren_zusammenfuehren(
         fu.leere_vorlage(), "Regency", "Der Markt von Rothenfeld",

@@ -92,7 +92,9 @@ async def _projekt_figuren_importieren(
         return fundus_text, 0, False
 
     figuren = [fu.FigurEintrag(name=e.name, alter=e.alter, stand=e.stand, eigenschaften=e.eigenschaften)
-               for e in antwort.figuren]
+               for e in antwort.figuren if fu.ist_plausibler_figurenname(e.name)]
+    if not figuren:
+        return fundus_text, 0, False
     fundus_text = fu.figuren_zusammenfuehren(fundus_text, epoche, titel, figuren)
     return fundus_text, len(figuren), False
 
