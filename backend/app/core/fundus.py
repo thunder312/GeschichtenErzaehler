@@ -16,12 +16,18 @@ _VORLAGE = '''<!--
 FUNDUS-VORLAGE — bitte diesen Kommentarblock nicht löschen.
 
 Neue Figur manuell anlegen: unter der passenden "## <Epoche>"-Überschrift
-einen Block in genau diesem Format einfügen:
+einen Block in genau diesem Format einfügen - JEDES Feld wird immer
+aufgeführt, auch wenn nichts dazu bekannt ist (dann einfach leer lassen,
+z.B. "- Aussehen: "):
 
 ### Vollständiger Name
 - Alter: 27
 - Stand/Rolle: Verarmte Baronesse
 - Eigenschaften: schlagfertig, misstraut Fremden, spielt heimlich Karten
+- Aussehen: schmale Gestalt, rotblondes Haar, trägt geflickte, einst feine Kleider
+- Ziel: eine eigene Existenz ohne die Gunst ihrer Verwandten aufbauen
+- Angst: als Bettlerin zu enden und den Familiennamen zu beschämen
+- Geheimnis: spielt heimlich um Geld, um ihre Schulden zu tilgen
 - Geschichten: Der Markt von Rothenfeld
 
 Die "Geschichten:"-Zeile wird automatisch ergänzt, sobald diese Figur in
@@ -61,6 +67,10 @@ class FigurEintrag:
     alter: str = ""
     stand: str = ""
     eigenschaften: str = ""
+    aussehen: str = ""
+    ziel: str = ""
+    angst: str = ""
+    geheimnis: str = ""
     geschichten: list[str] = field(default_factory=list)
 
 
@@ -81,7 +91,7 @@ class FigurEintrag:
 _KEIN_FIGURENNAME = {
     "ziel", "geheimnis", "geheimnisse", "angst", "ängste", "aengste",
     "größte angst", "groesste angst", "entwicklungsbogen", "eigenschaften",
-    "konflikt", "stand", "rolle", "stand/rolle", "alter",
+    "aussehen", "konflikt", "stand", "rolle", "stand/rolle", "alter",
     "charakterzug", "charakterzüge", "charakterzuege",
 }
 
@@ -97,15 +107,22 @@ def ist_plausibler_figurenname(name: str) -> bool:
 def figur_block_erzeugen(figur: FigurEintrag, story_titel: str) -> str:
     """Baut einen neuen '### Name'-Block, wie er von Hand oder beim
     automatischen Zusammenfuehren einer bisher unbekannten Figur angelegt
-    wird."""
-    zeilen = [f"### {figur.name}"]
-    if figur.alter.strip():
-        zeilen.append(f"- Alter: {figur.alter.strip()}")
-    if figur.stand.strip():
-        zeilen.append(f"- Stand/Rolle: {figur.stand.strip()}")
-    if figur.eigenschaften.strip():
-        zeilen.append(f"- Eigenschaften: {figur.eigenschaften.strip()}")
-    zeilen.append(f"- Geschichten: {story_titel.strip()}")
+    wird. JEDES Feld wird immer als eigene Zeile ausgegeben, auch wenn dazu
+    nichts bekannt ist (dann bleibt der Wert leer) - so hat jeder Block
+    dieselbe, vorhersehbare Feld-Reihenfolge und laesst sich beim Lesen
+    leicht ergaenzen (Nutzer-Vorgabe 2026-08, siehe fundus.md-Vorlage
+    oben)."""
+    zeilen = [
+        f"### {figur.name}",
+        f"- Alter: {figur.alter.strip()}",
+        f"- Stand/Rolle: {figur.stand.strip()}",
+        f"- Eigenschaften: {figur.eigenschaften.strip()}",
+        f"- Aussehen: {figur.aussehen.strip()}",
+        f"- Ziel: {figur.ziel.strip()}",
+        f"- Angst: {figur.angst.strip()}",
+        f"- Geheimnis: {figur.geheimnis.strip()}",
+        f"- Geschichten: {story_titel.strip()}",
+    ]
     return "\n".join(zeilen) + "\n"
 
 

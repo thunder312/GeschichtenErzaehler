@@ -12,6 +12,10 @@ class FundusFigurEintrag(BaseModel):
     alter: str = ""
     stand: str = ""
     eigenschaften: str = ""
+    aussehen: str = ""
+    ziel: str = ""
+    angst: str = ""
+    geheimnis: str = ""
 
 
 class FundusExtraktionAntwortLLM(BaseModel):

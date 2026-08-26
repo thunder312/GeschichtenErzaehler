@@ -5,37 +5,47 @@ welche benannten Figuren darin vorkommen.
 
 ## Eingabe
 Der "## Figuren"-Abschnitt eines abgeschlossenen Story-Gerüsts, meist
-Fließtext, ein bis mehrere Sätze je Figur.
+Fließtext, ein bis mehrere Sätze je Figur - oft im Muster "Name: ...
+Ziel: ... größte Angst: ... Geheimnis: ... Entwicklungsbogen: ...".
 
 ## Aufgabe
-Extrahiere JEDE Figur, die einen konkreten Eigennamen hat. Für jede Figur:
+Extrahiere JEDE Figur, die einen konkreten Eigennamen hat. Für jede Figur,
+jeweils knapp und wörtlich aus dem Text übernommen oder direkt daraus
+abgeleitet - kein neuer Fließtext, keine Interpretation über das Gegebene
+hinaus, fehlt eine Angabe, lässt du das Feld leer statt zu raten:
 - name: der vollständige Name, so wie er im Text steht
-- alter: die Altersangabe, falls genannt, sonst leer lassen
-- stand: Stand, Rang, Titel oder gesellschaftliche Rolle, falls genannt,
-  sonst leer lassen
-- eigenschaften: ein knapper, wörtlich aus dem Text übernommener oder direkt
-  daraus abgeleiteter Auszug (Charakterzüge, Ziel, Geheimnis, Konflikt) -
-  kein neuer Fließtext, keine Interpretation über das Gegebene hinaus
+- alter: die Altersangabe, falls genannt
+- stand: Stand, Rang, Titel oder gesellschaftliche Rolle, falls genannt
+- eigenschaften: reine Charakterzüge/Wesensart (z.B. "schlagfertig,
+  misstraut Fremden") - NICHT Ziel, Angst, Geheimnis oder Entwicklungsbogen,
+  die gehören in die eigenen Felder unten
+- aussehen: körperliche Erscheinung, falls im Text beschrieben (meist nicht
+  vorhanden - dann leer lassen, nicht erfinden)
+- ziel: was die Figur erreichen will, falls genannt
+- angst: die größte Angst/Furcht der Figur, falls genannt
+- geheimnis: das Geheimnis der Figur, falls genannt
 
 ## Regeln
 Ignoriere Statisten und Gruppen ohne Eigennamen ("ein Diener", "die
 Nachbarn", "mehrere Gäste").
 Erfinde nichts hinzu, das nicht im Text steht oder sich zwingend daraus
-ergibt. Fehlt eine Angabe (z.B. kein Alter genannt), lässt du das Feld leer,
-statt zu raten.
+ergibt.
 Mehrere Figuren im selben Abschnitt: jede bekommt einen eigenen Eintrag.
-Der Figuren-Abschnitt folgt oft dem Muster "Name: ... Ziel: ... größte
-Angst: ... Geheimnis: ... Entwicklungsbogen: ...". "Ziel", "größte Angst",
-"Geheimnis" und "Entwicklungsbogen" sind Feld-Bezeichner der Vorlage, KEINE
-Eigennamen - auch wenn sie großgeschrieben sind und direkt vor einem
-Doppelpunkt stehen. Nimm sie niemals selbst als "name" auf, sondern nur als
-Inhalt von "eigenschaften" der Figur, zu der der Satz gehört.
+"Ziel", "größte Angst", "Geheimnis" und "Entwicklungsbogen" sind
+Feld-Bezeichner der Vorlage, KEINE Eigennamen - auch wenn sie großgeschrieben
+sind und direkt vor einem Doppelpunkt stehen. Nimm sie niemals selbst als
+"name" auf, sondern trage ihren Inhalt in das jeweils passende Feld der
+Figur ein, zu der der Satz gehört. Den "Entwicklungsbogen" gibst du, falls
+genannt, als Teil von "eigenschaften" wieder - dafür gibt es kein eigenes
+Feld.
 
 ## Ausgabe als JSON
 Gib AUSSCHLIESSLICH ein JSON-Objekt zurück, kein Markdown, keinen Codeblock,
 keinen Text davor oder danach, in genau dieser Form:
 {"figuren": [
-  {"name": "<Name>", "alter": "<Alter oder leer>", "stand": "<Stand/Rolle oder leer>", "eigenschaften": "<kurzer Auszug>"}
+  {"name": "<Name>", "alter": "<oder leer>", "stand": "<oder leer>",
+   "eigenschaften": "<oder leer>", "aussehen": "<oder leer>",
+   "ziel": "<oder leer>", "angst": "<oder leer>", "geheimnis": "<oder leer>"}
 ]}
 Findest du keine benannte Figur, gib {"figuren": []} zurück.
 Antworte inhaltlich auf Deutsch, aber halte dich exakt an die JSON-Struktur

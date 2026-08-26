@@ -18,8 +18,43 @@ def test_epoche_abschnitt_erkennen_findet_abschnitt():
     assert "Bertram" not in abschnitt
 
 
+def test_figur_block_erzeugen_listet_immer_alle_felder():
+    block = fu.figur_block_erzeugen(
+        fu.FigurEintrag(name="Ullrich", alter="20 Jahre", stand="Grafensohn/Ritter",
+                         eigenschaften="denkt sehr fortschrittlich-liberal für seine Zeit",
+                         aussehen="160cm groß, muskulös, fein geschnittenes Gesicht",
+                         ziel="Liberalität leben und Hermine sanft auf ihre Pflichten vorbereiten.",
+                         angst="Hermine durch seine Vorsicht zu verletzen.",
+                         geheimnis="Seine liberale Art hält er vor seinen Eltern geheim."),
+        "Die Spuren der Neuzeit",
+    )
+    assert block == (
+        "### Ullrich\n"
+        "- Alter: 20 Jahre\n"
+        "- Stand/Rolle: Grafensohn/Ritter\n"
+        "- Eigenschaften: denkt sehr fortschrittlich-liberal für seine Zeit\n"
+        "- Aussehen: 160cm groß, muskulös, fein geschnittenes Gesicht\n"
+        "- Ziel: Liberalität leben und Hermine sanft auf ihre Pflichten vorbereiten.\n"
+        "- Angst: Hermine durch seine Vorsicht zu verletzen.\n"
+        "- Geheimnis: Seine liberale Art hält er vor seinen Eltern geheim.\n"
+        "- Geschichten: Die Spuren der Neuzeit\n"
+    )
+
+
+def test_figur_block_erzeugen_laesst_unbekannte_felder_leer_statt_wegzulassen():
+    block = fu.figur_block_erzeugen(fu.FigurEintrag(name="Nina"), "Testgeschichte")
+    assert "- Alter: \n" in block
+    assert "- Stand/Rolle: \n" in block
+    assert "- Eigenschaften: \n" in block
+    assert "- Aussehen: \n" in block
+    assert "- Ziel: \n" in block
+    assert "- Angst: \n" in block
+    assert "- Geheimnis: \n" in block
+    assert "- Geschichten: Testgeschichte\n" in block
+
+
 def test_ist_plausibler_figurenname_verwirft_feld_bezeichner():
-    for wort in ("Ziel", "geheimnis", "Größte Angst", "Entwicklungsbogen", "  Eigenschaften  "):
+    for wort in ("Ziel", "geheimnis", "Größte Angst", "Entwicklungsbogen", "  Eigenschaften  ", "Aussehen"):
         assert fu.ist_plausibler_figurenname(wort) is False
 
 

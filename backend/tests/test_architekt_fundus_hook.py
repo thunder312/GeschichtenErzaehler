@@ -64,6 +64,30 @@ def test_fundus_aktualisieren_schreibt_figuren_bei_erfolg(settings, benutzer, pr
     assert "Der Markt von Rothenfeld" in inhalt
 
 
+def test_fundus_aktualisieren_verwirft_feld_bezeichner_als_figur(settings, benutzer, projekt_root, monkeypatch):
+    # Regression: dieser zweite Aufrufer von FigurEintrag (Architekt-
+    # Abschluss, anders als app/api/fundus.py) filterte bislang NICHT gegen
+    # ist_plausibler_figurenname - derselbe "Ziel"/"Geheimnis"-als-Person-
+    # Fehler waere hier unbemerkt durchgerutscht.
+    async def fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
+        return (
+            '{"figuren": ['
+            '{"name": "Lady Amelia Hartwell", "alter": "24", "stand": "Baronesse", "eigenschaften": "eigensinnig"},'
+            '{"name": "Ziel", "eigenschaften": "unabhaengig sein"}'
+            ']}',
+            {},
+        )
+
+    monkeypatch.setattr(api_arch, "sammle_antwort", fake_sammle_antwort)
+
+    asyncio.run(api_arch._fundus_aktualisieren(settings, benutzer, projekt_root, "http://fake", GERUEST_MIT_FIGUREN))
+
+    from app.services import fundus_datei
+    inhalt = pd.lies(fundus_datei(settings, benutzer.username))
+    assert "### Lady Amelia Hartwell" in inhalt
+    assert "### Ziel" not in inhalt
+
+
 def test_fundus_aktualisieren_ist_nicht_fatal_bei_ollama_fehler(settings, benutzer, projekt_root, monkeypatch):
     async def fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
         raise OllamaFehler("Ollama nicht erreichbar")

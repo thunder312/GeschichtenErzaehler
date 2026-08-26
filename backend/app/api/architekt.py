@@ -163,8 +163,15 @@ async def _fundus_aktualisieren(settings: Settings, benutzer: Benutzer, projekt_
         return
 
     titel = g.titel_erkennen(geruest_text) or projekt_root.name
-    figuren = [fu.FigurEintrag(name=e.name, alter=e.alter, stand=e.stand, eigenschaften=e.eigenschaften)
-               for e in antwort.figuren]
+    figuren = [
+        fu.FigurEintrag(
+            name=e.name, alter=e.alter, stand=e.stand, eigenschaften=e.eigenschaften,
+            aussehen=e.aussehen, ziel=e.ziel, angst=e.angst, geheimnis=e.geheimnis,
+        )
+        for e in antwort.figuren if fu.ist_plausibler_figurenname(e.name)
+    ]
+    if not figuren:
+        return
     ziel = fundus_datei(settings, benutzer.username)
     fundus_text = pd.lies(ziel, pflicht=False, ersatz=fu.leere_vorlage())
     fundus_text = fu.figuren_zusammenfuehren(fundus_text, epoche, titel, figuren)

@@ -93,6 +93,41 @@ def test_fundus_import_extrahiert_figuren_aus_geruest(client, monkeypatch):
     assert "## Regency" in r3.text
     assert "### Lady Amelia Hartwell" in r3.text
     assert "Der Markt von Rothenfeld" in r3.text
+    # Neues Template: jedes Feld erscheint als eigene Zeile, auch leer.
+    assert "- Aussehen: \n" in r3.text
+    assert "- Ziel: \n" in r3.text
+    assert "- Angst: \n" in r3.text
+    assert "- Geheimnis: \n" in r3.text
+
+
+def test_fundus_import_extrahiert_aussehen_ziel_angst_geheimnis_getrennt(client, monkeypatch):
+    r = client.post("/api/projects", json={"titel": "Ein Verbotenes Verlangen", "epoche": "Regency"})
+    ordner = r.json()["ordner"]
+    client.put(f"/api/projects/{ordner}/geruest", json={
+        "inhalt": "# STORY-GERUEST\n\n## Titel\nEin Verbotenes Verlangen\n\n"
+                  "## Figuren\nLady Amelia Hartwell: 24, Baronesse, eigensinnig. "
+                  "Ziel: unabhaengig leben. Groesste Angst: Armut. Geheimnis: liebt einen Baecker.\n\n"
+                  "## Konflikt\nSie will heiraten, ihr Vater verbietet es.\n",
+    })
+
+    async def fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
+        return (
+            '{"figuren": [{"name": "Lady Amelia Hartwell", "alter": "24", "stand": "Baronesse", '
+            '"eigenschaften": "eigensinnig", "aussehen": "", "ziel": "unabhaengig leben", '
+            '"angst": "Armut", "geheimnis": "liebt einen Baecker"}]}',
+            {},
+        )
+
+    monkeypatch.setattr(api_fundus, "sammle_antwort", fake_sammle_antwort)
+
+    r2 = client.post("/api/fundus/import")
+    assert r2.json()["gefundene_figuren"] == 1
+
+    r3 = client.get("/api/fundus")
+    assert "- Ziel: unabhaengig leben\n" in r3.text
+    assert "- Angst: Armut\n" in r3.text
+    assert "- Geheimnis: liebt einen Baecker\n" in r3.text
+    assert "- Aussehen: \n" in r3.text
 
 
 def test_fundus_projekt_aktualisieren_ueberspringt_projekt_ohne_figuren_abschnitt(client):
