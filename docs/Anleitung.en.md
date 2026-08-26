@@ -312,6 +312,12 @@ even when nothing is known for it, in which case it's simply left empty
 Every field except "Geschichten" can be edited by hand in the editor at
 any time; a later merge won't overwrite them, only the story list grows.
 
+The free-text search in the character editor searches not just the name
+but every field value of a character — "Ravenclaw" also finds characters
+where that only appears in the Stand/Rolle field, not in the name.
+Combined with the era filter, this lets you find groups like all
+Ravenclaws in an era, or all maids in the Middle Ages.
+
 ---
 
 ## 9. AI targets and settings

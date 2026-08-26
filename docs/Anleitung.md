@@ -344,6 +344,12 @@ Alle Felder außer „Geschichten“ lassen sich jederzeit von Hand im Editor
 nachbessern; ein erneutes Zusammenführen überschreibt sie nicht, nur die
 Geschichten-Liste wächst.
 
+Die Freitextsuche im Personen-Editor durchsucht nicht nur den Namen,
+sondern alle Feldwerte einer Figur — „Ravenclaw“ findet so z. B. auch
+Figuren, bei denen das nur im Feld Stand/Rolle steht, nicht im Namen.
+Zusammen mit dem Epochen-Filter lassen sich damit gezielt Gruppen finden,
+etwa alle Ravenclaws einer Epoche oder alle Mägde im Mittelalter.
+
 ---
 
 ## 9. KI-Ziele und Einstellungen

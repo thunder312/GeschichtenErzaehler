@@ -78,7 +78,10 @@ export function PersonenEditor({ onGeaendert }: PersonenEditorProps) {
       .filter((f) => !epocheFilter || f.epoche === epocheFilter)
       .filter((f) => !alter || (f.felder["Alter"] ?? "").toLowerCase().includes(alter))
       .filter((f) => !rolle || (f.felder["Stand/Rolle"] ?? "").toLowerCase().includes(rolle))
-      .filter((f) => !suche || f.name.toLowerCase().includes(suche))
+      // Freitextsuche durchsucht Name UND alle Feldwerte (nicht nur Stand/
+      // Rolle) - so findet "Ravenclaw" auch Figuren, bei denen das nur in
+      // Eigenschaften oder einem Custom-Feld steht, statt nur im Namen.
+      .filter((f) => !suche || `${f.name} ${Object.values(f.felder).join(" ")}`.toLowerCase().includes(suche))
       .sort((a, b) => a.name.localeCompare(b.name, "de"));
   }, [figuren, epocheFilter, alterFilter, rolleFilter, suchtext]);
 
@@ -226,7 +229,7 @@ export function PersonenEditor({ onGeaendert }: PersonenEditorProps) {
         </div>
 
         <Input
-          placeholder="Name durchsuchen..."
+          placeholder="Name oder Eigenschaft durchsuchen (z.B. Ravenclaw, Magd)..."
           value={suchtext}
           onChange={(e) => setSuchtext(e.target.value)}
         />
