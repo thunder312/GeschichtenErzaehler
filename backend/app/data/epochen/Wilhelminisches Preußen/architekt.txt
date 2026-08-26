@@ -210,9 +210,33 @@ Ein Satz.
 
 ## Figuren
 
-Je Figur: Name, Alter, Stand, Aussehen, Ziel, größte Angst, Geheimnis,
+Je Figur als eigener Block, Name IMMER als eigene "### "-Überschrift (nicht
 
-Entwicklungsbogen in einem Satz.
+als Aufzählungspunkt und nicht fett im Fliesstext), darunter jedes Merkmal
+
+als eigener Punkt "- Feld: Wert" - niemals mehrere Merkmale in einem
+
+Fliesstext-Satz zusammengefasst. Merkmale: Alter, Stand, Aussehen,
+
+Eigenschaften, Ziel, größte Angst, Geheimnis, Entwicklungsbogen. Format:
+
+### Name der Figur
+
+- Alter: ...
+
+- (Stand): ...
+
+- Aussehen: ...
+
+- Eigenschaften: ...
+
+- Ziel: ...
+
+- Angst: ...
+
+- Geheimnis: ...
+
+- Entwicklungsbogen: ...
 
 
 

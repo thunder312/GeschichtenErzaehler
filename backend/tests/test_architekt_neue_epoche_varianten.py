@@ -62,6 +62,22 @@ def test_architekt_vorlage_liefert_echtes_geruest_fuer_neu_angelegte_epoche(clie
     assert "## Regeln" not in vorlage
 
 
+def test_architekt_vorlage_figuren_abschnitt_verlangt_ueberschrift_statt_aufzaehlung(client, projekt):
+    # Regression: "Je Figur: ... in einem Satz" hielt sich das Modell (Mistral)
+    # bei reichhaltigen Fundus-Figuren nicht zuverlaessig dran und zerlegte
+    # stattdessen jedes einzelne Merkmal in einen eigenen, gleichrangigen
+    # Aufzaehlungspunkt neben dem Figurennamen - nicht mehr unterscheidbar,
+    # welche Punkte Figurennamen und welche nur Feld-Bezeichner sind (Live-
+    # Vorfall "Die-Schleier-zwischen-den-Welten": "Blutstatus"/"Rolle" sahen
+    # strukturell identisch aus wie "Daniel Ertl"/"Luna Lovegood"). Die
+    # Vorgabe verlangt jetzt explizit "### Name"-Ueberschriften statt Fliesstext.
+    r = client.get(f"/api/projects/{projekt}/architekt-vorlage")
+    assert r.status_code == 200
+    vorlage = r.json()["vorlage"]
+    assert "### Name der Figur" in vorlage
+    assert "in einem Satz" not in vorlage
+
+
 def test_architekt_extraktion_system_enthaelt_volle_struktur_fuer_neu_angelegte_epoche(client, projekt, monkeypatch):
     aufrufe = []
 

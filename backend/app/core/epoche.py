@@ -225,8 +225,20 @@ Ein Titel, der auf den Plot hindeutet und Spannung erzeugt.
 Ein Satz.
 
 ## Figuren
-Je Figur: Name, Alter, {a.rang_wort}, Ziel, größte Angst, Geheimnis,
-Entwicklungsbogen in einem Satz.
+Je Figur als eigener Block, Name IMMER als eigene "### "-Überschrift (nicht
+als Aufzählungspunkt und nicht fett im Fliesstext), darunter jedes Merkmal
+als eigener Punkt "- Feld: Wert" - niemals mehrere Merkmale in einem
+Fliesstext-Satz zusammengefasst. Merkmale: Alter, {a.rang_wort}, Aussehen,
+Eigenschaften, Ziel, größte Angst, Geheimnis, Entwicklungsbogen. Format:
+### Name der Figur
+- Alter: ...
+- (je nach Epoche, z.B. Stand/Rang): ...
+- Aussehen: ...
+- Eigenschaften: ...
+- Ziel: ...
+- Angst: ...
+- Geheimnis: ...
+- Entwicklungsbogen: ...
 
 ## Konflikt
 Ein Satz.
@@ -288,8 +300,8 @@ Die Liebeshandlung braucht Zwischenschritte und wird über die Kapitel verteilt
 geplant: Begegnung, Annäherung, Widerstand, ehrliches Geständnis, körperliche
 Erfüllung. Kein Sprung von Fremdheit zu Intimität.
 Ist eine Figur laut Frage 6 aus dem Fundus übernommen, behältst du deren dort
-bereits festgelegte Merkmale (Alter, {a.rang_wort}, Eigenschaften und - sofern
-sie Hauptfigur ist - Ziel, größte Angst, Geheimnis, Entwicklungsbogen)
+bereits festgelegte Merkmale (Alter, {a.rang_wort}, Eigenschaften, Aussehen und -
+sofern sie Hauptfigur ist - Ziel, größte Angst, Geheimnis, Entwicklungsbogen)
 unverändert bei, statt sie neu zu erfinden. Nur wirklich fehlende Angaben
 ergänzt du frei.
 Die Ausgangslage vor Kapitel eins MUSS konkret ausgefüllt werden, keine
