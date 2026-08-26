@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import io
 import re
+from pathlib import Path
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
@@ -13,10 +14,36 @@ from reportlab.lib.pagesizes import A5
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import BaseDocTemplate, Frame, Image, PageBreak, PageTemplate, Paragraph, Spacer
 
 from app.core.geruest import titel_erkennen, titelseite_erzeugen
+
+# Die eingebauten reportlab-Kernschriften (Times-Roman u.a.) sind an
+# WinAnsiEncoding gebunden und koennen nur die ~256 Latin-1-Zeichen
+# darstellen - Sonderzeichen wie "ō" (japanisches Makron, z.B. Figurenname
+# "Genzō") werden dabei NICHT etwa als "?" angezeigt, sondern reportlab
+# ersetzt sie still durch ein voellig unpassendes Symbol aus der internen
+# ZapfDingbats-Fallback-Schrift. DejaVu Serif deckt als volle Unicode-Schrift
+# auch Latin Extended-A/B, Griechisch, Kyrillisch usw. ab und wird deshalb
+# hier fest eingebettet (Bitstream-Vera-Lizenz, frei redistributierbar).
+_FONT_VERZEICHNIS = Path(__file__).resolve().parent.parent / "data" / "fonts"
+_SCHRIFT_NORMAL = "DejaVuSerif"
+_SCHRIFT_FETT = "DejaVuSerif-Bold"
+_SCHRIFT_KURSIV = "DejaVuSerif-Italic"
+_SCHRIFT_FETT_KURSIV = "DejaVuSerif-BoldItalic"
+
+if _SCHRIFT_NORMAL not in pdfmetrics.getRegisteredFontNames():
+    pdfmetrics.registerFont(TTFont(_SCHRIFT_NORMAL, str(_FONT_VERZEICHNIS / "DejaVuSerif.ttf")))
+    pdfmetrics.registerFont(TTFont(_SCHRIFT_FETT, str(_FONT_VERZEICHNIS / "DejaVuSerif-Bold.ttf")))
+    pdfmetrics.registerFont(TTFont(_SCHRIFT_KURSIV, str(_FONT_VERZEICHNIS / "DejaVuSerif-Italic.ttf")))
+    pdfmetrics.registerFont(TTFont(_SCHRIFT_FETT_KURSIV, str(_FONT_VERZEICHNIS / "DejaVuSerif-BoldItalic.ttf")))
+    pdfmetrics.registerFontFamily(
+        _SCHRIFT_NORMAL, normal=_SCHRIFT_NORMAL, bold=_SCHRIFT_FETT,
+        italic=_SCHRIFT_KURSIV, boldItalic=_SCHRIFT_FETT_KURSIV,
+    )
 
 _UNTERTITEL_ZEILE_RE = re.compile(r"^\*(.+?)\*\s*$", re.MULTILINE)
 
@@ -87,7 +114,7 @@ def _seitenzahl_zeichner(seiten_ohne_nummer: int):
         if dokument.page <= seiten_ohne_nummer:
             return
         canvas.saveState()
-        canvas.setFont("Times-Italic", 9)
+        canvas.setFont(_SCHRIFT_KURSIV, 9)
         canvas.setFillColor(colors.HexColor("#6b5a4a"))
         breite, _ = A5
         canvas.drawCentredString(breite / 2, 1.4 * cm, str(dokument.page - seiten_ohne_nummer))
@@ -138,27 +165,27 @@ def buch_pdf_erzeugen(geruest_text: str, epoche: str | None, kapitel: list[tuple
     gedaempft = colors.HexColor("#8a7a68")
 
     titel_stil = ParagraphStyle(
-        "BuchTitel", fontName="Times-Bold", fontSize=26, leading=32,
+        "BuchTitel", fontName=_SCHRIFT_FETT, fontSize=26, leading=32,
         alignment=TA_CENTER, textColor=dunkel, spaceAfter=14,
     )
     untertitel_stil = ParagraphStyle(
-        "BuchUntertitel", fontName="Times-Italic", fontSize=12.5, leading=17,
+        "BuchUntertitel", fontName=_SCHRIFT_KURSIV, fontSize=12.5, leading=17,
         alignment=TA_CENTER, textColor=akzent, spaceAfter=6,
     )
     fussnotiz_stil = ParagraphStyle(
-        "Fussnotiz", fontName="Times-Roman", fontSize=9.5, leading=13,
+        "Fussnotiz", fontName=_SCHRIFT_NORMAL, fontSize=9.5, leading=13,
         alignment=TA_CENTER, textColor=gedaempft, spaceBefore=6,
     )
     kapitel_nummer_stil = ParagraphStyle(
-        "KapitelNummer", fontName="Times-Roman", fontSize=10.5, leading=14,
+        "KapitelNummer", fontName=_SCHRIFT_NORMAL, fontSize=10.5, leading=14,
         alignment=TA_CENTER, textColor=akzent, spaceBefore=4, spaceAfter=2,
     )
     kapitel_titel_stil = ParagraphStyle(
-        "KapitelTitel", fontName="Times-Bold", fontSize=16, leading=21,
+        "KapitelTitel", fontName=_SCHRIFT_FETT, fontSize=16, leading=21,
         alignment=TA_CENTER, textColor=dunkel, spaceAfter=22,
     )
     absatz_stil = ParagraphStyle(
-        "Absatz", fontName="Times-Roman", fontSize=10.5, leading=16,
+        "Absatz", fontName=_SCHRIFT_NORMAL, fontSize=10.5, leading=16,
         alignment=TA_JUSTIFY, firstLineIndent=14, spaceAfter=7,
         textColor=colors.HexColor("#1c1712"),
     )

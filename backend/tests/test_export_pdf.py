@@ -1,3 +1,5 @@
+import io
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -92,6 +94,25 @@ def test_export_pdf_ohne_cover_bleibt_unveraendert(client, projekt_mit_kapiteln)
     r = client.get(f"/api/projects/{projekt_mit_kapiteln}/export/pdf")
     assert r.status_code == 200
     assert r.content.startswith(b"%PDF")
+
+
+def test_export_pdf_stellt_sonderzeichen_korrekt_dar(client, projekt_mit_kapiteln, tmp_path):
+    # Regression: die eingebauten reportlab-Kernschriften (Times-Roman etc.)
+    # sind an WinAnsiEncoding gebunden und koennen Zeichen ausserhalb von
+    # Latin-1 nicht darstellen - reportlab ersetzt sie dabei nicht durch "?",
+    # sondern still durch ein voellig unpassendes Symbol aus der internen
+    # ZapfDingbats-Fallback-Schrift (z.B. bei "ō" im Figurennamen "Genzō").
+    from pypdf import PdfReader
+
+    projekt_pfad = tmp_path / "projects" / "daniel" / projekt_mit_kapiteln / "projekt"
+    pd.schreib(pd.kapitel_datei(projekt_pfad, 1), "**Kapitel eins: Genzō und der Verrat**\n\nGenzō war ein Spion.")
+
+    r = client.get(f"/api/projects/{projekt_mit_kapiteln}/export/pdf")
+    assert r.status_code == 200
+
+    text = "".join(seite.extract_text() for seite in PdfReader(io.BytesIO(r.content)).pages)
+    assert "Genzō" in text
+    assert b"ZapfDingbats" not in r.content
 
 
 def test_export_pdf_ohne_kapitel_liefert_404(client):
