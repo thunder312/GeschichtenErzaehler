@@ -1538,7 +1538,7 @@ async def cover_prompt_vorschlagen(ordner: str, ssh_ziel_id: str | None = Query(
             )
         except OllamaFehler as e:
             raise HTTPException(502, str(e)) from e
-    return CoverPromptAntwort(prompt=prompt.strip())
+    return CoverPromptAntwort(prompt=g.cover_prompt_hochformat_sicherstellen(prompt.strip()))
 
 
 @router.post("/{ordner:path}/cover/generieren")
@@ -1556,7 +1556,11 @@ async def cover_generieren(ordner: str, anfrage: CoverGenerierenAnfrage,
     tippt/korrigiert im Frontend auf Deutsch, siehe
     g.COVER_PROMPT_SYSTEM) - wird hier per ssh_ziel_id erst ins Englische
     uebersetzt (g.COVER_PROMPT_UEBERSETZEN_SYSTEM), bevor sd-server ihn
-    bekommt, das nur englische Prompts sauber versteht."""
+    bekommt, das nur englische Prompts sauber versteht.
+    g.cover_prompt_hochformat_sicherstellen() stellt zusaetzlich sicher, dass
+    der Hochformat-Hinweis vorne steht, auch wenn der User ihn aus dem vom
+    Vorschlag uebernommenen Text geloescht oder einen eigenen Prompt ganz
+    ohne ihn eingetippt hat."""
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     projekt = projekt_root / "projekt"
     with ollama_basis_url(settings, ssh_ziel_id) as text_base_url:
@@ -1564,7 +1568,7 @@ async def cover_generieren(ordner: str, anfrage: CoverGenerierenAnfrage,
         try:
             prompt_englisch, _meta = await _sammle_antwort(
                 text_base_url, "cover_prompt", g.COVER_PROMPT_UEBERSETZEN_SYSTEM,
-                g.COVER_PROMPT_HOCHFORMAT_PRAEFIX + anfrage.prompt,
+                g.cover_prompt_hochformat_sicherstellen(anfrage.prompt),
                 modell_override=modell,
             )
         except OllamaFehler as e:

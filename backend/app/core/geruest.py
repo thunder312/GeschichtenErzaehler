@@ -409,17 +409,33 @@ COVER_PROMPT_SYSTEM = (
     "Erklaerung, ohne Anführungszeichen."
 )
 
-# Wird in app/api/pipeline.py:cover_generieren() jedem Bildprompt vorangestellt,
-# bevor er ins Englische uebersetzt wird - ein Buchcover soll wie ein echtes
-# Buchcover im Hochformat wirken, nicht wie das quadratische Standardbild, das
-# sd-server liefert (siehe app/core/bild_generierung.py:STANDARD_WIDTH/HEIGHT,
-# bewusst quadratisch belassen wegen dort dokumentierter Subjekt-Verdopplungs-
-# Artefakte bei anderen Seitenverhaeltnissen). Nur die KOMPOSITION innerhalb
-# des quadratischen Bildes wird dadurch vertikaler/hochformatiger, nicht die
-# tatsaechlichen Bildmasse. Immer als fester Praefix statt editierbares Feld,
-# damit es unabhaengig davon greift, ob der User den vorgeschlagenen Prompt
-# uebernimmt oder einen eigenen von Hand eintippt.
+# Wird sowohl in app/api/pipeline.py:cover_prompt_vorschlagen() (sichtbar im
+# editierbaren deutschen Prompt-Textfeld) als auch in cover_generieren()
+# (unmittelbar vor der Uebersetzung ins Englische) vorangestellt - ein
+# Buchcover soll wie ein echtes Buchcover im Hochformat wirken, nicht wie das
+# quadratische Standardbild, das sd-server liefert (siehe
+# app/core/bild_generierung.py:STANDARD_WIDTH/HEIGHT, bewusst quadratisch
+# belassen wegen dort dokumentierter Subjekt-Verdopplungs-Artefakte bei
+# anderen Seitenverhaeltnissen). Nur die KOMPOSITION innerhalb des
+# quadratischen Bildes wird dadurch vertikaler/hochformatiger, nicht die
+# tatsaechlichen Bildmasse.
+# Urspruenglich (Commit a1e6927) war der Praefix bewusst NICHT im editierbaren Feld
+# sichtbar, nur unsichtbar bei der Generierung ergaenzt - das fuehrte dazu,
+# dass er im vorgeschlagenen Prompt nie auftauchte und wie fehlend wirkte.
+# Jetzt steht er sichtbar im Vorschlag; cover_generieren() ergaenzt ihn ueber
+# cover_prompt_hochformat_sicherstellen() weiterhin zusaetzlich, falls der
+# User ihn aus dem Textfeld entfernt oder einen eigenen Prompt ganz ohne ihn
+# eintippt - siehe dort.
 COVER_PROMPT_HOCHFORMAT_PRAEFIX = "Hochformat, "
+
+
+def cover_prompt_hochformat_sicherstellen(prompt: str) -> str:
+    """Stellt sicher, dass ein Bildprompt mit COVER_PROMPT_HOCHFORMAT_PRAEFIX
+    beginnt, ohne ihn ein zweites Mal voranzustellen, falls er (z.B. aus dem
+    Vorschlag von cover_prompt_vorschlagen()) bereits vorhanden ist."""
+    if prompt.strip().lower().startswith(COVER_PROMPT_HOCHFORMAT_PRAEFIX.strip().lower()):
+        return prompt
+    return COVER_PROMPT_HOCHFORMAT_PRAEFIX + prompt
 
 # System-Prompt, der den (ggf. vom User auf Deutsch getippten oder
 # korrigierten) Bildprompt unmittelbar vor der sd-server-Anfrage ins
