@@ -1,4 +1,6 @@
+import { useState } from "react";
 import type { Befund, BefundKategorie } from "../api/types";
+import { BefundVergleichOverlay } from "./BefundVergleichOverlay";
 
 export const KATEGORIE_LABEL: Record<BefundKategorie, string> = {
   anachronismus: "Anachronismus",
@@ -63,6 +65,12 @@ export function BefundListe({
   onAblehnen,
   kapitelVon,
 }: BefundListeProps) {
+  // Zeigt Fundstelle ("Alt") und Vorschlag ("Neu") desselben Befunds gross
+  // im Overlay an - siehe BefundVergleichOverlay.tsx, angestossen ueber den
+  // Info-Button unten. Nur EIN Befund gleichzeitig, deshalb reicht simpler
+  // State statt einer Map.
+  const [vergleichBefund, setVergleichBefund] = useState<Befund | null>(null);
+
   // Verwaiste Funde (Fundstelle stimmt nicht mehr mit dem aktuellen Text
   // ueberein, siehe befundReview.ts:pruefeVerwaist) sind i.d.R. bereits
   // durch eine automatische Korrektur behoben - als weiterhin "offen"
@@ -147,6 +155,17 @@ export function BefundListe({
                   ✓ Übernommen
                 </span>
               )}
+              <button
+                type="button"
+                title="Alt- und Neu-Text groß im Vergleich anzeigen"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setVergleichBefund(befund);
+                }}
+                className="ml-auto shrink-0 rounded-md border border-border px-2 py-0.5 text-xs font-medium text-text-muted hover:bg-surface-hover"
+              >
+                ℹ Alt/Neu
+              </button>
               {onAblehnen && !uebernommen && (
                 <button
                   type="button"
@@ -155,14 +174,17 @@ export function BefundListe({
                     e.stopPropagation();
                     onAblehnen(befund);
                   }}
-                  className="ml-auto shrink-0 rounded-md border border-border px-2 py-0.5 text-xs font-medium text-text-muted hover:border-red-400/40 hover:bg-red-400/10 hover:text-red-200"
+                  className="shrink-0 rounded-md border border-border px-2 py-0.5 text-xs font-medium text-text-muted hover:border-red-400/40 hover:bg-red-400/10 hover:text-red-200"
                 >
                   Ablehnen
                 </button>
               )}
             </div>
 
-            <p className="mb-1 font-mono text-xs text-text-muted">„{befund.fundstelle}"</p>
+            <p className="mb-1 text-xs">
+              <span className="text-text-muted">Alt:</span>{" "}
+              <span className="font-mono text-text-muted">„{befund.fundstelle}"</span>
+            </p>
 
             {befund.beschreibungen.map((b, i) => (
               <p key={i} className="text-text">
@@ -184,7 +206,7 @@ export function BefundListe({
             ) : befund.vorschlag ? (
               <div className="mt-1 flex items-center justify-between gap-2">
                 <p className="text-xs">
-                  <span className="text-text-muted">Vorschlag:</span> „{befund.vorschlag}"
+                  <span className="text-text-muted">Neu:</span> „{befund.vorschlag}"
                 </p>
                 {kannUebernehmen && (
                   <button
@@ -204,6 +226,9 @@ export function BefundListe({
         );
       })}
       </ul>
+      {vergleichBefund && (
+        <BefundVergleichOverlay befund={vergleichBefund} onClose={() => setVergleichBefund(null)} />
+      )}
     </div>
   );
 }
