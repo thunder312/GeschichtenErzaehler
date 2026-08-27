@@ -122,6 +122,24 @@ def ist_plausibler_figurenname(name: str) -> bool:
     return name.strip().lower() not in _KEIN_FIGURENNAME
 
 
+def feldwert_einzeilig(wert: str) -> str:
+    """Kollabiert Zeilenumbrueche/mehrfache Leerzeichen in EINEN Leerraum -
+    das fundus.md-Format ist strikt eine Zeile pro Feld ('- Label: Wert',
+    siehe _VORLAGE/_FELD_ZEILE_MUSTER); fundus_parsen() erkennt eine
+    Fortsetzungszeile OHNE fuehrendes '- ' nicht als Teil des Werts und
+    ueberspringt sie stillschweigend. Ein direkt (ohne dieses Kollabieren)
+    gespeicherter mehrzeiliger Wert wirkt daher beim naechsten Laden
+    abgeschnitten - realer Vorfall (2026-08-27): ein mehrere Absaetze langer
+    "Aussehen"-Text verlor beim naechsten Speichern alles ab dem zweiten
+    Absatz, weil er zwischenzeitlich unveraendert (roh mehrzeilig) in die
+    Datei geschrieben, beim Wiedereinlesen aber nur bis zum ersten
+    Zeilenumbruch erfasst wurde. Wird sowohl beim Schreiben eines neuen
+    Blocks (figur_block_erzeugen) als auch beim Serialisieren bestehender
+    Figuren (fundus_serialisieren) angewandt, damit KEIN Schreibweg einen
+    mehrzeiligen Wert je in die Datei durchlaesst."""
+    return " ".join(wert.split())
+
+
 def figur_block_erzeugen(figur: FigurEintrag, story_titel: str) -> str:
     """Baut einen neuen '### Name'-Block, wie er von Hand oder beim
     automatischen Zusammenfuehren einer bisher unbekannten Figur angelegt
@@ -132,13 +150,13 @@ def figur_block_erzeugen(figur: FigurEintrag, story_titel: str) -> str:
     oben)."""
     zeilen = [
         f"### {figur.name}",
-        f"- Alter: {figur.alter.strip()}",
-        f"- Stand/Rolle: {figur.stand.strip()}",
-        f"- Eigenschaften: {figur.eigenschaften.strip()}",
-        f"- Aussehen: {figur.aussehen.strip()}",
-        f"- Ziel: {figur.ziel.strip()}",
-        f"- Angst: {figur.angst.strip()}",
-        f"- Geheimnis: {figur.geheimnis.strip()}",
+        f"- Alter: {feldwert_einzeilig(figur.alter)}",
+        f"- Stand/Rolle: {feldwert_einzeilig(figur.stand)}",
+        f"- Eigenschaften: {feldwert_einzeilig(figur.eigenschaften)}",
+        f"- Aussehen: {feldwert_einzeilig(figur.aussehen)}",
+        f"- Ziel: {feldwert_einzeilig(figur.ziel)}",
+        f"- Angst: {feldwert_einzeilig(figur.angst)}",
+        f"- Geheimnis: {feldwert_einzeilig(figur.geheimnis)}",
         f"- Geschichten: {story_titel.strip()}",
     ]
     return "\n".join(zeilen) + "\n"
@@ -266,7 +284,7 @@ def fundus_serialisieren(figuren: list[Figur]) -> str:
         bloecke = []
         for figur in figuren_in_epoche:
             zeilen = [f"### {figur.name}"]
-            zeilen += [f"- {name}: {wert}" for name, wert in figur.felder.items()]
+            zeilen += [f"- {name}: {feldwert_einzeilig(wert)}" for name, wert in figur.felder.items()]
             bloecke.append("\n".join(zeilen) + "\n")
         abschnitte.append(f"## {epoche}\n\n" + "\n".join(bloecke))
     return "\n".join(abschnitte).rstrip("\n") + "\n"

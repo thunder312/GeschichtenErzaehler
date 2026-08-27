@@ -212,6 +212,38 @@ def test_fundus_parsen_serialisieren_ist_stabiler_roundtrip():
         [(f.epoche, f.name, f.felder) for f in figuren]
 
 
+def test_fundus_serialisieren_kollabiert_mehrzeiligen_wert_statt_ihn_abzuschneiden():
+    """Realer Vorfall: ein mehrere Absaetze langer "Aussehen"-Text verlor
+    beim naechsten Speichern alles ab dem zweiten Absatz, weil fundus.md
+    strikt eine Zeile pro Feld ist und fundus_parsen() eine Fortsetzungszeile
+    ohne fuehrendes "- " stillschweigend ueberspringt (siehe
+    fundus.py:feldwert_einzeilig)."""
+    mehrzeilig = (
+        "Erster Absatz mit einer Beschreibung.\n\n"
+        "Zweiter Absatz, der bisher beim naechsten Laden verloren ging."
+    )
+    figuren = [fu.Figur(epoche="Harry-Potter-Universum", name="Daniel Ertl",
+                         felder={"Aussehen": mehrzeilig, "Geschichten": "Test"})]
+    text = fu.fundus_serialisieren(figuren)
+    # Kollabiert zu EINER Zeile - beide Absaetze bleiben inhaltlich erhalten,
+    # nur durch ein Leerzeichen statt einen Zeilenumbruch getrennt.
+    assert "- Aussehen: Erster Absatz mit einer Beschreibung. Zweiter Absatz, " \
+           "der bisher beim naechsten Laden verloren ging.\n" in text
+
+    figuren_geladen = fu.fundus_parsen("\n" + text)
+    assert figuren_geladen[0].felder["Aussehen"] == (
+        "Erster Absatz mit einer Beschreibung. Zweiter Absatz, der bisher beim "
+        "naechsten Laden verloren ging."
+    )
+
+
+def test_figur_block_erzeugen_kollabiert_mehrzeiligen_wert():
+    block = fu.figur_block_erzeugen(
+        fu.FigurEintrag(name="Nina", aussehen="Zeile eins.\nZeile zwei."), "Testgeschichte",
+    )
+    assert "- Aussehen: Zeile eins. Zeile zwei.\n" in block
+
+
 def test_fundus_serialisieren_gruppiert_nach_epoche_in_erstauftrittsreihenfolge():
     figuren = [
         fu.Figur(epoche="Regency", name="A", felder={"Alter": "1", "Geschichten": ""}),
