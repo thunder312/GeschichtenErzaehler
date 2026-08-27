@@ -85,23 +85,46 @@ export function installBefundReview(
     }
   }
 
+  function unveraendert(a: Befund, b: Befund): boolean {
+    return a.start === b.start && a.end === b.end && a.fundstelle === b.fundstelle;
+  }
+
   function setzeBefunde(befunde: Befund[]) {
     if (!model) return;
+    const vorherigeBefunde = aktuelleBefunde;
     aktuelleBefunde = new Map(befunde.map((b) => [b.id, b]));
 
-    // Voller Reset bei JEDEM Aufruf (auch bei identischen IDs ueber zwei
-    // Aufrufe hinweg, z.B. weil die IDs pro Pruef-Lauf neu ab "b1" vergeben
-    // werden, siehe befunde_merge.py) - ein neuer Aufruf bedeutet immer ein
-    // frisches Pruef-Ergebnis vom Server, gegen das alte, evtl. laengst
-    // ungueltige Decorations/Uebernommen-Markierungen nicht mehr sinnvoll
-    // waeren. Innerhalb EINES Aufrufs bleiben bereits gesetzte Decorations
-    // dagegen erhalten und verschieben sich mit Monacos eigener
-    // Positions-Nachfuehrung automatisch mit, wenn im Editor weitergetippt
-    // wird (kein erneuter setzeBefunde()-Aufruf dabei noetig).
-    for (const id of Array.from(verfolgt.keys())) entferneTracked(id);
-    erledigt.clear();
+    // KEIN voller Reset mehr bei jedem Aufruf: setzeBefunde() feuert nicht
+    // nur bei einem echten neuen Pruef-Ergebnis vom Server, sondern in
+    // PruefenAnwendenPage (zeigeListe=false) bei JEDER Aenderung der
+    // `befunde`-Prop-Referenz - z.B. rein clientseitig, wenn "Ablehnen"
+    // `abgelehntIds` aktualisiert und dadurch `shiftedBefunde` neu berechnet
+    // wird. Ein voller Reset wuerde dann auch bereits korrekt lebend
+    // getrackte Funde anhand ihrer STATISCHEN start/end-Offsets neu
+    // validieren - die aber laengst veraltet sein koennen, wenn VORHER schon
+    // ein anderer Fund per "Uebernehmen" angewendet und dadurch der
+    // nachfolgende Text verschoben wurde (echter, live beobachteter Vorfall:
+    // ein Klick auf "Ablehnen" liess dadurch scheinbar die GESAMTE Liste
+    // verschwinden). Deshalb: nur ids entfernen, die in der neuen Liste
+    // fehlen, und fuer weiterhin vorhandene ids mit UNVERAENDERTEM Inhalt die
+    // bestehende (von Monaco automatisch mitverschobene) Decoration in Ruhe
+    // lassen statt sie neu aufzubauen. Nur bei inhaltlich geaenderten Funden
+    // (z.B. derselbe id-String "3-b1" durch einen frischen Pruef-Lauf mit
+    // neuem Inhalt wiederverwendet, siehe befunde_merge.py) wird neu
+    // validiert.
+    const neueIds = new Set(befunde.map((b) => b.id));
+    for (const id of Array.from(verfolgt.keys())) {
+      if (!neueIds.has(id)) entferneTracked(id);
+    }
 
     for (const befund of befunde) {
+      if (verfolgt.has(befund.id) || erledigt.has(befund.id)) {
+        const vorher = vorherigeBefunde.get(befund.id);
+        if (vorher && unveraendert(vorher, befund)) continue;
+        entferneTracked(befund.id);
+        erledigt.delete(befund.id);
+      }
+
       // "gefunden: false" (Backend fand die vom Pruefer zitierte Fundstelle
       // schon beim Pruef-Lauf selbst nicht im Kapiteltext, siehe
       // fundstellen.py) hat KEIN start/end und landet deshalb nie in
