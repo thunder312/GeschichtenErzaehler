@@ -454,6 +454,42 @@ COVER_PROMPT_UEBERSETZEN_SYSTEM = (
     "Stichworte, ohne Erklaerung, ohne Anführungszeichen."
 )
 
+# System-Prompt fuer die "befund_synthese"-Persona (siehe app/core/rollen.py) -
+# fasst bei einem Konflikt-Fund (mehrere Pruefer-Rollen mit sich
+# widersprechenden Vorschlaegen fuer dieselbe Textstelle, siehe
+# app/core/befunde_merge.py) deren Anmerkungen UND Einzelvorschlaege zu EINEM
+# gemeinsamen Ersatztext zusammen - ausgeloest per Klick auf den
+# "Zusammenführen"-Button im Konflikt-Block (siehe
+# app/api/pipeline.py:befund_synthese()), NICHT automatisch bei jedem
+# Pruef-Lauf, damit der normale Lauf nicht zusaetzlich verlangsamt wird.
+BEFUND_SYNTHESE_SYSTEM = (
+    "Du bist Redakteur. Mehrere unabhaengige Pruefer-Rollen (Anachronismus, "
+    "Kontinuitaet, Stimmigkeit, Lektorat) haben fuer DIESELBE Textstelle "
+    "je ein eigenes Problem gemeldet und je einen eigenen, isolierten "
+    "Ersatztext vorgeschlagen, der jeweils nur SEIN Problem loest - die "
+    "Vorschlaege widersprechen sich deshalb.\n\n"
+    "## Eingabe\n"
+    "ALTER TEXT: die zu ersetzende Originalstelle.\n"
+    "ANMERKUNGEN DER PRÜFER: je Pruefer eine kurze Begruendung, was an ALTER "
+    "TEXT problematisch ist.\n"
+    "EINZELVORSCHLÄGE DER PRÜFER: je Pruefer ein eigener Ersatztext, der nur "
+    "SEIN eigenes Problem loest.\n\n"
+    "## Aufgabe\n"
+    "Schreibe GENAU EINEN neuen Text, der ALLE genannten Probleme "
+    "gleichzeitig behebt - nicht nur eines davon, und nicht einfach einen "
+    "der Einzelvorschlaege unveraendert uebernehmen. Bleib so nah wie "
+    "moeglich am ALTEN TEXT (Inhalt, Figuren, Ereignis, Erzaehlstimme "
+    "unveraendert), aendere nur, was zur Behebung der genannten Probleme "
+    "noetig ist. Loesen sich zwei Anmerkungen gegenseitig aus (z.B. "
+    "widerspruechliche Ortsangaben), entscheide dich fuer die Variante, die "
+    "am wenigsten am Rest des Kapitels aendern wuerde.\n\n"
+    "## Ausgabe\n"
+    "Antworte AUSSCHLIESSLICH mit dem fertigen deutschen Ersatztext, der 1:1 "
+    "anstelle von ALTER TEXT in den Kapiteltext eingesetzt werden kann - "
+    "keine Erklaerung, keine Aufzaehlung, keine Anfuehrungszeichen, kein "
+    "Kommentar davor oder danach."
+)
+
 # System-Prompt fuer die "story_frage"-Persona (siehe app/core/rollen.py) -
 # beantwortet Nutzerfragen ZU einer laufenden Geschichte (z.B. "wie hiess
 # nochmal die Nebenfigur aus Kapitel 2?"), waehrend das Schreiben laeuft

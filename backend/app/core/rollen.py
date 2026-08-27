@@ -221,6 +221,29 @@ ROLLEN: dict[str, dict] = {
             "seed": 42,
         },
     },
+    # Fasst bei einem Konflikt-Fund (mehrere Pruefer mit sich widersprechenden
+    # Vorschlaegen fuer dieselbe Textstelle, siehe app/core/befunde_merge.py)
+    # deren Anmerkungen+Einzelvorschlaege per gezieltem, vom Nutzer per Klick
+    # ausgeloestem Aufruf zu EINEM gemeinsamen Ersatztext zusammen - siehe
+    # app/api/pipeline.py:befund_synthese() und app/core/geruest.py:
+    # BEFUND_SYNTHESE_SYSTEM. Gleiche konservative Parameter wie "lektor"
+    # (niedrige Temperatur, kein "think"): die Aufgabe ist eine nahe am
+    # Original bleibende Textkorrektur, kein kreatives Neuschreiben.
+    "befund_synthese": {
+        "modell": "gemma4",
+        "think": False,
+        "optionen": {
+            "temperature": 0.15,
+            "top_p": 0.8,
+            "min_p": 0.1,
+            "top_k": 30,
+            "repeat_penalty": 1.0,
+            "repeat_last_n": 64,
+            "num_ctx": 16384,
+            "num_predict": 1024,
+            "seed": 42,
+        },
+    },
     # Fasst ein deutsches geruest.md zu einem kurzen, stichwortartigen
     # englischen Bildprompt fuer die Deckblatt-Generierung zusammen (siehe
     # app/core/bild_generierung.py). Bewusst niedrige Temperatur/kein

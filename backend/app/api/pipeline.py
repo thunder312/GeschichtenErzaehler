@@ -1415,6 +1415,56 @@ async def pruefen(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
         return await _pruefe_kapitel(settings, projekt, base_url, n, kapiteltext)
 
 
+@router.post("/{ordner:path}/befunde/{n}/{befund_id}/synthese", response_model=Befund)
+async def befund_synthese(ordner: str, n: int, befund_id: str, ssh_ziel_id: str | None = Query(None),
+                           settings: Settings = Depends(get_settings),
+                           benutzer: Benutzer = Depends(get_current_user)) -> Befund:
+    """Button "Zusammenführen" bei einem Konflikt-Fund (siehe
+    app/core/befunde_merge.py: mehrere Pruefer-Rollen mit sich
+    widersprechenden Vorschlaegen fuer dieselbe Textstelle - bisher ohne
+    weiteren KI-Aufruf zusammengefuehrt, dadurch aber ohne Uebernehmen-
+    Option, siehe app/core/geruest.py:BEFUND_SYNTHESE_SYSTEM). Fasst die
+    Anmerkungen+Einzelvorschlaege PER GEZIELTEM, vom Nutzer ausgeloestem
+    Aufruf (nicht automatisch bei jedem /pruefen-Lauf) zu einem gemeinsamen
+    Ersatztext zusammen, setzt bei einem plausiblen Ergebnis vorschlag im
+    gespeicherten befunde_{n}.json und schaltet konflikt auf False, damit
+    der Fund danach wie jeder normale Fund per "Uebernehmen" anwendbar ist.
+    konflikt_vorschlaege bleibt als Historie der urspruenglichen
+    Einzelmeinungen erhalten."""
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    projekt = projekt_root / "projekt"
+    datei = pd.befunde_datei(projekt, n)
+    if not datei.exists():
+        raise HTTPException(404, f"Befunde zu Kapitel {n} nicht gefunden.")
+    antwort = BefundeAntwort.model_validate_json(pd.lies(datei))
+    ziel = next((b for b in antwort.befunde if b.id == befund_id), None)
+    if ziel is None:
+        raise HTTPException(404, f"Fund {befund_id} nicht gefunden.")
+    if not ziel.konflikt or not ziel.konflikt_vorschlaege:
+        raise HTTPException(400, "Dieser Fund ist kein Konflikt mehrerer Prüfer.")
+
+    anmerkungen = "\n\n".join(f"{b.quelle}: {b.text}" for b in ziel.beschreibungen)
+    vorschlaege_block = "\n\n".join(f"{v.quelle}-Vorschlag: {v.text}" for v in ziel.konflikt_vorschlaege)
+    user = (
+        f"=== ALTER TEXT ===\n{ziel.fundstelle}\n\n"
+        f"=== ANMERKUNGEN DER PRÜFER ===\n{anmerkungen}\n\n"
+        f"=== EINZELVORSCHLÄGE DER PRÜFER (widersprechen sich) ===\n{vorschlaege_block}"
+    )
+    with ollama_basis_url(settings, ssh_ziel_id) as base_url:
+        ergebnis, _meta = await _sammle_stream(settings, base_url, "befund_synthese", g.BEFUND_SYNTHESE_SYSTEM, user)
+
+    ergebnis = ergebnis.strip()
+    if not ergebnis or vorschlag_verdaechtig(ziel.fundstelle, ergebnis):
+        raise HTTPException(
+            502, "Die KI hat keinen brauchbaren zusammengeführten Vorschlag geliefert - bitte manuell entscheiden.",
+        )
+
+    ziel.vorschlag = ergebnis
+    ziel.konflikt = False
+    datei.write_text(antwort.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    return ziel
+
+
 @router.post("/{ordner:path}/stand/{n}")
 async def stand(ordner: str, n: int, ssh_ziel_id: str | None = Query(None),
                  settings: Settings = Depends(get_settings),

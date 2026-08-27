@@ -34,6 +34,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
   const [orphanIds, setOrphanIds] = useState<Set<string>>(new Set());
   const [uebernommenIds, setUebernommenIds] = useState<Set<string>>(new Set());
   const [abgelehntIds, setAbgelehntIds] = useState<Set<string>>(new Set());
+  const [zusammenfuehrenLaeuftIds, setZusammenfuehrenLaeuftIds] = useState<Set<string>>(new Set());
   const [speichertLaedt, setSpeichertLaedt] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
   const [automatikStatus, setAutomatikStatus] = useState<AutomatikStatus | null>(null);
@@ -406,6 +407,45 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
     }
   }
 
+  // Button "Zusammenführen" bei einem Konflikt-Fund (mehrere Prüfer mit sich
+  // widersprechenden Vorschlägen, siehe BefundListe.tsx) - ersetzt den
+  // Eintrag in `bloecke[n].befunde.befunde` durch die vom Backend
+  // zurückgelieferte, bereits aufgelöste Fassung (vorschlag gesetzt,
+  // konflikt: false). Das lässt `shiftedBefunde` per useMemo neu berechnen
+  // und aktualisiert dadurch automatisch auch die Decorations/Apply-Option
+  // im Editor (siehe BefundEditor.tsx: reagiert auf neue `befunde`-Referenz).
+  async function aufKonfliktZusammenfuehren(befund: Befund) {
+    const n = kapitelVonId.get(befund.id);
+    if (n === undefined) return;
+    const originalId = befund.id.slice(String(n).length + 1);
+    setZusammenfuehrenLaeuftIds((s) => new Set(s).add(befund.id));
+    try {
+      const aktualisiert = await api.befundSynthese(ordner, n, originalId, sshZielId || null);
+      setBloecke((b) => {
+        const block = b[n];
+        if (!block?.befunde) return b;
+        return {
+          ...b,
+          [n]: {
+            ...block,
+            befunde: {
+              ...block.befunde,
+              befunde: block.befunde.befunde.map((x) => (x.id === originalId ? aktualisiert : x)),
+            },
+          },
+        };
+      });
+    } catch (e) {
+      window.alert(`Zusammenführen fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setZusammenfuehrenLaeuftIds((s) => {
+        const kopie = new Set(s);
+        kopie.delete(befund.id);
+        return kopie;
+      });
+    }
+  }
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <Card>
@@ -414,9 +454,10 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
           Anachronismus/Stimmigkeit, Kontinuität und Lektorat laufen automatisch parallel direkt nach dem
           Schreiben eines Kapitels (Tab „Schreiben"). Jeder Fund ist im Text unten farbig markiert (Amber:
           Anachronismus, Violett: Stimmigkeit, Sky: Kontinuität, Grün: Lektorat, Türkis: von mehreren Prüfern
-          gemeldet, Rot: widersprüchliche Vorschläge - hier manuell entscheiden). Text direkt im Editor
-          bearbeiten, dann speichern - beim Speichern wird der Text anhand der „## Kapitel N"-Überschriften
-          wieder auf die einzelnen Kapitel aufgeteilt.
+          gemeldet, Rot: widersprüchliche Vorschläge - hier "Zusammenführen" klicken für einen abgestimmten
+          Vorschlag, oder manuell entscheiden). Text direkt im Editor bearbeiten, dann speichern - beim
+          Speichern wird der Text anhand der „## Kapitel N"-Überschriften wieder auf die einzelnen Kapitel
+          aufgeteilt.
         </p>
 
         {kapitelNummern.length > 0 && (
@@ -522,6 +563,8 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
                 onUebernehmen={(befund) => editorRef.current?.uebernehmen(befund.id)}
                 onUebernehmenAlle={(alle) => editorRef.current?.uebernehmenMehrere(alle.map((b) => b.id))}
                 onAblehnen={aufFundAblehnen}
+                onZusammenfuehren={aufKonfliktZusammenfuehren}
+                zusammenfuehrenLaeuftIds={zusammenfuehrenLaeuftIds}
               />
             </div>
           </div>

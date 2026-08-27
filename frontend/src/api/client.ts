@@ -3,6 +3,7 @@ import type {
   AnalysatorStatus,
   AutomatikStatus,
   AutomatikVerlaufEintrag,
+  Befund,
   BefundeAntwort,
   Benutzer,
   BenutzerAnlegenEingabe,
@@ -187,6 +188,15 @@ export const api = {
     anfrage<{ abgelehnt: boolean }>(
       `/api/projects/${ordner}/befunde/${n}/ablehnen`,
       { method: "POST", body: JSON.stringify({ befund_id: befundId }) },
+    ),
+
+  /** Konflikt-Fund (mehrere Prüfer mit sich widersprechenden Vorschlägen für
+   * dieselbe Stelle, siehe BefundListe.tsx) per gezieltem LLM-Aufruf zu einem
+   * gemeinsamen, übernehmbaren Vorschlag zusammenführen. */
+  befundSynthese: (ordner: string, n: number, befundId: string, sshZielId?: string | null) =>
+    anfrage<Befund>(
+      `/api/projects/${ordner}/befunde/${n}/${befundId}/synthese${sshQuery(sshZielId)}`,
+      { method: "POST" },
     ),
 
   gesamt: (ordner: string) => anfrage<string>(`/api/projects/${ordner}/gesamt`),

@@ -48,6 +48,16 @@ interface BefundListeProps {
    * gesamten, ueber alle Kapitel durchlaufenden Editor) - liefert je Fund
    * die Kapitelnummer fuer ein kleines Badge vor den Kategorie-Chips. */
   kapitelVon?: (befund: Befund) => number;
+  /** Nur uebergeben, wenn bei Konflikt-Funden (mehrere Pruefer mit sich
+   * widersprechenden Vorschlaegen, siehe app/core/befunde_merge.py) ein
+   * "Zusammenführen"-Button angeboten werden soll, der die Anmerkungen aller
+   * beteiligten Pruefer per gezieltem LLM-Aufruf zu einem gemeinsamen,
+   * uebernehmbaren Vorschlag zusammenfasst (siehe
+   * app/api/pipeline.py:befund_synthese()). */
+  onZusammenfuehren?: (befund: Befund) => void;
+  /** IDs der Funde, fuer die aktuell ein Zusammenfuehren-Aufruf laeuft -
+   * deaktiviert den Button und zeigt "..." statt erneut auszuloesen. */
+  zusammenfuehrenLaeuftIds?: Set<string>;
 }
 
 function kannUebernommenWerden(befund: Befund, uebernommen: boolean): boolean {
@@ -64,6 +74,8 @@ export function BefundListe({
   onUebernehmenAlle,
   onAblehnen,
   kapitelVon,
+  onZusammenfuehren,
+  zusammenfuehrenLaeuftIds,
 }: BefundListeProps) {
   // Zeigt Fundstelle ("Alt") und Vorschlag ("Neu") desselben Befunds gross
   // im Overlay an - siehe BefundVergleichOverlay.tsx, angestossen ueber den
@@ -166,6 +178,20 @@ export function BefundListe({
               >
                 ℹ Alt/Neu
               </button>
+              {onZusammenfuehren && befund.konflikt && (
+                <button
+                  type="button"
+                  title="Anmerkungen aller beteiligten Prüfer per KI-Aufruf zu EINEM gemeinsamen, übernehmbaren Vorschlag zusammenführen"
+                  disabled={zusammenfuehrenLaeuftIds?.has(befund.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onZusammenfuehren(befund);
+                  }}
+                  className="shrink-0 rounded-md border border-accent/40 bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent-light hover:bg-accent-soft/80 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {zusammenfuehrenLaeuftIds?.has(befund.id) ? "Führt zusammen…" : "Zusammenführen"}
+                </button>
+              )}
               {onAblehnen && !uebernommen && (
                 <button
                   type="button"
