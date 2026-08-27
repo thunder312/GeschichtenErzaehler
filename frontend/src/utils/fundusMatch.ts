@@ -5,6 +5,16 @@
 // statt sie erneut von Hand einzutippen.
 import type { FundusFigur } from "../api/types";
 
+/** Epoche-Namen sind in freier Wildbahn nicht konsistent geschrieben -
+ * dieselbe Epoche steht z.B. in einem Projekt-".epoche"-Marker als "Burg
+ * Schreckenstein" (mit Leerzeichen), im Fundus aber als "Burg-Schreckenstein"
+ * (mit Bindestrich, siehe realer Vorfall 2026-08-27). Bindestriche und
+ * Leerzeichen werden deshalb als gleichwertig behandelt, bevor verglichen
+ * wird - ein reiner "==="-Vergleich haette hier faelschlich NIE getroffen. */
+function normalisierteEpoche(epoche: string): string {
+  return epoche.trim().toLowerCase().replace(/[-\s]+/g, " ");
+}
+
 /** Case-insensitive Namensvergleich, auf die Epoche des aktuellen Projekts
  * beschraenkt - Merkmale wie "Stand/Rolle" oder "Aussehen" sind i.d.R. nur
  * innerhalb derselben Epoche sinnvoll uebertragbar (gleiche Konvention wie
@@ -15,8 +25,9 @@ export function fundusFigurFinden(
 ): FundusFigur | undefined {
   const gesucht = name.trim().toLowerCase();
   if (!gesucht || !epoche) return undefined;
+  const gesuchteEpoche = normalisierteEpoche(epoche);
   return fundusFiguren.find(
-    (f) => f.epoche === epoche && f.name.trim().toLowerCase() === gesucht,
+    (f) => normalisierteEpoche(f.epoche) === gesuchteEpoche && f.name.trim().toLowerCase() === gesucht,
   );
 }
 
