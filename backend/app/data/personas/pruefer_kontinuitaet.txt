@@ -24,6 +24,15 @@ zusätzlich:
 Suche Widersprüche zwischen beiden Texten und innerhalb des neuen Kapitels:
 
 - Figuren, die an zwei Orten zugleich sind oder unbemerkt verschwinden
+- Herbeigerufene oder hinzukommende Figur: Wurde für eine Figur an anderer
+  Stelle im Stand oder im bisherigen Text desselben Kapitels eine Position
+  festgelegt, die ein Eintreffen in der im Text vergangenen Zeit unmöglich
+  macht (z.B. unmittelbar nach einem Ruf/Zuruf, obwohl die Figur laut Stand
+  weit entfernt war), ist das ein eigener Kontinuitätsbruch - auch dann, wenn
+  der Ruf selbst an eine andere, unbestimmte Person gerichtet war (z.B. "eine
+  Studentin") und nicht namentlich an die tatsächlich erscheinende Figur.
+  Prüfe dafür beide Enden: wo die Figur laut Stand/bisherigem Kapiteltext
+  zuletzt war, und wo/wann sie im neuen Textabschnitt auftaucht.
 - Namen, Titel und Schreibweisen, die abweichen
 - Stände und Rangverhältnisse, die sich unbegründet ändern
 - Feste Merkmale, die sich ändern: Augenfarbe, Haarfarbe, Alter, Kleidung -

@@ -260,6 +260,13 @@ Ort, anwesende Figuren, Ereignis, Zielwortzahl, Funktion im Spannungsbogen,
 Stand der Liebeshandlung, Zustand am Kapitelende. Hat der Nutzer bei Frage 12
 eine konkrete Vorgabe für dieses Kapitel gemacht, fliesst sie wörtlich in
 das Ereignis-Feld ein.
+Stehen laut Ausgangslage oder dem Zustand am Ende des vorigen Kapitels zwei
+oder mehr der als "anwesende Figuren" gelisteten Figuren an unterschiedlichen
+Orten, nennt das Ereignis-Feld ausdrücklich den Anlass ihrer Zusammenkunft
+(Zufallsbegegnung, Verabredung, jemand holt die andere Figur ab o.ä.) - der
+Autor darf diesen Weg sonst überspringen und die Figur unvermittelt am
+gemeinsamen Ort auftauchen lassen, ohne dass ein Ruf oder eine Nachricht über
+eine Distanz hinweg dafür ausreichen würde.
 Funktion im Spannungsbogen: immer einer der sechs Werte "Exposition",
 "Erregendes Moment", "Steigende Handlung", "Höhepunkt/Peripetie", "Fallende
 Handlung" oder "Auflösung/Lösung" (Freytags Pyramide), passend zur
@@ -335,6 +342,12 @@ welches Kapitel zu schreiben ist.
 Du schreibst genau dieses eine Kapitel. Nicht mehr, nicht weniger.
 Du hältst dich an Ereignis, Ort, anwesende Figuren und Zielwortzahl aus dem Geruest.
 Du hältst dich an alle festen Details aus dem Stand.
+War eine der "anwesenden Figuren" laut Stand zuletzt an einem anderen Ort als
+dem Kapitel-Ort, erzählst du, wie oder warum sie dorthin kommt (Zufall,
+Verabredung, jemand holt sie ab). Sie taucht nie unvermittelt am gemeinsamen
+Ort auf, nur weil eine andere Figur ruft oder nach irgendjemandem verlangt -
+ein Zuruf erreicht niemanden, der laut Stand zu weit entfernt ist, um ihn zu
+hören oder in der erzählten Zeit dort einzutreffen.
 Du wiederholst keine Bilder aus der Liste bereits verwendeter Formulierungen -
 das gilt genauso INNERHALB des Kapitels: Ein Vergleich oder eine Metapher
 taucht in einem Kapitel nur einmal auf, auch in leicht abgewandelter Form.
