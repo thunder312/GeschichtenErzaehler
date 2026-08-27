@@ -1,7 +1,7 @@
 import Editor from "@monaco-editor/react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { ProjektDetail } from "../api/types";
+import type { FundusFigur, ProjektDetail } from "../api/types";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { KapitelplanEditor } from "../components/KapitelplanEditor";
 import { RahmenEditor } from "../components/RahmenEditor";
@@ -89,6 +89,18 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   const [stilprobenHinweis, setStilprobenHinweis] = useState<string | null>(null);
 
   const [architektenGespraech, setArchitektenGespraech] = useState<string | null>(null);
+
+  // Fuer den Fundus-Abgleich im Figuren-Abschnitt (siehe RahmenEditor.tsx:
+  // FigurenBlock) - einmal geladen, nicht projektabhaengig (der Fundus ist
+  // nutzerweit, nicht projektweit). Schlaegt der Ladevorgang fehl, bleibt
+  // die Liste einfach leer statt die Seite zu stoeren - der Abgleich ist ein
+  // Zusatzkomfort, keine Kernfunktion dieser Seite.
+  const [fundusFiguren, setFundusFiguren] = useState<FundusFigur[]>([]);
+  useEffect(() => {
+    api.fundusFigurenLesen()
+      .then((antwort) => setFundusFiguren(antwort.figuren))
+      .catch(() => {});
+  }, []);
 
   // Einklappzustand der drei "Haupt-Container" innerhalb des geruest.md-
   // Editors (siehe ToDo.md: mehr Platz fuer den Block, an dem gerade
@@ -222,7 +234,12 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
           />
           {rahmenOffen &&
             (rahmenAbschnitte !== null ? (
-              <RahmenEditor abschnitte={rahmenAbschnitte} onChange={setRahmenAbschnitte} />
+              <RahmenEditor
+                abschnitte={rahmenAbschnitte}
+                onChange={setRahmenAbschnitte}
+                fundusFiguren={fundusFiguren}
+                epoche={projekt?.epoche}
+              />
             ) : (
               <div className="p-4 pt-2">
                 <p className="mb-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-300">

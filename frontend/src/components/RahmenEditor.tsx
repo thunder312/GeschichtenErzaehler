@@ -1,15 +1,24 @@
+import { useState } from "react";
 import type { ReactNode } from "react";
+import type { FundusFigur } from "../api/types";
 import {
   leereFigur,
   type FigurEintrag,
   type RahmenFelder,
   type VorAbschnittBearbeitet,
 } from "../utils/rahmen";
+import { fundusFelderZuDetails, fundusFigurFinden } from "../utils/fundusMatch";
 import { Input, Label, Select, Textarea } from "./ui";
 
 interface RahmenEditorProps {
   abschnitte: VorAbschnittBearbeitet[];
   onChange: (abschnitte: VorAbschnittBearbeitet[]) => void;
+  /** Fuer den Fundus-Abgleich im Figuren-Abschnitt (siehe FigurenBlock) -
+   * beides optional, damit RahmenEditor auch ohne geladenen Fundus/ohne
+   * bekannte Epoche (z.B. neues, noch nicht gespeichertes Projekt)
+   * funktioniert und den Abgleich dann einfach auslaesst. */
+  fundusFiguren?: FundusFigur[];
+  epoche?: string | null;
 }
 
 const RAHMEN_TEXTFELDER: { feld: keyof RahmenFelder; label: string; placeholder?: string }[] = [
@@ -92,39 +101,80 @@ function RahmenFelderBlock({ felder, onChange }: { felder: RahmenFelder; onChang
   );
 }
 
-function FigurenBlock({ figuren, onChange }: { figuren: FigurEintrag[]; onChange: (figuren: FigurEintrag[]) => void }) {
+function FigurenBlock({
+  figuren, onChange, fundusFiguren = [], epoche,
+}: {
+  figuren: FigurEintrag[];
+  onChange: (figuren: FigurEintrag[]) => void;
+  fundusFiguren?: FundusFigur[];
+  epoche?: string | null;
+}) {
+  // Merkt sich per Figuren-Index, welchen Fundus-Treffer der Nutzer bewusst
+  // weggeklickt hat ("nicht diese Person") - als "index:gefundenerName", ein
+  // spaeterer Namenswechsel bekommt dadurch automatisch wieder einen frischen
+  // Vorschlag statt dauerhaft unterdrueckt zu bleiben.
+  const [ignoriert, setIgnoriert] = useState<Set<string>>(new Set());
+
   function figurAendern(index: number, feld: keyof FigurEintrag, wert: string) {
     onChange(figuren.map((f, i) => (i === index ? { ...f, [feld]: wert } : f)));
   }
   function entfernen(index: number) {
     onChange(figuren.filter((_, i) => i !== index));
   }
+  function fundusUebernehmen(index: number, treffer: FundusFigur) {
+    figurAendern(index, "details", fundusFelderZuDetails(treffer.felder));
+  }
+
   return (
     <AbschnittBlock titel="Figuren">
       <div className="space-y-3">
         {figuren.length === 0 && (
           <p className="text-sm text-text-muted">Noch keine Figur. Mit „+ Figur" die erste Figur anlegen.</p>
         )}
-        {figuren.map((f, index) => (
-          <div key={index} className="rounded-lg border border-border/70 p-3">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="flex-1">
-                <Label>Name</Label>
-                <Input value={f.name} onChange={(e) => figurAendern(index, "name", e.target.value)} />
+        {figuren.map((f, index) => {
+          const treffer = fundusFigurFinden(fundusFiguren, epoche, f.name);
+          const ignorierenSchluessel = treffer ? `${index}:${treffer.name}` : null;
+          const zeigeTreffer = treffer && ignorierenSchluessel && !ignoriert.has(ignorierenSchluessel);
+          return (
+            <div key={index} className="rounded-lg border border-border/70 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex-1">
+                  <Label>Name</Label>
+                  <Input value={f.name} onChange={(e) => figurAendern(index, "name", e.target.value)} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => entfernen(index)}
+                  title="Figur löschen"
+                  className="mt-5 rounded px-2 py-1 text-xs text-red-400/80 hover:bg-red-400/10 hover:text-red-400"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => entfernen(index)}
-                title="Figur löschen"
-                className="mt-5 rounded px-2 py-1 text-xs text-red-400/80 hover:bg-red-400/10 hover:text-red-400"
-              >
-                ✕
-              </button>
+              {zeigeTreffer && (
+                <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-accent/40 bg-accent-soft px-2.5 py-1.5 text-xs text-accent-light">
+                  <span>📋 „{treffer.name}" steht bereits im Fundus (Epoche: {treffer.epoche}).</span>
+                  <button
+                    type="button"
+                    onClick={() => fundusUebernehmen(index, treffer)}
+                    className="ml-auto shrink-0 rounded-md border border-accent/40 bg-accent-soft px-2 py-0.5 font-medium hover:bg-accent-soft/80"
+                  >
+                    Merkmale übernehmen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIgnoriert((s) => new Set(s).add(ignorierenSchluessel))}
+                    className="shrink-0 rounded-md border border-border px-2 py-0.5 text-text-muted hover:bg-surface-hover"
+                  >
+                    Nicht diese Person
+                  </button>
+                </div>
+              )}
+              <Label>Details (Alter, Rang/Stand, Ziel, größte Angst, Geheimnis, Entwicklungsbogen, ...)</Label>
+              <Textarea rows={2} value={f.details} onChange={(e) => figurAendern(index, "details", e.target.value)} />
             </div>
-            <Label>Details (Alter, Rang/Stand, Ziel, größte Angst, Geheimnis, Entwicklungsbogen, ...)</Label>
-            <Textarea rows={2} value={f.details} onChange={(e) => figurAendern(index, "details", e.target.value)} />
-          </div>
-        ))}
+          );
+        })}
         <button
           type="button"
           onClick={() => onChange([...figuren, leereFigur()])}
@@ -141,7 +191,7 @@ function FigurenBlock({ figuren, onChange }: { figuren: FigurEintrag[]; onChange
  * "## Kapitelplan", siehe GeruestPage.tsx und utils/rahmen.ts) - ein Block je
  * "## "-Ueberschrift statt eines einzigen Freitext-Editors, analog zum
  * bereits bestehenden KapitelplanEditor fuer den Kapitelplan-Teil. */
-export function RahmenEditor({ abschnitte, onChange }: RahmenEditorProps) {
+export function RahmenEditor({ abschnitte, onChange, fundusFiguren, epoche }: RahmenEditorProps) {
   function abschnittAendern(index: number, neu: VorAbschnittBearbeitet) {
     onChange(abschnitte.map((a, i) => (i === index ? neu : a)));
   }
@@ -164,6 +214,8 @@ export function RahmenEditor({ abschnitte, onChange }: RahmenEditorProps) {
               key={index}
               figuren={a.figuren}
               onChange={(figuren) => abschnittAendern(index, { ...a, figuren })}
+              fundusFiguren={fundusFiguren}
+              epoche={epoche}
             />
           );
         }
