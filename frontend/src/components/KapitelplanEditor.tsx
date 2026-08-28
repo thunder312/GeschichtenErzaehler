@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import type { FundusFigur } from "../api/types";
 import type { KapitelEintrag, KapitelplanFehler } from "../utils/kapitelplan";
 import { FUNKTION_IM_SPANNUNGSBOGEN_OPTIONEN, leeresKapitel } from "../utils/kapitelplan";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { FigurenAuswahl } from "./FigurenAuswahl";
 import { Button, Input, Label, Select, Textarea } from "./ui";
 
 const EIGENE_ANGABE = "__eigene__";
@@ -19,6 +21,10 @@ interface KapitelplanEditorProps {
   kapitel: KapitelEintrag[];
   onChange: (kapitel: KapitelEintrag[]) => void;
   fehler: KapitelplanFehler[];
+  /** Fuer den Fundus-gespeisten Vorschlag in "Anwesende Figuren" (siehe
+   * FigurenAuswahl.tsx) - beides optional, analog zu RahmenEditor.tsx. */
+  fundusFiguren?: FundusFigur[];
+  epoche?: string | null;
 }
 
 /** Strukturierter Block-Editor NUR fuer den "## Kapitelplan"-Abschnitt von
@@ -31,7 +37,7 @@ interface KapitelplanEditorProps {
  * fuer die ueberschaubare Kapitelzahl typischer Projekte), "Löschen" nimmt
  * das Kapitel komplett raus - die Kapitelnummer ergibt sich in allen Faellen
  * automatisch aus der Position im Array, nicht aus einem eigenen Feld. */
-export function KapitelplanEditor({ kapitel, onChange, fehler }: KapitelplanEditorProps) {
+export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, epoche }: KapitelplanEditorProps) {
   // Eigenes Bestaetigen-Popup statt window.confirm() - ein natives
   // confirm() blockiert den kompletten Tab (auch fuer Browser-Automation,
   // siehe ConfirmDialog.tsx), das App-Design vermeidet es deshalb ueberall.
@@ -217,6 +223,16 @@ export function KapitelplanEditor({ kapitel, onChange, fehler }: KapitelplanEdit
                 className={klasse(index, "titel")}
               />
             </div>
+            {index > 0 && (
+              <div className="sm:col-span-2">
+                <Label>Vergangene Zeit seit dem vorigen Kapitel</Label>
+                <Input
+                  value={k.vergangeneZeit}
+                  onChange={(e) => feldAendern(index, "vergangeneZeit", e.target.value)}
+                  placeholder='Leer = Autor wählt automatisch den kürzesten logischen Zeitsprung. Z.B. "drei Tage später, ein neuer Abend"'
+                />
+              </div>
+            )}
             <div>
               <Label>Ort</Label>
               <Input value={k.ort} onChange={(e) => feldAendern(index, "ort", e.target.value)} className={klasse(index, "ort")} />
@@ -234,9 +250,11 @@ export function KapitelplanEditor({ kapitel, onChange, fehler }: KapitelplanEdit
             </div>
             <div className="sm:col-span-2">
               <Label>Anwesende Figuren</Label>
-              <Input
+              <FigurenAuswahl
                 value={k.anwesendeFiguren}
-                onChange={(e) => feldAendern(index, "anwesendeFiguren", e.target.value)}
+                onChange={(wert) => feldAendern(index, "anwesendeFiguren", wert)}
+                fundusFiguren={fundusFiguren}
+                epoche={epoche}
                 className={klasse(index, "anwesendeFiguren")}
               />
             </div>

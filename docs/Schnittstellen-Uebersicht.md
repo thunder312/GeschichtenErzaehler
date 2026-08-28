@@ -425,6 +425,17 @@ Client-Parser an einem Kapitelplan-Format scheitert, das er nicht kennt
 (er fällt in diesem Fall auf reinen Freitext zurück statt Daten zu
 verlieren).
 
+**Feld "Vergangene Zeit" (seit 2026-08-28):** Je Kapitel-Block zusätzlich
+optional (kein Pflichtfeld, nicht Teil von `kapitelplan_pruefen()`), z. B.
+`Vergangene Zeit: drei Tage später, ein neuer Abend`. Wird von der Autor-
+Persona ausgewertet (leer -> Autor wählt selbst den kürzesten logisch
+plausiblen Zeitsprung) und zusätzlich per neuer Funktion
+`vergangene_zeit_fuer_kapitel_erkennen(geruest, n)` (`app/core/geruest.py`,
+analog zu `jahr_fuer_kapitel_erkennen()`) extrahiert und dem Kontinuitäts-
+Prüfer als eigener Kontext-Block mitgegeben (`app/api/pipeline.py:
+_pruefe_kapitel`), damit er einen Widerspruch zwischen geplanter und
+tatsächlich erzählter Zeitspanne erkennen kann.
+
 ### 5.5 Automatische Fortsetzung bei zu kurzen Kapiteln (Opt-in, Standard Aus)
 
 **Wichtige Verhaltensänderung gegenüber früheren Versionen:** Die

@@ -114,8 +114,8 @@ dieser eine Abschnitt auf einen rohen Markdown-Editor mit Warnhinweis
 zurück, ohne dass etwas verloren geht. Ausgangslage vor Kapitel eins/
 Offene Punkte/Regeln bleiben Freitext (Monaco-Editor unten). Der
 **Kapitelplan** dazwischen ist eine eigene Karte pro Kapitel mit
-einzelnen Feldern (Ort, Anwesende Figuren, Ereignis, Zielwortzahl,
-Funktion im Spannungsbogen, Stand der Liebeshandlung, Zustand am
+einzelnen Feldern (Vergangene Zeit, Ort, Anwesende Figuren, Ereignis,
+Zielwortzahl, Funktion im Spannungsbogen, Stand der Liebeshandlung, Zustand am
 Kapitelende) statt einer Freitext-Bulletliste. Zielwortzahl ist ein
 Pflicht-Zahlenfeld und bei einem neuen Kapitel schon mit einem Vorschlag
 (1500 Wörter, gängiger Richtwert für Kurzgeschichten/Novellen)
@@ -156,6 +156,30 @@ Höhepunkt + Auflösung fürs zweite. Bei mehr Kapiteln füllt Steigende
 Handlung die Mitte. Passt keine der sechs Kategorien exakt, lässt sich
 auch ein eigener Freitext eintragen — der Autor orientiert sich dann
 sinngemäß an der nächstliegenden Funktion.
+
+**Anwesende Figuren** ist eine Mehrfachauswahl statt eines reinen
+Textfelds: Tippen zeigt passende Vorschläge aus dem **Personen-Fundus**
+derselben Epoche (Klick übernimmt den Namen als Chip), zusätzlich lässt
+sich jeder Name frei eintippen (Enter oder Komma) — auch neue,
+einmalige Nebenfiguren, die noch nicht im Fundus stehen. Gespeichert wird
+weiterhin derselbe kommagetrennte Text wie bisher.
+
+**Vergangene Zeit** (ab Kapitel 2, bei Kapitel 1 ausgeblendet — dafür legt
+die Ausgangslage den Startzeitpunkt fest) gibt an, wie viel erzählte Zeit
+seit dem Ende des vorigen Kapitels vergehen soll, z. B. „drei Tage später,
+ein neuer Abend“. Bleibt das Feld leer, wählt der Autor selbst den
+kürzesten noch logisch plausiblen Zeitsprung — nützlich, um zu verhindern,
+dass ein Kapitel unbeabsichtigt noch in derselben Nacht wie das vorige
+spielt. Der Kontinuitäts-Prüfer bekommt die Vorgabe mit und meldet einen
+Fund, wenn der geschriebene Text ihr erkennbar widerspricht.
+
+**Eckige Klammern `[...]`** in einem Kapitelplan-Feld (meist im
+Ereignis-Feld oder in „Zustand am Kapitelende“) markieren eine bewusst
+offen gelassene Entscheidung statt einer festen Vorgabe, z. B.
+„[Entscheide selbst, ob Sophie das zulässt.]“ oder „[Beschreibe selbst, wie
+Ottokar mit der Information umgeht.]“. Der Autor löst das beim Schreiben
+zu einer normalen, ins Kapitel passenden Handlung auf und übernimmt weder
+die Klammern noch den Anweisungssatz wörtlich in den Text.
 
 ---
 

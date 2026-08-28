@@ -146,10 +146,26 @@ niemals durch Zufall oder Geständnis aus dem Nichts. Kein Diplomatie-Strang.
 
 ## Kapitelplan
 Je Kapitel: Nummer, Titel im Format "Kapitel eins: Sprechender Untertitel",
-Ort an Bord/auf dem Planeten, anwesende Figuren, Ereignis, Zielwortzahl,
+Vergangene Zeit, Ort an Bord/auf dem Planeten, anwesende Figuren, Ereignis, Zielwortzahl,
 Funktion im Spannungsbogen, Stand der Liebeshandlung, Zustand am Kapitelende.
 Hat der Nutzer bei Frage 12 eine konkrete Vorgabe für dieses Kapitel gemacht,
 fließt sie wörtlich in das Ereignis-Feld ein.
+Vergangene Zeit: kurze Angabe, wie viel erzählte Zeit zwischen dem Ende des
+vorigen und dem Beginn dieses Kapitels liegt (z.B. "unmittelbar
+anschliessend", "am selben Abend", "drei Tage später, ein neuer Abend").
+Bei Kapitel eins bleibt das Feld leer (die "Ausgangslage vor Kapitel eins"
+legt den Startzeitpunkt fest). Ist eine Figur aus den "anwesenden Figuren"
+dieses Kapitels laut Zustand am Ende des vorigen Kapitels an einem anderen
+Ort, wähle hier bewusst genug Zeit, dass eine plausible Anreise UND ein
+glaubwürdiger Anlass dafür hineinpassen, statt sie einfach in derselben
+Nacht wieder zusammenzuführen, nur weil das technisch knapp möglich wäre.
+Stehen laut Ausgangslage oder dem Zustand am Ende des vorigen Kapitels zwei
+oder mehr der als "anwesende Figuren" gelisteten Figuren an unterschiedlichen
+Orten, nennt das Ereignis-Feld ausdrücklich den Anlass ihrer Zusammenkunft
+(Zufallsbegegnung, Verabredung, jemand holt die andere Figur ab o.ä.) - der
+Autor darf diesen Weg sonst überspringen und die Figur unvermittelt am
+gemeinsamen Ort auftauchen lassen, ohne dass ein Ruf oder eine Nachricht über
+eine Distanz hinweg dafür ausreichen würde.
 Funktion im Spannungsbogen: immer einer der sechs Werte "Exposition",
 "Erregendes Moment", "Steigende Handlung", "Höhepunkt/Peripetie", "Fallende
 Handlung" oder "Auflösung/Lösung" (Freytags Pyramide), passend zur

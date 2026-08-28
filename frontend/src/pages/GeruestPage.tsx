@@ -280,6 +280,8 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
                   setKapitelFehler([]);
                 }}
                 fehler={kapitelFehler}
+                fundusFiguren={fundusFiguren}
+                epoche={projekt?.epoche}
               />
             </>
           )}

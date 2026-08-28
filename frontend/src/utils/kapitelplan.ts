@@ -14,6 +14,14 @@
 
 export interface KapitelEintrag {
   titel: string;
+  // Wie viel erzaehlte Zeit seit dem Ende des vorigen Kapitels vergangen ist
+  // (z.B. "drei Tage spaeter, ein neuer Abend") - bewusst optional (siehe
+  // PFLICHTFELDER unten): bleibt es leer, waehlt der Autor laut Persona-
+  // Vorgabe (backend/app/core/epoche.py:autor_vorlage) selbst den kuerzesten
+  // noch logisch plausiblen Zeitsprung. Bei Kapitel 1 ohne Bedeutung (siehe
+  // "Ausgangslage vor Kapitel eins" fuer den Startzeitpunkt), deshalb blendet
+  // KapitelplanEditor.tsx das Feld dort aus.
+  vergangeneZeit: string;
   ort: string;
   anwesendeFiguren: string;
   ereignis: string;
@@ -85,6 +93,7 @@ export const FUNKTION_IM_SPANNUNGSBOGEN_OPTIONEN = [
 export function leeresKapitel(zielwortzahl: number | null = ZIELWORTZAHL_VORSCHLAG): KapitelEintrag {
   return {
     titel: "",
+    vergangeneZeit: "",
     ort: "",
     anwesendeFiguren: "",
     ereignis: "",
@@ -118,7 +127,7 @@ const KAPITEL_ERWAEHNUNG_MUSTER = /Kapitel[ \t]+(\d+|[a-zA-ZäöüÄÖÜß]+)[ \
 // Grund (Mehrzeilen-Werte brauchen die Position ALLER Labels gleichzeitig,
 // um zu wissen, wo ein Wert endet).
 const FELD_LABELS: readonly string[] = [
-  "Ort", "Anwesende Figuren", "Ereignis", "Zielwortzahl",
+  "Vergangene Zeit", "Ort", "Anwesende Figuren", "Ereignis", "Zielwortzahl",
   "Funktion im Spannungsbogen", "Stand der Liebeshandlung", "Zustand am Kapitelende",
 ];
 
@@ -191,6 +200,7 @@ function kapitelBloeckeParsen(body: string): KapitelEintrag[] | null {
     const felder = alleFelderExtrahieren(body.slice(start, ende));
     return {
       titel: (m[2] ?? "").trim(),
+      vergangeneZeit: felder["Vergangene Zeit"] ?? "",
       ort: felder["Ort"] ?? "",
       anwesendeFiguren: felder["Anwesende Figuren"] ?? "",
       ereignis: felder["Ereignis"] ?? "",
@@ -257,6 +267,7 @@ function kapitelBlockSerialisieren(kapitel: KapitelEintrag, index: number): stri
     : "";
   return [
     `*   **Kapitel ${zahlwort(index + 1)}: ${kapitel.titel.trim()}**`,
+    `    *   Vergangene Zeit: ${kapitel.vergangeneZeit.trim()}`,
     `    *   Ort: ${kapitel.ort.trim()}`,
     `    *   Anwesende Figuren: ${kapitel.anwesendeFiguren.trim()}`,
     `    *   Ereignis: ${kapitel.ereignis.trim()}`,

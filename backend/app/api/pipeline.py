@@ -467,6 +467,11 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
         f"\n\n=== FIGUREN-REFERENZ (Namen und Titel laut Geruest) ===\n{figuren}"
         if figuren else ""
     )
+    vergangene_zeit = g.vergangene_zeit_fuer_kapitel_erkennen(geruest_text, n)
+    vergangene_zeit_block = (
+        f"\n\n=== GEPLANTE VERGANGENE ZEIT SEIT DEM VORIGEN KAPITEL ===\n{vergangene_zeit}"
+        if vergangene_zeit else ""
+    )
     zusatzhinweis_block = (
         f"\n\n=== ZUSÄTZLICHER HINWEIS FÜR DIESEN VERSUCH ===\n{zusatzhinweis}"
         if zusatzhinweis else ""
@@ -503,7 +508,7 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
         ),
         _sammle_stream(
             settings, base_url, "kontinuitaet", pd.persona_lesen(projekt.parent, "pruefer_kontinuitaet"),
-            f"=== STAND NACH DEM VORIGEN KAPITEL ===\n{vorher}{nebenstrang_block}{figuren_block}\n\n"
+            f"=== STAND NACH DEM VORIGEN KAPITEL ===\n{vorher}{nebenstrang_block}{figuren_block}{vergangene_zeit_block}\n\n"
             f"=== NEUES KAPITEL {n} ===\n{kapiteltext}{zusatzhinweis_block}{letztes_kapitel_block}",
             format="json",
         ),

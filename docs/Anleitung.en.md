@@ -111,10 +111,11 @@ The outline can also be edited by hand in the same tab — this takes
 effect from the next write call onward. Frame/title/characters/conflict/
 subplot as well as starting situation/open points/rules remain free text
 (Monaco editor above and below), while the **Kapitelplan** (Chapter Plan)
-in between is its own card per chapter with individual fields (location,
-characters present, event, target word count, function in the story arc,
-state of the romance plot, state at the end of the chapter) instead of a
-free-text bullet list. Target word count is a required numeric field — if
+in between is its own card per chapter with individual fields (time elapsed
+since the previous chapter, location, characters present, event, target word
+count, function in the story arc, state of the romance plot, state at the
+end of the chapter) instead of a free-text bullet list. Target word count is
+a required numeric field — if
 it or another field is missing, "Speichern" (Save) marks the affected card
 in red, instead of only noticing the error days later during automatic
 writing. "+ Kapitel" (+ Chapter)/▲▼/"Löschen" (Delete) let you add, move
@@ -125,6 +126,29 @@ instead. Right below that you can also store **Stilproben** (Style
 Samples): one to three short text excerpts whose language/sentence rhythm/
 tone the Author should take as a guide, without adopting their plot or
 characters.
+
+**Characters present** is a multi-select instead of a plain text field:
+typing shows matching suggestions from the **character pool** (Personen-
+Fundus) of the same setting (click to add as a chip); any name can also be
+typed freely (Enter or comma) — including new, one-off supporting
+characters not yet in the pool. Still saved as the same comma-separated
+text as before.
+
+**Time elapsed** (from chapter 2 onward — hidden for chapter 1, where the
+starting situation defines the starting time) states how much story time
+should pass since the end of the previous chapter, e.g. "three days later,
+a new evening". Left empty, the Author picks the shortest still logically
+plausible time jump itself — useful to avoid a chapter unintentionally
+playing out the same night as the previous one. The continuity reviewer
+receives this value too and flags it if the written text visibly
+contradicts it.
+
+**Square brackets `[...]`** in a chapter-plan field (usually the event
+field or "state at the end of the chapter") mark a decision left
+deliberately open rather than a fixed instruction, e.g. "[Decide yourself
+whether Sophie allows this.]". The Author resolves it into a normal piece
+of narrated action while writing and never carries the brackets or the
+instruction sentence itself into the chapter text.
 
 ---
 

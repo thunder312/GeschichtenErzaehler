@@ -11,8 +11,20 @@ import type { FundusFigur } from "../api/types";
  * (mit Bindestrich, siehe realer Vorfall 2026-08-27). Bindestriche und
  * Leerzeichen werden deshalb als gleichwertig behandelt, bevor verglichen
  * wird - ein reiner "==="-Vergleich haette hier faelschlich NIE getroffen. */
-function normalisierteEpoche(epoche: string): string {
+export function normalisierteEpoche(epoche: string): string {
   return epoche.trim().toLowerCase().replace(/[-\s]+/g, " ");
+}
+
+/** Liefert alle Fundus-Figuren der angegebenen Epoche (gleicher Bindestrich-/
+ * Leerzeichen-tolerante Abgleich wie fundusFigurFinden) - Grundlage fuer die
+ * Vorschlagsliste in FigurenAuswahl.tsx (Mehrfachauswahl "Anwesende Figuren"
+ * im Kapitelplan). Leeres Array, wenn Epoche fehlt oder nichts passt. */
+export function fundusFigurenFuerEpoche(
+  fundusFiguren: FundusFigur[], epoche: string | null | undefined,
+): FundusFigur[] {
+  if (!epoche) return [];
+  const gesuchteEpoche = normalisierteEpoche(epoche);
+  return fundusFiguren.filter((f) => normalisierteEpoche(f.epoche) === gesuchteEpoche);
 }
 
 /** Case-insensitive Namensvergleich, auf die Epoche des aktuellen Projekts

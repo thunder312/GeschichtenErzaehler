@@ -429,6 +429,17 @@ still remains in place as a second line of defense, e.g. in case the
 client-side parser fails on a chapter-plan format it doesn't recognize (in
 that case it falls back to plain free text instead of losing data).
 
+**"Vergangene Zeit" (time elapsed) field (since 2026-08-28):** An additional
+optional field per chapter block (not required, not part of
+`kapitelplan_pruefen()`), e.g. `Vergangene Zeit: three days later, a new
+evening`. Evaluated by the Author persona (empty -> the Author picks the
+shortest still logically plausible time jump itself) and additionally
+extracted via a new function `vergangene_zeit_fuer_kapitel_erkennen(geruest,
+n)` (`app/core/geruest.py`, analogous to `jahr_fuer_kapitel_erkennen()`) and
+passed to the continuity reviewer as its own context block
+(`app/api/pipeline.py: _pruefe_kapitel`), so it can flag a contradiction
+between the planned and the actually narrated time span.
+
 ### 5.5 Automatic continuation for chapters that are too short (opt-in, default off)
 
 **Important behavior change compared to earlier versions:** automatic

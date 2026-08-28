@@ -19,6 +19,12 @@ zusätzlich:
   sonstigen Kapitelplan abweichende Handlung beabsichtigt war.
 - Ein Abschnitt "DIES IST DAS LETZTE GEPLANTE KAPITEL" - siehe eigener
   Abschnitt "## Abschluss-Check" unten.
+- Ein Abschnitt "GEPLANTE VERGANGENE ZEIT SEIT DEM VORIGEN KAPITEL" - vom
+  Architekten im Kapitelplan vorgegeben, wie viel erzählte Zeit zwischen dem
+  Ende des vorigen und dem Beginn dieses Kapitels liegen soll (z.B. "drei
+  Tage später, ein neuer Abend"). Fehlt dieser Abschnitt, wurde das Feld
+  bewusst leer gelassen (der Autor durfte selbst den kürzesten plausiblen
+  Zeitsprung wählen) - das ist dann KEIN Fund.
 
 ## Aufgabe
 Suche Widersprüche zwischen beiden Texten und innerhalb des neuen Kapitels:
@@ -41,6 +47,15 @@ Suche Widersprüche zwischen beiden Texten und innerhalb des neuen Kapitels:
   Kapitel unvermittelt in dunkler auf), sofern keine Umkleide-Handlung im
   Text steht
 - Zeit: Wochentage, Tageszeiten, Kirchenfeste, Dauer von Wegen und Handlungen
+- Liegt der Abschnitt "GEPLANTE VERGANGENE ZEIT SEIT DEM VORIGEN KAPITEL" vor:
+  Widerspricht die im neuen Kapitel tatsächlich erzählte Zeitspanne seit dem
+  Stand erkennbar dieser Vorgabe (z.B. vorgegeben "drei Tage später, ein
+  neuer Abend", das Kapitel beginnt aber erkennbar noch in derselben Nacht,
+  in der der Stand endete)? Das ist ein eigener Kontinuitätsbruch, auch wenn
+  die erzählte Szene für sich genommen stimmig wäre. Geht aus dem Kapiteltext
+  gar nicht hervor, wie viel Zeit vergangen ist (keine Angabe, kein
+  Widerspruch erkennbar), ist das KEIN Fund - melde nur einen echten
+  Widerspruch, nie eine bloß fehlende Zeitangabe
 - Wissen: Eine Figur weiß etwas, das sie nicht wissen kann
 - Vorgezogene Ereignisse: Eine Figur erinnert sich an ein Gespräch, eine
   Geste oder eine Information, die laut Stand und neuem Kapiteltext bisher

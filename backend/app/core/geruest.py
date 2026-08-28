@@ -254,6 +254,26 @@ def jahr_fuer_kapitel_erkennen(geruest: str, n: int) -> str:
     return jahr_erkennen(geruest)
 
 
+def vergangene_zeit_fuer_kapitel_erkennen(geruest: str, n: int) -> str:
+    """Liest das Feld 'Vergangene Zeit' aus dem Kapitelplan-Block von Kapitel n
+    (siehe app/core/epoche.py:architekt_vorlage, '## Kapitelplan' - wie viel
+    erzaehlte Zeit seit dem Ende des vorigen Kapitels vergehen soll, z.B.
+    "drei Tage später, ein neuer Abend"). Leerer String, wenn das Feld fehlt
+    oder bewusst leer gelassen wurde (Kapitel eins, oder der Architekt hat
+    die Wahl dem Autor ueberlassen - siehe app/core/epoche.py:autor_vorlage:
+    "waehlst du selbst den kuerzesten Zeitsprung"). Genutzt in
+    app/api/pipeline.py:_pruefe_kapitel, damit der Kontinuitaets-Pruefer die
+    geplante Zeitspanne gegen den tatsaechlich erzaehlten Kapiteltext
+    abgleichen kann, statt nur allgemein nach Zeit-Widersprueche zu suchen."""
+    block = kapitel_block_erkennen(geruest, n)
+    if not block:
+        return ""
+    treffer = re.search(r"Vergangene Zeit\s*[:\-]?\s*\**\s*(.*)", block, re.IGNORECASE)
+    if not treffer:
+        return ""
+    return treffer.group(1).strip().rstrip("*").strip()
+
+
 def jugendschutz_stufe_erkennen(geruest: str) -> str:
     """Unbekannt oder nicht gefunden -> 'voll' (sicherer Standard fuer
     Bestandsprojekte ohne diese Frage)."""
