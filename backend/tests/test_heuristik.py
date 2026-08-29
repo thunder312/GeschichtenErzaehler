@@ -82,6 +82,44 @@ def test_fuehrende_markdown_ueberschrift_entfernen_ohne_markdown_unveraendert():
     assert findings == []
 
 
+def test_fuehrende_markdown_ueberschrift_normalisiert_einzige_ueberschrift():
+    # Regression: das Modell schreibt die Ueberschrift NUR als "### Kapitel
+    # eins: ..." (keine Klartext-Zeile dahinter). Fruehere Version loeschte
+    # die Zeile komplett -> Kapitel ohne Ueberschrift, danach setzte
+    # kapitelueberschrift_sicherstellen() eine doppelte Klartext-Zeile davor,
+    # und die rohe "###"-Zeile landete im PDF-Export als Absatz.
+    text = "### Kapitel eins: Rechtlose Magd\n\nDie Sonne stand hoch über dem Anwesen."
+    bereinigt, findings = h.fuehrende_markdown_ueberschrift_entfernen(text)
+    assert bereinigt == "Kapitel eins: Rechtlose Magd\n\nDie Sonne stand hoch über dem Anwesen."
+    assert len(findings) == 1 and findings[0].code == "markdown_ueberschrift"
+
+
+def test_fuehrende_markdown_ueberschrift_entfernt_mehrere_zeilen():
+    text = "### Kapitel eins: Rechtlose Magd\n\n## Kapitel eins: Rechtlose Magd\n\nDie Sonne stand hoch."
+    bereinigt, _ = h.fuehrende_markdown_ueberschrift_entfernen(text)
+    assert bereinigt == "Kapitel eins: Rechtlose Magd\n\nDie Sonne stand hoch."
+
+
+def test_kapitelueberschrift_sicherstellen_erkennt_markdown_ueberschrift_als_vorhanden():
+    kapitel_block = "*   **Kapitel eins: Die letzte Chance**\n    *   Zielwortzahl: ca. 1500 Wörter."
+    text = "### Kapitel eins: Die letzte Chance\n\nDas Zauberei-Ministerium war geschäftig."
+    ergaenzt, findings = h.kapitelueberschrift_sicherstellen(text, kapitel_block)
+    assert ergaenzt == text
+    assert findings == []
+
+
+def test_markdown_dann_sicherstellen_ergeben_genau_eine_klartext_ueberschrift():
+    # Deckt die Reihenfolge in app/api/pipeline.py:_kapitel_schreiben_kern ab.
+    kapitel_block = "*   **Kapitel eins: Rechtlose Magd**\n    *   Zielwortzahl: ca. 1500 Wörter."
+    roh = "### Kapitel eins: Rechtlose Magd\n\nDie Sonne stand hoch über dem Anwesen."
+    t, _ = h.fuehrende_markdown_ueberschrift_entfernen(roh)
+    t, _ = h.kapitelueberschrift_sicherstellen(t, kapitel_block)
+    assert t == "Kapitel eins: Rechtlose Magd\n\nDie Sonne stand hoch über dem Anwesen."
+    t, findings = h.kapitel_neustart_abschneiden(t)
+    assert "Die Sonne stand hoch über dem Anwesen." in t
+    assert findings == []
+
+
 def test_kapitelueberschrift_sicherstellen_ergaenzt_fehlende_ueberschrift():
     kapitel_block = (
         "*   **Kapitel eins: Die letzte Chance**\n"

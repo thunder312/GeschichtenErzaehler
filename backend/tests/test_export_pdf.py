@@ -141,6 +141,29 @@ def test_kapitel_parsen_erkennt_ueberschrift_mit_markdown_fett():
     assert absaetze == ["Der Rauch der Schmiedefeuer hing schwer in der Luft."]
 
 
+def test_kapitel_parsen_erkennt_ueberschrift_als_markdown_ueberschrift():
+    text = "### Kapitel eins: Rechtlose Magd\n\nDie Sonne stand hoch über dem Anwesen."
+    untertitel, absaetze = _kapitel_parsen(text)
+    assert untertitel == "Rechtlose Magd"
+    assert absaetze == ["Die Sonne stand hoch über dem Anwesen."]
+
+
+def test_kapitel_parsen_schluckt_doppelte_kapitelueberschrift():
+    # Regression: durch eine fruehere Fehlinteraktion der Heuristiken landete
+    # in kapitel_01.md eine Klartext-Ueberschrift PLUS die rohe
+    # "### Kapitel eins: ..."-Zeile des Modells - letztere darf im PDF nicht
+    # als eigener Absatz unter der (roemisch nummerierten) Ueberschrift
+    # erscheinen.
+    text = (
+        "Kapitel eins: Rechtlose Magd\n\n"
+        "### Kapitel eins: Rechtlose Magd\n\n"
+        "Die Sonne stand hoch über dem Anwesen von Torii Yorinaga."
+    )
+    untertitel, absaetze = _kapitel_parsen(text)
+    assert untertitel == "Rechtlose Magd"
+    assert absaetze == ["Die Sonne stand hoch über dem Anwesen von Torii Yorinaga."]
+
+
 def test_kapitel_parsen_ueberspringt_titelseite_vor_ueberschrift():
     text = (
         "# Im Feuer gestählt\n\n"

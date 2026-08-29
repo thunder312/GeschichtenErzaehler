@@ -49,14 +49,15 @@ _UNTERTITEL_ZEILE_RE = re.compile(r"^\*(.+?)\*\s*$", re.MULTILINE)
 
 # Die Kapitelueberschrift-Zeile, die JEDE Kapiteldatei einleitet (Format
 # laut Autor-Persona: "Kapitel eins: Sprechender Untertitel"). Das Modell
-# setzt sie nicht zuverlaessig in Markdown-Fett ("**...**") - Kapitel 1
-# tut es haeufig (weil die Titelseiten-Zeilen davor stehen), alle
-# folgenden Kapitel oft nicht. Die Erkennung darf sich deshalb NICHT auf
-# "**" verlassen, sondern muss beide Varianten abdecken, sonst wird die
-# Ueberschrift als gewoehnlicher Absatz mitgerendert (linksbuendig, falsche
-# Schrift, und der Kapitelname erscheint doppelt).
+# setzt sie nicht zuverlaessig in reinem Text - mal in Markdown-Fett
+# ("**...**"), mal als Markdown-Ueberschrift ("### Kapitel eins: ..."), und
+# gelegentlich stehen sogar zwei solche Zeilen direkt hintereinander (eine
+# vom Sicherheitsnetz ergaenzte Klartext-Zeile plus die rohe des Modells).
+# Die Erkennung muss alle Varianten abdecken, sonst wird die Ueberschrift
+# als gewoehnlicher Absatz mitgerendert (linksbuendig, falsche Schrift, und
+# der Kapitelname erscheint doppelt).
 _KAPITEL_UEBERSCHRIFT_RE = re.compile(
-    r"^\*{0,2}Kapitel\s+\S+\s*[:\-–—]\s*(.+?)\*{0,2}\s*$", re.IGNORECASE
+    r"^(?:#{1,6}\s*)?\*{0,2}Kapitel\s+\S+\s*[:\-–—]\s*(.+?)\*{0,2}\s*$", re.IGNORECASE
 )
 
 
@@ -66,7 +67,7 @@ def _kapitel_parsen(text: str) -> tuple[str | None, list[str]]:
     vorkommen (siehe geruest.titelseite_erzeugen), und erkennt die
     "Kapitel N: ..."-Ueberschrift, die jede Kapiteldatei einleitet."""
     zeilen = text.strip().split("\n")
-    rest_start = 0
+    rest_start = len(zeilen)
     untertitel: str | None = None
     for i, zeile in enumerate(zeilen):
         z = zeile.strip()
@@ -76,10 +77,13 @@ def _kapitel_parsen(text: str) -> tuple[str | None, list[str]]:
             continue
         treffer = _KAPITEL_UEBERSCHRIFT_RE.match(z)
         if treffer:
-            untertitel = treffer.group(1).strip()
-            rest_start = i + 1
-        else:
-            rest_start = i
+            # Ersten Untertitel merken, jede weitere direkt folgende
+            # Ueberschriftszeile aber ebenfalls verschlucken - sonst landet
+            # eine doppelte "### Kapitel eins: ..."-Zeile als Absatz im Text.
+            if untertitel is None:
+                untertitel = treffer.group(1).strip()
+            continue
+        rest_start = i
         break
 
     rest = "\n".join(zeilen[rest_start:]).strip()

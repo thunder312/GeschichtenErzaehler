@@ -682,8 +682,14 @@ async def _kapitel_schreiben_kern(
             await on_event({"phase": "autor", "typ": "done", "meta": event.meta})
 
     text = "".join(teile).strip()
-    text, findings_ueberschrift = h.kapitelueberschrift_sicherstellen(text, kapitel_block)
+    # Erst die Markdown-Auszeichnung von einer "### Kapitel eins: ..."-Zeile
+    # abstreifen, DANN pruefen ob ueberhaupt eine Ueberschrift da ist - sonst
+    # haelt kapitelueberschrift_sicherstellen() eine reine Markdown-
+    # Ueberschrift faelschlich fuer "fehlt" und stellt eine zweite,
+    # doppelte Klartext-Zeile voran (die dann im PDF-/Gesamt-Export als
+    # Absatz landet).
     text, findings_markdown = h.fuehrende_markdown_ueberschrift_entfernen(text)
+    text, findings_ueberschrift = h.kapitelueberschrift_sicherstellen(text, kapitel_block)
     text, findings_neustart = h.kapitel_neustart_abschneiden(text)
     text, findings_ende = h.vorzeitige_kapitelende_abschneiden(text)
     text, findings_wiederholung = h.interne_wiederholung_abschneiden(text)

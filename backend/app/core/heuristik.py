@@ -227,31 +227,62 @@ def meta_zeilen_entfernen(text: str) -> str:
 
 
 _FUEHRENDE_MARKDOWN_UEBERSCHRIFT_MUSTER = re.compile(
-    r"^\s*#{1,6}\s*Kapitel\s+\S+[^\n]*\n+", re.IGNORECASE,
+    r"^\s*#{1,6}[ \t]*\*{0,2}[ \t]*(Kapitel\s+\S+.*?)[ \t]*\*{0,2}[ \t]*\n+", re.IGNORECASE,
+)
+
+# Reine Klartext-Kapitelueberschrift (ohne fuehrende Markdown-Raute) - fuer
+# die Frage, ob nach einer entfernten Markdown-Ueberschrift ueberhaupt noch
+# eine echte Ueberschrift dasteht.
+_KAPITEL_UEBERSCHRIFT_KLARTEXT_MUSTER = re.compile(
+    r"^\s*\*{0,2}Kapitel\s+\S+\s*[:\-–—]", re.IGNORECASE,
 )
 
 
 def fuehrende_markdown_ueberschrift_entfernen(text: str) -> tuple[str, list[Finding]]:
-    """Manche Modelle (z.B. Mistral) stellen der eigentlichen, persona-
-    konformen Kapitelueberschrift ("Kapitel zwei: ...") zusaetzlich eine
-    Markdown-Ueberschrift voran ("## Kapitel 2"). Die bringt in der
-    fertigen Geschichte nichts und dupliziert die Kapitelangabe - wird
-    entfernt, wenn sie ganz am Anfang des Texts steht."""
-    treffer = _FUEHRENDE_MARKDOWN_UEBERSCHRIFT_MUSTER.match(text)
-    if not treffer:
+    """Manche Modelle (z.B. Mistral) schreiben die Kapitelueberschrift als
+    Markdown-Ueberschrift ("### Kapitel eins: Rechtlose Magd") statt als
+    reinen Text ("Kapitel eins: Rechtlose Magd", wie die Persona es
+    verlangt). Zwei Faelle:
+
+    - Dahinter steht bereits die richtige Klartext-Ueberschrift: die
+      Markdown-Zeile ist ein reines Duplikat und wird ersatzlos entfernt.
+    - Es gibt NUR die Markdown-Ueberschrift: dann wird lediglich die
+      Markdown-Auszeichnung (Raute, Sternchen) abgestreift und die Zeile als
+      Klartext-Ueberschrift behalten - sonst stuende das Kapitel voellig ohne
+      Ueberschrift da (fruehere Version loeschte hier die einzige
+      Ueberschrift, wodurch die rohe "### Kapitel eins: ..."-Zeile ueber
+      kapitelueberschrift_sicherstellen() als doppelte Klartext-Zeile wieder
+      auftauchte und dann im PDF-/Gesamt-Export als Absatz landete)."""
+    entfernt: list[str] = []
+    rest = text
+    while True:
+        treffer = _FUEHRENDE_MARKDOWN_UEBERSCHRIFT_MUSTER.match(rest)
+        if not treffer:
+            break
+        entfernt.append(treffer.group(1).strip().strip("*").strip())
+        rest = rest[treffer.end():]
+
+    if not entfernt:
         return text, []
-    finding = Finding(
-        "markdown_ueberschrift",
-        f"Der Text begann mit einer zusaetzlichen Markdown-Ueberschrift "
-        f"('{treffer.group(0).strip()}') vor der eigentlichen "
-        f"Kapitelueberschrift - automatisch entfernt.",
-        schwere="info",
-    )
-    return text[treffer.end():], [finding]
+
+    if _KAPITEL_UEBERSCHRIFT_KLARTEXT_MUSTER.match(rest):
+        neuer_text = rest
+        meldung = (
+            "Zusätzliche Markdown-Kapitelüberschrift vor der eigentlichen "
+            "Überschrift automatisch entfernt."
+        )
+    else:
+        ueberschrift = entfernt[-1]
+        neuer_text = f"{ueberschrift}\n\n{rest}" if rest.strip() else ueberschrift
+        meldung = (
+            f"Die Kapitelüberschrift stand nur als Markdown-Überschrift da "
+            f"('{ueberschrift}') - Markdown-Auszeichnung automatisch entfernt."
+        )
+    return neuer_text, [Finding("markdown_ueberschrift", meldung, schwere="info")]
 
 
 _KAPITEL_UEBERSCHRIFT_VORHANDEN_MUSTER = re.compile(
-    r"^\s*\*{0,2}Kapitel\s+\S+\s*[:\-–—]", re.IGNORECASE,
+    r"^\s*(?:#{1,6}[ \t]*)?\*{0,2}Kapitel\s+\S+\s*[:\-–—]", re.IGNORECASE,
 )
 
 # Holt die komplette "Kapitel <Zahlwort>: <Titel>"-Zeile aus dem
