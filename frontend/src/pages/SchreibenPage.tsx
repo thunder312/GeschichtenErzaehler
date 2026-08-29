@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, schreibenWebSocketUrl } from "../api/client";
 import type {
+  AutomatikFortsetzenVorschau,
   AutomatikStatus,
   AutomatikVerlaufEintrag,
   BefundeAntwort,
@@ -87,6 +88,9 @@ export function SchreibenPage({
   const [automatikMaxDurchlaeufe, setAutomatikMaxDurchlaeufe] = useState(3);
   const [automatikFehler, setAutomatikFehler] = useState<string | null>(null);
   const [automatikVerlauf, setAutomatikVerlauf] = useState<AutomatikVerlaufEintrag[]>([]);
+  const [vorschau, setVorschau] = useState<AutomatikFortsetzenVorschau | null>(null);
+  const [vorschauLaden, setVorschauLaden] = useState(false);
+  const [vorschauFehler, setVorschauFehler] = useState<string | null>(null);
   const automatikLiefZuvorRef = useRef(false);
   const automatikAktivitaetTextRef = useRef<string | null>(null);
 
@@ -146,15 +150,28 @@ export function SchreibenPage({
     };
   }, [ordner]);
 
-  async function automatikStarten(fortsetzen = false, automatischBestaetigen = false) {
+  async function automatikStarten(fortsetzen = false, automatischBestaetigen = false, nurNeueKapitel = false) {
     setAutomatikFehler(null);
     try {
       await api.automatikStarten(
-        ordner, automatikMaxDurchlaeufe, sshZielId || null, fortsetzen, automatischBestaetigen,
+        ordner, automatikMaxDurchlaeufe, sshZielId || null, fortsetzen, automatischBestaetigen, nurNeueKapitel,
       );
+      setVorschau(null);
       setAutomatikStatus(await api.automatikStatus(ordner));
     } catch (e) {
       setAutomatikFehler(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function ladeVorschau() {
+    setVorschauFehler(null);
+    setVorschauLaden(true);
+    try {
+      setVorschau(await api.automatikFortsetzenVorschau(ordner));
+    } catch (e) {
+      setVorschauFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setVorschauLaden(false);
     }
   }
 
@@ -359,6 +376,21 @@ export function SchreibenPage({
   const automatikSchreibtGerade = (automatikStatus?.laeuft ?? false) && !laeuft;
   const angezeigterAutorText = automatikSchreibtGerade ? automatikStatus?.aktueller_text ?? "" : autorText;
 
+  // "Weitere Kapitel schreiben" nur anbieten, wenn die Geschichte schon
+  // begonnen ist (mindestens ein Kapitel geschrieben) UND der Kapitelplan
+  // eine noch ungeschriebene Kapitelnummer enthaelt - also genau der Fall
+  // "Gerüst um ein Kapitel erweitert, jetzt nur dieses schreiben lassen".
+  const geplantBis = projekt?.letztes_geplantes_kapitel ?? null;
+  const geschriebeneKapitel = projekt?.kapitel ?? [];
+  const naechsteLuecke = (() => {
+    if (!geplantBis) return null;
+    let k = 1;
+    while (k <= geplantBis && geschriebeneKapitel.includes(k)) k += 1;
+    return k <= geplantBis ? k : null;
+  })();
+  const kannErweitern =
+    !automatikStatus?.laeuft && geschriebeneKapitel.length > 0 && naechsteLuecke != null;
+
   return (
     <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_2fr]">
       <div className="space-y-4">
@@ -503,6 +535,69 @@ export function SchreibenPage({
           Rechtschreibung (hunspell) läuft mit, unbekannte Wörter landen nur im Protokoll (keine automatische
           Ersetzung). Läuft im Hintergrund weiter, auch wenn du diesen Tab schließt oder den Browser zumachst.
         </p>
+
+        {kannErweitern && (
+          <div className="mb-4 rounded-lg border border-border bg-bg p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-heading text-sm font-semibold text-text">➕ Weitere Kapitel schreiben</h3>
+              <Button variant="secondary" onClick={ladeVorschau} disabled={vorschauLaden}>
+                {vorschauLaden ? "..." : vorschau ? "Vorschau aktualisieren" : "Vorschau laden"}
+              </Button>
+            </div>
+            <p className="mt-1 text-xs text-text-muted">
+              Für eine begonnene Geschichte, die du im Gerüst um ein Kapitel erweitert hast: Es wird nur das
+              nächste ungeschriebene Kapitel geschrieben, geprüft und (bei eindeutigen Funden) korrigiert.
+              Bereits fertige Kapitel werden dabei <strong>nicht</strong> erneut geprüft oder verändert.
+            </p>
+            {vorschauFehler && <p className="mt-2 text-sm text-red-400">{vorschauFehler}</p>}
+            {vorschau && vorschau.naechstes_kapitel == null && (
+              <p className="mt-2 text-sm text-text-muted">Alle geplanten Kapitel sind bereits geschrieben.</p>
+            )}
+            {vorschau && vorschau.naechstes_kapitel != null && (
+              <div className="mt-3 space-y-2 text-sm text-text">
+                <p>
+                  Geplant bis Kapitel <strong>{vorschau.geplant_bis}</strong> · geschrieben:{" "}
+                  {vorschau.geschrieben.join(", ") || "–"} · wird jetzt geschrieben:{" "}
+                  <strong>Kapitel {vorschau.zu_schreiben.join(", ")}</strong>
+                </p>
+                {vorschau.anknuepfpunkt ? (
+                  <div className="rounded-lg border border-border bg-surface p-2">
+                    <p className="text-xs text-text-muted">
+                      Anknüpfpunkt für Kapitel {vorschau.naechstes_kapitel}: „Stand nach Kapitel{" "}
+                      {vorschau.anknuepfpunkt.kapitel}“
+                    </p>
+                    {vorschau.anknuepfpunkt.stand_vorhanden ? (
+                      <>
+                        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-bg p-2 text-xs leading-relaxed text-text-muted">
+                          {vorschau.anknuepfpunkt.stand_text}
+                        </pre>
+                        {vorschau.anknuepfpunkt.stand_veraltet && (
+                          <p className="mt-1 text-xs text-amber-300">
+                            ⚠ Kapitel {vorschau.anknuepfpunkt.kapitel} wurde nach dieser Zusammenfassung
+                            geändert. War die Änderung inhaltlich relevant, erzeuge den Stand für Kapitel{" "}
+                            {vorschau.anknuepfpunkt.kapitel} im Tab „Stand &amp; Export“ neu, bevor du
+                            fortfährst.
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="mt-1 text-xs text-amber-300">
+                        Für Kapitel {vorschau.anknuepfpunkt.kapitel} gibt es noch keine Stand-Datei – sie wird
+                        beim Schreiben aus dem Kapiteltext erzeugt (nichts erfunden). Zum Gegenlesen vorher im
+                        Tab „Stand &amp; Export“ erstellen.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-muted">Kapitel 1 hat keinen Vorgänger – kein Anknüpfpunkt nötig.</p>
+                )}
+                <Button onClick={() => automatikStarten(false, false, true)}>
+                  Kapitel {vorschau.zu_schreiben.join(", ")} schreiben
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         {automatikStatus?.laeuft ? (
           <div className="space-y-3">

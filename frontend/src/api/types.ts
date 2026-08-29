@@ -266,6 +266,25 @@ export interface AutomatikVerlaufEintrag {
   fortgesetzt: boolean;
 }
 
+// Vorschau vor dem inkrementellen Erweitern ("Weitere Kapitel schreiben") -
+// siehe app/api/pipeline.py:automatik_fortsetzen_vorschau. Reine
+// Datei-/Kapitelplan-Auswertung, kein KI-Aufruf.
+export interface AutomatikAnknuepfpunkt {
+  kapitel: number;
+  stand_vorhanden: boolean;
+  stand_text: string | null;
+  stand_veraltet: boolean;
+}
+
+export interface AutomatikFortsetzenVorschau {
+  geplant_bis: number | null;
+  kapitelplan: Record<number, number>;
+  geschrieben: number[];
+  naechstes_kapitel: number | null;
+  zu_schreiben: number[];
+  anknuepfpunkt: AutomatikAnknuepfpunkt | null;
+}
+
 export interface FundusImportAntwort {
   importierte_projekte: number;
   gefundene_figuren: number;

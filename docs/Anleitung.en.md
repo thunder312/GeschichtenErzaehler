@@ -307,6 +307,22 @@ Under **"Lauf-Historie"** (Run History) you can also look up every past
 automatic run of this project — date, time period, duration, and whether
 it completed cleanly, aborted with an error, or was stopped.
 
+### Extending a story you already started, chapter by chapter
+
+If you want a story to grow **one chapter at a time** (write two chapters
+first, later add a third to the outline and have only that one written),
+use the **"➕ Weitere Kapitel schreiben"** (Write further chapters) block
+in Automatic mode. **"Vorschau laden"** (Load preview) first only shows —
+without writing anything — how many chapters are planned and written,
+which one comes next, and **which "state after chapter N" the author gets
+as its connecting point**. That way you can verify before starting that
+it correctly picks up from the last finished chapter. If the previous
+chapter was edited after its state summary was made, the preview says so —
+regenerate that state in the **"Stand & Export"** tab if needed. **"Kapitel
+N schreiben"** then runs an automatic pass that writes and checks **only**
+the new chapters — the already finished chapters are neither re-checked
+nor changed.
+
 ---
 
 ## 8. Character pool ("Personen-Fundus")

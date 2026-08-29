@@ -338,6 +338,22 @@ Automatik-Lauf dieses Projekts nachschlagen — Datum, Zeitraum, Laufzeit
 und ob er sauber abgeschlossen, mit Fehler abgebrochen oder gestoppt
 wurde.
 
+### Eine begonnene Geschichte um Kapitel erweitern
+
+Willst du eine Geschichte **Kapitel für Kapitel** wachsen lassen (erst
+zwei Kapitel schreiben, später im Gerüst ein drittes ergänzen und nur
+dieses schreiben lassen), nutze im Automatikmodus den Block **„➕ Weitere
+Kapitel schreiben“**. **„Vorschau laden“** zeigt zuerst nur an — ohne
+etwas zu schreiben —, wie viele Kapitel geplant und geschrieben sind,
+welches als Nächstes drankäme und **welchen „Stand nach Kapitel N“ der
+Autor als Anknüpfpunkt** bekommt. So kannst du vor dem Start prüfen, dass
+korrekt an das letzte fertige Kapitel angeknüpft wird. Wurde das
+Vorkapitel nach seiner Stand-Zusammenfassung noch geändert, weist die
+Vorschau darauf hin — erzeuge den Stand dann bei Bedarf im Tab **„Stand &
+Export“** neu. Mit **„Kapitel N schreiben“** läuft dann ein Automatik-Lauf,
+der **nur** die neuen Kapitel schreibt und prüft — die bereits fertigen
+Kapitel werden weder erneut geprüft noch verändert.
+
 ---
 
 ## 8. Personen-Fundus

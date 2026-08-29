@@ -1,6 +1,7 @@
 import type {
   AnalyseEintrag,
   AnalysatorStatus,
+  AutomatikFortsetzenVorschau,
   AutomatikStatus,
   AutomatikVerlaufEintrag,
   Befund,
@@ -318,6 +319,7 @@ export const api = {
     sshZielId?: string | null,
     fortsetzen = false,
     automatischBestaetigen = false,
+    nurNeueKapitel = false,
   ) =>
     anfrage<{ gestartet: boolean }>(
       `/api/projects/${ordner}/automatik/start${sshQuery(sshZielId)}`,
@@ -327,8 +329,14 @@ export const api = {
           max_durchlaeufe: maxDurchlaeufe,
           fortsetzen,
           automatisch_bestaetigen: automatischBestaetigen,
+          nur_neue_kapitel: nurNeueKapitel,
         }),
       },
+    ),
+
+  automatikFortsetzenVorschau: (ordner: string) =>
+    anfrage<AutomatikFortsetzenVorschau>(
+      `/api/projects/${ordner}/automatik/fortsetzen-vorschau`,
     ),
 
   automatikStatus: (ordner: string) =>

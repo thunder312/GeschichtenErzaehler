@@ -280,6 +280,12 @@ class AutomatikStartAnfrage(BaseModel):
     # uebersprungenen Funde erst am naechsten Morgen gesammelt durchsehen
     # will statt zwischendurch geweckt/gefragt zu werden.
     automatisch_bestaetigen: bool = False
+    # True = Ablauf "Weitere Kapitel schreiben" (inkrementelles Erweitern einer
+    # begonnenen Geschichte): Phase 2 (Pruefen/Korrigieren) laeuft NUR fuer die
+    # in diesem Lauf neu geschriebenen Kapitel, die bereits vorher fertigen
+    # Kapitel davor bleiben komplett unangetastet (keine erneute Pruefung, keine
+    # automatische Korrektur) - siehe app/api/pipeline.py:_automatik_lauf.
+    nur_neue_kapitel: bool = False
 
 
 class AutomatikStatusAntwort(BaseModel):
@@ -313,6 +319,32 @@ class AutomatikStatusAntwort(BaseModel):
     # interaktiven Schreiben ueber die WebSocket-Verbindung. None ausserhalb
     # der Phase "schreiben" bzw. vor dem ersten Fortschritts-Update.
     aktueller_text: str | None = None
+
+
+class AutomatikAnknuepfpunkt(BaseModel):
+    """Der Kontext, an den das naechste zu schreibende Kapitel anknuepft -
+    die "Stand nach Kapitel N"-Zusammenfassung des Vorgaengers (siehe
+    app/api/pipeline.py:_kapitel_schreiben_kern, Feld "STAND NACH DEM
+    VORIGEN KAPITEL"). Nur fuer die Vorschau vor dem inkrementellen
+    Erweitern (automatik/fortsetzen-vorschau), damit der Nutzer sieht,
+    worauf aufgebaut wird, bevor er den Lauf startet."""
+    kapitel: int
+    stand_vorhanden: bool
+    stand_text: str | None = None
+    # True, wenn kapitel_NN.md nach stand_NN.md geaendert wurde - die
+    # Zusammenfassung koennte dann veraltet sein. Wird NICHT automatisch neu
+    # erzeugt (nur wenn die Datei ganz fehlt), sondern nur angezeigt, damit
+    # der Nutzer sie bei Bedarf selbst im Tab "Stand & Export" neu erstellt.
+    stand_veraltet: bool = False
+
+
+class AutomatikFortsetzenVorschau(BaseModel):
+    geplant_bis: int | None
+    kapitelplan: dict[int, int] = {}
+    geschrieben: list[int] = []
+    naechstes_kapitel: int | None = None
+    zu_schreiben: list[int] = []
+    anknuepfpunkt: AutomatikAnknuepfpunkt | None = None
 
 
 class AutomatikVerlaufEintrag(BaseModel):

@@ -55,6 +55,8 @@ from app.core.pruef_schema import AnachronismusAntwortLLM, KontinuitaetAntwortLL
 from app.core.rollen import ROLLEN, STUFE_DIREKTIVEN
 from app.core.textutil import woerter
 from app.schemas import (
+    AutomatikAnknuepfpunkt,
+    AutomatikFortsetzenVorschau,
     AutomatikStartAnfrage,
     AutomatikStatusAntwort,
     AutomatikVerlaufEintrag,
@@ -1076,7 +1078,8 @@ def _automatik_on_event(status: dict, projekt_root: Path) -> OnEvent:
 
 async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: str | None,
                            max_durchlaeufe: int, fortsetzen: bool = False,
-                           automatisch_bestaetigen: bool = False) -> None:
+                           automatisch_bestaetigen: bool = False,
+                           nur_neue_kapitel: bool = False) -> None:
     """Hintergrund-Job (siehe automatik_start(), per FastAPI BackgroundTasks
     gestartet - laeuft unabhaengig von einer offenen Browser-Verbindung
     weiter): schreibt zuerst alle fehlenden Kapitel, wendet dann pro
@@ -1100,7 +1103,15 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
     AUTOMATIK_CHECKPOINT_INTERVALL Kapitel) - der Lauf schreibt und prueft
     unbeaufsichtigt bis zum letzten Kapitel durch, uebersprungene
     Pruefer-Funde sammeln sich wie gewohnt im Protokoll/Tab "Pruefen & Anwenden"
-    fuer die Durchsicht danach, statt den Lauf zu unterbrechen."""
+    fuer die Durchsicht danach, statt den Lauf zu unterbrechen.
+
+    `nur_neue_kapitel=True` (Ablauf "Weitere Kapitel schreiben" - inkrementelles
+    Erweitern einer begonnenen Geschichte): Phase 2 laeuft NUR fuer die in
+    diesem Lauf neu geschriebenen Kapitel (ab der ersten Luecke im Kapitelplan).
+    Die bereits vorher fertigen Kapitel davor werden nicht erneut geprueft und
+    nicht veraendert - sonst wuerde ein spaeter angehaengtes Kapitel jedes Mal
+    die laengst abgeschlossenen Vorkapitel neu durch die Pruefer/Auto-Korrektur
+    schicken."""
     projekt = projekt_root / "projekt"
     vorheriger_status = automatik.status_lesen(projekt_root)
     fortsetzen_ab_kapitel: int | None = None
@@ -1151,6 +1162,13 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
             start_n = 1
             while start_n <= letztes and pd.kapitel_datei(projekt, start_n).exists():
                 start_n += 1
+            # Merkt sich die erste Luecke VOR der Schreibschleife - im
+            # "nur_neue_kapitel"-Modus grenzt das Phase 2 auf genau die hier
+            # neu entstehenden Kapitel ein (start_n .. letztes).
+            erste_neue_kapitel = start_n
+
+            if nur_neue_kapitel and erste_neue_kapitel > letztes:
+                status["log"].append("Alle geplanten Kapitel sind bereits geschrieben - nichts zu tun.")
 
             for n in range(start_n, letztes + 1):
                 if _automatik_stop_angefordert(status, projekt_root):
@@ -1173,8 +1191,16 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
             # werden Kapitel VOR dem Unterbrechungspunkt uebersprungen, da
             # deren Korrekturen im vorigen Lauf bereits vollstaendig
             # angewendet wurden (das Protokoll dafuer wurde oben schon
-            # uebernommen).
-            for n in range(1, letztes + 1):
+            # uebernommen). Im "nur_neue_kapitel"-Modus faengt Phase 2 erst
+            # bei der ersten in diesem Lauf neu geschriebenen Kapitelnummer an -
+            # die fertigen Vorkapitel bleiben komplett unberuehrt.
+            phase2_start = erste_neue_kapitel if nur_neue_kapitel else 1
+            if nur_neue_kapitel and erste_neue_kapitel > 1:
+                status["log"].append(
+                    f"Nur-neue-Kapitel-Modus: Kapitel 1–{erste_neue_kapitel - 1} "
+                    f"werden nicht erneut geprüft oder verändert."
+                )
+            for n in range(phase2_start, letztes + 1):
                 if fortsetzen_ab_kapitel and n < fortsetzen_ab_kapitel:
                     continue
                 if not pd.kapitel_datei(projekt, n).exists():
@@ -1315,6 +1341,21 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                     )
                     _automatik_status_schreiben(status, projekt_root)
 
+        # Gesamttext exportieren, sobald alle geplanten Kapitel geschrieben
+        # sind. Der interaktive Pfad macht das ueber _stand_ausfuehren()'s
+        # auto_export beim letzten Kapitel - ein Automatik-Lauf ruft
+        # _stand_ausfuehren() aber nur fuer VORgaenger-Kapitel auf (Stand-
+        # Nachholung, siehe _kapitel_schreiben_kern), nie fuers letzte, sodass
+        # <Projekt>.md ohne diesen Schritt nach einem Automatik-Lauf (und
+        # besonders nach einem inkrementell angehaengten Kapitel) veraltet
+        # bliebe.
+        if len(pd.vorhandene_kapitel(projekt)) >= letztes:
+            try:
+                _export_ausfuehren(projekt_root)
+                status["log"].append("Gesamttext exportiert.")
+            except Exception as e:  # pragma: no cover - Export ist Kuer, kein Muss
+                logger.warning("Automatikmodus: Export fehlgeschlagen fuer %s: %s", projekt_root, e)
+
         status["phase"] = "abgeschlossen"
         status["abgeschlossen"] = True
         status["log"].append("Automatikmodus abgeschlossen.")
@@ -1357,9 +1398,63 @@ async def automatik_start(ordner: str, anfrage: AutomatikStartAnfrage,
         raise HTTPException(409, "Automatikmodus läuft für dieses Projekt bereits.")
     background_tasks.add_task(
         _automatik_lauf, settings, projekt_root, ssh_ziel_id, anfrage.max_durchlaeufe, anfrage.fortsetzen,
-        anfrage.automatisch_bestaetigen,
+        anfrage.automatisch_bestaetigen, anfrage.nur_neue_kapitel,
     )
     return {"gestartet": True}
+
+
+@router.get("/{ordner:path}/automatik/fortsetzen-vorschau", response_model=AutomatikFortsetzenVorschau)
+def automatik_fortsetzen_vorschau(ordner: str, settings: Settings = Depends(get_settings),
+                                   benutzer: Benutzer = Depends(get_current_user)):
+    """Was wuerde ein "Weitere Kapitel schreiben"-Lauf (nur_neue_kapitel=True)
+    tun? Reine Datei-/Kapitelplan-Auswertung, KEIN LLM-Aufruf - dient dem
+    Kontroll-/Bestaetigungsschritt vor dem inkrementellen Erweitern einer
+    begonnenen Geschichte (siehe frontend/src/pages/SchreibenPage.tsx):
+    zeigt an, wie viele Kapitel geplant/geschrieben sind, welches als
+    Naechstes drankaeme und - besonders wichtig - welche "Stand nach Kapitel
+    N"-Zusammenfassung als Anknuepfpunkt dient, damit der Nutzer vor dem Start
+    pruefen kann, dass daran korrekt angeknuepft wird."""
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    projekt = projekt_root / "projekt"
+    geruest_text = pd.lies(pd.geruest_datei(projekt), pflicht=False, ersatz="")
+    letztes = g.letztes_geplantes_kapitel(geruest_text) if geruest_text else None
+    geschrieben = sorted(
+        pd.kapitelnummer_aus_dateiname(p) for p in pd.vorhandene_kapitel(projekt)
+    )
+
+    naechstes: int | None = None
+    if letztes:
+        n = 1
+        while n <= letztes and pd.kapitel_datei(projekt, n).exists():
+            n += 1
+        naechstes = n if n <= letztes else None
+    zu_schreiben = list(range(naechstes, letztes + 1)) if (naechstes and letztes) else []
+
+    anknuepfpunkt: AutomatikAnknuepfpunkt | None = None
+    if naechstes and naechstes > 1:
+        vorgaenger = naechstes - 1
+        stand_pfad = pd.stand_datei(projekt, vorgaenger)
+        kapitel_pfad = pd.kapitel_datei(projekt, vorgaenger)
+        stand_vorhanden = stand_pfad.exists()
+        veraltet = (
+            stand_vorhanden and kapitel_pfad.exists()
+            and kapitel_pfad.stat().st_mtime > stand_pfad.stat().st_mtime + 1
+        )
+        anknuepfpunkt = AutomatikAnknuepfpunkt(
+            kapitel=vorgaenger,
+            stand_vorhanden=stand_vorhanden,
+            stand_text=pd.lies(stand_pfad, pflicht=False, ersatz="") or None if stand_vorhanden else None,
+            stand_veraltet=bool(veraltet),
+        )
+
+    return AutomatikFortsetzenVorschau(
+        geplant_bis=letztes,
+        kapitelplan=g.kapitelplan_erkennen(geruest_text) if geruest_text else {},
+        geschrieben=geschrieben,
+        naechstes_kapitel=naechstes,
+        zu_schreiben=zu_schreiben,
+        anknuepfpunkt=anknuepfpunkt,
+    )
 
 
 @router.get("/{ordner:path}/automatik/status", response_model=AutomatikStatusAntwort)

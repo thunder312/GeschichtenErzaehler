@@ -564,3 +564,127 @@ def test_automatik_resten_bestaetigen_waehrend_lauf_liefert_409(client, projekt_
 
     r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/resten-bestaetigen")
     assert r.status_code == 409
+
+
+# --- "Weitere Kapitel schreiben" (inkrementelles Erweitern) ---------------
+
+def _projekt_mit_drei_kapiteln(client):
+    from app.services import projekt_pfad
+    settings = app.dependency_overrides[get_settings]()
+    r = client.post("/api/projects", json={"titel": "Inkrementell", "epoche": "Regency"})
+    ordner = r.json()["ordner"]
+    geruest = (
+        "# STORY-GERUEST\n\n## Rahmen\nJahr: 1815\n\n"
+        "## Kapitelplan\n"
+        "Kapitel 1: Anfang. 5 Wörter.\n"
+        "Kapitel 2: Mitte. 5 Wörter.\n"
+        "Kapitel 3: Schluss. 5 Wörter.\n"
+    )
+    client.put(f"/api/projects/{ordner}/geruest", json={"inhalt": geruest})
+    return ordner, projekt_pfad(settings, "daniel", ordner) / "projekt"
+
+
+def test_automatik_nur_neue_kapitel_laesst_fertige_kapitel_unangetastet(client, monkeypatch):
+    ordner, projekt = _projekt_mit_drei_kapiteln(client)
+    kap1, kap2 = projekt / "kapitel_01.md", projekt / "kapitel_02.md"
+    kap1.write_text("# Kapitel 1\n\nDer fertige, unantastbare Text von Kapitel eins.", encoding="utf-8")
+    kap2.write_text("# Kapitel 2\n\nDer fertige, unantastbare Text von Kapitel zwei.", encoding="utf-8")
+    (projekt / "stand_01.md").write_text("Stand nach Kapitel 1.", encoding="utf-8")
+    (projekt / "stand_02.md").write_text("Stand nach Kapitel 2.", encoding="utf-8")
+    vorher1, vorher2 = kap1.read_text(encoding="utf-8"), kap2.read_text(encoding="utf-8")
+
+    geprueft: list[int] = []
+    urspruenglich = pipeline._pruefe_kapitel
+
+    async def _spy(settings_, p, base_url, n, kapiteltext, zusatzhinweis=""):
+        geprueft.append(n)
+        return await urspruenglich(settings_, p, base_url, n, kapiteltext, zusatzhinweis)
+
+    monkeypatch.setattr(pipeline, "_pruefe_kapitel", _spy)
+
+    r = client.post(
+        f"/api/projects/{ordner}/automatik/start",
+        json={"max_durchlaeufe": 1, "nur_neue_kapitel": True},
+    )
+    assert r.status_code == 200
+
+    status = client.get(f"/api/projects/{ordner}/automatik/status").json()
+    assert status["abgeschlossen"] is True
+    assert status["fehler"] is None
+    # Weder Phase 1 (Erstpruefung im Schreib-Kern) noch Phase 2 fassen Kapitel
+    # 1 oder 2 an - nur das neue Kapitel 3.
+    assert set(geprueft) == {3}
+    assert kap1.read_text(encoding="utf-8") == vorher1
+    assert kap2.read_text(encoding="utf-8") == vorher2
+    assert (projekt / "kapitel_03.md").exists()
+    assert any("Kapitel 1–2 werden nicht erneut geprüft" in z for z in status["log"])
+
+
+def test_automatik_nur_neue_kapitel_ohne_luecke_meldet_nichts_zu_tun(client):
+    ordner, projekt = _projekt_mit_drei_kapiteln(client)
+    for i in (1, 2, 3):
+        (projekt / f"kapitel_0{i}.md").write_text(f"# Kapitel {i}\n\nText.", encoding="utf-8")
+
+    r = client.post(
+        f"/api/projects/{ordner}/automatik/start",
+        json={"max_durchlaeufe": 1, "nur_neue_kapitel": True},
+    )
+    assert r.status_code == 200
+    status = client.get(f"/api/projects/{ordner}/automatik/status").json()
+    assert status["abgeschlossen"] is True
+    assert any("bereits geschrieben" in z for z in status["log"])
+
+
+def test_automatik_fortsetzen_vorschau_zeigt_anknuepfpunkt(client):
+    ordner, projekt = _projekt_mit_drei_kapiteln(client)
+    (projekt / "kapitel_01.md").write_text("K1", encoding="utf-8")
+    (projekt / "kapitel_02.md").write_text("K2", encoding="utf-8")
+    (projekt / "stand_02.md").write_text("Zwei Menschen, ein Versprechen, offener Ausgang.", encoding="utf-8")
+
+    v = client.get(f"/api/projects/{ordner}/automatik/fortsetzen-vorschau").json()
+    assert v["geplant_bis"] == 3
+    assert v["geschrieben"] == [1, 2]
+    assert v["naechstes_kapitel"] == 3
+    assert v["zu_schreiben"] == [3]
+    assert v["anknuepfpunkt"]["kapitel"] == 2
+    assert v["anknuepfpunkt"]["stand_vorhanden"] is True
+    assert "Versprechen" in v["anknuepfpunkt"]["stand_text"]
+    assert v["anknuepfpunkt"]["stand_veraltet"] is False
+
+
+def test_automatik_fortsetzen_vorschau_meldet_fehlenden_stand(client):
+    ordner, projekt = _projekt_mit_drei_kapiteln(client)
+    (projekt / "kapitel_01.md").write_text("K1", encoding="utf-8")
+    (projekt / "kapitel_02.md").write_text("K2", encoding="utf-8")
+
+    v = client.get(f"/api/projects/{ordner}/automatik/fortsetzen-vorschau").json()
+    assert v["naechstes_kapitel"] == 3
+    assert v["anknuepfpunkt"]["stand_vorhanden"] is False
+    assert v["anknuepfpunkt"]["stand_text"] is None
+
+
+def test_automatik_fortsetzen_vorschau_meldet_veralteten_stand(client):
+    import os
+    import time as _time
+
+    ordner, projekt = _projekt_mit_drei_kapiteln(client)
+    (projekt / "kapitel_01.md").write_text("K1", encoding="utf-8")
+    (projekt / "kapitel_02.md").write_text("K2 - inzwischen ueberarbeitet", encoding="utf-8")
+    (projekt / "stand_02.md").write_text("alte Zusammenfassung", encoding="utf-8")
+    spaeter = _time.time() + 30
+    os.utime(projekt / "kapitel_02.md", (spaeter, spaeter))
+
+    v = client.get(f"/api/projects/{ordner}/automatik/fortsetzen-vorschau").json()
+    assert v["anknuepfpunkt"]["stand_vorhanden"] is True
+    assert v["anknuepfpunkt"]["stand_veraltet"] is True
+
+
+def test_automatik_fortsetzen_vorschau_alles_geschrieben(client):
+    ordner, projekt = _projekt_mit_drei_kapiteln(client)
+    for i in (1, 2, 3):
+        (projekt / f"kapitel_0{i}.md").write_text(f"K{i}", encoding="utf-8")
+
+    v = client.get(f"/api/projects/{ordner}/automatik/fortsetzen-vorschau").json()
+    assert v["naechstes_kapitel"] is None
+    assert v["zu_schreiben"] == []
+    assert v["anknuepfpunkt"] is None
