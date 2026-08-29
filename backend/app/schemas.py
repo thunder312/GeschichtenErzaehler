@@ -440,6 +440,13 @@ class EinstellungenAntwort(BaseModel):
     # verlinkt, editierbar hier fuer den Fall, dass sich der Link mal aendert.
     bildgenerator_url: str
     bildgenerator_url_ist_standard: bool
+    # Zeit-Ueberbrueckungs-Overlay "Unnuetzes Wissen" (siehe
+    # frontend/src/components/ZeitUeberbrueckungOverlay.tsx): komplett
+    # abschaltbar; wenn an, konfigurierbar nach wie vielen Sekunden es
+    # waehrend einer KI-Wartezeit erscheint und wie oft es weiterblaettert.
+    unnuetzes_wissen_aktiv: bool
+    unnuetzes_wissen_start_sekunden: int
+    unnuetzes_wissen_wechsel_sekunden: int
 
 
 class FundusImportAntwort(BaseModel):
@@ -524,6 +531,13 @@ class EinstellungenAnfrage(BaseModel):
     unterordner_je_epoche: bool = False
     # Leer/None setzt den Override zurueck auf den Standard-Bildgenerator-Link.
     bildgenerator_url: str | None = None
+    # PUT /api/einstellungen ist ein vollstaendiger Ersatz, kein Teilupdate
+    # (siehe test_einstellungen_api.py) - fehlende Felder fallen auf diese
+    # Defaults zurueck (= bisher fest verdrahtete Werte, 20 s / 20 s). Das
+    # Frontend schickt bei jedem Speichern konsequent alle Felder mit.
+    unnuetzes_wissen_aktiv: bool = True
+    unnuetzes_wissen_start_sekunden: int = Field(default=20, ge=0, le=3600)
+    unnuetzes_wissen_wechsel_sekunden: int = Field(default=20, ge=3, le=3600)
 
 
 class WissenEintrag(BaseModel):

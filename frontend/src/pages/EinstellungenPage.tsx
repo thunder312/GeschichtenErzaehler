@@ -54,29 +54,55 @@ export function EinstellungenPage({ sshZiele, onSshZieleGeaendert }: Einstellung
   const [pfad, setPfad] = useState("");
   const [unterordnerJeEpoche, setUnterordnerJeEpoche] = useState(false);
   const [bildgeneratorUrl, setBildgeneratorUrl] = useState("");
+  // "Unnützes Wissen"-Overlay: Startzeit im UI in Minuten (der Server rechnet
+  // in Sekunden), Wechsel-Intervall in Sekunden.
+  const [wissenAktiv, setWissenAktiv] = useState(true);
+  const [wissenStartMinuten, setWissenStartMinuten] = useState(String(20 / 60));
+  const [wissenWechselSekunden, setWissenWechselSekunden] = useState("20");
   const [laden, setLaden] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const [gespeichert, setGespeichert] = useState(false);
 
+  function uebernehmen(e: Einstellungen) {
+    setEinstellungen(e);
+    setPfad(e.projects_dir);
+    setUnterordnerJeEpoche(e.unterordner_je_epoche);
+    setBildgeneratorUrl(e.bildgenerator_url);
+    setWissenAktiv(e.unnuetzes_wissen_aktiv);
+    setWissenStartMinuten(String(Math.round((e.unnuetzes_wissen_start_sekunden / 60) * 100) / 100));
+    setWissenWechselSekunden(String(e.unnuetzes_wissen_wechsel_sekunden));
+  }
+
   useEffect(() => {
-    api.einstellungen().then((e) => {
-      setEinstellungen(e);
-      setPfad(e.projects_dir);
-      setUnterordnerJeEpoche(e.unterordner_je_epoche);
-      setBildgeneratorUrl(e.bildgenerator_url);
-    });
+    api.einstellungen().then(uebernehmen);
   }, []);
 
-  async function speichern(neuerPfad: string, neuUnterordnerJeEpoche: boolean, neueBildgeneratorUrl: string) {
+  interface WissenWerte {
+    aktiv: boolean;
+    startMinuten: string;
+    wechselSekunden: string;
+  }
+
+  async function speichern(
+    neuerPfad: string,
+    neuUnterordnerJeEpoche: boolean,
+    neueBildgeneratorUrl: string,
+    wissen?: WissenWerte,
+  ) {
+    const w = wissen ?? { aktiv: wissenAktiv, startMinuten: wissenStartMinuten, wechselSekunden: wissenWechselSekunden };
     setLaden(true);
     setFehler(null);
     setGespeichert(false);
     try {
-      const antwort = await api.einstellungenSchreiben(neuerPfad, neuUnterordnerJeEpoche, neueBildgeneratorUrl);
-      setEinstellungen(antwort);
-      setPfad(antwort.projects_dir);
-      setUnterordnerJeEpoche(antwort.unterordner_je_epoche);
-      setBildgeneratorUrl(antwort.bildgenerator_url);
+      const antwort = await api.einstellungenSchreiben({
+        projectsDir: neuerPfad,
+        unterordnerJeEpoche: neuUnterordnerJeEpoche,
+        bildgeneratorUrl: neueBildgeneratorUrl,
+        unnuetzesWissenAktiv: w.aktiv,
+        unnuetzesWissenStartSekunden: Math.max(0, Math.round((Number(w.startMinuten) || 0) * 60)),
+        unnuetzesWissenWechselSekunden: Math.max(3, Math.round(Number(w.wechselSekunden) || 0)),
+      });
+      uebernehmen(antwort);
       setGespeichert(true);
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
@@ -199,6 +225,76 @@ export function EinstellungenPage({ sshZiele, onSshZieleGeaendert }: Einstellung
                     </Button>
                   )}
                 </div>
+              </div>
+            )}
+          </EinklappbareKarte>
+
+          <EinklappbareKarte titel="🎛️ Benutzer-Einstellungen">
+            <p className="mb-3 text-sm text-text-muted">
+              Persönliche Vorlieben für die Bedienung. Weitere Optionen folgen hier nach und nach.
+            </p>
+            {einstellungen && (
+              <div className="space-y-3 border-t border-border pt-3">
+                <label className="flex items-start gap-2 text-sm text-text">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={wissenAktiv}
+                    onChange={(e) => setWissenAktiv(e.target.checked)}
+                    disabled={laden}
+                  />
+                  <span>
+                    „Unnützes Wissen" während längerer KI-Wartezeiten einblenden
+                    <span className="mt-0.5 block text-xs text-text-muted">
+                      Das zentrale Overlay mit Buch-/Autoren-Kuriositäten, das erscheint, während die KI
+                      schreibt oder prüft. Ausgeschaltet bleibt es komplett aus.
+                    </span>
+                  </span>
+                </label>
+
+                {wissenAktiv && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <Label>Einblenden nach (Minuten)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        value={wissenStartMinuten}
+                        onChange={(e) => setWissenStartMinuten(e.target.value)}
+                        disabled={laden}
+                      />
+                      <p className="mt-1 text-xs text-text-muted">0 = sofort. Standard: {Math.round((20 / 60) * 100) / 100}.</p>
+                    </div>
+                    <div>
+                      <Label>Nächster Fakt nach (Sekunden)</Label>
+                      <Input
+                        type="number"
+                        min={3}
+                        step={1}
+                        value={wissenWechselSekunden}
+                        onChange={(e) => setWissenWechselSekunden(e.target.value)}
+                        disabled={laden}
+                      />
+                      <p className="mt-1 text-xs text-text-muted">Mindestens 3. Standard: 20.</p>
+                    </div>
+                  </div>
+                )}
+
+                {fehler && <p className="text-sm text-red-400">{fehler}</p>}
+                {gespeichert && !fehler && <p className="text-sm text-accent-light">Gespeichert.</p>}
+                <Button
+                  onClick={() =>
+                    speichern(pfad, unterordnerJeEpoche, bildgeneratorUrl, {
+                      aktiv: wissenAktiv,
+                      startMinuten: wissenStartMinuten,
+                      wechselSekunden: wissenWechselSekunden,
+                    })
+                  }
+                  disabled={laden}
+                >
+                  {laden ? "Speichert..." : "Speichern"}
+                </Button>
               </div>
             )}
           </EinklappbareKarte>

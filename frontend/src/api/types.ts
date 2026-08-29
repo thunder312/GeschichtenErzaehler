@@ -322,6 +322,13 @@ export interface Einstellungen {
    * Gemini) - Schnellzugriff im Titelbild-Bereich (Stand & Export). */
   bildgenerator_url: string;
   bildgenerator_url_ist_standard: boolean;
+  /** Zeit-Ueberbrueckungs-Overlay "Unnuetzes Wissen" (siehe
+   * components/ZeitUeberbrueckungOverlay.tsx): komplett abschaltbar, sonst
+   * konfigurierbar wann es waehrend einer KI-Wartezeit erscheint und wie
+   * schnell es weiterblaettert. */
+  unnuetzes_wissen_aktiv: boolean;
+  unnuetzes_wissen_start_sekunden: number;
+  unnuetzes_wissen_wechsel_sekunden: number;
 }
 
 // /api/auth/*

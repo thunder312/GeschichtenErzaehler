@@ -37,7 +37,14 @@ CREATE TABLE IF NOT EXISTS einstellungen (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     projects_dir TEXT,
     unterordner_je_epoche INTEGER NOT NULL DEFAULT 0,
-    bildgenerator_url TEXT
+    bildgenerator_url TEXT,
+    -- Zeit-Ueberbrueckungs-Overlay "Unnuetzes Wissen" (siehe
+    -- frontend/src/components/ZeitUeberbrueckungOverlay.tsx): komplett
+    -- abschaltbar, sonst konfigurierbar wann es waehrend einer KI-Wartezeit
+    -- erscheint und wie schnell es zum naechsten Fakt weiterblaettert.
+    unnuetzes_wissen_aktiv INTEGER NOT NULL DEFAULT 1,
+    unnuetzes_wissen_start_sekunden INTEGER NOT NULL DEFAULT 20,
+    unnuetzes_wissen_wechsel_sekunden INTEGER NOT NULL DEFAULT 20
 );
 
 CREATE TABLE IF NOT EXISTS persona_modelle (
@@ -121,6 +128,17 @@ def init_db(db_path: Path) -> None:
 
         if "bildgenerator_url" not in einstellungen_spalten:
             conn.execute("ALTER TABLE einstellungen ADD COLUMN bildgenerator_url TEXT")
+
+        # Migration fuer vor dem konfigurierbaren "Unnuetzes Wissen"-Overlay
+        # angelegte Datenbanken - die Defaults hier entsprechen 1:1 den zuvor
+        # im Frontend fest verdrahteten Werten (20 s bis zum Erscheinen,
+        # danach alle 20 s ein Wechsel).
+        if "unnuetzes_wissen_aktiv" not in einstellungen_spalten:
+            conn.execute("ALTER TABLE einstellungen ADD COLUMN unnuetzes_wissen_aktiv INTEGER NOT NULL DEFAULT 1")
+        if "unnuetzes_wissen_start_sekunden" not in einstellungen_spalten:
+            conn.execute("ALTER TABLE einstellungen ADD COLUMN unnuetzes_wissen_start_sekunden INTEGER NOT NULL DEFAULT 20")
+        if "unnuetzes_wissen_wechsel_sekunden" not in einstellungen_spalten:
+            conn.execute("ALTER TABLE einstellungen ADD COLUMN unnuetzes_wissen_wechsel_sekunden INTEGER NOT NULL DEFAULT 20")
 
 
 def _jetzt() -> str:
@@ -257,6 +275,46 @@ def einstellung_bildgenerator_url_schreiben(db_path: Path, url: str | None) -> N
             "INSERT INTO einstellungen (id, bildgenerator_url) VALUES (1, ?) "
             "ON CONFLICT(id) DO UPDATE SET bildgenerator_url=excluded.bildgenerator_url",
             (url,),
+        )
+
+
+# Fest verdrahtete Ausgangswerte des "Unnuetzes Wissen"-Overlays, bevor es
+# konfigurierbar wurde (waren in frontend/src/components/
+# ZeitUeberbrueckungOverlay.tsx als START_VERZOEGERUNG_MS / WECHSEL_INTERVALL_MS
+# hinterlegt) - dienen als Default fuer neue Datenbanken und als Rueckfallwert.
+WISSEN_START_SEKUNDEN_STANDARD = 20
+WISSEN_WECHSEL_SEKUNDEN_STANDARD = 20
+
+
+def einstellung_unnuetzes_wissen_lesen(db_path: Path) -> tuple[bool, int, int]:
+    """(aktiv, start_sekunden, wechsel_sekunden) fuer das Zeit-
+    Ueberbrueckungs-Overlay. Ohne je gespeicherte Einstellung gelten die
+    Standardwerte (an, 20 s / 20 s)."""
+    with _verbindung(db_path) as conn:
+        zeile = conn.execute(
+            "SELECT unnuetzes_wissen_aktiv, unnuetzes_wissen_start_sekunden, "
+            "unnuetzes_wissen_wechsel_sekunden FROM einstellungen WHERE id=1"
+        ).fetchone()
+    if not zeile:
+        return True, WISSEN_START_SEKUNDEN_STANDARD, WISSEN_WECHSEL_SEKUNDEN_STANDARD
+    return (
+        bool(zeile["unnuetzes_wissen_aktiv"]),
+        int(zeile["unnuetzes_wissen_start_sekunden"]),
+        int(zeile["unnuetzes_wissen_wechsel_sekunden"]),
+    )
+
+
+def einstellung_unnuetzes_wissen_schreiben(db_path: Path, *, aktiv: bool,
+                                            start_sekunden: int, wechsel_sekunden: int) -> None:
+    with _verbindung(db_path) as conn:
+        conn.execute(
+            "INSERT INTO einstellungen (id, unnuetzes_wissen_aktiv, "
+            "unnuetzes_wissen_start_sekunden, unnuetzes_wissen_wechsel_sekunden) "
+            "VALUES (1, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET "
+            "unnuetzes_wissen_aktiv=excluded.unnuetzes_wissen_aktiv, "
+            "unnuetzes_wissen_start_sekunden=excluded.unnuetzes_wissen_start_sekunden, "
+            "unnuetzes_wissen_wechsel_sekunden=excluded.unnuetzes_wissen_wechsel_sekunden",
+            (1 if aktiv else 0, start_sekunden, wechsel_sekunden),
         )
 
 

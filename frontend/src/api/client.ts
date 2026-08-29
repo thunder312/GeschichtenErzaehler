@@ -395,13 +395,26 @@ export const api = {
 
   einstellungen: () => anfrage<Einstellungen>("/api/einstellungen"),
 
-  einstellungenSchreiben: (projectsDir: string, unterordnerJeEpoche: boolean, bildgeneratorUrl?: string) =>
+  // PUT /api/einstellungen ist ein vollstaendiger Ersatz, kein Teilupdate -
+  // deshalb erwartet diese Funktion IMMER alle Felder (siehe
+  // EinstellungenPage.tsx:speichern, das sie aus dem State zusammenbaut).
+  einstellungenSchreiben: (werte: {
+    projectsDir: string;
+    unterordnerJeEpoche: boolean;
+    bildgeneratorUrl?: string;
+    unnuetzesWissenAktiv: boolean;
+    unnuetzesWissenStartSekunden: number;
+    unnuetzesWissenWechselSekunden: number;
+  }) =>
     anfrage<Einstellungen>("/api/einstellungen", {
       method: "PUT",
       body: JSON.stringify({
-        projects_dir: projectsDir,
-        unterordner_je_epoche: unterordnerJeEpoche,
-        bildgenerator_url: bildgeneratorUrl,
+        projects_dir: werte.projectsDir,
+        unterordner_je_epoche: werte.unterordnerJeEpoche,
+        bildgenerator_url: werte.bildgeneratorUrl,
+        unnuetzes_wissen_aktiv: werte.unnuetzesWissenAktiv,
+        unnuetzes_wissen_start_sekunden: werte.unnuetzesWissenStartSekunden,
+        unnuetzes_wissen_wechsel_sekunden: werte.unnuetzesWissenWechselSekunden,
       }),
     }),
 

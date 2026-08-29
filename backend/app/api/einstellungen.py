@@ -26,6 +26,7 @@ def _antwort(settings: Settings) -> EinstellungenAntwort:
     override = db.einstellung_projects_dir_lesen(settings.database_path)
     aktuell = Path(override) if override else settings.projects_dir
     bildgenerator_override = db.einstellung_bildgenerator_url_lesen(settings.database_path)
+    wissen_aktiv, wissen_start, wissen_wechsel = db.einstellung_unnuetzes_wissen_lesen(settings.database_path)
     return EinstellungenAntwort(
         projects_dir=str(aktuell.resolve()),
         ist_standard=override is None,
@@ -33,6 +34,9 @@ def _antwort(settings: Settings) -> EinstellungenAntwort:
         unterordner_je_epoche=db.einstellung_unterordner_je_epoche_lesen(settings.database_path),
         bildgenerator_url=bildgenerator_override or STANDARD_BILDGENERATOR_URL,
         bildgenerator_url_ist_standard=bildgenerator_override is None,
+        unnuetzes_wissen_aktiv=wissen_aktiv,
+        unnuetzes_wissen_start_sekunden=wissen_start,
+        unnuetzes_wissen_wechsel_sekunden=wissen_wechsel,
     )
 
 
@@ -46,6 +50,12 @@ def einstellungen_schreiben(anfrage: EinstellungenAnfrage, settings: Settings = 
     db.einstellung_unterordner_je_epoche_schreiben(settings.database_path, anfrage.unterordner_je_epoche)
     neue_bildgenerator_url = (anfrage.bildgenerator_url or "").strip()
     db.einstellung_bildgenerator_url_schreiben(settings.database_path, neue_bildgenerator_url or None)
+    db.einstellung_unnuetzes_wissen_schreiben(
+        settings.database_path,
+        aktiv=anfrage.unnuetzes_wissen_aktiv,
+        start_sekunden=anfrage.unnuetzes_wissen_start_sekunden,
+        wechsel_sekunden=anfrage.unnuetzes_wissen_wechsel_sekunden,
+    )
 
     neuer_pfad = (anfrage.projects_dir or "").strip()
     if not neuer_pfad:

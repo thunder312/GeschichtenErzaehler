@@ -373,7 +373,10 @@ section appear in the "Stand & Export" (State & Export) tab (see section
 
 In the **Einstellungen** (Settings) tab you set where new stories are
 stored on disk, and whether a subfolder is automatically created per era/
-setting. In the **Benutzer** (Users) tab you manage (as an admin) the
+setting. Under **Benutzer-Einstellungen** (User preferences) you can also
+turn off the "useless knowledge" overlay shown during longer AI waits, or
+adjust after how many minutes it appears and how many seconds pass before
+it moves to the next fact. In the **Benutzer** (Users) tab you manage (as an admin) the
 accounts that users log in with — each account sees only its own
 projects. All three tabs are only visible to admin accounts.
 

@@ -3,14 +3,20 @@ import { api } from "../api/client";
 import type { WissenEintrag } from "../api/types";
 import { useAktivitaet } from "../context/AktivitaetContext";
 
-const START_VERZOEGERUNG_MS = 20_000;
-const WECHSEL_INTERVALL_MS = 20_000;
+// Rueckfallwerte, falls die Einstellungen (noch) nicht geladen sind -
+// entsprechen den frueher hier fest verdrahteten Werten. Konfigurierbar
+// unter Einstellungen -> Benutzer-Einstellungen (siehe
+// app/api/einstellungen.py / EinstellungenPage.tsx), inkl. komplettem
+// Abschalten des Overlays.
+const STANDARD_START_MS = 20_000;
+const STANDARD_WECHSEL_MS = 20_000;
 
 /** Zeigt waehrend laengerer KI-Wartezeiten (siehe AktivitaetContext) nach
- * 20 Sekunden ein zentrales Overlay mit unnuetzem Buch-/Autoren-Wissen, das
- * alle 20 Sekunden wechselt - gibt dem Nutzer etwas zu lesen, statt
- * untaetig auf eine fertige Antwort zu warten. Schliesst sich automatisch,
- * sobald die Aktivitaet endet.
+ * einer konfigurierbaren Zeit ein zentrales Overlay mit unnuetzem Buch-/
+ * Autoren-Wissen, das in einem konfigurierbaren Takt wechselt - gibt dem
+ * Nutzer etwas zu lesen, statt untaetig auf eine fertige Antwort zu warten.
+ * Schliesst sich automatisch, sobald die Aktivitaet endet. Ganz abschaltbar
+ * ueber die Einstellungen.
  *
  * Die Reihenfolge kommt vom Server (/api/unnuetzeswissen/naechstes,
  * siehe app/db.py:wissen_status_*) - eine EINMAL gemischte Reihenfolge
@@ -26,6 +32,10 @@ export function ZeitUeberbrueckungOverlay() {
   const [gesamt, setGesamt] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Aus den Einstellungen geladen, sobald eine Aktivitaet beginnt - so wirkt
+  // eine Aenderung im Einstellungen-Tab beim naechsten Wartezeit-Overlay
+  // ohne Reload.
+  const wechselMsRef = useRef(STANDARD_WECHSEL_MS);
 
   const naechstesLaden = useCallback(() => {
     api
@@ -40,7 +50,7 @@ export function ZeitUeberbrueckungOverlay() {
 
   const starteWechselIntervall = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(naechstesLaden, WECHSEL_INTERVALL_MS);
+    intervalRef.current = setInterval(naechstesLaden, wechselMsRef.current);
   }, [naechstesLaden]);
 
   // Manuelles Weiterblaettern setzt das Auto-Wechsel-Intervall zurueck,
@@ -52,6 +62,7 @@ export function ZeitUeberbrueckungOverlay() {
   }, [naechstesLaden, starteWechselIntervall]);
 
   useEffect(() => {
+    let abgebrochen = false;
     function aufraeumen() {
       if (timerRef.current) clearTimeout(timerRef.current);
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -66,13 +77,33 @@ export function ZeitUeberbrueckungOverlay() {
     }
 
     aufraeumen();
-    timerRef.current = setTimeout(() => {
-      naechstesLaden();
-      setSichtbar(true);
-      starteWechselIntervall();
-    }, START_VERZOEGERUNG_MS);
+    function armieren(startMs: number, wechselMs: number) {
+      if (abgebrochen) return;
+      wechselMsRef.current = wechselMs;
+      timerRef.current = setTimeout(() => {
+        naechstesLaden();
+        setSichtbar(true);
+        starteWechselIntervall();
+      }, startMs);
+    }
+    // Erst die (evtl. angepasste) Konfiguration holen, dann den Start-Timer
+    // stellen. Ist das Overlay abgeschaltet, passiert gar nichts.
+    api
+      .einstellungen()
+      .then((e) => {
+        if (abgebrochen || !e.unnuetzes_wissen_aktiv) return;
+        armieren(
+          Math.max(0, e.unnuetzes_wissen_start_sekunden) * 1000,
+          Math.max(3, e.unnuetzes_wissen_wechsel_sekunden) * 1000,
+        );
+      })
+      // Einstellungen nicht erreichbar - auf die Standardwerte zurueckfallen.
+      .catch(() => armieren(STANDARD_START_MS, STANDARD_WECHSEL_MS));
 
-    return aufraeumen;
+    return () => {
+      abgebrochen = true;
+      aufraeumen();
+    };
   }, [aktivitaet, naechstesLaden, starteWechselIntervall]);
 
   if (!sichtbar || !eintrag) return null;

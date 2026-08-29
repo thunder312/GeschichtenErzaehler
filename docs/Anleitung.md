@@ -404,7 +404,10 @@ im Tab „Stand & Export“ (siehe Abschnitt 5).
 
 Im Tab **Einstellungen** legst du fest, wo neue Geschichten auf der
 Festplatte gespeichert werden, und ob dabei automatisch ein Unterordner je
-Epoche angelegt wird. Im Tab **Benutzer** verwaltest du (als Admin) die
+Epoche angelegt wird. Unter **Benutzer-Einstellungen** lässt sich außerdem
+das Overlay mit „Unnützem Wissen" während längerer KI-Wartezeiten ganz
+abschalten oder einstellen, nach wie vielen Minuten es erscheint und alle
+wie viele Sekunden es zum nächsten Fakt wechselt. Im Tab **Benutzer** verwaltest du (als Admin) die
 Konten, mit denen sich Nutzer anmelden — jedes Konto sieht ausschließlich
 seine eigenen Projekte. Alle drei Tabs sind nur für Admin-Konten sichtbar.
 

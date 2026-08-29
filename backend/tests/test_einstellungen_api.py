@@ -111,6 +111,59 @@ def test_bildgenerator_url_leerer_wert_setzt_auf_standard_zurueck(client):
     assert daten["bildgenerator_url"] == STANDARD_BILDGENERATOR_URL
 
 
+def test_init_db_migriert_alte_einstellungen_tabelle_ohne_wissen_spalten(tmp_path):
+    """Eine vor dem konfigurierbaren Overlay angelegte DB hat die
+    unnuetzes_wissen_*-Spalten nicht - init_db() muss sie per ALTER TABLE
+    ergaenzen, sonst schlaegt jeder GET/PUT auf /api/einstellungen fehl."""
+    import sqlite3
+
+    from app.db import einstellung_unnuetzes_wissen_lesen, init_db
+
+    db_path = tmp_path / "alt.db"
+    conn = sqlite3.connect(db_path)
+    conn.executescript(
+        "CREATE TABLE einstellungen (id INTEGER PRIMARY KEY CHECK (id = 1), "
+        "projects_dir TEXT, unterordner_je_epoche INTEGER NOT NULL DEFAULT 0);"
+        "INSERT INTO einstellungen (id, projects_dir) VALUES (1, '/tmp/x');"
+    )
+    conn.commit()
+    conn.close()
+
+    init_db(db_path)
+
+    assert einstellung_unnuetzes_wissen_lesen(db_path) == (True, 20, 20)
+
+
+def test_unnuetzes_wissen_default_an_mit_festcodierten_ausgangswerten(client):
+    daten = client.get("/api/einstellungen").json()
+    assert daten["unnuetzes_wissen_aktiv"] is True
+    assert daten["unnuetzes_wissen_start_sekunden"] == 20
+    assert daten["unnuetzes_wissen_wechsel_sekunden"] == 20
+
+
+def test_unnuetzes_wissen_laesst_sich_setzen_und_bleibt_gespeichert(client):
+    r = client.put("/api/einstellungen", json={
+        "unnuetzes_wissen_aktiv": False,
+        "unnuetzes_wissen_start_sekunden": 180,
+        "unnuetzes_wissen_wechsel_sekunden": 45,
+    })
+    assert r.status_code == 200
+    daten = r.json()
+    assert daten["unnuetzes_wissen_aktiv"] is False
+    assert daten["unnuetzes_wissen_start_sekunden"] == 180
+    assert daten["unnuetzes_wissen_wechsel_sekunden"] == 45
+
+    daten2 = client.get("/api/einstellungen").json()
+    assert daten2["unnuetzes_wissen_aktiv"] is False
+    assert daten2["unnuetzes_wissen_start_sekunden"] == 180
+    assert daten2["unnuetzes_wissen_wechsel_sekunden"] == 45
+
+
+def test_unnuetzes_wissen_grenzwerte_werden_abgelehnt(client):
+    assert client.put("/api/einstellungen", json={"unnuetzes_wissen_wechsel_sekunden": 1}).status_code == 422
+    assert client.put("/api/einstellungen", json={"unnuetzes_wissen_start_sekunden": -5}).status_code == 422
+
+
 def test_einstellungen_schreiben_ist_immer_vollstaendiger_ersatz_nicht_teilupdate(client):
     """PUT /api/einstellungen kennt (wie schon bei projects_dir) kein PATCH -
     ein Feld, das im Request fehlt, gilt als "nicht gesetzt" und faellt auf
