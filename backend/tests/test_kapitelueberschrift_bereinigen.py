@@ -41,6 +41,24 @@ def test_doppelte_ueberschrift_ohne_titelseite():
     assert neu == f"Kapitel drei: Der nächste Tag\n\n{PROSA}\n"
 
 
+def test_titellose_klartextzeile_plus_markdown_mit_titel_nimmt_den_titel():
+    # Realfall Gutshaus: das Sicherheitsnetz ergaenzte eine TITELLOSE
+    # "Kapitel eins:"-Zeile (Kapitelplan-Block ohne sprechenden Titel), der
+    # echte Titel steht in der ###-Zeile des Modells.
+    text = (
+        "# Dunkle Geheimnisse im Gutshaus\n\n"
+        "*Eine Geschichte aus dem wilhelminischen Preußen im Jahre 1903*\n\n\n"
+        "Kapitel eins:\n\n"
+        "### Kapitel eins: Gefährliche Begegnungen\n\n"
+        f"{PROSA}\n"
+    )
+    neu, _ = kb.bereinige(text)
+    assert "Kapitel eins: Gefährliche Begegnungen" in neu
+    assert "\nKapitel eins:\n" not in neu
+    assert neu.count("Kapitel eins:") == 1
+    assert "### " not in neu
+
+
 def test_nur_markdown_ueberschrift_wird_klartext():
     text = f"### Kapitel vier: Die letzte Grenze\n\n{PROSA}\n"
     neu, beschreibung = kb.bereinige(text)

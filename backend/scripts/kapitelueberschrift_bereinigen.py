@@ -76,6 +76,12 @@ def _klartext(zeile: str) -> str:
     return z
 
 
+def _hat_titel(klartext: str) -> bool:
+    """True, wenn nach 'Kapitel N:' noch ein sprechender Titel folgt."""
+    m = re.match(r"^Kapitel\s+\S+\s*[:\-–—]\s*(.+)$", klartext, re.IGNORECASE)
+    return bool(m and m.group(1).strip())
+
+
 def bereinige(text: str) -> tuple[str, str] | None:
     """Gibt (neuer_text, beschreibung) zurück, oder None wenn nichts zu tun
     ist."""
@@ -120,12 +126,14 @@ def bereinige(text: str) -> tuple[str, str] | None:
     if not (mehrfach or markdown_einzeln):
         return None
 
-    # Kanonische Ueberschrift: bevorzugt die erste NICHT-Markdown-Variante,
-    # sonst die erste - immer in Klartext.
-    kanonisch = next(
-        (_klartext(u) for u in ueberschriften if not _ist_markdown_ueberschrift(u)),
-        _klartext(ueberschriften[0]),
-    )
+    # Kanonische Ueberschrift, immer in Klartext: die informativste der
+    # gefundenen Zeilen. Wichtig fuer den Fall, dass das Sicherheitsnetz eine
+    # TITELLOSE "Kapitel eins:"-Zeile ergaenzt hat (Kapitelplan-Block ohne
+    # sprechenden Titel), das Modell den echten Titel aber in seiner
+    # "### Kapitel eins: <Titel>"-Zeile stehen hat.
+    kandidaten = [_klartext(u) for u in ueberschriften]
+    mit_titel = [k for k in kandidaten if _hat_titel(k)]
+    kanonisch = max(mit_titel, key=len) if mit_titel else kandidaten[0]
 
     prefix = "\n".join(zeilen[:kopf_ende]).rstrip("\n")
     body_zeilen = zeilen[letzte_ueberschrift_idx + 1:]
@@ -155,17 +163,21 @@ def _story_root(kapitel_datei: Path) -> Path:
     return kapitel_datei.parent.parent
 
 
-def _export_neu_aufbauen(story_root: Path, apply: bool) -> str | None:
-    """Baut <Projekt>.md aus den (jetzt bereinigten) Kapiteln neu - aber nur,
-    wenn die Datei schon existiert (kein neuer Export, wo vorher keiner war).
-    Identisch zu app/api/pipeline.py:_export_ausfuehren."""
+def _export_neu_aufbauen(story_root: Path, effektiv: dict[Path, str], apply: bool) -> str | None:
+    """Baut <Projekt>.md aus den (bereinigten) Kapiteln neu - aber nur, wenn
+    die Datei schon existiert (kein neuer Export, wo vorher keiner war).
+    `effektiv` enthaelt fuer die veraenderten Kapitel den neuen Text; alle
+    anderen werden von der Platte gelesen. Join-Logik identisch zu
+    app/api/pipeline.py:_export_ausfuehren (pd.lies strippt jeden Kapiteltext)."""
     ziel = story_root / f"{story_root.name}.md"
     if not ziel.exists():
         return None
     kapitel = pd.vorhandene_kapitel(story_root / "projekt")
     if not kapitel:
         return None
-    ganz = "\n\n".join(pd.lies(p) for p in kapitel)
+    ganz = "\n\n".join(
+        (effektiv[p].strip() if p in effektiv else pd.lies(p)) for p in kapitel
+    )
     if ganz.strip() + "\n" == ziel.read_text(encoding="utf-8").strip() + "\n":
         return None
     if apply:
@@ -189,6 +201,7 @@ def main() -> None:
 
     geaendert = 0
     betroffene_storys: set[Path] = set()
+    effektiv: dict[Path, str] = {}
     for kap in sorted(args.root.rglob("kapitel_*.md")):
         if ".bak" in kap.name:
             continue
@@ -203,6 +216,7 @@ def main() -> None:
         neu, beschreibung = ergebnis
         geaendert += 1
         betroffene_storys.add(_story_root(kap))
+        effektiv[kap] = neu
         if args.apply:
             sicherung = kap.with_suffix(kap.suffix + f".{int(time.time())}.bak")
             kap.rename(sicherung)
@@ -213,7 +227,7 @@ def main() -> None:
 
     export_meldungen = []
     for story_root in sorted(betroffene_storys):
-        meldung = _export_neu_aufbauen(story_root, args.apply)
+        meldung = _export_neu_aufbauen(story_root, effektiv, args.apply)
         if meldung:
             export_meldungen.append(f"  {story_root.name}.md: {meldung}")
 
