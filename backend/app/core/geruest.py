@@ -424,7 +424,12 @@ COVER_PROMPT_SYSTEM = (
     "Regeln: KEINE Eigennamen von Figuren (das Modell kann damit nichts "
     "anfangen), KEIN Text/Schriftzug im Bild (das Modell kann keinen "
     "lesbaren Text rendern), keine expliziten/sexuellen Inhalte unabhaengig "
-    "von der Content-Stufe der Geschichte. Antworte NUR mit dem fertigen "
+    "von der Content-Stufe der Geschichte. KEINE Verneinungen im Prompt "
+    "('keine Waffen', 'ohne Gewalt', 'nicht bedrohlich') - das Bildmodell "
+    "ignoriert Verneinungen und stellt oft genau das Gegenteil dar; "
+    "beschreibe stattdessen positiv, was zu sehen sein soll (statt 'keine "
+    "Waffen' -> 'leere Haende'; statt 'nicht bedrohlich' -> 'ruhige, offene "
+    "Haltung'). Antworte NUR mit dem fertigen "
     "Prompt als eine einzige Zeile kommagetrennter Stichworte, ohne "
     "Erklaerung, ohne Anführungszeichen."
 )
