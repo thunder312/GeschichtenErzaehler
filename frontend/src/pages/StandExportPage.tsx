@@ -90,7 +90,7 @@ export function StandExportPage({
     if (!bildZielId || !coverPrompt.trim()) return;
     setLadenCoverBild(true);
     setCoverFehler(null);
-    starten("Generiert Titelbild (kann bis zu einer Minute dauern)...");
+    starten("Generiert Titelbild (kann bis zu 3 Minuten dauern)...");
     try {
       await api.coverGenerieren(ordner, coverPrompt.trim(), bildZielId, sshZielId || null);
       setCoverVersion((v) => v + 1);
