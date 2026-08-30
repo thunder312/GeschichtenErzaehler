@@ -3,59 +3,61 @@ Deckblattbild-Generierung (siehe ToDo.md).
 
 Analog zu app/core/ollama_client.py: base_url zeigt entweder auf ein lokales
 sd-server oder auf das lokale Ende eines SSH-Tunnels (siehe
-app/core/ssh_manager.py) - dieser Client weiss nichts von SSH. sd-server
-startet zwar mit Turbo-Standardwerten (Modell sd_xl_turbo_1.0, CFG 1.0,
-1024x1024 - siehe Athene-Docker-Setup), diese sind aber KEIN serverseitiges
-Hardlimit: per Live-Test gegen den echten Athene-Server (2026-08-09/10)
-uebernimmt sd-server sample_steps/width/height aus sd_cpp_extra_args
-tatsaechlich.
+app/core/ssh_manager.py) - dieser Client weiss nichts von SSH.
 
-Wichtigster Befund aus diesen Tests: bei der Server-Standardaufloesung
-1024x1024 trat unabhaengig von Steps (4 oder 8) und CFG (1.0 bis 4.0)
-zuverlaessig "Subjekt-Verdopplung" auf (eine Figur erscheint als fast
-identische Kopie ein zweites Mal - bekanntes "Twinning"-Problem bei
-Turbo/Lightning-Checkpoints ausserhalb ihrer trainierten Aufloesung). Bei
-512x512 (naeher an SDXL-Turbos eigentlicher Trainingsaufloesung) trat das
-im Test nicht auf, UND die Generierung war 3-4x schneller (~20s statt
-~70-95s) - siehe STANDARD_WIDTH/STANDARD_HEIGHT unten. Hoeheres CFG wurde
-ebenfalls getestet und verworfen: macht das Bild uebersaettigt/"verbrannt"
-(SDXL-Turbo ist explizit auf CFG=1 distilliert), ohne die Verdopplung zu
-beheben.
+Angesprochen wird die native asynchrone API von sd-server
+(examples/server/api.md im stable-diffusion.cpp-Repo, Praefix /sdcpp/v1):
+POST /sdcpp/v1/img_gen nimmt die Generierungsparameter als echtes,
+verschachteltes JSON entgegen (prompt, negative_prompt, width, height,
+sample_params.sample_steps, ...) und liefert SOFORT nur eine Job-ID zurueck
+(HTTP 202). Das fertige Bild wird anschliessend per
+GET /sdcpp/v1/jobs/{id} abgeholt, sobald "status" == "completed" ist -
+Base64-PNG unter result.images[0].b64_json. Status-Werte laut api.md:
+queued, generating, completed, failed, cancelled.
+
+Bewusst NICHT der OpenAI-kompatible Pfad /v1/images/generations: der parst
+nur prompt/n/size/output_format, fuer negative_prompt/sample_steps braucht
+es dort einen bruechigen, in den Prompt-Text eingebetteten
+<sd_cpp_extra_args>-Hack (den nicht jeder Server-Build auswertet). Die
+native API nimmt diese Felder direkt entgegen und ist auch das, was die
+mitgelieferte Web-Oberflaeche von sd-server selbst nutzt.
+
+Wichtigster Erfahrungswert (Live-Tests gegen den echten Athene-Server,
+2026-08-09/10, SDXL-Turbo-Checkpoint): bei der Server-Standardaufloesung
+1024x1024 trat zuverlaessig "Subjekt-Verdopplung" auf (eine Figur erscheint
+als fast identische Kopie ein zweites Mal - bekanntes "Twinning"-Problem
+bei Turbo/Lightning ausserhalb ihrer trainierten Aufloesung). Bei 512x512
+trat das nicht auf UND die Generierung war 3-4x schneller (~20s statt
+~70-95s) - siehe STANDARD_WIDTH/STANDARD_HEIGHT. Hoeheres CFG wurde
+getestet und verworfen (SDXL-Turbo ist auf CFG=1 distilliert, hoehere Werte
+"verbrennen" das Bild), daher wird txt_cfg hier gar nicht gesetzt - es
+bleibt beim Server-Default des jeweils geladenen Modells. Wenn hier ein
+anderes (Nicht-Turbo-)Modell laeuft, sind STANDARD_WIDTH/HEIGHT/
+SAMPLE_STEPS ggf. neu zu bewerten.
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
-import json
+import time
 
 import httpx
 from PIL import Image, UnidentifiedImageError
 
-# sd-servers OpenAI-kompatibler Endpunkt kennt kein eigenes JSON-Feld fuer
-# negative_prompt/sample_steps (siehe routes_openai.cpp im
-# stable-diffusion.cpp-Repo - geparst werden nur "prompt", "n", "size",
-# "output_format", "output_compression"). Zusaetzliche SDGenerationParams-
-# Felder werden stattdessen ueber ein in den Prompt-Text eingebettetes
-# "<sd_cpp_extra_args>{...}</sd_cpp_extra_args>"-JSON durchgereicht (per
-# Regex aus dem Prompt herausgeloest, siehe common.cpp:
-# extract_and_remove_sd_cpp_extra_args/SDGenerationParams::from_json_str -
-# "negative_prompt" ist dort ein direkt geladenes Feld, "sample_steps"
-# liegt verschachtelt unter "sample_params").
-#
-# Ohne Gegensteuerung neigt gerade das hier laufende Turbo/Distill-Modell
-# (wenige Sampling-Schritte) zu Anatomie-Artefakten wie Extra-Gliedmassen,
-# waechsern wirkenden/asymmetrischen Gesichtern (nach Haenden das
-# zweitschwerste fuer Diffusionsmodelle) und bei Mehrpersonen-Szenen zu
-# "Subjekt-Verdopplung" (eine Figur taucht als fast identische Kopie ein
-# zweites Mal auf). Eine rein positive/vermeidende Prompt-Formulierung wie
-# "strictly one pair of arms" oder "keine Gesichter im Vordergrund" hilft
-# kaum, weil Diffusionsmodelle Negationen im Prompt nicht zuverlaessig
-# verstehen. Bewusst als fester, immer mitgeschickter Standard-Satz statt
-# als vom User editierbares Feld: die Artefaktklasse ist modellbedingt,
-# nicht geschichtenspezifisch. "duplicate person"/"cloned figure"/"twins"
-# zielen bewusst auf IDENTISCHE Doppelgaenger, nicht auf Personenzahl
-# allgemein - echte Mehrpersonen-/Gruppenszenen sollen dadurch nicht
-# beeintraechtigt werden.
+# Ohne Gegensteuerung neigt gerade ein Turbo/Distill-Modell (wenige
+# Sampling-Schritte) zu Anatomie-Artefakten wie Extra-Gliedmassen, waechsern
+# wirkenden/asymmetrischen Gesichtern (nach Haenden das zweitschwerste fuer
+# Diffusionsmodelle) und bei Mehrpersonen-Szenen zu "Subjekt-Verdopplung"
+# (eine Figur taucht als fast identische Kopie ein zweites Mal auf). Eine
+# rein positive/vermeidende Prompt-Formulierung hilft kaum, weil
+# Diffusionsmodelle Negationen im Prompt nicht zuverlaessig verstehen -
+# darum ein fester, immer als negative_prompt mitgeschickter Standard-Satz
+# statt eines vom User editierbaren Feldes: die Artefaktklasse ist
+# modellbedingt, nicht geschichtenspezifisch. "duplicate person"/"cloned
+# figure"/"twins" zielen bewusst auf IDENTISCHE Doppelgaenger, nicht auf die
+# Personenzahl allgemein - echte Mehrpersonen-/Gruppenszenen sollen dadurch
+# nicht beeintraechtigt werden.
 NEGATIV_PROMPT_STANDARD = (
     "extra limbs, extra arms, extra hands, extra legs, extra fingers, "
     "fused fingers, missing fingers, deformed hands, mutated hands, "
@@ -67,9 +69,9 @@ NEGATIV_PROMPT_STANDARD = (
 )
 
 # Verdoppelt gegenueber dem serverseitigen Turbo-Standard (4) - Kompromiss
-# aus spuerbar besserer Anatomie/Haende und Wartezeit (siehe Live-Test oben:
-# ~54s bei 4 Steps, >180s bei 30 Steps). Bei Bedarf hier zentral anpassen,
-# statt in jedem Aufrufer einzeln.
+# aus spuerbar besserer Anatomie/Haende und Wartezeit (Live-Test: ~54s bei
+# 4 Steps, >180s bei 30 Steps). Bei Bedarf hier zentral anpassen, statt in
+# jedem Aufrufer einzeln.
 STANDARD_SAMPLE_STEPS = 8
 
 # Statt der Server-Standardaufloesung 1024x1024 (siehe Modul-Kommentar oben -
@@ -78,6 +80,12 @@ STANDARD_SAMPLE_STEPS = 8
 # kein spuerbarer Nachteil.
 STANDARD_WIDTH = 512
 STANDARD_HEIGHT = 512
+
+# Wie oft der Job-Status abgefragt wird, waehrend sd-server rechnet. 1.5s ist
+# ein Kompromiss: haeufig genug, dass ein fertiges 512x512-Turbo-Bild (~20s)
+# nicht lange liegen bleibt, selten genug, dass der SSH-Tunnel (siehe
+# app/core/ssh_manager.py) nicht unnoetig unter Poll-Last kommt.
+POLL_INTERVALL_S = 1.5
 
 
 class BildGenerierungFehler(Exception):
@@ -92,7 +100,7 @@ COVER_UPLOAD_MAX_BYTES = 15 * 1024 * 1024
 
 def cover_aus_upload_normalisieren(rohdaten: bytes, max_bytes: int = COVER_UPLOAD_MAX_BYTES) -> bytes:
     """Validiert ein manuell hochgeladenes Titelbild (siehe app/api/pipeline.py:
-    cover_hochladen - Alternative zur KI-Generierung weiter oben in dieser
+    cover_hochladen - Alternative zur KI-Generierung weiter unten in dieser
     Datei, z.B. wenn ein Bild von Hand ueber eine kostenlose Web-Oberflaeche
     wie Google AI Studio erzeugt und hier nur noch eingebunden werden soll)
     und wandelt es in PNG-Bytes um, damit cover.png (siehe
@@ -122,50 +130,72 @@ def cover_aus_upload_normalisieren(rohdaten: bytes, max_bytes: int = COVER_UPLOA
     return puffer.getvalue()
 
 
-def _prompt_mit_extra_args(prompt: str, negativ_prompt: str, sample_steps: int | None,
-                            width: int | None, height: int | None) -> str:
-    """Haengt negativ_prompt/sample_steps/width/height als eingebettetes
-    sd_cpp_extra_args-JSON an den Prompt an (siehe Modul-Kommentare oben) -
-    json.dumps statt manuellem String-Bau, damit Anfuehrungszeichen im
-    Prompt/Negativ-Prompt korrekt escaped werden."""
-    extra_args: dict = {}
+def _job_payload(prompt: str, negativ_prompt: str, sample_steps: int | None,
+                 width: int | None, height: int | None) -> dict:
+    """Baut den Request-Body fuer POST /sdcpp/v1/img_gen. Felder, die None/leer
+    sind, werden weggelassen, damit sd-server jeweils seinen eigenen Default
+    verwendet (siehe examples/server/api.md)."""
+    payload: dict = {"prompt": prompt, "output_format": "png"}
     if negativ_prompt:
-        extra_args["negative_prompt"] = negativ_prompt
-    if sample_steps is not None:
-        extra_args["sample_params"] = {"sample_steps": sample_steps}
+        payload["negative_prompt"] = negativ_prompt
     if width is not None:
-        extra_args["width"] = width
+        payload["width"] = width
     if height is not None:
-        extra_args["height"] = height
-    if not extra_args:
-        return prompt
-    return f"{prompt}\n<sd_cpp_extra_args>{json.dumps(extra_args, ensure_ascii=False)}</sd_cpp_extra_args>"
+        payload["height"] = height
+    if sample_steps is not None:
+        payload["sample_params"] = {"sample_steps": sample_steps}
+    return payload
 
 
-async def generiere_cover(base_url: str, prompt: str, timeout: float = 120.0,
+async def generiere_cover(base_url: str, prompt: str, timeout: float = 180.0,
                            negativ_prompt: str = NEGATIV_PROMPT_STANDARD,
                            sample_steps: int | None = STANDARD_SAMPLE_STEPS,
                            width: int | None = STANDARD_WIDTH,
                            height: int | None = STANDARD_HEIGHT) -> bytes:
-    """Ruft sd-servers OpenAI-kompatiblen Endpunkt auf (siehe
-    examples/server/routes_openai.cpp im stable-diffusion.cpp-Repo) und
-    liefert die rohen PNG-Bytes des ersten (einzigen) Ergebnisbilds.
-    negativ_prompt/sample_steps/width/height werden als sd_cpp_extra_args in
-    den Prompt eingebettet (siehe _prompt_mit_extra_args) - jeweils
-    None/leer lassen, um den sd-server-Standard zu verwenden. timeout auf
-    120s zurueckgesetzt: 512x512 dauerte im Live-Test nur ~20s, 120s laesst
-    trotzdem grosszuegig Puffer fuer langsamere Durchlaeufe."""
-    gesamt_prompt = _prompt_mit_extra_args(prompt, negativ_prompt, sample_steps, width, height)
-    payload = {"prompt": gesamt_prompt}
+    """Startet einen Bild-Job auf sd-server (POST /sdcpp/v1/img_gen), pollt
+    ihn bis "completed" (GET /sdcpp/v1/jobs/{id}) und liefert die rohen
+    PNG-Bytes des ersten (einzigen) Ergebnisbilds.
+    negativ_prompt/sample_steps/width/height jeweils None bzw. leer lassen,
+    um den sd-server-Default zu verwenden. timeout ist das Gesamt-Zeitbudget
+    fuer Start UND Fertigstellung; laeuft es ab, wird BildGenerierungFehler
+    geworfen (der Job kann serverseitig weiterlaufen)."""
+    payload = _job_payload(prompt, negativ_prompt, sample_steps, width, height)
+    frist = time.monotonic() + timeout
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            antwort = await client.post(f"{base_url}/v1/images/generations", json=payload)
-            if antwort.status_code >= 400:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            start = await client.post(f"{base_url}/sdcpp/v1/img_gen", json=payload)
+            if start.status_code >= 400:
                 raise BildGenerierungFehler(
-                    f"sd-server antwortet mit HTTP {antwort.status_code}: "
-                    f"{antwort.text[:500]}"
+                    f"sd-server lehnt den Bild-Job ab (HTTP {start.status_code}): "
+                    f"{start.text[:500]}"
                 )
-            daten = antwort.json()
+            job_id = (start.json() or {}).get("id")
+            if not job_id:
+                raise BildGenerierungFehler(
+                    f"sd-server hat keine Job-ID geliefert: {start.text[:500]}"
+                )
+            job_url = f"{base_url}/sdcpp/v1/jobs/{job_id}"
+
+            while True:
+                stand = await client.get(job_url)
+                if stand.status_code >= 400:
+                    raise BildGenerierungFehler(
+                        f"Job-Status von sd-server nicht abrufbar (HTTP "
+                        f"{stand.status_code}): {stand.text[:500]}"
+                    )
+                daten = stand.json() or {}
+                status = str(daten.get("status", "")).lower()
+                if status == "completed":
+                    return _bild_aus_job(daten)
+                if status in ("failed", "cancelled", "canceled"):
+                    meldung = (daten.get("error") or {}).get("message") or status
+                    raise BildGenerierungFehler(f"sd-server-Job fehlgeschlagen: {meldung}")
+                if time.monotonic() >= frist:
+                    raise BildGenerierungFehler(
+                        f"sd-server wurde nach {timeout:.0f}s nicht fertig "
+                        f"(letzter Status: {status or 'unbekannt'})."
+                    )
+                await asyncio.sleep(POLL_INTERVALL_S)
     except httpx.HTTPError as e:
         raise BildGenerierungFehler(
             f"sd-server nicht erreichbar unter {base_url}: {e}. Laeuft der "
@@ -173,9 +203,13 @@ async def generiere_cover(base_url: str, prompt: str, timeout: float = 120.0,
             f"pruefen."
         ) from e
 
-    bilder = daten.get("data", [])
+
+def _bild_aus_job(job: dict) -> bytes:
+    """Zieht das erste Ergebnisbild aus einem abgeschlossenen Job-Objekt
+    (result.images[0].b64_json, siehe examples/server/api.md)."""
+    bilder = (job.get("result") or {}).get("images") or []
     if not bilder or not bilder[0].get("b64_json"):
-        raise BildGenerierungFehler("sd-server hat kein Bild geliefert.")
+        raise BildGenerierungFehler("sd-server-Job ist fertig, enthält aber kein Bild.")
     try:
         return base64.b64decode(bilder[0]["b64_json"])
     except (ValueError, TypeError) as e:

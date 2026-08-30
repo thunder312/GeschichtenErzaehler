@@ -1,13 +1,12 @@
 import asyncio
 import base64
 import io
-import json
-import re
 
 import httpx
 import pytest
 from PIL import Image
 
+from app.core import bild_generierung
 from app.core.bild_generierung import (
     BildGenerierungFehler,
     NEGATIV_PROMPT_STANDARD,
@@ -18,15 +17,18 @@ from app.core.bild_generierung import (
     generiere_cover,
 )
 
-_EXTRA_ARGS_MUSTER = re.compile(r"<sd_cpp_extra_args>(.*?)</sd_cpp_extra_args>", re.DOTALL)
-
-
-def _extra_args(gesendeter_prompt: str) -> dict:
-    treffer = _EXTRA_ARGS_MUSTER.search(gesendeter_prompt)
-    assert treffer, f"kein sd_cpp_extra_args-Block im Prompt gefunden: {gesendeter_prompt!r}"
-    return json.loads(treffer.group(1))
-
 _PNG_BYTES = b"\x89PNG\r\n\x1a\nfake-png-inhalt"
+_B64_PNG = base64.b64encode(_PNG_BYTES).decode()
+
+
+def _fertig_antwort(images=None):
+    return _FakeAntwort(200, {
+        "id": "job_1",
+        "status": "completed",
+        "result": {"output_format": "png", "images": images if images is not None
+                   else [{"index": 0, "b64_json": _B64_PNG}]},
+        "error": None,
+    })
 
 
 class _FakeAntwort:
@@ -40,13 +42,16 @@ class _FakeAntwort:
 
 
 class _FakeAsyncClient:
-    """Ersetzt httpx.AsyncClient in bild_generierung.generiere_cover(), analog
-    zu tests/test_ollama_client.py - prueft den gesendeten Prompt und wie
-    Fehlerantworten von sd-server behandelt werden."""
+    """Ersetzt httpx.AsyncClient in bild_generierung.generiere_cover(). Prueft
+    den POST an /sdcpp/v1/img_gen und spielt danach die konfigurierte Folge
+    von Job-Status-Antworten fuer /sdcpp/v1/jobs/{id} ab (die letzte wird
+    wiederholt, falls oefter gepollt wird)."""
 
-    letzte_url: str | None = None
-    letzter_payload: dict | None = None
-    antwort: _FakeAntwort | None = None
+    post_url: str | None = None
+    post_payload: dict | None = None
+    post_antwort: _FakeAntwort | None = None
+    get_urls: list[str] = []
+    get_antworten: list[_FakeAntwort] = []
 
     def __init__(self, *args, **kwargs):
         pass
@@ -58,37 +63,48 @@ class _FakeAsyncClient:
         return False
 
     async def post(self, url, json=None):
-        _FakeAsyncClient.letzte_url = url
-        _FakeAsyncClient.letzter_payload = json
-        return _FakeAsyncClient.antwort
+        _FakeAsyncClient.post_url = url
+        _FakeAsyncClient.post_payload = json
+        return _FakeAsyncClient.post_antwort
+
+    async def get(self, url):
+        _FakeAsyncClient.get_urls.append(url)
+        antworten = _FakeAsyncClient.get_antworten
+        return antworten.pop(0) if len(antworten) > 1 else antworten[0]
 
 
 @pytest.fixture(autouse=True)
 def _fake_httpx(monkeypatch):
-    _FakeAsyncClient.letzte_url = None
-    _FakeAsyncClient.letzter_payload = None
-    _FakeAsyncClient.antwort = _FakeAntwort(
-        200, {"data": [{"b64_json": base64.b64encode(_PNG_BYTES).decode()}]}
-    )
+    _FakeAsyncClient.post_url = None
+    _FakeAsyncClient.post_payload = None
+    _FakeAsyncClient.post_antwort = _FakeAntwort(202, {"id": "job_1", "status": "queued"})
+    _FakeAsyncClient.get_urls = []
+    _FakeAsyncClient.get_antworten = [_fertig_antwort()]
     monkeypatch.setattr(httpx, "AsyncClient", _FakeAsyncClient)
+
+    async def _kein_schlaf(_s):
+        return None
+
+    monkeypatch.setattr(bild_generierung.asyncio, "sleep", _kein_schlaf)
 
 
 def test_generiere_cover_liefert_dekodierte_png_bytes():
     ergebnis = asyncio.run(generiere_cover("http://fake:7860", "a lovely cat"))
     assert ergebnis == _PNG_BYTES
-    assert _FakeAsyncClient.letzte_url == "http://fake:7860/v1/images/generations"
-    gesendeter_prompt = _FakeAsyncClient.letzter_payload["prompt"]
-    assert gesendeter_prompt.startswith("a lovely cat")
+    assert _FakeAsyncClient.post_url == "http://fake:7860/sdcpp/v1/img_gen"
+    assert _FakeAsyncClient.get_urls == ["http://fake:7860/sdcpp/v1/jobs/job_1"]
+    assert _FakeAsyncClient.post_payload["prompt"] == "a lovely cat"
 
 
-def test_generiere_cover_bettet_alle_standardwerte_ein():
+def test_generiere_cover_sendet_alle_standardwerte_als_json():
     asyncio.run(generiere_cover("http://fake:7860", "a lovely cat"))
-    extra_args = _extra_args(_FakeAsyncClient.letzter_payload["prompt"])
-    assert extra_args == {
+    assert _FakeAsyncClient.post_payload == {
+        "prompt": "a lovely cat",
+        "output_format": "png",
         "negative_prompt": NEGATIV_PROMPT_STANDARD,
-        "sample_params": {"sample_steps": STANDARD_SAMPLE_STEPS},
         "width": STANDARD_WIDTH,
         "height": STANDARD_HEIGHT,
+        "sample_params": {"sample_steps": STANDARD_SAMPLE_STEPS},
     }
     assert "extra limbs" in NEGATIV_PROMPT_STANDARD
     assert "deformed face" in NEGATIV_PROMPT_STANDARD
@@ -97,58 +113,71 @@ def test_generiere_cover_bettet_alle_standardwerte_ein():
     assert (STANDARD_WIDTH, STANDARD_HEIGHT) == (512, 512)  # kleiner als der 1024x1024-Server-Standard
 
 
-def test_generiere_cover_erlaubt_eigenen_negativ_prompt():
+def test_generiere_cover_laesst_leere_parameter_weg():
+    asyncio.run(generiere_cover(
+        "http://fake:7860", "a lovely cat", negativ_prompt="",
+        sample_steps=None, width=None, height=None,
+    ))
+    assert _FakeAsyncClient.post_payload == {"prompt": "a lovely cat", "output_format": "png"}
+
+
+def test_generiere_cover_erlaubt_eigene_werte():
     asyncio.run(generiere_cover(
         "http://fake:7860", "prompt", negativ_prompt="nur diese eine Sache",
-        sample_steps=None, width=None, height=None,
+        sample_steps=20, width=768, height=768,
     ))
-    extra_args = _extra_args(_FakeAsyncClient.letzter_payload["prompt"])
-    assert extra_args == {"negative_prompt": "nur diese eine Sache"}
+    assert _FakeAsyncClient.post_payload == {
+        "prompt": "prompt",
+        "output_format": "png",
+        "negative_prompt": "nur diese eine Sache",
+        "width": 768,
+        "height": 768,
+        "sample_params": {"sample_steps": 20},
+    }
 
 
-def test_generiere_cover_erlaubt_eigene_sample_steps():
-    asyncio.run(generiere_cover(
-        "http://fake:7860", "prompt", negativ_prompt="", sample_steps=20, width=None, height=None,
-    ))
-    extra_args = _extra_args(_FakeAsyncClient.letzter_payload["prompt"])
-    assert extra_args == {"sample_params": {"sample_steps": 20}}
+def test_generiere_cover_pollt_bis_completed():
+    _FakeAsyncClient.get_antworten = [
+        _FakeAntwort(200, {"id": "job_1", "status": "queued", "result": None}),
+        _FakeAntwort(200, {"id": "job_1", "status": "generating", "result": None}),
+        _fertig_antwort(),
+    ]
+    ergebnis = asyncio.run(generiere_cover("http://fake:7860", "prompt"))
+    assert ergebnis == _PNG_BYTES
+    assert len(_FakeAsyncClient.get_urls) == 3
 
 
-def test_generiere_cover_erlaubt_eigene_aufloesung():
-    asyncio.run(generiere_cover(
-        "http://fake:7860", "prompt", negativ_prompt="", sample_steps=None, width=768, height=768,
-    ))
-    extra_args = _extra_args(_FakeAsyncClient.letzter_payload["prompt"])
-    assert extra_args == {"width": 768, "height": 768}
-
-
-def test_generiere_cover_ohne_extra_args_laesst_prompt_unveraendert():
-    asyncio.run(generiere_cover(
-        "http://fake:7860", "a lovely cat", negativ_prompt="", sample_steps=None, width=None, height=None,
-    ))
-    assert _FakeAsyncClient.letzter_payload == {"prompt": "a lovely cat"}
-
-
-def test_generiere_cover_escaped_anfuehrungszeichen_im_prompt_korrekt():
-    asyncio.run(generiere_cover(
-        "http://fake:7860", 'a "special" cat', negativ_prompt='contains "quotes"',
-        sample_steps=None, width=None, height=None,
-    ))
-    gesendeter_prompt = _FakeAsyncClient.letzter_payload["prompt"]
-    assert gesendeter_prompt.startswith('a "special" cat')
-    extra_args = _extra_args(gesendeter_prompt)
-    assert extra_args == {"negative_prompt": 'contains "quotes"'}
-
-
-def test_http_fehlerstatus_erzeugt_bild_generierung_fehler():
-    _FakeAsyncClient.antwort = _FakeAntwort(500, text="server_error")
-    with pytest.raises(BildGenerierungFehler):
+def test_generiere_cover_meldet_fehlgeschlagenen_job():
+    _FakeAsyncClient.get_antworten = [_FakeAntwort(200, {
+        "id": "job_1", "status": "failed", "result": None,
+        "error": {"code": "generation_failed", "message": "generate_image returned empty results"},
+    })]
+    with pytest.raises(BildGenerierungFehler, match="generate_image returned empty results"):
         asyncio.run(generiere_cover("http://fake:7860", "prompt"))
 
 
-def test_leere_datenliste_erzeugt_bild_generierung_fehler():
-    _FakeAsyncClient.antwort = _FakeAntwort(200, {"data": []})
-    with pytest.raises(BildGenerierungFehler):
+def test_generiere_cover_meldet_timeout():
+    # timeout=0: nach dem ersten "generating"-Poll ist die Frist sofort ueberschritten.
+    _FakeAsyncClient.get_antworten = [_FakeAntwort(200, {"id": "job_1", "status": "generating", "result": None})]
+    with pytest.raises(BildGenerierungFehler, match="nicht fertig"):
+        asyncio.run(generiere_cover("http://fake:7860", "prompt", timeout=0.0))
+
+
+def test_generiere_cover_http_fehler_beim_start():
+    _FakeAsyncClient.post_antwort = _FakeAntwort(404, text="not found")
+    with pytest.raises(BildGenerierungFehler, match="HTTP 404"):
+        asyncio.run(generiere_cover("http://fake:7860", "prompt"))
+
+
+def test_generiere_cover_ohne_job_id():
+    _FakeAsyncClient.post_antwort = _FakeAntwort(202, {"status": "queued"})
+    with pytest.raises(BildGenerierungFehler, match="keine Job-ID"):
+        asyncio.run(generiere_cover("http://fake:7860", "prompt"))
+
+
+def test_generiere_cover_completed_ohne_bild():
+    _FakeAsyncClient.get_antworten = [_fertig_antwort(images=[])]
+    with pytest.raises(BildGenerierungFehler, match="kein Bild"):
         asyncio.run(generiere_cover("http://fake:7860", "prompt"))
 
 
