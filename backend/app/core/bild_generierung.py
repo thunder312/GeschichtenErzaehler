@@ -22,18 +22,26 @@ es dort einen bruechigen, in den Prompt-Text eingebetteten
 native API nimmt diese Felder direkt entgegen und ist auch das, was die
 mitgelieferte Web-Oberflaeche von sd-server selbst nutzt.
 
-Wichtigster Erfahrungswert (Live-Tests gegen den echten Athene-Server,
-2026-08-09/10, SDXL-Turbo-Checkpoint): bei der Server-Standardaufloesung
-1024x1024 trat zuverlaessig "Subjekt-Verdopplung" auf (eine Figur erscheint
-als fast identische Kopie ein zweites Mal - bekanntes "Twinning"-Problem
-bei Turbo/Lightning ausserhalb ihrer trainierten Aufloesung). Bei 512x512
-trat das nicht auf UND die Generierung war 3-4x schneller (~20s statt
-~70-95s) - siehe STANDARD_WIDTH/STANDARD_HEIGHT. Hoeheres CFG wurde
-getestet und verworfen (SDXL-Turbo ist auf CFG=1 distilliert, hoehere Werte
-"verbrennen" das Bild), daher wird txt_cfg hier gar nicht gesetzt - es
-bleibt beim Server-Default des jeweils geladenen Modells. Wenn hier ein
-anderes (Nicht-Turbo-)Modell laeuft, sind STANDARD_WIDTH/HEIGHT/
-SAMPLE_STEPS ggf. neu zu bewerten.
+**Modell (Stand 2026-08-30): FLUX.1-schnell** (Q4_K_S-GGUF, Vulkan-Backend,
+Text-Encoder per --clip-on-cpu ausgelagert - Setup in der Athene-Compose
+~/docker/sd-server-compose.yaml). Loeste SDXL-Turbo ab: das liess bei komplexen
+Mehr-Personen-Prompts zuverlaessig Elemente fallen (nur CLIP-Encoder +
+Turbo-Distillation, Beispiel-Fehlbild: zwei geforderte Figuren -> nur eine
+generiert). FLUX bringt einen T5-XXL-Encoder und damit deutlich bessere
+Prompt-Treue. Konsequenzen fuer die Defaults hier:
+- STANDARD_WIDTH/HEIGHT = 1024: FLUX ist auf 1024 trainiert. Die frueheren
+  512x512 waren ein reiner SDXL-Turbo-Workaround gegen "Subjekt-
+  Verdopplung"/"Twinning" bei 1024 - bei FLUX kein Thema.
+- STANDARD_SAMPLE_STEPS = 4: FLUX.1-schnell ist auf 4 Schritte distilliert.
+- CFG bleibt beim Server-Default 1.0 (schnell ist darauf distilliert).
+  sd-server ignoriert den Negativ-Prompt bei cfg==1 - er wird trotzdem
+  mitgeschickt, damit er automatisch greift, falls spaeter auf ein
+  CFG>1-Modell (FLUX.1-dev, SD3.5) gewechselt wird.
+- Generierung dauert auf der 780M-iGPU laenger als Turbo (Minuten statt
+  Sekunden) -> timeout in generiere_cover() grosszuegig (600s). Achtung:
+  ein evtl. nginx-proxy_read_timeout auf Prod (Default 60s) kann den
+  Frontend-Request abschneiden, obwohl das Backend das Bild noch fertig
+  speichert - ggf. dort erhoehen.
 """
 from __future__ import annotations
 
@@ -45,19 +53,16 @@ import time
 import httpx
 from PIL import Image, UnidentifiedImageError
 
-# Ohne Gegensteuerung neigt gerade ein Turbo/Distill-Modell (wenige
-# Sampling-Schritte) zu Anatomie-Artefakten wie Extra-Gliedmassen, waechsern
-# wirkenden/asymmetrischen Gesichtern (nach Haenden das zweitschwerste fuer
-# Diffusionsmodelle) und bei Mehrpersonen-Szenen zu "Subjekt-Verdopplung"
-# (eine Figur taucht als fast identische Kopie ein zweites Mal auf). Eine
-# rein positive/vermeidende Prompt-Formulierung hilft kaum, weil
-# Diffusionsmodelle Negationen im Prompt nicht zuverlaessig verstehen -
-# darum ein fester, immer als negative_prompt mitgeschickter Standard-Satz
-# statt eines vom User editierbaren Feldes: die Artefaktklasse ist
-# modellbedingt, nicht geschichtenspezifisch. "duplicate person"/"cloned
-# figure"/"twins" zielen bewusst auf IDENTISCHE Doppelgaenger, nicht auf die
-# Personenzahl allgemein - echte Mehrpersonen-/Gruppenszenen sollen dadurch
-# nicht beeintraechtigt werden.
+# Fester, immer als negative_prompt mitgeschickter Standard-Satz gegen
+# typische Diffusions-Artefakte (Extra-Gliedmassen, waechserne/asymmetrische
+# Gesichter, identische Doppelgaenger). Kein vom User editierbares Feld: die
+# Artefaktklasse ist modellbedingt, nicht geschichtenspezifisch. "duplicate
+# person"/"cloned figure"/"twins" zielen bewusst auf IDENTISCHE
+# Doppelgaenger, nicht auf die Personenzahl allgemein - echte
+# Mehrpersonen-/Gruppenszenen sollen nicht beeintraechtigt werden.
+# HINWEIS: Bei CFG==1 (aktuelles Modell FLUX.1-schnell) wertet sd-server den
+# Negativ-Prompt gar nicht aus - er wird trotzdem gesendet, damit er bei
+# einem Wechsel auf ein CFG>1-Modell (FLUX.1-dev, SD3.5) automatisch greift.
 NEGATIV_PROMPT_STANDARD = (
     "extra limbs, extra arms, extra hands, extra legs, extra fingers, "
     "fused fingers, missing fingers, deformed hands, mutated hands, "
@@ -68,24 +73,21 @@ NEGATIV_PROMPT_STANDARD = (
     "blurry, low quality, watermark, text"
 )
 
-# Verdoppelt gegenueber dem serverseitigen Turbo-Standard (4) - Kompromiss
-# aus spuerbar besserer Anatomie/Haende und Wartezeit (Live-Test: ~54s bei
-# 4 Steps, >180s bei 30 Steps). Bei Bedarf hier zentral anpassen, statt in
-# jedem Aufrufer einzeln.
-STANDARD_SAMPLE_STEPS = 8
+# FLUX.1-schnell ist auf 4 Sampling-Schritte distilliert - mehr bringt kaum
+# Qualitaet, kostet aber linear Zeit. (SDXL-Turbo lief hier vorher mit 8.)
+# Bei Bedarf hier zentral anpassen, statt in jedem Aufrufer einzeln.
+STANDARD_SAMPLE_STEPS = 4
 
-# Statt der Server-Standardaufloesung 1024x1024 (siehe Modul-Kommentar oben -
-# dort trat die Subjekt-Verdopplung auf). Fuer ein Buchcover, das ohnehin
-# skaliert wird (siehe app/core/pdf_export.py), ist die geringere Aufloesung
-# kein spuerbarer Nachteil.
-STANDARD_WIDTH = 512
-STANDARD_HEIGHT = 512
+# FLUX-Trainingsaufloesung (zugleich der -W/-H-Default in der Athene-Compose).
+# Das Buchcover wird fuer den PDF-Export (app/core/pdf_export.py) ohnehin
+# skaliert. Frueher 512x512 - reiner SDXL-Turbo-Workaround gegen Twinning.
+STANDARD_WIDTH = 1024
+STANDARD_HEIGHT = 1024
 
-# Wie oft der Job-Status abgefragt wird, waehrend sd-server rechnet. 1.5s ist
-# ein Kompromiss: haeufig genug, dass ein fertiges 512x512-Turbo-Bild (~20s)
-# nicht lange liegen bleibt, selten genug, dass der SSH-Tunnel (siehe
-# app/core/ssh_manager.py) nicht unnoetig unter Poll-Last kommt.
-POLL_INTERVALL_S = 1.5
+# Wie oft der Job-Status abgefragt wird, waehrend sd-server rechnet. 3s: FLUX
+# auf der 780M-iGPU braucht Minuten, haeufigeres Pollen brauchte nur den
+# SSH-Tunnel (siehe app/core/ssh_manager.py) unnoetig unter Last.
+POLL_INTERVALL_S = 3.0
 
 
 class BildGenerierungFehler(Exception):
@@ -147,7 +149,7 @@ def _job_payload(prompt: str, negativ_prompt: str, sample_steps: int | None,
     return payload
 
 
-async def generiere_cover(base_url: str, prompt: str, timeout: float = 180.0,
+async def generiere_cover(base_url: str, prompt: str, timeout: float = 600.0,
                            negativ_prompt: str = NEGATIV_PROMPT_STANDARD,
                            sample_steps: int | None = STANDARD_SAMPLE_STEPS,
                            width: int | None = STANDARD_WIDTH,

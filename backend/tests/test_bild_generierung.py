@@ -109,8 +109,8 @@ def test_generiere_cover_sendet_alle_standardwerte_als_json():
     assert "extra limbs" in NEGATIV_PROMPT_STANDARD
     assert "deformed face" in NEGATIV_PROMPT_STANDARD
     assert "duplicate person" in NEGATIV_PROMPT_STANDARD
-    assert STANDARD_SAMPLE_STEPS > 4  # verdoppelt gegenueber dem sd-server-Turbo-Standard
-    assert (STANDARD_WIDTH, STANDARD_HEIGHT) == (512, 512)  # kleiner als der 1024x1024-Server-Standard
+    assert STANDARD_SAMPLE_STEPS == 4  # FLUX.1-schnell ist auf 4 Schritte distilliert
+    assert (STANDARD_WIDTH, STANDARD_HEIGHT) == (1024, 1024)  # FLUX-Trainingsaufloesung
 
 
 def test_generiere_cover_laesst_leere_parameter_weg():
