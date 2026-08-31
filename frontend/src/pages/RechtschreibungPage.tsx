@@ -6,7 +6,14 @@ import type { ProjektDetail, RechtschreibWort } from "../api/types";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { Button, Card, CardTitle } from "../components/ui";
 import { kapitelTextSchluessel, useKapitelText } from "../context/KapitelTextContext";
-import { kapitelTextZusammenbauen, kapitelUeberschrift, splitteNachKapitel, type Spanne } from "../utils/kapitelKombiniert";
+import {
+  kapitelAnkerOffsets,
+  kapitelTextZusammenbauen,
+  kapitelUeberschrift,
+  nachbarKapitelOffset,
+  splitteNachKapitel,
+  type Spanne,
+} from "../utils/kapitelKombiniert";
 
 type TextEditor = MonacoEditorNS.IStandaloneCodeEditor;
 
@@ -27,6 +34,11 @@ interface KapitelBlock {
 
 interface KapitelTextEditorHandle {
   springeZu: (start: number, end: number) => void;
+  /** Cursor + Ansicht an einen Zeichen-Offset setzen (Zeile oben) - fuer die
+   * Kapitel-vor/zurueck-Navigation. */
+  springeZuOffset: (offset: number) => void;
+  /** Zeichen-Offset der aktuell obersten sichtbaren Zeile. */
+  ersteSichtbareOffset: () => number;
 }
 
 /** Schlichter (Decoration-freier) Editor fuer den gesamten, ueber alle
@@ -51,6 +63,23 @@ const KapitelTextEditor = forwardRef<KapitelTextEditorHandle, { text: string; on
         editor.revealRangeInCenter(bereich);
         editor.setSelection(bereich);
         editor.focus();
+      },
+      springeZuOffset: (offset) => {
+        const editor = editorRef.current;
+        const model = editor?.getModel();
+        if (!editor || !model) return;
+        const pos = model.getPositionAt(offset);
+        editor.revealLineNearTop(pos.lineNumber);
+        editor.setPosition({ lineNumber: pos.lineNumber, column: 1 });
+        editor.focus();
+      },
+      ersteSichtbareOffset: () => {
+        const editor = editorRef.current;
+        const model = editor?.getModel();
+        if (!editor || !model) return 0;
+        const bereiche = editor.getVisibleRanges();
+        const zeile = bereiche.length > 0 ? bereiche[0].startLineNumber : 1;
+        return model.getOffsetAt({ lineNumber: zeile, column: 1 });
       },
     }), []);
 
@@ -288,6 +317,16 @@ export function RechtschreibungPage({ ordner, projekt, sshZielId }: Rechtschreib
     editorRef.current?.springeZu(start, end);
   }
 
+  // Kapitel-vor/zurueck: springt im durchgehenden Text zur "## Kapitel N"-
+  // Ueberschrift ober-/unterhalb der aktuell sichtbaren Stelle.
+  function zumNachbarKapitel(richtung: -1 | 1) {
+    const ed = editorRef.current;
+    if (!ed) return;
+    const anker = kapitelAnkerOffsets(kapitelNummern, spannen);
+    const ziel = nachbarKapitelOffset(anker, ed.ersteSichtbareOffset(), richtung);
+    if (ziel !== null) ed.springeZuOffset(ziel);
+  }
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <Card>
@@ -333,7 +372,20 @@ export function RechtschreibungPage({ ordner, projekt, sshZielId }: Rechtschreib
           }
         >
           <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[2fr_1fr]">
-            <KapitelTextEditor ref={editorRef} text={kombiniert} onChange={setKombiniert} />
+            <div className="space-y-2">
+              {kapitelNummern.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium uppercase tracking-wider text-text-muted">Kapitel</span>
+                  <Button variant="secondary" onClick={() => zumNachbarKapitel(-1)}>
+                    ↑ Voriges
+                  </Button>
+                  <Button variant="secondary" onClick={() => zumNachbarKapitel(1)}>
+                    ↓ Nächstes
+                  </Button>
+                </div>
+              )}
+              <KapitelTextEditor ref={editorRef} text={kombiniert} onChange={setKombiniert} />
+            </div>
             <div className="max-h-[clamp(320px,75vh,900px)] space-y-1 overflow-auto pr-1">
               <p className="mb-1 text-xs font-medium uppercase tracking-wider text-text-muted">
                 Unbekannte Wörter ({alleWoerter.length})

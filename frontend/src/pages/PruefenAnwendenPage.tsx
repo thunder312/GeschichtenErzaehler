@@ -9,7 +9,14 @@ import { Button, Card, CardTitle } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { kapitelTextSchluessel, useKapitelText } from "../context/KapitelTextContext";
 import { hatReste } from "../utils/automatik";
-import { kapitelTextZusammenbauen, kapitelUeberschrift, splitteNachKapitel, type Spanne } from "../utils/kapitelKombiniert";
+import {
+  kapitelAnkerOffsets,
+  kapitelTextZusammenbauen,
+  kapitelUeberschrift,
+  nachbarKapitelOffset,
+  splitteNachKapitel,
+  type Spanne,
+} from "../utils/kapitelKombiniert";
 
 interface PruefenAnwendenPageProps {
   ordner: string;
@@ -424,6 +431,16 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, a
     editorRef.current?.springeZu(befund);
   }
 
+  // Kapitel-vor/zurueck: springt im durchgehenden Text zur "## Kapitel N"-
+  // Ueberschrift ober-/unterhalb der aktuell sichtbaren Stelle.
+  function zumNachbarKapitel(richtung: -1 | 1) {
+    const ed = editorRef.current;
+    if (!ed) return;
+    const anker = kapitelAnkerOffsets(kapitelNummern, spannen);
+    const ziel = nachbarKapitelOffset(anker, ed.ersteSichtbareOffset(), richtung);
+    if (ziel !== null) ed.springeZuOffset(ziel);
+  }
+
   // "Ablehnen" markiert den Fund im Backend dauerhaft (projektweit) als
   // "kein Fehler" (app/core/befunde_ablehnung.py) - er verschwindet sofort
   // aus der Liste UND wird bei einer kuenftigen Pruefung nicht wieder
@@ -579,16 +596,29 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, a
           }
         >
           <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[2fr_1fr]">
-            <BefundEditor
-              ref={editorRef}
-              kapiteltext={kombiniert}
-              befunde={shiftedBefunde}
-              onKapiteltextChange={setKombiniert}
-              zeigeListe={false}
-              height="clamp(320px, 75vh, 900px)"
-              onOrphan={(id) => setOrphanIds((s) => new Set(s).add(id))}
-              onUebernommenChange={(id) => setUebernommenIds((s) => new Set(s).add(id))}
-            />
+            <div className="space-y-2">
+              {kapitelNummern.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium uppercase tracking-wider text-text-muted">Kapitel</span>
+                  <Button variant="secondary" onClick={() => zumNachbarKapitel(-1)}>
+                    ↑ Voriges
+                  </Button>
+                  <Button variant="secondary" onClick={() => zumNachbarKapitel(1)}>
+                    ↓ Nächstes
+                  </Button>
+                </div>
+              )}
+              <BefundEditor
+                ref={editorRef}
+                kapiteltext={kombiniert}
+                befunde={shiftedBefunde}
+                onKapiteltextChange={setKombiniert}
+                zeigeListe={false}
+                height="clamp(320px, 75vh, 900px)"
+                onOrphan={(id) => setOrphanIds((s) => new Set(s).add(id))}
+                onUebernommenChange={(id) => setUebernommenIds((s) => new Set(s).add(id))}
+              />
+            </div>
             <div className="max-h-[clamp(320px,75vh,900px)] overflow-auto pr-1">
               <BefundListe
                 befunde={shiftedBefunde}

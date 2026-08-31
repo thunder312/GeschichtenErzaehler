@@ -33,6 +33,12 @@ export interface BefundEditorHandle {
   springeZu: (befund: Befund) => void;
   uebernehmen: (befundId: string) => void;
   uebernehmenMehrere: (befundIds: string[]) => void;
+  /** Cursor + Ansicht an einen Zeichen-Offset im Text setzen (Zeile oben) -
+   * fuer die Kapitel-vor/zurueck-Navigation in PruefenAnwendenPage. */
+  springeZuOffset: (offset: number) => void;
+  /** Zeichen-Offset der aktuell obersten sichtbaren Zeile - Ausgangspunkt
+   * fuer "naechstes/voriges Kapitel". */
+  ersteSichtbareOffset: () => number;
 }
 
 /** Einzelner (nicht Diff-)Monaco-Editor ueber dem Kapiteltext, in dem jeder
@@ -89,6 +95,23 @@ export const BefundEditor = forwardRef<BefundEditorHandle, BefundEditorProps>(fu
     springeZu: aufFundSpringen,
     uebernehmen: (befundId: string) => reviewRef.current?.uebernehmen(befundId),
     uebernehmenMehrere: (befundIds: string[]) => reviewRef.current?.uebernehmenMehrere(befundIds),
+    springeZuOffset: (offset: number) => {
+      const editor = editorRef.current;
+      const model = editor?.getModel();
+      if (!editor || !model) return;
+      const pos = model.getPositionAt(offset);
+      editor.revealLineNearTop(pos.lineNumber);
+      editor.setPosition({ lineNumber: pos.lineNumber, column: 1 });
+      editor.focus();
+    },
+    ersteSichtbareOffset: () => {
+      const editor = editorRef.current;
+      const model = editor?.getModel();
+      if (!editor || !model) return 0;
+      const bereiche = editor.getVisibleRanges();
+      const zeile = bereiche.length > 0 ? bereiche[0].startLineNumber : 1;
+      return model.getOffsetAt({ lineNumber: zeile, column: 1 });
+    },
   }), []);
 
   const editorNode = (
