@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { FundusFigur } from "../api/types";
 import {
+  abschnittBefuellt,
   leereFigur,
   type FigurEintrag,
   type RahmenFelder,
@@ -19,6 +20,10 @@ interface RahmenEditorProps {
    * funktioniert und den Abgleich dann einfach auslaesst. */
   fundusFiguren?: FundusFigur[];
   epoche?: string | null;
+  /** Wird true, sobald der Tab "Architekt / Gerüst" (wieder) betreten wird -
+   * stellt dann je Block den Standard-Einklappzustand wieder her (befuellte
+   * Bloecke eingeklappt). */
+  aktiv?: boolean;
 }
 
 const RAHMEN_TEXTFELDER: { feld: keyof RahmenFelder; label: string; placeholder?: string }[] = [
@@ -30,24 +35,61 @@ const RAHMEN_TEXTFELDER: { feld: keyof RahmenFelder; label: string; placeholder?
   { feld: "tonlage", label: "Tonlage" },
 ];
 
-/** Kopfzeile fuer einen einzelnen "## "-Abschnitt-Block innerhalb des
- * RahmenEditors - selbes rahmenlose "Karte in der Karte"-Muster wie
- * KapitelplanEditor.tsx (eigener Rand, kein verschachteltes CollapsibleCard). */
-function AbschnittBlock({ titel, children }: { titel: string; children: ReactNode }) {
+/** Einzelner, einklappbarer "## "-Abschnitt-Block innerhalb des RahmenEditors
+ * - selbes rahmenlose "Karte in der Karte"-Muster wie KapitelplanEditor.tsx
+ * (eigener Rand, kein verschachteltes CollapsibleCard). `standardEingeklappt`
+ * gilt beim ersten Rendern und wird bei jedem erneuten Betreten des Tabs
+ * (`aktiv` wechselt auf true) wieder hergestellt - waehrend der Nutzer auf
+ * der Seite ist, bleibt sein manuelles Auf-/Zuklappen unangetastet (kein
+ * Neu-Einklappen nur weil er gerade die erste Figur eingetippt hat). */
+function AbschnittBlock({
+  titel,
+  standardEingeklappt = false,
+  aktiv,
+  children,
+}: {
+  titel: string;
+  standardEingeklappt?: boolean;
+  aktiv?: boolean;
+  children: ReactNode;
+}) {
+  const [eingeklappt, setEingeklappt] = useState(standardEingeklappt);
+  const standardRef = useRef(standardEingeklappt);
+  standardRef.current = standardEingeklappt;
+  useEffect(() => {
+    if (aktiv) setEingeklappt(standardRef.current);
+  }, [aktiv]);
+
   return (
     <div className="rounded-xl border border-border bg-bg/40 p-4">
-      <h4 className="font-heading mb-3 text-sm font-semibold text-text">{titel}</h4>
-      {children}
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="font-heading text-sm font-semibold text-text">{titel}</h4>
+        <button
+          type="button"
+          onClick={() => setEingeklappt((e) => !e)}
+          className="shrink-0 text-xs text-accent-light hover:underline"
+        >
+          {eingeklappt ? "Ausklappen" : "Einklappen"}
+        </button>
+      </div>
+      {!eingeklappt && <div className="mt-3">{children}</div>}
     </div>
   );
 }
 
-function RahmenFelderBlock({ felder, onChange }: { felder: RahmenFelder; onChange: (felder: RahmenFelder) => void }) {
+function RahmenFelderBlock({
+  felder, onChange, standardEingeklappt, aktiv,
+}: {
+  felder: RahmenFelder;
+  onChange: (felder: RahmenFelder) => void;
+  standardEingeklappt?: boolean;
+  aktiv?: boolean;
+}) {
   function feldAendern<K extends keyof RahmenFelder>(feld: K, wert: RahmenFelder[K]) {
     onChange({ ...felder, [feld]: wert });
   }
   return (
-    <AbschnittBlock titel="Rahmen">
+    <AbschnittBlock titel="Rahmen" standardEingeklappt={standardEingeklappt} aktiv={aktiv}>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {RAHMEN_TEXTFELDER.map(({ feld, label, placeholder }) => (
           <div key={feld}>
@@ -102,12 +144,14 @@ function RahmenFelderBlock({ felder, onChange }: { felder: RahmenFelder; onChang
 }
 
 function FigurenBlock({
-  figuren, onChange, fundusFiguren = [], epoche,
+  figuren, onChange, fundusFiguren = [], epoche, standardEingeklappt, aktiv,
 }: {
   figuren: FigurEintrag[];
   onChange: (figuren: FigurEintrag[]) => void;
   fundusFiguren?: FundusFigur[];
   epoche?: string | null;
+  standardEingeklappt?: boolean;
+  aktiv?: boolean;
 }) {
   // Merkt sich per Figuren-Index, welchen Fundus-Treffer der Nutzer bewusst
   // weggeklickt hat ("nicht diese Person") - als "index:gefundenerName", ein
@@ -126,7 +170,7 @@ function FigurenBlock({
   }
 
   return (
-    <AbschnittBlock titel="Figuren">
+    <AbschnittBlock titel="Figuren" standardEingeklappt={standardEingeklappt} aktiv={aktiv}>
       <div className="space-y-3">
         {figuren.length === 0 && (
           <p className="text-sm text-text-muted">Noch keine Figur. Mit „+ Figur" die erste Figur anlegen.</p>
@@ -191,7 +235,7 @@ function FigurenBlock({
  * "## Kapitelplan", siehe GeruestPage.tsx und utils/rahmen.ts) - ein Block je
  * "## "-Ueberschrift statt eines einzigen Freitext-Editors, analog zum
  * bereits bestehenden KapitelplanEditor fuer den Kapitelplan-Teil. */
-export function RahmenEditor({ abschnitte, onChange, fundusFiguren, epoche }: RahmenEditorProps) {
+export function RahmenEditor({ abschnitte, onChange, fundusFiguren, epoche, aktiv }: RahmenEditorProps) {
   function abschnittAendern(index: number, neu: VorAbschnittBearbeitet) {
     onChange(abschnitte.map((a, i) => (i === index ? neu : a)));
   }
@@ -199,11 +243,17 @@ export function RahmenEditor({ abschnitte, onChange, fundusFiguren, epoche }: Ra
   return (
     <div className="space-y-4 p-4">
       {abschnitte.map((a, index) => {
+        // Ein bereits ausgefuellter Block startet eingeklappt (mehr Platz beim
+        // spaeteren Erweitern um Kapitel), ein leerer bleibt offen zum
+        // Ausfuellen.
+        const standardEingeklappt = abschnittBefuellt(a);
         if (a.art === "rahmen") {
           return (
             <RahmenFelderBlock
               key={index}
               felder={a.felder}
+              standardEingeklappt={standardEingeklappt}
+              aktiv={aktiv}
               onChange={(felder) => abschnittAendern(index, { ...a, felder })}
             />
           );
@@ -213,6 +263,8 @@ export function RahmenEditor({ abschnitte, onChange, fundusFiguren, epoche }: Ra
             <FigurenBlock
               key={index}
               figuren={a.figuren}
+              standardEingeklappt={standardEingeklappt}
+              aktiv={aktiv}
               onChange={(figuren) => abschnittAendern(index, { ...a, figuren })}
               fundusFiguren={fundusFiguren}
               epoche={epoche}
@@ -220,8 +272,21 @@ export function RahmenEditor({ abschnitte, onChange, fundusFiguren, epoche }: Ra
           );
         }
         const istNebenstrang = a.heading.toLowerCase() === "nebenstrang";
+        // "Titel" ist immer eine einzelne Zeile - einzeiliges Input statt
+        // Textarea (der Block wird hier ohnehin nie laenger).
+        if (a.heading.trim().toLowerCase() === "titel") {
+          return (
+            <AbschnittBlock key={index} titel={a.heading} standardEingeklappt={standardEingeklappt} aktiv={aktiv}>
+              <Input
+                value={a.text}
+                placeholder="Sprechender Titel der Geschichte"
+                onChange={(e) => abschnittAendern(index, { ...a, text: e.target.value })}
+              />
+            </AbschnittBlock>
+          );
+        }
         return (
-          <AbschnittBlock key={index} titel={a.heading}>
+          <AbschnittBlock key={index} titel={a.heading} standardEingeklappt={standardEingeklappt} aktiv={aktiv}>
             <Textarea
               rows={istNebenstrang ? 4 : 3}
               value={a.text}

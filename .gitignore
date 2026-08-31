@@ -46,3 +46,6 @@ Thumbs.db
 # Problem, dort laeuft der Ordner unveraendert weiter. Lokal bewusst
 # ungetrackt, Referenzkopie des Inhalts liegt in docs/epochen-entwuerfe/.
 backend/app/data/epochen/Jetzt-2026.../
+
+# Lokales Deploy-Ausgabe-Log (deploy-all.sh, per "! ... > deploy-log.txt")
+deploy-log.txt

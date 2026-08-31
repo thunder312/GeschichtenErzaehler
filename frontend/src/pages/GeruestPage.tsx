@@ -14,7 +14,12 @@ import {
   type KapitelEintrag,
   type KapitelplanFehler,
 } from "../utils/kapitelplan";
-import { bearbeitetZuVor, vorZuBearbeitet, type VorAbschnittBearbeitet } from "../utils/rahmen";
+import {
+  bearbeitetZuVor,
+  rahmenAbschnitteVollstaendig,
+  vorZuBearbeitet,
+  type VorAbschnittBearbeitet,
+} from "../utils/rahmen";
 
 // Anzeige-Mapping der intern aus dem Gerüst erkannten Content-Stufe (siehe
 // backend/app/core/rollen.py: STUFE_DIREKTIVEN) auf die aus Filmen bekannten
@@ -108,11 +113,24 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   // Einklappzustand der drei "Haupt-Container" innerhalb des geruest.md-
   // Editors (siehe ToDo.md: mehr Platz fuer den Block, an dem gerade
   // gearbeitet wird) - unabhaengig vom aeusseren "🗺️ geruest.md"-
-  // CollapsibleCard und unabhaengig voneinander. Default offen, damit sich
-  // fuer bestehende Nutzung nichts aendert, solange niemand aktiv einklappt.
+  // CollapsibleCard und unabhaengig voneinander. Kapitelplan/Ausgangslage
+  // starten offen; der "Rahmen, Titel, Figuren, ..."-Container startet
+  // eingeklappt, sobald er vollstaendig ausgefuellt ist (siehe Lade-Effekt
+  // und aktiv-Effekt unten) - das schafft Platz beim spaeteren Erweitern um
+  // Kapitel.
   const [rahmenOffen, setRahmenOffen] = useState(true);
   const [kapitelplanOffen, setKapitelplanOffen] = useState(true);
   const [ausgangslageOffen, setAusgangslageOffen] = useState(true);
+
+  // "Rahmen, Titel, Figuren, ..."-Container beim (erneuten) Betreten des Tabs
+  // wieder passend setzen: vollstaendig ausgefuellt -> eingeklappt, sonst
+  // offen zum Weiterausfuellen. Waehrend der Nutzer auf der Seite ist, bleibt
+  // sein manuelles Auf-/Zuklappen unangetastet.
+  useEffect(() => {
+    if (!aktiv) return;
+    setRahmenOffen(rahmenAbschnitte === null || !rahmenAbschnitteVollstaendig(rahmenAbschnitte));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aktiv]);
 
   useEffect(() => {
     const geteilt = kapitelplanAusGeruestExtrahieren(projekt?.geruest ?? "");
@@ -120,6 +138,9 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
     setRahmenPraeambel(praeambel);
     setRahmenAbschnitte(abschnitte);
     setRahmenRohFallback(abschnitte === null ? geteilt.vor : "");
+    // Frisch geladenes, vollstaendig ausgefuelltes Gerüst: den Rahmen-Block
+    // gleich eingeklappt zeigen (siehe Kommentar bei rahmenOffen oben).
+    setRahmenOffen(abschnitte === null || !rahmenAbschnitteVollstaendig(abschnitte));
     // Ein Gerüst, das WIRKLICH noch keinen Kapitelplan hat (kein "kann nicht
     // geparst werden"-Fall, siehe warnung-Kommentar in kapitelplan.ts), zeigt
     // sofort ein erstes leeres Kapitel zum Ausfuellen statt der bisherigen
@@ -242,6 +263,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
                 onChange={setRahmenAbschnitte}
                 fundusFiguren={fundusFiguren}
                 epoche={projekt?.epoche}
+                aktiv={aktiv}
               />
             ) : (
               <div className="p-4 pt-2">

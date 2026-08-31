@@ -367,3 +367,28 @@ export function vorZuBearbeitet(vorRoh: string): { praeambel: string; abschnitte
 export function bearbeitetZuVor(praeambel: string, abschnitte: VorAbschnittBearbeitet[]): string {
   return vorAusAbschnittenZusammenbauen({ praeambel, abschnitte: abschnitte.map(abschnittZuRoh) });
 }
+
+/** "Dieser eine Abschnitt ist ausgefuellt" - Grundlage dafuer, ob der
+ * jeweilige Block im RahmenEditor beim Betreten schon eingeklappt startet
+ * (ausgefuellt = einklappen, damit beim spaeteren Erweitern um Kapitel mehr
+ * Platz bleibt). Optional und daher hier locker gehandhabt: Jahreszeit,
+ * "Weitere Angaben". Figuren gelten ab der ersten angelegten Figur als
+ * ausgefuellt (Name muss noch nicht stehen). */
+export function abschnittBefuellt(a: VorAbschnittBearbeitet): boolean {
+  if (a.art === "rahmen") {
+    const f = a.felder;
+    return [f.zeitangabe, f.ort, f.erzaehlperspektive, f.tempus, f.tonlage].every((w) => w.trim() !== "");
+  }
+  if (a.art === "figuren") return a.figuren.length > 0;
+  return a.text.trim() !== "";
+}
+
+/** Alle Pflicht-Abschnitte des "vor"-Teils sind ausgefuellt - GeruestPage
+ * klappt dann den kompletten "Rahmen, Titel, Figuren, ..."-Container beim
+ * Betreten ein. Nebenstrang ist bewusst optional (siehe RahmenEditor). */
+export function rahmenAbschnitteVollstaendig(abschnitte: VorAbschnittBearbeitet[]): boolean {
+  if (abschnitte.length === 0) return false;
+  return abschnitte.every(
+    (a) => a.heading.trim().toLowerCase() === "nebenstrang" || abschnittBefuellt(a),
+  );
+}
