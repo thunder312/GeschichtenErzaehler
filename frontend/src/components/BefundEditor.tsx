@@ -39,6 +39,8 @@ export interface BefundEditorHandle {
   /** Zeichen-Offset der aktuell obersten sichtbaren Zeile - Ausgangspunkt
    * fuer "naechstes/voriges Kapitel". */
   ersteSichtbareOffset: () => number;
+  /** Zeichen-Offset der aktuellen Cursor-Position. */
+  cursorOffset: () => number;
 }
 
 /** Einzelner (nicht Diff-)Monaco-Editor ueber dem Kapiteltext, in dem jeder
@@ -111,6 +113,13 @@ export const BefundEditor = forwardRef<BefundEditorHandle, BefundEditorProps>(fu
       const bereiche = editor.getVisibleRanges();
       const zeile = bereiche.length > 0 ? bereiche[0].startLineNumber : 1;
       return model.getOffsetAt({ lineNumber: zeile, column: 1 });
+    },
+    cursorOffset: () => {
+      const editor = editorRef.current;
+      const model = editor?.getModel();
+      const pos = editor?.getPosition();
+      if (!model || !pos) return 0;
+      return model.getOffsetAt(pos);
     },
   }), []);
 

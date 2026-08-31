@@ -437,7 +437,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, a
     const ed = editorRef.current;
     if (!ed) return;
     const anker = kapitelAnkerOffsets(kapitelNummern, spannen);
-    const ziel = nachbarKapitelOffset(anker, ed.ersteSichtbareOffset(), richtung);
+    const ziel = nachbarKapitelOffset(anker, ed.ersteSichtbareOffset(), ed.cursorOffset(), richtung);
     if (ziel !== null) ed.springeZuOffset(ziel);
   }
 

@@ -42,22 +42,30 @@ export function kapitelAnkerOffsets(
     .sort((a, b) => a.offset - b.offset);
 }
 
-/** Ziel-Offset fuer "ein Kapitel vor/zurueck", ausgehend von der aktuell
- * obersten sichtbaren Textstelle. null = in dieser Richtung kein Kapitel mehr.
- * Die Toleranz faengt ab, dass revealLineNearTop() die Ueberschrift nicht
- * zeichengenau an den oberen Rand setzt. */
+/** Ziel-Offset fuer "ein Kapitel vor/zurueck". Bezugspunkt ist die weiteste
+ * Leseposition: das Maximum aus oberster sichtbarer Zeile und Cursor. Nach
+ * einem Sprung sitzt der Cursor exakt auf der Ueberschrift (waehrend
+ * revealLineNearTop() noch ein paar Zeilen Kontext darueber stehen laesst) -
+ * ohne den Cursor-Anteil wuerde "Weiter" deshalb dauerhaft am selben Kapitel
+ * kleben. null = in dieser Richtung kein Kapitel mehr. */
 export function nachbarKapitelOffset(
   anker: { n: number; offset: number }[],
   sichtbarerOffset: number,
+  cursorOffset: number,
   richtung: -1 | 1,
 ): number | null {
+  if (anker.length === 0) return null;
   const TOLERANZ = 16;
-  if (richtung === 1) {
-    const treffer = anker.find((k) => k.offset > sichtbarerOffset + TOLERANZ);
-    return treffer ? treffer.offset : null;
+  const bezug = Math.max(sichtbarerOffset, cursorOffset);
+  // Aktuelles Kapitel = letzter Anker, der noch auf/vor der Bezugsposition
+  // liegt; von da aus genau ein Schritt weiter.
+  let aktIndex = 0;
+  for (let i = 0; i < anker.length; i++) {
+    if (anker[i].offset <= bezug + TOLERANZ) aktIndex = i;
   }
-  const vorherige = anker.filter((k) => k.offset < sichtbarerOffset - TOLERANZ);
-  return vorherige.length > 0 ? vorherige[vorherige.length - 1].offset : null;
+  const zielIndex = aktIndex + richtung;
+  if (zielIndex < 0 || zielIndex >= anker.length) return null;
+  return anker[zielIndex].offset;
 }
 
 /** Baut aus einer geordneten Liste von Kapitelnummern und einer

@@ -39,6 +39,8 @@ interface KapitelTextEditorHandle {
   springeZuOffset: (offset: number) => void;
   /** Zeichen-Offset der aktuell obersten sichtbaren Zeile. */
   ersteSichtbareOffset: () => number;
+  /** Zeichen-Offset der aktuellen Cursor-Position. */
+  cursorOffset: () => number;
 }
 
 /** Schlichter (Decoration-freier) Editor fuer den gesamten, ueber alle
@@ -80,6 +82,13 @@ const KapitelTextEditor = forwardRef<KapitelTextEditorHandle, { text: string; on
         const bereiche = editor.getVisibleRanges();
         const zeile = bereiche.length > 0 ? bereiche[0].startLineNumber : 1;
         return model.getOffsetAt({ lineNumber: zeile, column: 1 });
+      },
+      cursorOffset: () => {
+        const editor = editorRef.current;
+        const model = editor?.getModel();
+        const pos = editor?.getPosition();
+        if (!model || !pos) return 0;
+        return model.getOffsetAt(pos);
       },
     }), []);
 
@@ -323,7 +332,7 @@ export function RechtschreibungPage({ ordner, projekt, sshZielId }: Rechtschreib
     const ed = editorRef.current;
     if (!ed) return;
     const anker = kapitelAnkerOffsets(kapitelNummern, spannen);
-    const ziel = nachbarKapitelOffset(anker, ed.ersteSichtbareOffset(), richtung);
+    const ziel = nachbarKapitelOffset(anker, ed.ersteSichtbareOffset(), ed.cursorOffset(), richtung);
     if (ziel !== null) ed.springeZuOffset(ziel);
   }
 
