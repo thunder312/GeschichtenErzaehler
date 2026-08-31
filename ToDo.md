@@ -70,7 +70,8 @@
 - [x] Die Speicherort-Logik und der Ordnername mus nochmal verifiziert werden.
 - [x] Epochen sollen bearbeitbar sein
 - [x] Neu angelegte Epochen sollen sofort im Dropdown für neue Geschichten auftauchen.
-- [x] Tab "Prüfen & Anwenden" zeigte nach einem Automatik-Lauf, der wegen zu vieler offener Stellen an den Nutzer uebergibt, noch den Stand vom letzten Besuch (Kapiteltexte/Befunde werden pro Kapitel nur GENAU EINMAL geladen, `geladenRef`). Fix: `App.tsx` zieht bei jedem Tab-Wechsel `projektDetail` neu; `PruefenAnwendenPage` bekommt ein `aktiv`-Prop und laedt beim Wechsel auf true den kompletten Stand frisch nach (`reloadToken`-Bump) - ausser es gibt noch nicht gespeicherte Editieraenderungen, die haben Vorrang (dann bewusst per "Neu laden" verwerfen).
+- [x] Tab "Prüfen & Anwenden" zeigte nach einem Automatik-Lauf, der wegen zu vieler offener Stellen an den Nutzer uebergibt, noch den Stand vom letzten Besuch (Kapiteltexte/Befunde werden pro Kapitel nur GENAU EINMAL geladen, `geladenRef`). Fix: `PruefenAnwendenPage` bekommt ein `aktiv`-Prop (`activeTab === "pruefen"`) und laedt beim Wechsel auf true den kompletten Stand frisch nach - erst `onGeaendert()` (zieht `projektDetail` inkl. Kapitelliste neu, damit ein neu geschriebenes Kapitel auftaucht), dann `reloadToken`-Bump fuer Kapiteltexte/Befunde. Ausnahme: noch nicht gespeicherte Editieraenderungen haben Vorrang (dann bewusst per "Neu laden" verwerfen).
+  - [x] Folgefix: `kapitelNummern` haengt jetzt an einem stabilen String-Schluessel statt an der `projekt?.kapitel`-Array-Referenz. Sonst lief bei jedem `projekt`-Refresh (neue Referenz, gleicher Inhalt) der Lade-Effekt neu an, brach seine laufenden Fetches per Cleanup ab und stiess sie nicht neu an (Nummern schon in `geladenRef`) -> Tab blieb dauerhaft auf "Lädt...". Ein erster Anlauf, `projektDetail` in `App.tsx` bei JEDEM Tab-Wechsel neu zu ziehen, wurde deswegen wieder verworfen.
 - 
 
 # Deployment
