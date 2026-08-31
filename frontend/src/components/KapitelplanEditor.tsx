@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FundusFigur } from "../api/types";
 import type { KapitelEintrag, KapitelplanFehler } from "../utils/kapitelplan";
 import { FUNKTION_IM_SPANNUNGSBOGEN_OPTIONEN, leeresKapitel } from "../utils/kapitelplan";
@@ -25,6 +25,10 @@ interface KapitelplanEditorProps {
    * FigurenAuswahl.tsx) - beides optional, analog zu RahmenEditor.tsx. */
   fundusFiguren?: FundusFigur[];
   epoche?: string | null;
+  /** Wird true, sobald der Tab "Architekt / Gerüst" (wieder) betreten wird -
+   * klappt dann alle Kapitel-Karten ein, damit man mit demselben
+   * aufgeraeumten Ueberblick startet wie beim ersten Befuellen. */
+  aktiv?: boolean;
 }
 
 /** Strukturierter Block-Editor NUR fuer den "## Kapitelplan"-Abschnitt von
@@ -37,7 +41,7 @@ interface KapitelplanEditorProps {
  * fuer die ueberschaubare Kapitelzahl typischer Projekte), "Löschen" nimmt
  * das Kapitel komplett raus - die Kapitelnummer ergibt sich in allen Faellen
  * automatisch aus der Position im Array, nicht aus einem eigenen Feld. */
-export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, epoche }: KapitelplanEditorProps) {
+export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, epoche, aktiv }: KapitelplanEditorProps) {
   // Eigenes Bestaetigen-Popup statt window.confirm() - ein natives
   // confirm() blockiert den kompletten Tab (auch fuer Browser-Automation,
   // siehe ConfirmDialog.tsx), das App-Design vermeidet es deshalb ueberall.
@@ -46,9 +50,10 @@ export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, ep
 
   // Einklappzustand je Kapitel-Karte (siehe ToDo.md: mehr Platz fuer den
   // Block, an dem gerade gearbeitet wird, bei vielen Kapiteln sonst viel
-  // Scrollen). Enthaelt die Indizes der EINGEKLAPPTEN Karten - default leer
-  // (alle offen), damit sich am bisherigen Verhalten nichts aendert, solange
-  // niemand aktiv einklappt. Ein Index mit einem Pflichtfeld-Fehler bleibt
+  // Scrollen). Enthaelt die Indizes der EINGEKLAPPTEN Karten. Startet leer,
+  // wird aber gleich beim ersten Befuellen des Kapitelplans (Effekt unten)
+  // auf "alle eingeklappt" gesetzt und bei jedem erneuten Betreten des Tabs
+  // wieder zurueckgeklappt. Ein Index mit einem Pflichtfeld-Fehler bleibt
   // beim Einklappen-Versuch trotzdem sichtbar offen (siehe toggle()), sonst
   // waere die rote Markierung unsichtbar, ohne dass der Nutzer weiss, wo.
   const [eingeklappt, setEingeklappt] = useState<Set<number>>(new Set());
@@ -81,6 +86,33 @@ export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, ep
     });
   }, [fehler]);
 
+  // Indizes, die (unter Aussparung von Karten mit Pflichtfeld-Fehler, deren
+  // rote Markierung sichtbar bleiben muss) einzuklappen sind - dieselbe Regel
+  // wie in alleEinklappen().
+  function alleKapitelIndizesOhneFehler(): Set<number> {
+    return new Set(kapitel.map((_, i) => i).filter((i) => !indizesMitFehler.has(i)));
+  }
+
+  // Beim ersten Befuellen des Kapitelplans alle Karten eingeklappt starten -
+  // bei laengeren Plaenen ist die volle Formularliste sonst sehr lang. Nur
+  // EINMAL; danach entscheidet der Nutzer per Toggle.
+  const initialEingeklappt = useRef(false);
+  useEffect(() => {
+    if (initialEingeklappt.current || kapitel.length === 0) return;
+    initialEingeklappt.current = true;
+    setEingeklappt(alleKapitelIndizesOhneFehler());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kapitel]);
+
+  // Erneutes Betreten des Tabs "Architekt / Gerüst" (aktiv wechselt auf true):
+  // wieder alle Karten einklappen, damit man mit demselben aufgeraeumten
+  // Ueberblick startet.
+  useEffect(() => {
+    if (!aktiv) return;
+    setEingeklappt(alleKapitelIndizesOhneFehler());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aktiv]);
+
   function toggle(index: number) {
     setEingeklappt((bisher) => {
       const neu = new Set(bisher);
@@ -91,7 +123,7 @@ export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, ep
   }
 
   function alleEinklappen() {
-    setEingeklappt(new Set(kapitel.map((_, i) => i).filter((i) => !indizesMitFehler.has(i))));
+    setEingeklappt(alleKapitelIndizesOhneFehler());
   }
 
   function alleAusklappen() {

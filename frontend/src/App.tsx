@@ -80,6 +80,15 @@ function App() {
     projektDetailLaden();
   }, [projektDetailLaden]);
 
+  // Bei jedem Tab-Wechsel die Projektdetails neu ziehen. Die Pipeline-Tabs
+  // bleiben dauerhaft gemountet (siehe unten) und wuerden sonst einen Stand
+  // vom letzten Besuch zeigen - z.B. sieht "Prüfen & Anwenden" so sofort die
+  // Kapitel, die ein im Hintergrund gelaufener Automatik-Schreiber ergaenzt
+  // hat, bevor er wegen zu vieler offener Stellen an den Nutzer uebergab.
+  useEffect(() => {
+    projektDetailLaden();
+  }, [activeTab, projektDetailLaden]);
+
   useEffect(() => {
     // Nur EINMAL beim ersten Laden der KI-Ziele automatisch vorbelegen -
     // ein spaeter im laufenden Betrieb gesetzter/entfernter Favorit soll die
@@ -253,6 +262,7 @@ function App() {
                   onGeaendert={projektDetailLaden}
                   onOrdnerUmbenannt={ordnerUmbenannt}
                   onInterviewStarten={() => setInterviewErzwungen(true)}
+                  aktiv={activeTab === "geruest"}
                 />
               )}
             </div>
@@ -274,6 +284,7 @@ function App() {
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
                 sshZielId={sshZielId}
+                aktiv={activeTab === "pruefen"}
                 onGeaendert={() => {
                   projektDetailLaden();
                   projekteLaden();

@@ -48,6 +48,9 @@ interface GeruestPageProps {
   onGeaendert: () => void;
   onOrdnerUmbenannt: (neuerOrdner: string) => void;
   onInterviewStarten: () => void;
+  /** true, solange der Tab "Architekt / Gerüst" sichtbar ist - der Wechsel
+   * auf true beim erneuten Betreten klappt die Kapitel-Karten wieder ein. */
+  aktiv: boolean;
 }
 
 /** Rohtext-Ansicht von geruest.md, fuer die manuelle Nachjustierung NACH dem
@@ -57,7 +60,7 @@ interface GeruestPageProps {
  * exakt wie im CLI (siehe backend/app/core/geruest.py) und wird hier zur
  * Kontrolle angezeigt. Verbotsliste (fuer die Anachronismus-Pruefung)
  * liegt gleich daneben, da beide Dateien zusammen das Setting definieren. */
-export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, onInterviewStarten }: GeruestPageProps) {
+export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, onInterviewStarten, aktiv }: GeruestPageProps) {
   // Kapitelplan strukturiert (KapitelplanEditor), Rest des Gerüsts bleibt
   // Freitext in zwei Editoren links/rechts davon (siehe utils/kapitelplan.ts
   // fuer die Begruendung, warum nur der Kapitelplan formalisiert wird).
@@ -282,6 +285,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
                 fehler={kapitelFehler}
                 fundusFiguren={fundusFiguren}
                 epoche={projekt?.epoche}
+                aktiv={aktiv}
               />
             </>
           )}

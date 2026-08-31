@@ -16,6 +16,9 @@ interface PruefenAnwendenPageProps {
   projekt: ProjektDetail | null;
   sshZielId: string;
   onGeaendert: () => void;
+  /** true, solange dieser Tab sichtbar ist - der Wechsel auf true beim
+   * (erneuten) Betreten laedt Kapiteltexte und Befunde frisch nach. */
+  aktiv: boolean;
 }
 
 interface KapitelBlock {
@@ -26,7 +29,7 @@ interface KapitelBlock {
   fehler: string | null;
 }
 
-export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }: PruefenAnwendenPageProps) {
+export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, aktiv }: PruefenAnwendenPageProps) {
   const [bloecke, setBloecke] = useState<Record<number, KapitelBlock>>({});
   const [kombiniert, setKombiniert] = useState("");
   const [spannen, setSpannen] = useState<Record<number, Spanne>>({});
@@ -229,6 +232,25 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert }:
     }
     return false;
   }, [kombiniert, bloecke, kapitelNummern]);
+
+  // Betritt der Nutzer diesen Tab neu (z.B. weil der Automatik-Schreiber
+  // wegen zu vieler offener Stellen angehalten und hierher verwiesen hat),
+  // den kompletten Stand frisch nachladen - sonst zeigt der Editor noch
+  // Kapiteltext und Befunde vom letzten Besuch. Kapitel werden sonst nur
+  // GENAU EINMAL geladen (geladenRef), ein im Hintergrund geschriebenes oder
+  // erneut geprueftes Kapitel bliebe also unsichtbar. Noch nicht
+  // gespeicherte Editieraenderungen haben Vorrang und unterdruecken das
+  // automatische Nachladen (dann per "Neu laden" bewusst verwerfen).
+  const warAktiv = useRef(aktiv);
+  useEffect(() => {
+    const wurdeBetreten = aktiv && !warAktiv.current;
+    warAktiv.current = aktiv;
+    if (!wurdeBetreten || hatUngespeicherteAenderungen) return;
+    setOrphanIds(new Set());
+    setUebernommenIds(new Set());
+    setAbgelehntIds(new Set());
+    setReloadToken((t) => t + 1);
+  }, [aktiv, hatUngespeicherteAenderungen]);
 
   async function pruefen(n: number, fortschritt?: string) {
     setBloecke((b) => ({ ...b, [n]: { ...b[n], ladenPruefen: true, fehler: null } }));
