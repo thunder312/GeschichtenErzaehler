@@ -54,7 +54,18 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, a
   const [reloadToken, setReloadToken] = useState(0);
   const editorRef = useRef<BefundEditorHandle | null>(null);
   const { starten, beenden } = useAktivitaet();
-  const kapitelNummern = useMemo(() => [...(projekt?.kapitel ?? [])].sort((a, b) => a - b), [projekt?.kapitel]);
+  // Bewusst an einem stabilen String-Schluessel aufgehaengt, NICHT direkt an
+  // projekt?.kapitel: der projekt-Prop bekommt bei jedem Refresh (onGeaendert,
+  // Tab-Wechsel) eine neue Array-Referenz mit oft voellig identischem Inhalt.
+  // Ohne den Schluessel liefe der Lade-Effekt unten dann erneut an, braeche
+  // per Cleanup seine gerade gestarteten Fetches ab und stiesse sie - weil
+  // die Kapitelnummern schon in geladenRef stehen - NICHT neu an: das Tab
+  // bliebe dauerhaft auf "Lädt..." haengen.
+  const kapitelSchluessel = [...(projekt?.kapitel ?? [])].sort((a, b) => a - b).join(",");
+  const kapitelNummern = useMemo(
+    () => (kapitelSchluessel ? kapitelSchluessel.split(",").map(Number) : []),
+    [kapitelSchluessel],
+  );
   const geladenRef = useRef<Set<number>>(new Set());
   const angehaengtRef = useRef<Set<number>>(new Set());
 
@@ -246,11 +257,15 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, a
     const wurdeBetreten = aktiv && !warAktiv.current;
     warAktiv.current = aktiv;
     if (!wurdeBetreten || hatUngespeicherteAenderungen) return;
+    // Projektdetails (u.a. die Kapitelliste) frisch ziehen, damit ein im
+    // Hintergrund vom Automatik-Schreiber ergaenztes Kapitel hier auftaucht,
+    // dann den Kapiteltext-/Befund-Stand komplett neu laden.
+    onGeaendert();
     setOrphanIds(new Set());
     setUebernommenIds(new Set());
     setAbgelehntIds(new Set());
     setReloadToken((t) => t + 1);
-  }, [aktiv, hatUngespeicherteAenderungen]);
+  }, [aktiv, hatUngespeicherteAenderungen, onGeaendert]);
 
   async function pruefen(n: number, fortschritt?: string) {
     setBloecke((b) => ({ ...b, [n]: { ...b[n], ladenPruefen: true, fehler: null } }));
