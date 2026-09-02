@@ -43,6 +43,8 @@ export function MobilPage({ ordner, projekt, sshZielId, onGeaendert }: MobilPage
   const [funde, setFunde] = useState<OffenerFund[]>([]);
   const [fundeLaden, setFundeLaden] = useState(false);
   const [fundeFehler, setFundeFehler] = useState<string | null>(null);
+  const [veralteteKapitel, setVeralteteKapitel] = useState<number[]>([]);
+  const [pruefenLaeuftKapitel, setPruefenLaeuftKapitel] = useState<Set<number>>(new Set());
   const [bearbeiteId, setBearbeiteId] = useState<string | null>(null);
   const [bearbeiteText, setBearbeiteText] = useState("");
   const [aktionLaeuftId, setAktionLaeuftId] = useState<string | null>(null);
@@ -91,6 +93,19 @@ export function MobilPage({ ordner, projekt, sshZielId, onGeaendert }: MobilPage
   // Offene Funde ueber ALLE bereits geschriebenen Kapitel hinweg laden -
   // jedes 404 (noch nie geprueft) wird stillschweigend uebersprungen, kein
   // Fehlerfall.
+  //
+  // "veraltet" (siehe befunde_lesen() in app/api/projects.py: Hash-Vergleich
+  // gegen den AKTUELLEN Kapiteltext) wird hier bewusst ausgewertet, statt die
+  // Funde einfach anzuzeigen: Wird ein Fund am DESKTOP im Tab "Prüfen &
+  // Anwenden" übernommen, merkt sich das nur der Monaco-Editor im Browser-Tab
+  // - die gespeicherte befunde_NN.json wird dabei NIE aktualisiert. Ein
+  // zweites, unabhaengiges Geraet (Handy) haette sonst weiterhin die alte,
+  // laengst erledigte Liste angezeigt (Live-Fund 2026-09-02: "Handy zeigt
+  // offene Punkte, PC-Browser nicht" - beide Ansichten waren technisch
+  // korrekt, nur eine kannte den Desktop-Fortschritt nicht). Veraltete
+  // Kapitel werden deshalb NICHT in der Funde-Liste angezeigt (koennten
+  // laengst erledigt sein), sondern separat mit einer "Jetzt erneut
+  // prüfen"-Option markiert.
   const kapitelSchluessel = geschriebeneKapitel.join(",");
   async function fundeLadenAusfuehren() {
     setFundeLaden(true);
@@ -100,11 +115,17 @@ export function MobilPage({ ordner, projekt, sshZielId, onGeaendert }: MobilPage
         geschriebeneKapitel.map((n) =>
           api
             .befunde(ordner, n)
-            .then((antwort) => antwort.befunde.map((befund) => ({ kapitel: n, befund })))
-            .catch(() => [] as OffenerFund[]),
+            .then((antwort) => ({
+              kapitel: n,
+              veraltet: antwort.veraltet,
+              funde: antwort.befunde.map((befund) => ({ kapitel: n, befund })),
+            }))
+            .catch(() => null),
         ),
       );
-      setFunde(ergebnisse.flat());
+      const gueltig = ergebnisse.filter((e): e is NonNullable<typeof e> => e !== null);
+      setFunde(gueltig.filter((e) => !e.veraltet).flatMap((e) => e.funde));
+      setVeralteteKapitel(gueltig.filter((e) => e.veraltet).map((e) => e.kapitel));
     } catch (e) {
       setFundeFehler(e instanceof Error ? e.message : String(e));
     } finally {
@@ -115,6 +136,23 @@ export function MobilPage({ ordner, projekt, sshZielId, onGeaendert }: MobilPage
     fundeLadenAusfuehren();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ordner, kapitelSchluessel]);
+
+  async function kapitelErneutPruefen(n: number) {
+    setPruefenLaeuftKapitel((bisher) => new Set(bisher).add(n));
+    setFundeFehler(null);
+    try {
+      await api.pruefen(ordner, n, sshZielId || null);
+      await fundeLadenAusfuehren();
+    } catch (e) {
+      setFundeFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPruefenLaeuftKapitel((bisher) => {
+        const kopie = new Set(bisher);
+        kopie.delete(n);
+        return kopie;
+      });
+    }
+  }
 
   // Kapitelnummer fuer "kleine Verbesserungen" vorbelegen: das zuletzt
   // geschriebene Kapitel, sobald die Liste erstmals bekannt ist - danach
@@ -283,6 +321,28 @@ export function MobilPage({ ordner, projekt, sshZielId, onGeaendert }: MobilPage
           </button>
         </div>
         {fundeFehler && <p className="mb-2 text-sm text-red-400">{fundeFehler}</p>}
+        {veralteteKapitel.length > 0 && (
+          <div className="mb-3 space-y-1.5 rounded-lg border border-amber-400/40 bg-amber-400/10 p-2">
+            <p className="text-xs text-amber-200">
+              ⚠ {veralteteKapitel.length === 1 ? "Kapitel wurde" : "Diese Kapitel wurden"} seit der letzten Prüfung
+              verändert (z.B. am Desktop bearbeitet) - die dortige Funde-Liste könnte veraltet sein und wird deshalb
+              hier nicht angezeigt.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {veralteteKapitel.map((n) => (
+                <Button
+                  key={n}
+                  variant="secondary"
+                  className="!px-3 !py-1 text-xs"
+                  disabled={pruefenLaeuftKapitel.has(n)}
+                  onClick={() => kapitelErneutPruefen(n)}
+                >
+                  {pruefenLaeuftKapitel.has(n) ? "Prüft..." : `Kapitel ${n} jetzt erneut prüfen`}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
         {funde.length === 0 ? (
           <p className="text-sm text-text-muted">
             {fundeLaden ? "Lädt..." : "Keine offenen Funde."}
