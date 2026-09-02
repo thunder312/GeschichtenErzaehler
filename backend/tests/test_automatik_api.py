@@ -172,6 +172,43 @@ def test_automatik_log_zeigt_pruefer_start_je_durchlauf(client, projekt_mit_kapi
     assert any("Kapitel 1, Durchlauf 1: Prüfer laufen..." in z for z in status["log"])
 
 
+def test_automatik_start_ueberspringt_bereits_konvergierte_kapitel_bei_neuem_kapitel(
+    client, projekt_mit_kapitelplan,
+):
+    """Vorfall 2026-09-02 (Produktiv): Nutzer ergaenzt eine bereits fertig
+    geprüfte Geschichte im Gerüst um ein weiteres Kapitel und startet
+    danach den NORMALEN "Automatikmodus starten"-Button (nicht den
+    dedizierten "Weitere Kapitel schreiben"-Button/nur_neue_kapitel-Flag).
+    Phase 2 darf die laengst konvergierten Kapitel 1+2 dann NICHT erneut
+    durch alle Pruefer-Rollen schicken, sondern nur das neue Kapitel 3
+    pruefen."""
+    r1 = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 2})
+    assert r1.status_code == 200
+    status1 = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert status1["abgeschlossen"] is True
+
+    geruest_mit_kapitel_3 = (
+        "# STORY-GERUEST\n\n## Rahmen\nJahr: 1815\n\n"
+        "## Kapitelplan\n"
+        "Kapitel 1: Ein Anfang. 5 Wörter.\n"
+        "Kapitel 2: Ein Ende. 5 Wörter.\n"
+        "Kapitel 3: Eine Fortsetzung. 5 Wörter.\n"
+    )
+    client.put(f"/api/projects/{projekt_mit_kapitelplan}/geruest", json={"inhalt": geruest_mit_kapitel_3})
+
+    r2 = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 2})
+    assert r2.status_code == 200
+    status2 = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert status2["abgeschlossen"] is True
+    assert status2["gesamt_kapitel"] == 3
+
+    assert any("Kapitel 1: bereits vollständig geprüft" in z for z in status2["log"])
+    assert any("Kapitel 2: bereits vollständig geprüft" in z for z in status2["log"])
+    assert not any("Kapitel 1, Durchlauf" in z for z in status2["log"])
+    assert not any("Kapitel 2, Durchlauf" in z for z in status2["log"])
+    assert any("Kapitel 3, Durchlauf 1: Prüfer laufen..." in z for z in status2["log"])
+
+
 def test_automatik_start_verweigert_zweiten_gleichzeitigen_lauf(client, projekt_mit_kapitelplan, monkeypatch):
     # Simuliert einen bereits laufenden Job, ohne tatsaechlich einen zu
     # starten (der echte Lauf ist in Tests synchron/blockierend ueber

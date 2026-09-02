@@ -13,6 +13,7 @@ app/core/heuristik.py und app/core/befunde_merge.py:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -22,6 +23,7 @@ from app.core.befunde_merge import vorschlag_dupliziert_kontext, vorschlag_verda
 
 AUTOMATIK_STATUS_DATEINAME = "automatik_status.json"
 AUTOMATIK_VERLAUF_DATEINAME = "automatik_verlauf.json"
+AUTOMATIK_GEPRUEFT_DATEINAME = "automatik_geprueft.json"
 
 
 def _automatik_status_datei(projekt_root: Path) -> Path:
@@ -30,6 +32,61 @@ def _automatik_status_datei(projekt_root: Path) -> Path:
 
 def _automatik_verlauf_datei(projekt_root: Path) -> Path:
     return projekt_root / "projekt" / AUTOMATIK_VERLAUF_DATEINAME
+
+
+def _automatik_geprueft_datei(projekt_root: Path) -> Path:
+    return projekt_root / "projekt" / AUTOMATIK_GEPRUEFT_DATEINAME
+
+
+def geprueft_lesen(projekt_root: Path) -> dict[str, str]:
+    """Liefert {kapitelnummer_als_string: sha256_des_konvergierten_texts} -
+    siehe geprueft_markieren()/kapitel_bereits_konvergiert()."""
+    pfad = _automatik_geprueft_datei(projekt_root)
+    if not pfad.exists():
+        return {}
+    try:
+        return json.loads(pfad.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def geprueft_markieren(projekt_root: Path, n: int, text: str) -> None:
+    """Vermerkt Kapitel n als von Phase 2 (Pruefen/Auto-Korrektur, siehe
+    app/api/pipeline.py:_automatik_lauf) bis zur Konvergenz abgearbeitet -
+    NUR dort aufrufen, direkt NACHDEM die Durchlauf-Schleife fuer dieses
+    Kapitel beendet wurde (angewendet == 0 ODER max_durchlaeufe erreicht),
+    nie aus dem einmaligen Diagnose-Check direkt nach dem Schreiben (siehe
+    _kapitel_schreiben_kern) - dessen Aufruf von _pruefe_kapitel schreibt
+    zwar ebenfalls einen Hash (befunde_NN.json:quelltext_sha256), prueft
+    aber nur EINMAL und wendet nie Korrekturen an; wuerde dieser Hash hier
+    fuer die Konvergenz-Markierung wiederverwendet, wuerde Phase 2 jedes
+    frisch geschriebene Kapitel faelschlich als "fertig" ueberspringen -
+    inklusive tatsaechlich noch offener, nie angewendeter Pruefer-Funde
+    (im Test test_automatik_fortsetzen_ueberspringt_bereits_geprueftes_kapitel
+    am 2026-09-02 so aufgefallen, bevor dieser dedizierte Marker eingefuehrt
+    wurde)."""
+    pfad = _automatik_geprueft_datei(projekt_root)
+    daten = geprueft_lesen(projekt_root)
+    daten[str(n)] = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    pfad.write_text(json.dumps(daten, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def kapitel_bereits_konvergiert(projekt_root: Path, n: int, aktueller_text: str) -> bool:
+    """True, wenn Kapitel n laut geprueft_markieren() bereits bis zur
+    Konvergenz geprueft wurde UND `aktueller_text` seither unveraendert ist -
+    _automatik_lauf ueberspringt ein solches Kapitel in Phase 2, unabhaengig
+    vom nur_neue_kapitel-Flag. Deckt insbesondere den Fall ab, dass der
+    normale "Automatikmodus starten"-Button (nicht "Weitere Kapitel
+    schreiben") auf einer im Geruest um Kapitel ergaenzten, laengst fertig
+    geprueften Geschichte gestartet wird - Phase 2 soll dann trotzdem nicht
+    wieder bei Kapitel 1 anfangen (Vorfall 2026-09-02: 11-Kapitel-Geschichte,
+    Kapitel 11 neu ergaenzt, Phase 2 lief erst wieder komplett Kapitel 1-3
+    durch, bis der Nutzer stoppte)."""
+    gespeichert = geprueft_lesen(projekt_root).get(str(n))
+    if not gespeichert:
+        return False
+    return gespeichert == hashlib.sha256(aktueller_text.encode("utf-8")).hexdigest()
 
 
 def status_lesen(projekt_root: Path) -> dict[str, Any]:

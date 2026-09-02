@@ -1095,6 +1095,17 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
     bis nichts mehr angewendet wird, und listet abschliessend unbekannte
     Woerter (hunspell) OHNE Auto-Korrektur im Protokoll.
 
+    Phase 2 ueberspringt dabei JEDES Kapitel, das laut automatik.
+    kapitel_bereits_konvergiert() bereits bis zur Konvergenz geprueft wurde
+    und seither unveraendert ist (Markierung per automatik.geprueft_markieren
+    direkt nach Ende der Durchlauf-Schleife unten) - unabhaengig vom
+    nur_neue_kapitel-Flag. Das ist der Schutz dagegen, dass ein simples
+    "Automatikmodus starten" auf einer im Geruest um Kapitel ergaenzten,
+    laengst fertig geprueften Geschichte wieder bei Kapitel 1 zu pruefen
+    anfaengt (Vorfall 2026-09-02: 11-Kapitel-Geschichte, Kapitel 11 neu
+    ergaenzt - Phase 2 lief trotzdem erst wieder komplett Kapitel 1-3 durch,
+    bis der Nutzer stoppte).
+
     `fortsetzen=True` (Button "Fortsetzen" im Frontend statt "Automatikmodus
     starten"): Phase 1 ueberspringt bereits geschriebene Kapitel ohnehin
     schon anhand vorhandener Dateien - der einzige Fall, den ein normaler
@@ -1209,7 +1220,25 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
             for n in range(phase2_start, letztes + 1):
                 if fortsetzen_ab_kapitel and n < fortsetzen_ab_kapitel:
                     continue
-                if not pd.kapitel_datei(projekt, n).exists():
+                kapitel_pfad = pd.kapitel_datei(projekt, n)
+                if not kapitel_pfad.exists():
+                    continue
+                # Unabhaengig vom nur_neue_kapitel-Modus: ein Kapitel, das
+                # laut automatik.geprueft_markieren() bereits bis zur
+                # Konvergenz geprueft wurde und seither unveraendert ist,
+                # wird nicht erneut geprueft - sonst wuerde der normale
+                # "Automatikmodus starten"-Button (nicht "Weitere Kapitel
+                # schreiben") auf einer im Geruest um Kapitel ergaenzten,
+                # laengst fertig geprueften Geschichte Phase 2 wieder bei
+                # Kapitel 1 anfangen lassen (siehe automatik.py:
+                # kapitel_bereits_konvergiert fuer den Vorfall).
+                aktueller_kapiteltext = pd.lies(kapitel_pfad)
+                if automatik.kapitel_bereits_konvergiert(projekt_root, n, aktueller_kapiteltext):
+                    status["log"].append(
+                        f"Kapitel {n}: bereits vollständig geprüft und seither unverändert - "
+                        f"wird übersprungen."
+                    )
+                    _automatik_status_schreiben(status, projekt_root)
                     continue
                 if _automatik_stop_angefordert(status, projekt_root):
                     status["log"].append(f"Gestoppt (Benutzeranforderung) vor Prüfung von Kapitel {n}.")
@@ -1307,6 +1336,12 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
 
                 status["aktueller_durchlauf"] = None
                 finaler_text = pd.lies(pd.kapitel_datei(projekt, n))
+                # Erst HIER, nach Ende der Durchlauf-Schleife (Konvergenz oder
+                # max_durchlaeufe erreicht), als geprueft markieren - siehe
+                # automatik.geprueft_markieren() fuer den Grund, warum das
+                # NICHT beim einmaligen Diagnose-Check direkt nach dem
+                # Schreiben (_kapitel_schreiben_kern) passieren darf.
+                automatik.geprueft_markieren(projekt_root, n, finaler_text)
                 status["fehler_schritt"] = {"kapitel": n, "phase": "rechtschreibung", "durchlauf": None}
 
                 async def _hunspell_schritt(finaler_text=finaler_text) -> list[str] | None:
