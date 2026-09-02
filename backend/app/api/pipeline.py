@@ -47,7 +47,7 @@ from app.core.befunde_merge import (
     vorschlag_verdaechtig,
 )
 from app.core.bild_generierung import BildGenerierungFehler
-from app.core.fundstellen import finde_fundstelle
+from app.core.fundstellen import befunde_neu_verankern, finde_fundstelle
 from app.core.ollama_client import OllamaFehler, chat_stream
 from app.core.ollama_client import sammle_antwort as _sammle_antwort
 from app.core.pdf_export import buch_pdf_erzeugen
@@ -591,16 +591,9 @@ def _kapitel_befunde_neu_verankern(
         eintrag["id"] for eintrag in protokoll_eintraege
         if eintrag["art"] == "uebersprungen" and eintrag.get("id") is not None
     }
-    offene_befunde = []
-    for befund in befunde_antwort.befunde:
-        if befund.id not in uebersprungene_ids:
-            continue
-        neue_stelle = finde_fundstelle(korrigiert, befund.fundstelle)
-        offene_befunde.append(befund.model_copy(update={
-            "start": neue_stelle[0] if neue_stelle else None,
-            "end": neue_stelle[1] if neue_stelle else None,
-            "gefunden": neue_stelle is not None,
-        }))
+    offene_befunde = befunde_neu_verankern(
+        korrigiert, [b for b in befunde_antwort.befunde if b.id in uebersprungene_ids],
+    )
 
     aktualisiert = befunde_antwort.model_copy(update={
         "erzeugt_am": time.strftime("%Y-%m-%d %H:%M"),

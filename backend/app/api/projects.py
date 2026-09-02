@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import shutil
+import time
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,9 +20,11 @@ from app.core import automatik
 from app.core import befunde_ablehnung
 from app.core import geruest as g
 from app.core import projekt_dateien as pd
+from app.core.fundstellen import befunde_neu_verankern, finde_fundstelle
 from app.schemas import (
     BefundAblehnenAnfrage,
     BefundeAntwort,
+    BefundUebernehmenAnfrage,
     Benutzer,
     EpocheKurz,
     GeruestSchreibenAnfrage,
@@ -504,6 +507,68 @@ def befund_ablehnen(ordner: str, n: int, anfrage: BefundAblehnenAnfrage,
     antwort.befunde = [b for b in antwort.befunde if b.id != anfrage.befund_id]
     datei.write_text(antwort.model_dump_json(indent=2) + "\n", encoding="utf-8")
     return {"abgelehnt": True}
+
+
+@router.post("/{ordner:path}/befunde/{n}/uebernehmen", response_model=BefundeAntwort)
+def befund_uebernehmen(ordner: str, n: int, anfrage: BefundUebernehmenAnfrage,
+                        settings: Settings = Depends(get_settings),
+                        benutzer: Benutzer = Depends(get_current_user)):
+    """Uebernimmt EINEN Fund serverseitig (Text-Splice in kapitel_NN.md +
+    Speichern), OHNE dass dafuer ein Monaco-Editor im Browser laufen muss -
+    fuer die Mobil-Ansicht (MobilPage.tsx), wo bei schmaler Aufloesung statt
+    des Volltext-Editors nur eine einfache Funde-Liste mit "Übernehmen"-
+    Buttons angezeigt wird. Der Desktop-Pfad (Tab "Prüfen & Anwenden") nutzt
+    das bewusst NICHT weiter - dort bleibt der bestehende Monaco-Editor
+    (befundReview.ts) die Quelle der Wahrheit, u.a. weil er live mitverschobene
+    Decorations und Undo unterstuetzt.
+
+    `vorschlag_override` erlaubt eine leichte Abaenderung des Vorschlags vor
+    dem Uebernehmen (Button "kleine Verbesserung"). Position wird IMMER frisch
+    per finde_fundstelle() gegen den aktuellen Kapiteltext verankert statt dem
+    gespeicherten start/end blind zu vertrauen - die Datei kann sich seit der
+    letzten Pruefung veraendert haben (siehe befunde_lesen()/`veraltet`-Flag).
+    Verankert anschliessend alle UEBRIGEN offenen Funde neu (siehe
+    app/core/fundstellen.py:befunde_neu_verankern) und schreibt eine
+    aktualisierte befunde_NN.json - derselbe Mechanismus wie nach dem
+    automatischen Anwenden im Automatikmodus (app/api/pipeline.py:
+    _kapitel_befunde_neu_verankern)."""
+    pfad = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
+    befunde_pfad = pd.befunde_datei(pfad, n)
+    if not befunde_pfad.exists():
+        raise HTTPException(404, f"Befunde zu Kapitel {n} nicht gefunden.")
+    antwort = BefundeAntwort.model_validate_json(pd.lies(befunde_pfad))
+    ziel = next((b for b in antwort.befunde if b.id == anfrage.befund_id), None)
+    if ziel is None:
+        raise HTTPException(404, f"Fund {anfrage.befund_id} nicht gefunden.")
+
+    kapitel_pfad = pd.kapitel_datei(pfad, n)
+    if not kapitel_pfad.exists():
+        raise HTTPException(404, f"Kapitel {n} nicht gefunden.")
+    kapiteltext = pd.lies(kapitel_pfad)
+
+    vorschlag = (anfrage.vorschlag_override or ziel.vorschlag or "").strip()
+    if not vorschlag:
+        raise HTTPException(400, "Kein Vorschlag zum Übernehmen vorhanden.")
+
+    stelle = finde_fundstelle(kapiteltext, ziel.fundstelle)
+    if stelle is None:
+        raise HTTPException(409, "Textstelle nicht mehr im Kapitel auffindbar - bitte erneut prüfen.")
+    start, end = stelle
+
+    neuer_text = kapiteltext[:start] + vorschlag + kapiteltext[end:]
+    pd.schreib(kapitel_pfad, neuer_text)
+
+    offene_befunde = befunde_neu_verankern(
+        neuer_text, [b for b in antwort.befunde if b.id != anfrage.befund_id],
+    )
+    aktualisiert = antwort.model_copy(update={
+        "erzeugt_am": time.strftime("%Y-%m-%d %H:%M"),
+        "befunde": offene_befunde,
+        "quelltext_sha256": hashlib.sha256(neuer_text.encode("utf-8")).hexdigest(),
+        "veraltet": False,
+    })
+    pd.schreib(befunde_pfad, aktualisiert.model_dump_json(indent=2))
+    return aktualisiert
 
 
 @router.get("/{ordner:path}/gesamt", response_class=PlainTextResponse)

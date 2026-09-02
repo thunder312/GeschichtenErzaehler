@@ -9,6 +9,7 @@ import { EinstellungenPage } from "./pages/EinstellungenPage";
 import { EpocheErstellenPage } from "./pages/EpocheErstellenPage";
 import { FundusPage } from "./pages/FundusPage";
 import { GeruestPage } from "./pages/GeruestPage";
+import { MobilPage } from "./pages/MobilPage";
 import { StatusFooter } from "./components/StatusFooter";
 import { ZeitUeberbrueckungOverlay } from "./components/ZeitUeberbrueckungOverlay";
 import { AktivitaetProvider } from "./context/AktivitaetContext";
@@ -207,6 +208,30 @@ function App() {
         </div>
       </header>
 
+      {/* Handy-Breite (< md) MIT offenem Projekt: statt der vollen
+          Tab-Navigation (Architekt/Gerüst, Schreiben mit Volltext-Editor,
+          Prüfen & Anwenden mit Monaco-Editor, ...) nur die schlanke
+          MobilPage - fuer Bildschirmbreiten, auf denen aktives Schreiben
+          /Editieren nicht praktikabel ist, liegt der Fokus dort auf
+          Automatikmodus-Überwachung + Prüfer-Vorschläge übernehmen/leicht
+          abändern (siehe MobilPage.tsx). Ohne Projekt (Projektliste,
+          Analysator, ...) bleibt die normale Ansicht auch auf dem Handy
+          bestehen - dafuer ist genug Platz. */}
+      {aktuellesProjekt && (
+        <div className="flex-1 overflow-y-auto pb-10 md:hidden">
+          <MobilPage
+            ordner={aktuellesProjekt}
+            projekt={projektDetail}
+            sshZielId={sshZielId}
+            onGeaendert={() => {
+              projektDetailLaden();
+              projekteLaden();
+            }}
+          />
+        </div>
+      )}
+
+      <div className={`flex flex-1 flex-col overflow-hidden ${aktuellesProjekt ? "hidden md:flex" : ""}`}>
       <TabBar tabs={tabs} active={activeTab} onSelect={setActiveTab} />
 
       {/* Jeder Tab-Inhalt bleibt dauerhaft gemountet und wird nur per CSS
@@ -340,6 +365,7 @@ function App() {
           </>
         )}
       </main>
+      </div>
       <StatusFooter />
       <ZeitUeberbrueckungOverlay />
       {ueberSichtbar && <AboutDialog onClose={() => setUeberSichtbar(false)} />}

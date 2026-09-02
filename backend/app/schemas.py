@@ -250,6 +250,18 @@ class BefundAblehnenAnfrage(BaseModel):
     befund_id: str
 
 
+class BefundUebernehmenAnfrage(BaseModel):
+    """Button "Übernehmen" in der Mobil-Ansicht (siehe MobilPage.tsx) -
+    wendet EINEN Fund serverseitig an (Text-Splice + Speichern), OHNE dass
+    dafuer ein Monaco-Editor im Browser laufen muss (siehe app/api/
+    projects.py:befund_uebernehmen). `vorschlag_override` erlaubt eine
+    leichte Abaenderung des Pruefer-Vorschlags vor dem Uebernehmen (Button
+    "kleine Verbesserung" auf dem Handy) - None/leer nutzt den
+    unveraenderten Original-Vorschlag."""
+    befund_id: str
+    vorschlag_override: str | None = None
+
+
 class BefundeAntwort(BaseModel):
     kapitel: int
     erzeugt_am: str

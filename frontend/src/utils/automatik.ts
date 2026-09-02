@@ -1,4 +1,19 @@
-import type { AutomatikProtokollEintrag } from "../api/types";
+import type { AutomatikProtokollEintrag, AutomatikStatus } from "../api/types";
+
+/** Kurzer, lesbarer Text fuer die globale Fusszeile (StatusFooter) und die
+ * Automatik-Karte in der Mobil-Ansicht (MobilPage.tsx), waehrend der
+ * Automatikmodus im Hintergrund laeuft. */
+export function automatikAktionsText(status: AutomatikStatus): string {
+  const kapitel = status.aktuelles_kapitel != null
+    ? ` Kapitel ${status.aktuelles_kapitel}${status.gesamt_kapitel != null ? `/${status.gesamt_kapitel}` : ""}`
+    : "";
+  if (status.phase === "schreiben") return `Automatikmodus: schreibt${kapitel}...`;
+  if (status.phase === "pruefen") {
+    const durchlauf = status.aktueller_durchlauf != null ? `, Durchlauf ${status.aktueller_durchlauf}` : "";
+    return `Automatikmodus: prüft${kapitel}${durchlauf}...`;
+  }
+  return "Automatikmodus läuft...";
+}
 
 /** Dieselbe Regel wie app/core/automatik.py:_aktuell_uebersprungene() -
  * reduziert "uebersprungen"-Eintraege auf den jeweils letzten Durchlauf pro

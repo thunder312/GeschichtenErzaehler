@@ -494,3 +494,109 @@ def test_befund_ablehnen_unbekannte_id_gibt_404(client, projekt, tmp_path):
 def test_befund_ablehnen_ohne_befunde_datei_gibt_404(client, projekt):
     r = client.post(f"/api/projects/{projekt}/befunde/1/ablehnen", json={"befund_id": "b1"})
     assert r.status_code == 404
+
+
+def test_befund_uebernehmen_wendet_vorschlag_an_und_speichert_kapitel(client, projekt, tmp_path):
+    """Mobil-Ansicht (MobilPage.tsx): "Übernehmen" ohne Monaco-Editor - der
+    Server splict den Vorschlag direkt in kapitel_NN.md."""
+    from app.core import projekt_dateien as pd
+
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    text = "Der Zauberer reiste nach London und traf einen Freund."
+    pd.schreib(pd.kapitel_datei(projekt_root / "projekt", 1), text)
+    _befunde_json_schreiben(projekt_root, 1, [_beispiel_befund()])
+
+    r = client.post(f"/api/projects/{projekt}/befunde/1/uebernehmen", json={"befund_id": "b1"})
+    assert r.status_code == 200
+    assert r.json()["befunde"] == []
+
+    neuer_text = client.get(f"/api/projects/{projekt}/kapitel/1").text
+    assert neuer_text.strip() == "Der Zauberer reiste nach Berlin und traf einen Freund."
+
+
+def test_befund_uebernehmen_mit_override_nutzt_abgeaenderten_text(client, projekt, tmp_path):
+    """Button "kleine Verbesserung": vorschlag_override ersetzt den
+    urspruenglichen Pruefer-Vorschlag vor dem Übernehmen."""
+    from app.core import projekt_dateien as pd
+
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    text = "Der Zauberer reiste nach London."
+    pd.schreib(pd.kapitel_datei(projekt_root / "projekt", 1), text)
+    _befunde_json_schreiben(projekt_root, 1, [_beispiel_befund()])
+
+    r = client.post(
+        f"/api/projects/{projekt}/befunde/1/uebernehmen",
+        json={"befund_id": "b1", "vorschlag_override": "Der Zauberer reiste nach Wien"},
+    )
+    assert r.status_code == 200
+
+    neuer_text = client.get(f"/api/projects/{projekt}/kapitel/1").text
+    assert neuer_text.strip() == "Der Zauberer reiste nach Wien."
+
+
+def test_befund_uebernehmen_verankert_uebrige_offene_funde_neu(client, projekt, tmp_path):
+    """Live-Fund 2026-09-02: ein NICHT uebernommener Fund, der im Text HINTER
+    dem gerade uebernommenen liegt, muss danach eine aktualisierte Position
+    haben - sonst verschwindet er im Frontend als "verwaist"."""
+    from app.core import projekt_dateien as pd
+
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    text = "Er ging zu Fuss durch den Wald und traf einen unsicheren Freund."
+    pd.schreib(pd.kapitel_datei(projekt_root / "projekt", 1), text)
+    befund_anwendbar = _beispiel_befund(id_="b1", fundstelle="Fuss")
+    befund_anwendbar["vorschlag"] = "Fuß"
+    befund_anwendbar["start"] = text.index("Fuss")
+    befund_anwendbar["end"] = text.index("Fuss") + len("Fuss")
+    fundstelle_offen = "unsicheren Freund"
+    befund_offen = _beispiel_befund(id_="b2", fundstelle=fundstelle_offen)
+    befund_offen["vorschlag"] = None
+    befund_offen["start"] = text.index(fundstelle_offen)
+    befund_offen["end"] = text.index(fundstelle_offen) + len(fundstelle_offen)
+    _befunde_json_schreiben(projekt_root, 1, [befund_anwendbar, befund_offen])
+
+    r = client.post(f"/api/projects/{projekt}/befunde/1/uebernehmen", json={"befund_id": "b1"})
+    assert r.status_code == 200
+    verbleibend = r.json()["befunde"]
+    assert len(verbleibend) == 1
+    assert verbleibend[0]["id"] == "b2"
+    assert verbleibend[0]["gefunden"] is True
+
+    neuer_text = client.get(f"/api/projects/{projekt}/kapitel/1").text
+    assert neuer_text[verbleibend[0]["start"]:verbleibend[0]["end"]] == fundstelle_offen
+
+
+def test_befund_uebernehmen_unbekannte_id_gibt_404(client, projekt, tmp_path):
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    pd_kapitel_text_schreiben(projekt_root, 1, "Ein Kapiteltext.")
+    _befunde_json_schreiben(projekt_root, 1, [_beispiel_befund()])
+
+    r = client.post(f"/api/projects/{projekt}/befunde/1/uebernehmen", json={"befund_id": "unbekannt"})
+    assert r.status_code == 404
+
+
+def test_befund_uebernehmen_ohne_vorschlag_gibt_400(client, projekt, tmp_path):
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    pd_kapitel_text_schreiben(projekt_root, 1, "Der Zauberer reiste nach London.")
+    befund = _beispiel_befund()
+    befund["vorschlag"] = None
+    _befunde_json_schreiben(projekt_root, 1, [befund])
+
+    r = client.post(f"/api/projects/{projekt}/befunde/1/uebernehmen", json={"befund_id": "b1"})
+    assert r.status_code == 400
+
+
+def test_befund_uebernehmen_textstelle_nicht_gefunden_gibt_409(client, projekt, tmp_path):
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    # Kapiteltext enthaelt die Fundstelle des Befunds gar nicht (z.B. schon
+    # anderweitig veraendert).
+    pd_kapitel_text_schreiben(projekt_root, 1, "Ganz anderer Text.")
+    _befunde_json_schreiben(projekt_root, 1, [_beispiel_befund()])
+
+    r = client.post(f"/api/projects/{projekt}/befunde/1/uebernehmen", json={"befund_id": "b1"})
+    assert r.status_code == 409
+
+
+def pd_kapitel_text_schreiben(projekt_root, n, text):
+    from app.core import projekt_dateien as pd
+
+    pd.schreib(pd.kapitel_datei(projekt_root / "projekt", n), text)

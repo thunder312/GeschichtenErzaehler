@@ -14,7 +14,7 @@ import { CollapsibleCard } from "../components/CollapsibleCard";
 import { FindingsList } from "../components/FindingsList";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
-import { hatReste, resteZusammenfassen } from "../utils/automatik";
+import { automatikAktionsText, hatReste, resteZusammenfassen } from "../utils/automatik";
 import { alsDateiHerunterladen } from "../utils/download";
 
 interface SchreibenPageProps {
@@ -40,19 +40,6 @@ function formatDauer(sekunden: number): string {
   return std > 0 ? `${std} Std. ${min} Min.` : `${min} Min.`;
 }
 
-/** Kurzer, lesbarer Text fuer die globale Fusszeile (StatusFooter) waehrend
- * der Automatikmodus im Hintergrund laeuft. */
-function automatikAktionsText(status: AutomatikStatus): string {
-  const kapitel = status.aktuelles_kapitel != null
-    ? ` Kapitel ${status.aktuelles_kapitel}${status.gesamt_kapitel != null ? `/${status.gesamt_kapitel}` : ""}`
-    : "";
-  if (status.phase === "schreiben") return `Automatikmodus: schreibt${kapitel}...`;
-  if (status.phase === "pruefen") {
-    const durchlauf = status.aktueller_durchlauf != null ? `, Durchlauf ${status.aktueller_durchlauf}` : "";
-    return `Automatikmodus: prüft${kapitel}${durchlauf}...`;
-  }
-  return "Automatikmodus läuft...";
-}
 
 export function SchreibenPage({
   ordner,

@@ -191,6 +191,16 @@ export const api = {
       { method: "POST", body: JSON.stringify({ befund_id: befundId }) },
     ),
 
+  /** Serverseitiges "Übernehmen" OHNE Monaco-Editor (Mobil-Ansicht,
+   * MobilPage.tsx) - spleist den Vorschlag (oder `vorschlagOverride`, falls
+   * vor dem Übernehmen leicht abgeändert) direkt in kapitel_NN.md und liefert
+   * die aktualisierte, neu verankerte Funde-Liste zurück. */
+  befundUebernehmen: (ordner: string, n: number, befundId: string, vorschlagOverride?: string) =>
+    anfrage<BefundeAntwort>(
+      `/api/projects/${ordner}/befunde/${n}/uebernehmen`,
+      { method: "POST", body: JSON.stringify({ befund_id: befundId, vorschlag_override: vorschlagOverride ?? null }) },
+    ),
+
   /** Konflikt-Fund (mehrere Prüfer mit sich widersprechenden Vorschlägen für
    * dieselbe Stelle, siehe BefundListe.tsx) per gezieltem LLM-Aufruf zu einem
    * gemeinsamen, übernehmbaren Vorschlag zusammenführen. */
