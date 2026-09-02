@@ -725,3 +725,58 @@ def test_automatik_fortsetzen_vorschau_alles_geschrieben(client):
     assert v["naechstes_kapitel"] is None
     assert v["zu_schreiben"] == []
     assert v["anknuepfpunkt"] is None
+
+
+def test_kapitel_befunde_neu_verankern_repositioniert_offene_funde(tmp_path):
+    """Live-Fund 2026-09-02 ("Das-Recht-des-Samurais"): ein NICHT angewendeter
+    (uebersprungener) Fund, der im Text HINTER einem angewendeten Fund liegt,
+    verschiebt sich durchs Splicen des angewendeten Funds - ohne Neuveranke-
+    rung zeigt die gespeicherte befunde_NN.json weiter auf die alte (jetzt
+    falsche) Stelle, der Frontend-Anker-Check haelt den Fund faelschlich fuer
+    "verwaist" und blendet ihn aus "Prüfen & Anwenden" aus, obwohl er
+    inhaltlich noch offen ist."""
+    import hashlib
+    import json
+    from app.core import automatik, projekt_dateien as pd
+    from app.schemas import Befund, BefundeAntwort
+
+    projekt = tmp_path / "projekt"
+    projekt.mkdir()
+    text_vorher = "Er ging zu Fuss durch den Wald und traf einen unsicheren Freund."
+    fundstelle_offen = "unsicheren Freund"
+    befund_angewendet = Befund(
+        id="b1", kategorien=["lektor"], fundstelle="Fuss",
+        beschreibungen=[], sicherheit="hoch", vorschlag="Fuß",
+        konflikt=False, konflikt_vorschlaege=None, gefunden=True,
+        start=text_vorher.index("Fuss"), end=text_vorher.index("Fuss") + len("Fuss"),
+    )
+    befund_offen = Befund(
+        id="b2", kategorien=["lektor"], fundstelle=fundstelle_offen,
+        beschreibungen=[], sicherheit="niedrig", vorschlag=None,
+        konflikt=False, konflikt_vorschlaege=None, gefunden=True,
+        start=text_vorher.index(fundstelle_offen),
+        end=text_vorher.index(fundstelle_offen) + len(fundstelle_offen),
+    )
+    antwort = BefundeAntwort(
+        kapitel=1, erzeugt_am="2026-09-02 10:00", jahr="1815",
+        befunde=[befund_angewendet, befund_offen],
+        quelltext_sha256="irrelevant-fuer-diesen-test",
+    )
+    befunde_dicts = [b.model_dump() for b in antwort.befunde]
+    korrigiert, protokoll_eintraege = automatik.befunde_anwenden(text_vorher, befunde_dicts)
+    assert korrigiert != text_vorher
+    # "Fuss" (4 Zeichen) wird zu "Fuß" (3 Zeichen) - alles danach verschiebt
+    # sich um 1 Zeichen nach vorne, inkl. der offenen Fundstelle.
+    urspruengliche_position_veraltet = korrigiert[befund_offen.start:befund_offen.end] != fundstelle_offen
+    assert urspruengliche_position_veraltet
+
+    pipeline._kapitel_befunde_neu_verankern(projekt, 1, antwort, protokoll_eintraege, korrigiert)
+
+    gespeichert = json.loads(pd.befunde_datei(projekt, 1).read_text(encoding="utf-8"))
+    assert len(gespeichert["befunde"]) == 1
+    offen = gespeichert["befunde"][0]
+    assert offen["id"] == "b2"
+    assert offen["gefunden"] is True
+    assert korrigiert[offen["start"]:offen["end"]] == fundstelle_offen
+    assert offen["start"] == befund_offen.start - 1
+    assert gespeichert["quelltext_sha256"] == hashlib.sha256(korrigiert.encode("utf-8")).hexdigest()

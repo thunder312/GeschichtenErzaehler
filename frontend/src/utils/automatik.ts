@@ -1,12 +1,36 @@
 import type { AutomatikProtokollEintrag } from "../api/types";
 
+/** Dieselbe Regel wie app/core/automatik.py:_aktuell_uebersprungene() -
+ * reduziert "uebersprungen"-Eintraege auf den jeweils letzten Durchlauf pro
+ * Kapitel, damit ein laengst durch einen spaeteren Durchlauf ueberholter
+ * Zwischenstand (z.B. Durchlauf 1/2 eines Kapitels, das in Durchlauf 3
+ * sauber konvergierte) nicht mehr als aktuell offen zaehlt. */
+function aktuellUebersprungene(protokoll: AutomatikProtokollEintrag[]): AutomatikProtokollEintrag[] {
+  const hoechsterDurchlauf = new Map<number | undefined, number | null>();
+  for (const eintrag of protokoll) {
+    if (eintrag.art !== "uebersprungen") continue;
+    if (eintrag.durchlauf == null) {
+      hoechsterDurchlauf.set(eintrag.kapitel, null);
+      continue;
+    }
+    const bisher = hoechsterDurchlauf.get(eintrag.kapitel);
+    if (bisher !== null && (bisher === undefined || eintrag.durchlauf > bisher)) {
+      hoechsterDurchlauf.set(eintrag.kapitel, eintrag.durchlauf);
+    }
+  }
+  return protokoll.filter((eintrag) => {
+    if (eintrag.art !== "uebersprungen") return false;
+    const hoechster = hoechsterDurchlauf.get(eintrag.kapitel);
+    return hoechster == null || eintrag.durchlauf === hoechster;
+  });
+}
+
 /** Dieselbe Regel wie app/core/automatik.py:reste_vorhanden() - fuer die
  * Sichtbarkeit des "Prüfung abschließen"-Buttons (nur zeigen, wenn es
  * ueberhaupt etwas zu bestaetigen gibt). */
 export function hatReste(protokoll: AutomatikProtokollEintrag[]): boolean {
-  return protokoll.some(
-    (eintrag) => eintrag.art === "uebersprungen" || (eintrag.art === "rechtschreibung" && !!eintrag.unbekannte_woerter?.length),
-  );
+  if (aktuellUebersprungene(protokoll).length > 0) return true;
+  return protokoll.some((eintrag) => eintrag.art === "rechtschreibung" && !!eintrag.unbekannte_woerter?.length);
 }
 
 export interface ResteZusammenfassung {

@@ -109,6 +109,7 @@ def status_lesen(projekt_root: Path) -> dict[str, Any]:
             "resten_bestaetigt": False,
             "fehler_schritt": None,
             "aktueller_text": None,
+            "kapitel_letzter_durchlauf": {},
         }
     status = json.loads(pfad.read_text(encoding="utf-8"))
     status.setdefault("aktueller_durchlauf", None)
@@ -123,6 +124,12 @@ def status_lesen(projekt_root: Path) -> dict[str, Any]:
     # unbeaufsichtigt live mitlaufen kann statt nur waehrend interaktiven
     # Schreibens (siehe SchreibenPage.tsx).
     status.setdefault("aktueller_text", None)
+    # Erst mit der Neuverankerung/Rest-Erkennungs-Praezisierung (siehe
+    # reste_vorhanden()) eingefuehrt - {} statt eines fehlenden Schluessels
+    # macht das Verhalten fuer aeltere Status-Dateien konservativ (kein
+    # bekannter "letzter Durchlauf", also faellt reste_vorhanden() dort auf
+    # die reine Protokoll-Heuristik zurueck).
+    status.setdefault("kapitel_letzter_durchlauf", {})
     return status
 
 
@@ -258,15 +265,77 @@ def zustand_zusammenfassen(status: dict[str, Any]) -> str | None:
     return "abgeschlossen_sauber"
 
 
+def _aktuell_uebersprungene(status: dict[str, Any]) -> list[dict[str, Any]]:
+    """Reduziert die "uebersprungen"-Eintraege auf den jeweils LETZTEN
+    tatsaechlich gelaufenen Durchlauf pro Kapitel - ein Fund aus einem
+    frueheren, laengst durch einen spaeteren Durchlauf desselben Kapitels
+    ueberholten Zwischenstand zaehlt NICHT mehr als aktuell offen. Ohne das
+    haeufte sich in status["protokoll"] (das ueber "Fortsetzen" hinweg
+    dauerhaft waechst) bei jedem Kapitel mit mehreren Durchlaeufen fast immer
+    mindestens ein Uebersprungen-Eintrag aus einem fruehen, seither sauber
+    konvergierten Durchlauf an - reste_vorhanden() loeste dadurch auch dann
+    aus, wenn im aktuellen Kapitelstand (und damit im Tab "Pruefen &
+    Anwenden") gar nichts mehr offen war (Live-Fund 2026-09-02, "Das-Recht-
+    des-Samurais": Kapitel 1/2 laengst sauber, zaehlten trotzdem mit).
+
+    Der "letzte Durchlauf" wird primaer aus status["kapitel_letzter_
+    durchlauf"] gelesen (von _automatik_lauf bei JEDEM Durchlauf aktualisiert,
+    AUCH wenn dieser 0 Funde hatte) statt nur aus dem hoechsten im Protokoll
+    VORKOMMENDEN Durchlauf - ein Durchlauf mit 0 Funden erzeugt naemlich
+    UEBERHAUPT KEINEN protokoll_eintraege-Eintrag und waere sonst fuer diese
+    Funktion unsichtbar (genau der Fall bei Kapitel 1 oben: Durchlauf 3 hatte
+    0 Funde und konvergierte, ohne im Protokoll je aufzutauchen). Kapitel ohne
+    Eintrag in kapitel_letzter_durchlauf (aeltere Status-Dateien) fallen auf
+    den hoechsten im Protokoll vorkommenden Durchlauf zurueck; Eintraege ganz
+    ohne Durchlauf-Feld werden konservativ komplett mitgezaehlt."""
+    protokoll = status.get("protokoll", [])
+    kapitel_letzter_durchlauf: dict[Any, int] = {}
+    for kapitel_str, durchlauf in status.get("kapitel_letzter_durchlauf", {}).items():
+        try:
+            kapitel_letzter_durchlauf[int(kapitel_str)] = durchlauf
+        except (TypeError, ValueError):
+            kapitel_letzter_durchlauf[kapitel_str] = durchlauf
+
+    # Fallback-Quelle, falls kapitel_letzter_durchlauf fuer ein Kapitel nichts
+    # weiss (aeltere Status-Dateien): hoechster im Protokoll VORKOMMENDER
+    # Durchlauf UEBER ALLE Arten hinweg (nicht nur "uebersprungen") - ein
+    # Kapitel, das in Durchlauf 2 nur "angewendet"-Eintraege hatte, beweist
+    # trotzdem, dass Durchlauf 2 stattfand und Durchlauf 1 damit ueberholt ist.
+    hoechster_durchlauf: dict[Any, int | None] = {}
+    for eintrag in protokoll:
+        kapitel = eintrag.get("kapitel")
+        durchlauf = eintrag.get("durchlauf")
+        if durchlauf is None:
+            hoechster_durchlauf[kapitel] = None
+        else:
+            bisher = hoechster_durchlauf.get(kapitel, -1)
+            if bisher is not None and durchlauf > bisher:
+                hoechster_durchlauf[kapitel] = durchlauf
+    # kapitel_letzter_durchlauf ist die verlaesslichere Quelle, wo vorhanden -
+    # ueberschreibt den rein aus dem Protokoll abgeleiteten (potenziell zu
+    # alten) Wert.
+    for kapitel, durchlauf in kapitel_letzter_durchlauf.items():
+        hoechster_durchlauf[kapitel] = durchlauf
+
+    return [
+        eintrag for eintrag in protokoll
+        if eintrag.get("art") == "uebersprungen"
+        and (hoechster_durchlauf.get(eintrag.get("kapitel")) is None
+             or eintrag.get("durchlauf") == hoechster_durchlauf.get(eintrag.get("kapitel")))
+    ]
+
+
 def reste_vorhanden(status: dict[str, Any]) -> bool:
-    """True, wenn das Protokoll des letzten Laufs uebersprungene Funde
-    (Konflikt/nicht gefunden) oder unbekannte Woerter enthaelt - unabhaengig
+    """True, wenn im Protokoll des letzten Laufs AKTUELL noch offene
+    uebersprungene Funde (aus dem jeweils letzten Durchlauf eines Kapitels,
+    siehe _aktuell_uebersprungene) oder unbekannte Woerter stehen - unabhaengig
     davon, ob das per "Pruefung abschliessen" (resten_bestaetigt) schon
     quittiert wurde. Siehe zustand_zusammenfassen() fuer die kombinierte
     Sicht, die BEIDES beruecksichtigt."""
+    if _aktuell_uebersprungene(status):
+        return True
     return any(
-        eintrag.get("art") == "uebersprungen"
-        or (eintrag.get("art") == "rechtschreibung" and eintrag.get("unbekannte_woerter"))
+        eintrag.get("art") == "rechtschreibung" and eintrag.get("unbekannte_woerter")
         for eintrag in status.get("protokoll", [])
     )
 
@@ -297,38 +366,44 @@ def befunde_anwenden(text: str, befunde: list[dict[str, Any]]) -> tuple[str, lis
 
     Gibt den korrigierten Text und ein Protokoll zurueck, in dem JEDER Fund
     (angewendet oder uebersprungen samt Grund) auftaucht - fuer die
-    Abschluss-Anzeige im Automatikmodus."""
+    Abschluss-Anzeige im Automatikmodus. Jeder Protokoll-Eintrag traegt
+    zusaetzlich die `id` des zugehoerigen Eingabe-Funds (kann None sein, wenn
+    `befunde` keine `id` mitbringt) - app/api/pipeline.py nutzt das, um nach
+    dem Anwenden die Positionen der uebrig gebliebenen (uebersprungenen)
+    Funde gegen den korrigierten Text neu zu verankern (siehe
+    _kapitel_befunde_neu_verankern dort), statt sie mit inzwischen falschen
+    Offsets aus befunde_NN.json stehen zu lassen."""
     anwendbar = []
     protokoll: list[dict[str, Any]] = []
 
     for befund in befunde:
         if befund.get("konflikt"):
             protokoll.append({
-                "art": "uebersprungen", "grund": "konflikt",
+                "art": "uebersprungen", "grund": "konflikt", "id": befund.get("id"),
                 "fundstelle": befund.get("fundstelle"), "vorschlag": befund.get("vorschlag"),
             })
             continue
         if not befund.get("gefunden") or befund.get("start") is None or befund.get("end") is None:
             protokoll.append({
-                "art": "uebersprungen", "grund": "nicht_gefunden",
+                "art": "uebersprungen", "grund": "nicht_gefunden", "id": befund.get("id"),
                 "fundstelle": befund.get("fundstelle"), "vorschlag": befund.get("vorschlag"),
             })
             continue
         if not befund.get("vorschlag"):
             protokoll.append({
-                "art": "uebersprungen", "grund": "kein_vorschlag",
+                "art": "uebersprungen", "grund": "kein_vorschlag", "id": befund.get("id"),
                 "fundstelle": befund.get("fundstelle"), "vorschlag": None,
             })
             continue
         if vorschlag_verdaechtig(befund.get("fundstelle") or "", befund["vorschlag"]):
             protokoll.append({
-                "art": "uebersprungen", "grund": "verdaechtiger_vorschlag",
+                "art": "uebersprungen", "grund": "verdaechtiger_vorschlag", "id": befund.get("id"),
                 "fundstelle": befund.get("fundstelle"), "vorschlag": befund.get("vorschlag"),
             })
             continue
         if vorschlag_dupliziert_kontext(text, befund["start"], befund["end"], befund["vorschlag"]):
             protokoll.append({
-                "art": "uebersprungen", "grund": "kontext_dupliziert",
+                "art": "uebersprungen", "grund": "kontext_dupliziert", "id": befund.get("id"),
                 "fundstelle": befund.get("fundstelle"), "vorschlag": befund.get("vorschlag"),
             })
             continue
@@ -343,7 +418,7 @@ def befunde_anwenden(text: str, befunde: list[dict[str, Any]]) -> tuple[str, lis
         start, end = befund["start"], befund["end"]
         neuer_text = neuer_text[:start] + befund["vorschlag"] + neuer_text[end:]
         protokoll.append({
-            "art": "angewendet", "grund": None,
+            "art": "angewendet", "grund": None, "id": befund.get("id"),
             "fundstelle": befund.get("fundstelle"), "vorschlag": befund.get("vorschlag"),
         })
 

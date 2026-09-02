@@ -23,7 +23,7 @@ import logging
 import re
 import time
 from pathlib import Path
-from typing import Awaitable, Callable, TypeVar
+from typing import Any, Awaitable, Callable, TypeVar
 
 from fastapi import (
     APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Response, UploadFile,
@@ -559,6 +559,55 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
     )
     pd.schreib(pd.befunde_datei(projekt, n), antwort.model_dump_json(indent=2))
     return antwort
+
+
+def _kapitel_befunde_neu_verankern(
+    projekt: Path, n: int, befunde_antwort: BefundeAntwort,
+    protokoll_eintraege: list[dict[str, Any]], korrigiert: str,
+) -> None:
+    """Nach automatik.befunde_anwenden(): die in `befunde_antwort` (und damit
+    in der zuletzt von _pruefe_kapitel geschriebenen befunde_NN.json)
+    gespeicherten start/end-Offsets der NICHT angewendeten (uebersprungenen)
+    Funde stimmen nicht mehr, sobald mindestens eine ANDERE Korrektur im
+    selben Kapitel VOR ihnen im Text angewendet wurde - befunde_anwenden()
+    spleisst zwar absteigend nach start, um die Offsets noch nicht
+    verarbeiteter Funde beim Splicen selbst gueltig zu halten, schreibt die
+    dabei entstehenden Verschiebungen aber nirgends zurueck in die einzelnen
+    Fund-Objekte. Ohne Neuverankerung zeigt die auf der Platte liegende
+    befunde_NN.json weiterhin auf die alten (jetzt falschen) Stellen - der
+    Anker-Check im Frontend (befundReview.ts: exakter Textvergleich an
+    start/end) erkennt genau das als Mismatch und behandelt den Fund als
+    "verwaist" -> er verschwindet unsichtbar aus dem Tab "Pruefen & Anwenden",
+    obwohl er inhaltlich noch offen ist (Live-Fund 2026-09-02,
+    "Das-Recht-des-Samurais": Kapitel 4/6 zeigten trotz echter offener Funde
+    "nichts Neues" im Tab). Sucht die neue Position jedes uebersprungenen
+    Funds per finde_fundstelle() im korrigierten Text (der Zitat-Text selbst
+    aendert sich durchs Verschieben nicht) und schreibt eine aktualisierte
+    befunde_NN.json - NUR die noch offenen (uebersprungenen) Funde, mit
+    frischem quelltext_sha256 gegen `korrigiert`. Nur aufrufen, wenn sich der
+    Text durch das Anwenden tatsaechlich veraendert hat (sonst sind die
+    urspruenglichen Offsets ohnehin noch gueltig)."""
+    uebersprungene_ids = {
+        eintrag["id"] for eintrag in protokoll_eintraege
+        if eintrag["art"] == "uebersprungen" and eintrag.get("id") is not None
+    }
+    offene_befunde = []
+    for befund in befunde_antwort.befunde:
+        if befund.id not in uebersprungene_ids:
+            continue
+        neue_stelle = finde_fundstelle(korrigiert, befund.fundstelle)
+        offene_befunde.append(befund.model_copy(update={
+            "start": neue_stelle[0] if neue_stelle else None,
+            "end": neue_stelle[1] if neue_stelle else None,
+            "gefunden": neue_stelle is not None,
+        }))
+
+    aktualisiert = befunde_antwort.model_copy(update={
+        "erzeugt_am": time.strftime("%Y-%m-%d %H:%M"),
+        "befunde": offene_befunde,
+        "quelltext_sha256": hashlib.sha256(korrigiert.encode("utf-8")).hexdigest(),
+    })
+    pd.schreib(pd.befunde_datei(projekt, n), aktualisiert.model_dump_json(indent=2))
 
 
 async def _stand_ausfuehren(settings: Settings, projekt_root: Path, base_url: str, n: int) -> tuple[str, bool]:
@@ -1145,6 +1194,9 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
         "aktueller_durchlauf": None,
         "log": list(vorheriger_status.get("log", [])) if fortsetzen_ab_kapitel else [],
         "protokoll": list(vorheriger_status.get("protokoll", [])) if fortsetzen_ab_kapitel else [],
+        "kapitel_letzter_durchlauf": (
+            dict(vorheriger_status.get("kapitel_letzter_durchlauf", {})) if fortsetzen_ab_kapitel else {}
+        ),
         "stop_angefordert": False,
         "abgeschlossen": False, "fehler": None,
         "resten_bestaetigt": False,
@@ -1302,6 +1354,14 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                         eintrag["kapitel"] = n
                         eintrag["durchlauf"] = durchlauf
                     status["protokoll"] += protokoll_eintraege
+                    # Immer aktualisieren, AUCH wenn dieser Durchlauf 0 Funde
+                    # hatte und deshalb keinen einzigen protokoll_eintraege-
+                    # Eintrag erzeugt hat - sonst haette automatik.
+                    # _aktuell_uebersprungene() keine Moeglichkeit zu erkennen,
+                    # dass ein sauber (mit 0 Funden) konvergierter Durchlauf
+                    # saemtliche uebersprungenen Funde FRUEHERER Durchlaeufe
+                    # desselben Kapitels ueberholt hat (siehe reste_vorhanden()).
+                    status.setdefault("kapitel_letzter_durchlauf", {})[str(n)] = durchlauf
 
                     angewendet = sum(1 for e in protokoll_eintraege if e["art"] == "angewendet")
                     status["log"].append(
@@ -1330,6 +1390,11 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
 
                     if korrigiert != kapiteltext:
                         pd.schreib(pd.kapitel_datei(projekt, n), korrigiert)
+                        # Die soeben in befunde_dicts/befunde_antwort gespeicherten
+                        # Fund-Positionen der uebersprungenen (noch offenen) Funde
+                        # zeigen jetzt auf die falschen Stellen, siehe
+                        # _kapitel_befunde_neu_verankern().
+                        _kapitel_befunde_neu_verankern(projekt, n, befunde_antwort, protokoll_eintraege, korrigiert)
 
                     if angewendet == 0 or durchlauf >= max_durchlaeufe:
                         break

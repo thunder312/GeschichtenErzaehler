@@ -1,9 +1,9 @@
 from app.core import automatik
 
 
-def _befund(fundstelle, start, end, vorschlag, konflikt=False, gefunden=True):
+def _befund(fundstelle, start, end, vorschlag, konflikt=False, gefunden=True, id=None):
     return {
-        "fundstelle": fundstelle, "start": start, "end": end,
+        "id": id, "fundstelle": fundstelle, "start": start, "end": end,
         "vorschlag": vorschlag, "konflikt": konflikt, "gefunden": gefunden,
     }
 
@@ -21,7 +21,7 @@ def test_befunde_anwenden_wendet_einen_fund_an():
     befunde = [_befund("Fuss", start, start + len("Fuss"), "Fuß")]
     neuer_text, protokoll = automatik.befunde_anwenden(text, befunde)
     assert neuer_text == "Er ging zu Fuß."
-    assert protokoll == [{"art": "angewendet", "grund": None, "fundstelle": "Fuss", "vorschlag": "Fuß"}]
+    assert protokoll == [{"art": "angewendet", "grund": None, "id": None, "fundstelle": "Fuss", "vorschlag": "Fuß"}]
 
 
 def test_befunde_anwenden_mehrere_nicht_ueberlappende_funde_unabhaengig_von_reihenfolge():
@@ -45,7 +45,7 @@ def test_befunde_anwenden_ueberspringt_konflikt():
     befunde = [_befund("strittiger", 4, 14, "unstrittiger", konflikt=True)]
     neuer_text, protokoll = automatik.befunde_anwenden(text, befunde)
     assert neuer_text == text
-    assert protokoll == [{"art": "uebersprungen", "grund": "konflikt", "fundstelle": "strittiger", "vorschlag": "unstrittiger"}]
+    assert protokoll == [{"art": "uebersprungen", "grund": "konflikt", "id": None, "fundstelle": "strittiger", "vorschlag": "unstrittiger"}]
 
 
 def test_befunde_anwenden_ueberspringt_nicht_gefunden():
@@ -188,6 +188,53 @@ def test_reste_vorhanden_erkennt_uebersprungene_und_unbekannte_woerter():
     assert automatik.reste_vorhanden({"protokoll": [{"art": "rechtschreibung", "unbekannte_woerter": ["X"]}]}) is True
     assert automatik.reste_vorhanden({"protokoll": [{"art": "angewendet"}]}) is False
     assert automatik.reste_vorhanden({"protokoll": []}) is False
+
+
+def test_reste_vorhanden_ignoriert_durch_spaeteren_durchlauf_ueberholte_uebersprungene():
+    """Live-Fund 2026-09-02 ("Das-Recht-des-Samurais"): Kapitel 1 hatte in
+    Durchlauf 1+2 je einen uebersprungenen Fund, Durchlauf 3 konvergierte
+    sauber (0 Funde ueberhaupt, deshalb KEIN eigener Protokoll-Eintrag) -
+    trotzdem loeste reste_vorhanden() weiterhin aus, weil die laengst
+    ueberholten Eintraege aus Durchlauf 1/2 im kumulierten Protokoll stehen
+    blieben, obwohl im aktuellen Kapitelstand (und damit im Tab "Pruefen &
+    Anwenden") nichts mehr offen war. kapitel_letzter_durchlauf (von
+    _automatik_lauf bei JEDEM Durchlauf aktualisiert, auch bei 0 Funden)
+    ist die einzige verlaessliche Quelle dafuer, dass Durchlauf 3 der
+    tatsaechlich letzte war."""
+    status = {
+        "kapitel_letzter_durchlauf": {"1": 3},
+        "protokoll": [
+            {"art": "uebersprungen", "kapitel": 1, "durchlauf": 1, "grund": "konflikt"},
+            {"art": "uebersprungen", "kapitel": 1, "durchlauf": 2, "grund": "konflikt"},
+        ],
+    }
+    assert automatik.reste_vorhanden(status) is False
+
+
+def test_reste_vorhanden_erkennt_uebersprungene_im_letzten_durchlauf():
+    """Gegenprobe: ein Fund, der noch im LETZTEN Durchlauf eines Kapitels
+    uebersprungen wurde (max_durchlaeufe erreicht, ohne Konvergenz), zaehlt
+    weiterhin als aktuell offen."""
+    status = {
+        "kapitel_letzter_durchlauf": {"4": 3},
+        "protokoll": [
+            {"art": "uebersprungen", "kapitel": 4, "durchlauf": 1, "grund": "konflikt"},
+            {"art": "uebersprungen", "kapitel": 4, "durchlauf": 3, "grund": "kein_vorschlag"},
+        ],
+    }
+    assert automatik.reste_vorhanden(status) is True
+
+
+def test_reste_vorhanden_faellt_ohne_kapitel_letzter_durchlauf_auf_protokoll_zurueck():
+    """Aeltere Status-Dateien (vor Einfuehrung von kapitel_letzter_durchlauf)
+    haben dieses Feld nicht - status_lesen() ergaenzt dann {}, und
+    reste_vorhanden() muss trotzdem funktionieren (konservativ anhand des
+    hoechsten im Protokoll VORKOMMENDEN Durchlaufs)."""
+    status = {"kapitel_letzter_durchlauf": {}, "protokoll": [
+        {"art": "uebersprungen", "kapitel": 4, "durchlauf": 1, "grund": "konflikt"},
+        {"art": "angewendet", "kapitel": 4, "durchlauf": 2},
+    ]}
+    assert automatik.reste_vorhanden(status) is False
 
 
 def test_zustand_zusammenfassen_gestoppt_vor_abschluss():
