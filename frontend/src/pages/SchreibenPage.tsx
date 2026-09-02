@@ -22,6 +22,7 @@ interface SchreibenPageProps {
   projekt: ProjektDetail | null;
   sshZielId: string;
   onKapitelGeschrieben: () => void;
+  aktiv: boolean;
 }
 
 // Grund-Codes aus app/core/automatik.py:befunde_anwenden() - lesbare Texte
@@ -58,6 +59,7 @@ export function SchreibenPage({
   projekt,
   sshZielId,
   onKapitelGeschrieben,
+  aktiv,
 }: SchreibenPageProps) {
   const [n, setN] = useState(1);
   const [zusatzhinweis, setZusatzhinweis] = useState("");
@@ -70,6 +72,7 @@ export function SchreibenPage({
   const [findings, setFindings] = useState<Finding[]>([]);
   const [phase, setPhase] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   // "Frage zur Geschichte" (siehe fragen() unten) - rein informationell,
   // NICHT zu verwechseln mit "zusatzhinweis" oben, das Wuensche fuer das
   // naechste geschriebene Kapitel entgegennimmt. Nur session-lokal, keine
@@ -252,7 +255,24 @@ export function SchreibenPage({
     return () => {
       abgebrochen = true;
     };
-  }, [ordner, n, projekt, laeuft]);
+  }, [ordner, n, projekt, laeuft, reloadToken]);
+
+  // Betritt der Nutzer diesen Tab erneut (z.B. weil im Hintergrund der
+  // Automatikmodus weitergeschrieben/geprueft hat, oder weil in "Pruefen &
+  // Anwenden" manuelle Korrekturen an kapitel_NN.md gespeichert wurden),
+  // den Kapiteltext/die Befunde fuer die aktuell gewaehlte Nummer frisch von
+  // der Platte laden - analog zum bestehenden Nachlade-Fix in
+  // PruefenAnwendenPage.tsx (dort ueber "aktiv"-Prop + reloadToken). Ohne das
+  // zeigte das "Autor"-Fenster nach einem Tab-Wechsel weiterhin den Stand vom
+  // letzten Besuch, auch wenn die Datei sich laengst geaendert hatte.
+  const warAktiv = useRef(aktiv);
+  useEffect(() => {
+    const wurdeBetreten = aktiv && !warAktiv.current;
+    warAktiv.current = aktiv;
+    if (!wurdeBetreten || laeuft) return;
+    onKapitelGeschrieben();
+    setReloadToken((t) => t + 1);
+  }, [aktiv, laeuft, onKapitelGeschrieben]);
 
   function starten() {
     setLaeuft(true);
@@ -370,11 +390,20 @@ export function SchreibenPage({
 
   // Das "Autor"-Fenster zeigt waehrend des interaktiven Schreibens den per
   // WebSocket gestreamten Text (autorText). Laeuft stattdessen gerade der
-  // Automatikmodus (kein WebSocket, siehe _automatik_on_event im Backend),
-  // zeigt es dessen periodisch aktualisierten aktueller_text - sonst bliebe
-  // das Fenster ab dem ersten unbeaufsichtigten Kapitel fuer immer leer.
+  // Automatikmodus in PHASE "schreiben" (kein WebSocket, siehe
+  // _automatik_on_event im Backend), zeigt es dessen periodisch
+  // aktualisierten aktueller_text - sonst bliebe das Fenster ab dem ersten
+  // unbeaufsichtigten Kapitel fuer immer leer. In jeder anderen Automatik-
+  // Phase (z.B. "pruefen") wird aktueller_text vom Backend NICHT mehr
+  // aktualisiert - er bliebe sonst dauerhaft auf dem zuletzt geschriebenen
+  // Kapitel stehen, selbst wenn laengst ein anderes Kapitel geprueft wird
+  // oder der Nutzer zwischenzeitlich manuelle Korrekturen gespeichert hat
+  // (Live-Meldung 2026-09-02). Stattdessen zeigt es dann autorText, das per
+  // Lade-Effekt oben (inkl. Tab-Neubetreten) den aktuellen Datei-Stand des
+  // gewaehlten Kapitels n von der Platte haelt.
   const automatikSchreibtGerade = (automatikStatus?.laeuft ?? false) && !laeuft;
-  const angezeigterAutorText = automatikSchreibtGerade ? automatikStatus?.aktueller_text ?? "" : autorText;
+  const automatikStreamtGerade = automatikSchreibtGerade && automatikStatus?.phase === "schreiben";
+  const angezeigterAutorText = automatikStreamtGerade ? automatikStatus?.aktueller_text ?? "" : autorText;
 
   // "Weitere Kapitel schreiben" nur anbieten, wenn die Geschichte schon
   // begonnen ist (mindestens ein Kapitel geschrieben) UND der Kapitelplan
@@ -484,11 +513,8 @@ export function SchreibenPage({
               Autor {modell && <span className="font-sans font-normal text-text-muted">({modell})</span>}
             </h2>
             {denktNach && <span className="text-xs italic text-accent-light">denkt nach...</span>}
-            {automatikSchreibtGerade && (
-              <span className="text-xs italic text-accent-light">
-                Automatikmodus schreibt Kapitel {automatikStatus?.aktuelles_kapitel}
-                {automatikStatus?.gesamt_kapitel != null && <>/{automatikStatus.gesamt_kapitel}</>}...
-              </span>
+            {automatikSchreibtGerade && automatikStatus && (
+              <span className="text-xs italic text-accent-light">{automatikAktionsText(automatikStatus)}</span>
             )}
             {!laeuft && !automatikSchreibtGerade && geladenAusDatei && (
               <span className="text-xs text-text-muted">📄 gespeicherter Stand von kapitel_{String(n).padStart(2, "0")}.md</span>

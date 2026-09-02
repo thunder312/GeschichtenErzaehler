@@ -263,6 +263,7 @@ function App() {
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
                 sshZielId={sshZielId}
+                aktiv={activeTab === "schreiben"}
                 onKapitelGeschrieben={() => {
                   projektDetailLaden();
                   projekteLaden();
