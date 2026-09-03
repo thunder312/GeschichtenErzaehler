@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import type { FundusFigur, ProjektDetail } from "../api/types";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { OrdnerUmbenennenDialog } from "../components/OrdnerUmbenennenDialog";
 import { KapitelplanEditor } from "../components/KapitelplanEditor";
 import { RahmenEditor } from "../components/RahmenEditor";
 import { Badge, Button, Card, CardTitle } from "../components/ui";
@@ -101,6 +102,13 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   const [wirdZurueckgesetzt, setWirdZurueckgesetzt] = useState(false);
   const [wirdKopiert, setWirdKopiert] = useState(false);
   const [aktionsFehler, setAktionsFehler] = useState<string | null>(null);
+
+  // Expliziter "Ordner umbenennen"-Dialog - bewusst getrennt vom
+  // Gerüst-Speichern (siehe app/api/projects.py:projekt_ordner_umbenennen).
+  const [umbenennenOffen, setUmbenennenOffen] = useState(false);
+  const [wirdUmbenannt, setWirdUmbenannt] = useState(false);
+  const [umbenennenFehler, setUmbenennenFehler] = useState<string | null>(null);
+  const aktuellerOrdnerName = ordner.split("/").pop() ?? ordner;
 
   const [verbotslisteInhalt, setVerbotslisteInhalt] = useState(projekt?.verbotsliste ?? "");
   const [verbotslisteWirdGespeichert, setVerbotslisteWirdGespeichert] = useState(false);
@@ -256,6 +264,20 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
     }
   }
 
+  async function ordnerUmbenennen(neuerName: string) {
+    setWirdUmbenannt(true);
+    setUmbenennenFehler(null);
+    try {
+      const { neuer_ordner } = await api.projektOrdnerUmbenennen(ordner, neuerName);
+      setUmbenennenOffen(false);
+      onOrdnerUmbenannt(neuer_ordner);
+    } catch (e) {
+      setUmbenennenFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWirdUmbenannt(false);
+    }
+  }
+
   async function alsKopieNeuSchreiben() {
     setWirdKopiert(true);
     setAktionsFehler(null);
@@ -283,6 +305,17 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
             {aktionsFehler && !zuruecksetzenOffen && (
               <span className="text-xs text-red-400">{aktionsFehler}</span>
             )}
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setUmbenennenFehler(null);
+                setUmbenennenOffen(true);
+              }}
+              disabled={wirdZurueckgesetzt || wirdKopiert}
+              title="Den Projektordner umbenennen (ändert die Anzeige im Projekte-Tab, nicht den Titel im Gerüst)"
+            >
+              Ordner umbenennen
+            </Button>
             <Button
               variant="secondary"
               onClick={() => {
@@ -531,6 +564,16 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
         wirdAusgefuehrt={wirdZurueckgesetzt}
         onBestaetigen={zuruecksetzenBestaetigt}
         onAbbrechen={() => setZuruecksetzenOffen(false)}
+      />
+    )}
+
+    {umbenennenOffen && (
+      <OrdnerUmbenennenDialog
+        aktuellerName={aktuellerOrdnerName}
+        wirdAusgefuehrt={wirdUmbenannt}
+        fehler={umbenennenFehler}
+        onUmbenennen={ordnerUmbenennen}
+        onAbbrechen={() => setUmbenennenOffen(false)}
       />
     )}
     </>

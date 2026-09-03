@@ -166,6 +166,12 @@ export const api = {
   projektZuruecksetzen: (ordner: string) =>
     anfrage<ProjektZuruecksetzenAntwort>(`/api/projects/${ordner}/zuruecksetzen`, { method: "POST" }),
 
+  projektOrdnerUmbenennen: (ordner: string, name: string) =>
+    anfrage<{ neuer_ordner: string }>(`/api/projects/${ordner}/ordnername`, {
+      method: "PUT",
+      body: JSON.stringify({ name }),
+    }),
+
   geruestSchreiben: (ordner: string, inhalt: string) =>
     anfrage<{
       gespeichert: string;

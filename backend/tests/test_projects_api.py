@@ -312,6 +312,36 @@ def test_projekt_zuruecksetzen_blockiert_waehrend_automatik_laeuft(client, proje
     assert r.status_code == 409
 
 
+def test_projekt_ordner_umbenennen_verschiebt_und_liefert_neuen_pfad(client, projekt, tmp_path):
+    r = client.put(f"/api/projects/{projekt}/ordnername", json={"name": "Frischer Name"})
+
+    assert r.status_code == 200
+    assert r.json()["neuer_ordner"] == "Frischer-Name"
+    assert (tmp_path / "projects" / "daniel" / "Frischer-Name" / "projekt").is_dir()
+    assert not (tmp_path / "projects" / "daniel" / projekt).exists()
+    assert client.get(f"/api/projects/{projekt}").status_code == 404
+    assert client.get("/api/projects/Frischer-Name").status_code == 200
+
+
+def test_projekt_ordner_umbenennen_lehnt_unveraenderten_namen_ab(client, projekt):
+    r = client.put(f"/api/projects/{projekt}/ordnername", json={"name": projekt})
+
+    assert r.status_code == 422
+
+
+def test_projekt_ordner_umbenennen_blockiert_waehrend_automatik_laeuft(client, projekt, tmp_path):
+    from app.core import automatik
+
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    status = automatik.status_lesen(projekt_root)
+    status["laeuft"] = True
+    automatik.status_schreiben(projekt_root, status)
+
+    r = client.put(f"/api/projects/{projekt}/ordnername", json={"name": "Egal"})
+
+    assert r.status_code == 409
+
+
 def test_geruest_schreiben_aktualisiert_stand_00_aus_ausgangslage(client, projekt, tmp_path):
     r = client.put(f"/api/projects/{projekt}/geruest", json={
         "inhalt": "# STORY-GERUEST\n\n## Titel\nTestprojekt\n\n"

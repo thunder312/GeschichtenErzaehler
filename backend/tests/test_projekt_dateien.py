@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from app.core import projekt_dateien as pd
 
 
@@ -220,6 +222,41 @@ def test_projekt_zuruecksetzen_loescht_schreib_artefakte_in_place(tmp_path):
     # geloeschte_dateien (Whitelist-Aufraeumung).
     assert ergebnis["geloeschte_bak"] == 1
     assert ergebnis["geloeschte_dateien"] >= 6
+
+
+def test_projektordner_manuell_umbenennen_slugged_und_verschiebt_ordner(tmp_path):
+    projekt_root = _quellprojekt_mit_schreibartefakten(tmp_path)
+
+    neuer_name = pd.projektordner_manuell_umbenennen(projekt_root, "Die Rückkehr des Königs")
+
+    assert neuer_name == "Die-Rueckkehr-des-Koenigs"
+    assert not projekt_root.exists()
+    assert (tmp_path / "Die-Rueckkehr-des-Koenigs" / "projekt" / "geruest.md").exists()
+
+
+def test_projektordner_manuell_umbenennen_haengt_zaehler_bei_kollision_an(tmp_path):
+    projekt_root = _quellprojekt_mit_schreibartefakten(tmp_path)
+    (tmp_path / "Zweitname").mkdir()
+
+    neuer_name = pd.projektordner_manuell_umbenennen(projekt_root, "Zweitname")
+
+    assert neuer_name == "Zweitname-2"
+
+
+def test_projektordner_manuell_umbenennen_lehnt_leeren_namen_ab(tmp_path):
+    projekt_root = _quellprojekt_mit_schreibartefakten(tmp_path)
+
+    with pytest.raises(pd.OrdnerUmbenennenFehler) as exc:
+        pd.projektordner_manuell_umbenennen(projekt_root, "   ")
+    assert exc.value.code == "leer"
+
+
+def test_projektordner_manuell_umbenennen_lehnt_unveraenderten_namen_ab(tmp_path):
+    projekt_root = _quellprojekt_mit_schreibartefakten(tmp_path)
+
+    with pytest.raises(pd.OrdnerUmbenennenFehler) as exc:
+        pd.projektordner_manuell_umbenennen(projekt_root, projekt_root.name)
+    assert exc.value.code == "unveraendert"
 
 
 def _projekt_mit_bereinigungs_artefakten(tmp_path: Path) -> Path:

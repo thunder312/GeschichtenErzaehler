@@ -542,6 +542,16 @@ class ProjektZuruecksetzenAntwort(BaseModel):
     geloeschte_bak: int
 
 
+class ProjektOrdnerUmbenennenAnfrage(BaseModel):
+    # Frei gewaehlter Wunschname - wird serverseitig zu einem dateisystem-
+    # tauglichen Slug normalisiert (siehe geruest.ordnername_aus_titel).
+    name: str = Field(min_length=1)
+
+
+class ProjektOrdnerUmbenennenAntwort(BaseModel):
+    neuer_ordner: str
+
+
 class EinstellungenAnfrage(BaseModel):
     # Leer/None setzt den Override zurueck auf standard_projects_dir.
     projects_dir: str | None = None

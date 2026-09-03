@@ -33,6 +33,8 @@ from app.schemas import (
     ProjektDetail,
     ProjektEpocheAnfrage,
     ProjektKurz,
+    ProjektOrdnerUmbenennenAnfrage,
+    ProjektOrdnerUmbenennenAntwort,
     ProjektZuruecksetzenAntwort,
 )
 from app.services import (
@@ -276,6 +278,29 @@ def projekt_zuruecksetzen(ordner: str, settings: Settings = Depends(get_settings
     if automatik.status_lesen(pfad)["laeuft"]:
         raise HTTPException(409, "Automatikmodus läuft für dieses Projekt gerade - bitte zuerst stoppen.")
     return pd.projekt_zuruecksetzen(pfad)
+
+
+@router.put("/{ordner:path}/ordnername", response_model=ProjektOrdnerUmbenennenAntwort)
+def projekt_ordner_umbenennen(ordner: str, anfrage: ProjektOrdnerUmbenennenAnfrage,
+                               settings: Settings = Depends(get_settings),
+                               benutzer: Benutzer = Depends(get_current_user)):
+    """Expliziter "Ordner umbenennen"-Button im Gerüst-Tab - benennt den
+    Projektordner frei gewaehlt um (nicht aus dem Titel abgeleitet, nicht an
+    "noch kein Kapitel" gebunden, siehe
+    app/core/projekt_dateien.py:projektordner_manuell_umbenennen). Bewusst
+    ein separater, ausdruecklicher Schritt statt eines Nebeneffekts von
+    geruest_schreiben(): der Ordnerpfad ist der Projekt-Identifier (URLs,
+    Frontend-State, .neu_geschrieben_aus-Marker), ein Rename mitten in der
+    Arbeit soll nie unbemerkt passieren. Blockiert waehrend eines laufenden
+    Automatikmodus (der schreibt gerade in den alten Pfad)."""
+    pfad = projekt_pfad(settings, benutzer.username, ordner)
+    if automatik.status_lesen(pfad)["laeuft"]:
+        raise HTTPException(409, "Automatikmodus läuft für dieses Projekt gerade - bitte zuerst stoppen.")
+    try:
+        neuer_name = pd.projektordner_manuell_umbenennen(pfad, anfrage.name)
+    except pd.OrdnerUmbenennenFehler as e:
+        raise HTTPException(409 if e.code == "gesperrt" else 422, str(e)) from e
+    return ProjektOrdnerUmbenennenAntwort(neuer_ordner=ordner_nach_umbenennung(ordner, neuer_name))
 
 
 @router.post("/{ordner:path}/bereinigen", response_model=ProjektBereinigenAntwort)

@@ -384,6 +384,32 @@ def neuschreiben_quelle(ziel: Path) -> str | None:
     return marker.read_text(encoding="utf-8").strip() if marker.exists() else None
 
 
+def _projektordner_rename_mit_retry(projekt_root: Path, neuer_pfad: Path) -> str | None:
+    """Benennt den Projektordner um und gibt den neuen Namen zurueck, sonst
+    None. Direkt nach dem Schreiben von geruest.md haelt ein Sync-Tool
+    (Dropbox) oder der Windows-Suchindex/Virenscanner die Datei manchmal
+    fuer einen kurzen Moment noch offen - Windows verweigert dann das
+    Umbenennen des Elternordners mit PermissionError(13), obwohl der Zustand
+    Millisekunden spaeter schon wieder frei ist. Mit kurzen, steigenden
+    Wartezeiten erneut versuchen, bevor endgueltig aufgegeben wird
+    (insgesamt ca. 3s), statt beim ersten Versuch schon klein beizugeben."""
+    letzter_fehler: OSError | None = None
+    for wartezeit in (0, 0.1, 0.2, 0.4, 0.8, 1.6):
+        if wartezeit:
+            time.sleep(wartezeit)
+        try:
+            projekt_root.rename(neuer_pfad)
+            return neuer_pfad.name
+        except OSError as e:
+            letzter_fehler = e
+
+    logger.warning(
+        "Projektordner-Umbenennung fehlgeschlagen nach mehreren Versuchen: %s -> %s (%r)",
+        projekt_root, neuer_pfad, letzter_fehler,
+    )
+    return None
+
+
 def projektordner_umbenennen(projekt_root: Path, geruest_text: str) -> str | None:
     """Versucht, den Projektordner nach dem im Geruest gewaehlten Titel
     umzubenennen - portiert aus novelle.py's
@@ -403,27 +429,57 @@ def projektordner_umbenennen(projekt_root: Path, geruest_text: str) -> str | Non
         return None
 
     neuer_pfad = _freier_pfad(projekt_root.parent, neuer_name)
+    return _projektordner_rename_mit_retry(projekt_root, neuer_pfad)
 
-    # Direkt nach dem Schreiben von geruest.md (siehe Aufrufer) haelt ein
-    # Sync-Tool (Dropbox) oder der Windows-Suchindex/Virenscanner die Datei
-    # manchmal fuer einen kurzen Moment noch offen - Windows verweigert dann
-    # das Umbenennen des Elternordners mit PermissionError(13), obwohl der
-    # Zustand Millisekunden spaeter schon wieder frei ist. Mit kurzen,
-    # steigenden Wartezeiten erneut versuchen, bevor endgueltig aufgegeben
-    # wird (insgesamt ca. 3s), statt beim ersten Versuch schon klein
-    # beizugeben.
-    letzter_fehler: OSError | None = None
-    for wartezeit in (0, 0.1, 0.2, 0.4, 0.8, 1.6):
-        if wartezeit:
-            time.sleep(wartezeit)
-        try:
-            projekt_root.rename(neuer_pfad)
-            return neuer_pfad.name
-        except OSError as e:
-            letzter_fehler = e
 
-    logger.warning(
-        "Projektordner-Umbenennung fehlgeschlagen nach mehreren Versuchen: %s -> %s (%r)",
-        projekt_root, neuer_pfad, letzter_fehler,
-    )
-    return None
+class OrdnerUmbenennenFehler(Exception):
+    """projektordner_manuell_umbenennen() - der Aufrufer (app/api/projects.py)
+    uebersetzt das je nach `code` in eine 422 (ungueltige Eingabe) oder 409
+    (Datei gesperrt, spaeter erneut versuchen)."""
+
+    def __init__(self, nachricht: str, code: str) -> None:
+        super().__init__(nachricht)
+        self.code = code
+
+
+def projektordner_manuell_umbenennen(projekt_root: Path, wunschname: str) -> str:
+    """Explizites Umbenennen des Projektordners (Button "Ordner umbenennen" im
+    Gerüst-Tab, siehe app/api/projects.py) - anders als
+    projektordner_umbenennen() NICHT an "noch kein Kapitel geschrieben"
+    gebunden und NICHT aus dem Titel abgeleitet, sondern vom Nutzer frei
+    gewaehlt. Der Wunschname wird wie ein Titel zu einem dateisystem-
+    tauglichen Slug normalisiert (ordnername_aus_titel: Umlaute -> ae/oe/ue,
+    Leerzeichen -> "-", Sonderzeichen raus).
+
+    Gibt den tatsaechlichen neuen Ordnernamen zurueck (nur das letzte
+    Pfadsegment). Wirft OrdnerUmbenennenFehler:
+    - code "leer"       - Wunschname leer / nur Sonderzeichen
+    - code "unveraendert" - Slug identisch mit dem aktuellen Namen
+    - code "gesperrt"   - Umbenennen dauerhaft fehlgeschlagen (Datei offen)
+    """
+    if not wunschname.strip():
+        raise OrdnerUmbenennenFehler("Bitte einen Ordnernamen eingeben.", "leer")
+
+    neuer_name = _geruest.ordnername_aus_titel(wunschname)
+    # ordnername_aus_titel() faellt bei reinem Sonderzeichen-Input auf
+    # "Neues-Projekt" zurueck - das ist hier kein sinnvolles Ergebnis.
+    if not re.sub(r"[^A-Za-z0-9]", "", wunschname):
+        raise OrdnerUmbenennenFehler(
+            "Der Name enthält keine verwertbaren Buchstaben oder Ziffern.", "leer",
+        )
+    if neuer_name == projekt_root.name:
+        raise OrdnerUmbenennenFehler(
+            "Der Ordner heißt bereits so (nach Anpassung von Umlauten/Sonderzeichen).",
+            "unveraendert",
+        )
+
+    neuer_pfad = _freier_pfad(projekt_root.parent, neuer_name)
+    ergebnis = _projektordner_rename_mit_retry(projekt_root, neuer_pfad)
+    if ergebnis is None:
+        raise OrdnerUmbenennenFehler(
+            "Der Projektordner konnte nicht umbenannt werden - vermutlich hält "
+            "gerade ein anderes Programm (Dropbox, ein Editor, der Virenscanner) "
+            "eine Datei darin offen. Bitte kurz warten und erneut versuchen.",
+            "gesperrt",
+        )
+    return ergebnis
