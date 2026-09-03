@@ -275,9 +275,16 @@ function App() {
                 <GeruestPage
                   ordner={aktuellesProjekt}
                   projekt={projektDetail}
-                  onGeaendert={projektDetailLaden}
+                  onGeaendert={() => {
+                    projektDetailLaden();
+                    projekteLaden();
+                  }}
                   onOrdnerUmbenannt={ordnerUmbenannt}
                   onInterviewStarten={() => setInterviewErzwungen(true)}
+                  onNeuSchreibenGestartet={(neuerOrdner) => {
+                    projekteLaden();
+                    projektAuswaehlen(neuerOrdner);
+                  }}
                   aktiv={activeTab === "geruest"}
                 />
               )}

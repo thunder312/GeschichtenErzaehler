@@ -313,6 +313,11 @@ export interface ProjektBereinigenAntwort {
   geloeschte_stand: number;
 }
 
+export interface ProjektZuruecksetzenAntwort {
+  geloeschte_dateien: number;
+  geloeschte_bak: number;
+}
+
 export interface Einstellungen {
   projects_dir: string;
   ist_standard: boolean;

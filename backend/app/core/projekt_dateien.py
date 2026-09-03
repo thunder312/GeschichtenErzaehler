@@ -335,6 +335,44 @@ def projekt_fuer_neuschreiben_duplizieren(quelle: Path, quelle_ordner: str) -> P
     return ziel
 
 
+def projekt_zuruecksetzen(projekt_root: Path) -> dict[str, int]:
+    """Setzt ein Projekt IN-PLACE auf den Zustand direkt nach dem Architekten-
+    Interview zurueck (Button "Zurücksetzen" im Gerüst-Tab) - das Gegenstueck
+    zu projekt_fuer_neuschreiben_duplizieren(), nur ohne Kopie: die
+    bestehende Instanz wird ueberschrieben.
+
+    Behalten werden personas/, die .epoche-Marker und aus projekt/ nur die
+    _NEUSCHREIBEN_AUSGANGSDATEIEN (verbotsliste.md, geruest.md, stand_00.md,
+    einleitungssatz.txt). Alles, was erst durchs Schreiben/Pruefen entsteht -
+    Kapitel, Folge-Staende, Befunde, Automatik-Status/-Verlauf, abgelehnte
+    Befunde, Cover, Stilproben, die Architekten-Gespraech-Mitschrift, der
+    fertige Sammel-Export sowie jede .bak-Sicherung - wird geloescht.
+    Unumkehrbar; der Aufrufer zeigt vorher einen Bestaetigungsdialog."""
+    geloeschte_dateien = 0
+    projekt_unterordner = projekt_root / "projekt"
+    if projekt_unterordner.is_dir():
+        for eintrag in projekt_unterordner.iterdir():
+            if eintrag.name in _NEUSCHREIBEN_AUSGANGSDATEIEN:
+                continue
+            if eintrag.is_dir():
+                shutil.rmtree(eintrag)
+            else:
+                eintrag.unlink()
+            geloeschte_dateien += 1
+
+    export = projekt_root / f"{projekt_root.name}.md"
+    if export.exists():
+        export.unlink()
+        geloeschte_dateien += 1
+
+    geloeschte_bak = 0
+    for bak in projekt_root.rglob("*.bak"):
+        bak.unlink()
+        geloeschte_bak += 1
+
+    return {"geloeschte_dateien": geloeschte_dateien, "geloeschte_bak": geloeschte_bak}
+
+
 def neuschreiben_quelle(ziel: Path) -> str | None:
     """Nur gesetzt, wenn `ziel` per 'Neu schreiben' aus einem anderen
     Projekt dupliziert wurde (siehe projekt_fuer_neuschreiben_duplizieren())

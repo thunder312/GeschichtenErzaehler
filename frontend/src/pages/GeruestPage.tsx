@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { FundusFigur, ProjektDetail } from "../api/types";
 import { CollapsibleCard } from "../components/CollapsibleCard";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { KapitelplanEditor } from "../components/KapitelplanEditor";
 import { RahmenEditor } from "../components/RahmenEditor";
 import { Badge, Button, Card, CardTitle } from "../components/ui";
@@ -53,6 +54,10 @@ interface GeruestPageProps {
   onGeaendert: () => void;
   onOrdnerUmbenannt: (neuerOrdner: string) => void;
   onInterviewStarten: () => void;
+  /** Nach "Neu schreiben als Kopie" - wechselt in App.tsx zum frisch
+   * angelegten Duplikat (Ordnername + "_v2") und oeffnet dessen Gerüst-Tab,
+   * exakt wie der gleichnamige Button in der Projektliste. */
+  onNeuSchreibenGestartet: (ordner: string) => void;
   /** true, solange der Tab "Architekt / Gerüst" sichtbar ist - der Wechsel
    * auf true beim erneuten Betreten klappt die Kapitel-Karten wieder ein. */
   aktiv: boolean;
@@ -65,7 +70,7 @@ interface GeruestPageProps {
  * exakt wie im CLI (siehe backend/app/core/geruest.py) und wird hier zur
  * Kontrolle angezeigt. Verbotsliste (fuer die Anachronismus-Pruefung)
  * liegt gleich daneben, da beide Dateien zusammen das Setting definieren. */
-export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, onInterviewStarten, aktiv }: GeruestPageProps) {
+export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, onInterviewStarten, onNeuSchreibenGestartet, aktiv }: GeruestPageProps) {
   // Kapitelplan strukturiert (KapitelplanEditor), Rest des Gerüsts bleibt
   // Freitext in zwei Editoren links/rechts davon (siehe utils/kapitelplan.ts
   // fuer die Begruendung, warum nur der Kapitelplan formalisiert wird).
@@ -87,6 +92,15 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   const [wirdGespeichert, setWirdGespeichert] = useState(false);
   const [gespeichertHinweis, setGespeichertHinweis] = useState<string | null>(null);
   const [geruestFehler, setGeruestFehler] = useState<string | null>(null);
+
+  // "Zurücksetzen" (in-place, nur Gerüst behalten) und "Neu schreiben als
+  // Kopie" (Duplikat _v2, wie in der Projektliste) - beide im Kopfbereich
+  // des geruest.md-Containers. Der Warn-Dialog gilt nur fuers Zuruecksetzen,
+  // da das die bestehende Instanz unumkehrbar leert.
+  const [zuruecksetzenOffen, setZuruecksetzenOffen] = useState(false);
+  const [wirdZurueckgesetzt, setWirdZurueckgesetzt] = useState(false);
+  const [wirdKopiert, setWirdKopiert] = useState(false);
+  const [aktionsFehler, setAktionsFehler] = useState<string | null>(null);
 
   const [verbotslisteInhalt, setVerbotslisteInhalt] = useState(projekt?.verbotsliste ?? "");
   const [verbotslisteWirdGespeichert, setVerbotslisteWirdGespeichert] = useState(false);
@@ -228,13 +242,66 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
     }
   }
 
+  async function zuruecksetzenBestaetigt() {
+    setWirdZurueckgesetzt(true);
+    setAktionsFehler(null);
+    try {
+      await api.projektZuruecksetzen(ordner);
+      setZuruecksetzenOffen(false);
+      onGeaendert();
+    } catch (e) {
+      setAktionsFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWirdZurueckgesetzt(false);
+    }
+  }
+
+  async function alsKopieNeuSchreiben() {
+    setWirdKopiert(true);
+    setAktionsFehler(null);
+    try {
+      // Reine Dateikopie (siehe app/api/projects.py:projekt_neu_schreiben),
+      // identisch zum Button in der Projektliste - Automatikmodus wird NICHT
+      // gestartet, der Nutzer landet im Gerüst-Tab des Duplikats.
+      const kopie = await api.projektNeuSchreiben(ordner);
+      onNeuSchreibenGestartet(kopie.ordner);
+    } catch (e) {
+      setAktionsFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWirdKopiert(false);
+    }
+  }
+
   return (
+    <>
     <div className="grid grid-cols-1 items-start gap-6 p-4 sm:p-6 lg:grid-cols-[2fr_1fr]">
       <CollapsibleCard
         title="🗺️ geruest.md"
         aktionen={
           <>
             {gespeichertHinweis && <span className="text-xs text-accent-light">{gespeichertHinweis}</span>}
+            {aktionsFehler && !zuruecksetzenOffen && (
+              <span className="text-xs text-red-400">{aktionsFehler}</span>
+            )}
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setAktionsFehler(null);
+                setZuruecksetzenOffen(true);
+              }}
+              disabled={wirdZurueckgesetzt || wirdKopiert}
+              title="Alle bisher geschriebenen Kapitel, Prüfungen und Sicherungen dieser Geschichte löschen - nur das Gerüst bleibt"
+            >
+              Zurücksetzen
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={alsKopieNeuSchreiben}
+              disabled={wirdKopiert || wirdZurueckgesetzt}
+              title="Diese Geschichte als Kopie neu anlegen (Ordnername + _v2) - nur das Gerüst bleibt erhalten, das Original bleibt unangetastet"
+            >
+              {wirdKopiert ? "Kopiert..." : "Neu schreiben als Kopie"}
+            </Button>
             <Button variant="secondary" onClick={onInterviewStarten}>
               Interview neu führen
             </Button>
@@ -448,5 +515,24 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
         )}
       </div>
     </div>
+
+    {zuruecksetzenOffen && (
+      <ConfirmDialog
+        titel="Geschichte zurücksetzen?"
+        beschreibung={
+          `Alle bisher geschriebenen Kapitel, Prüf-Ergebnisse, Zwischenstände, ` +
+          `Automatik-Verläufe und Sicherungsdateien von "${projekt?.ordner ?? ordner}" werden ` +
+          `gelöscht - erhalten bleibt NUR das Gerüst (mit Verbotsliste, Ausgangslage und Personas). ` +
+          `Es wird KEINE Kopie angelegt, die bestehende Geschichte wird überschrieben. ` +
+          `Das lässt sich nicht rückgängig machen.` +
+          (aktionsFehler ? `\n\nFehler: ${aktionsFehler}` : "")
+        }
+        bestaetigenText="Zurücksetzen"
+        wirdAusgefuehrt={wirdZurueckgesetzt}
+        onBestaetigen={zuruecksetzenBestaetigt}
+        onAbbrechen={() => setZuruecksetzenOffen(false)}
+      />
+    )}
+    </>
   );
 }

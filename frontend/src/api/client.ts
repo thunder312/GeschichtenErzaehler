@@ -22,6 +22,7 @@ import type {
   OllamaModellInfo,
   PersonaModell,
   ProjektBereinigenAntwort,
+  ProjektZuruecksetzenAntwort,
   ProjektDetail,
   ProjektKurz,
   RechtschreibAntwort,
@@ -161,6 +162,9 @@ export const api = {
 
   projektBereinigen: (ordner: string) =>
     anfrage<ProjektBereinigenAntwort>(`/api/projects/${ordner}/bereinigen`, { method: "POST" }),
+
+  projektZuruecksetzen: (ordner: string) =>
+    anfrage<ProjektZuruecksetzenAntwort>(`/api/projects/${ordner}/zuruecksetzen`, { method: "POST" }),
 
   geruestSchreiben: (ordner: string, inhalt: string) =>
     anfrage<{

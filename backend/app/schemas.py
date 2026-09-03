@@ -537,6 +537,11 @@ class ProjektBereinigenAntwort(BaseModel):
     geloeschte_stand: int
 
 
+class ProjektZuruecksetzenAntwort(BaseModel):
+    geloeschte_dateien: int
+    geloeschte_bak: int
+
+
 class EinstellungenAnfrage(BaseModel):
     # Leer/None setzt den Override zurueck auf standard_projects_dir.
     projects_dir: str | None = None

@@ -33,6 +33,7 @@ from app.schemas import (
     ProjektDetail,
     ProjektEpocheAnfrage,
     ProjektKurz,
+    ProjektZuruecksetzenAntwort,
 )
 from app.services import (
     neuer_projekt_pfad,
@@ -258,6 +259,23 @@ def projekt_neu_schreiben(ordner: str, settings: Settings = Depends(get_settings
         raise HTTPException(409, "Automatikmodus läuft für dieses Projekt gerade - bitte zuerst stoppen.")
     ziel = pd.projekt_fuer_neuschreiben_duplizieren(pfad, ordner)
     return _projekt_kurz(ziel, projekte_wurzel(settings, benutzer.username), settings)
+
+
+@router.post("/{ordner:path}/zuruecksetzen", response_model=ProjektZuruecksetzenAntwort)
+def projekt_zuruecksetzen(ordner: str, settings: Settings = Depends(get_settings),
+                           benutzer: Benutzer = Depends(get_current_user)):
+    """Setzt ein bestehendes Projekt IN-PLACE auf den Zustand direkt nach dem
+    Architekten-Interview zurueck (Button "Zurücksetzen" im Gerüst-Tab) -
+    verhaelt sich wie "Neu schreiben" (projekt_neu_schreiben), nur ohne
+    Kopie: die bestehende Instanz wird ueberschrieben. Personas,
+    Verbotsliste, Gerüst, Ausgangslage und Epoche-Marker bleiben; alle
+    Kapitel/Prüfungen/Automatik-Ergebnisse/.bak-Sicherungen werden geloescht
+    (siehe app/core/projekt_dateien.py:projekt_zuruecksetzen). Unumkehrbar,
+    das Frontend zeigt vorher einen Warn-Dialog."""
+    pfad = projekt_pfad(settings, benutzer.username, ordner)
+    if automatik.status_lesen(pfad)["laeuft"]:
+        raise HTTPException(409, "Automatikmodus läuft für dieses Projekt gerade - bitte zuerst stoppen.")
+    return pd.projekt_zuruecksetzen(pfad)
 
 
 @router.post("/{ordner:path}/bereinigen", response_model=ProjektBereinigenAntwort)

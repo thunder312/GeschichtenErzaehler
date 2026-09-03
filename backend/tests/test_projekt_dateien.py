@@ -191,6 +191,37 @@ def test_neuschreiben_quelle_liefert_none_ohne_marker(tmp_path):
     assert pd.neuschreiben_quelle(kein_duplikat) is None
 
 
+def test_projekt_zuruecksetzen_loescht_schreib_artefakte_in_place(tmp_path):
+    projekt_root = _quellprojekt_mit_schreibartefakten(tmp_path)
+    (projekt_root / "personas" / "architekt.txt.999.bak").write_text("alt", encoding="utf-8")
+
+    ergebnis = pd.projekt_zuruecksetzen(projekt_root)
+    projekt = projekt_root / "projekt"
+
+    # In-place, kein Duplikat
+    assert not (tmp_path / "Der-Markt-von-Rothenfeld_v2").exists()
+    # Schreib-Artefakte weg
+    assert not (projekt / "kapitel_01.md").exists()
+    assert not (projekt / "kapitel_02.md").exists()
+    assert not (projekt / "stand_01.md").exists()
+    assert not (projekt / "befunde_01.json").exists()
+    assert not (projekt / "automatik_status.json").exists()
+    assert not (projekt / "architekt_verlauf.json").exists()
+    assert not (projekt_root / f"{projekt_root.name}.md").exists()
+    assert not list(projekt_root.rglob("*.bak"))
+    # Gerüst-Ausgangsdaten bleiben
+    assert (projekt / "geruest.md").exists()
+    assert (projekt / "verbotsliste.md").exists()
+    assert (projekt / "stand_00.md").exists()
+    assert (projekt_root / "personas" / "architekt.txt").exists()
+    assert (projekt_root / ".epoche").read_text(encoding="utf-8") == "Mittelalter"
+
+    # .bak unter personas/ zaehlt separat; die in projekt/ faellt in
+    # geloeschte_dateien (Whitelist-Aufraeumung).
+    assert ergebnis["geloeschte_bak"] == 1
+    assert ergebnis["geloeschte_dateien"] >= 6
+
+
 def _projekt_mit_bereinigungs_artefakten(tmp_path: Path) -> Path:
     projekt_root = tmp_path / "Der-Markt-von-Rothenfeld"
     projekt = projekt_root / "projekt"

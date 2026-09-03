@@ -276,6 +276,42 @@ def test_projekt_bereinigen_blockiert_waehrend_automatik_laeuft(client, projekt,
     assert r.status_code == 409
 
 
+def test_projekt_zuruecksetzen_behaelt_nur_geruest(client, projekt, tmp_path):
+    from app.core import projekt_dateien as pd
+
+    projekt_pfad = tmp_path / "projects" / "daniel" / projekt / "projekt"
+    pd.schreib(pd.geruest_datei(projekt_pfad), "# STORY-GERUEST\n\n## Titel\nX\n", force=True)
+    pd.schreib(pd.stand_datei(projekt_pfad, 0), "Ausgangslage", force=True)
+    pd.schreib(pd.kapitel_datei(projekt_pfad, 1), "Kapiteltext", force=True)
+    pd.schreib(pd.stand_datei(projekt_pfad, 1), "Stand 1", force=True)
+    (projekt_pfad / "befunde_01.json").write_text("{}", encoding="utf-8")
+    (projekt_pfad / "geruest.md.123.bak").write_text("alt", encoding="utf-8")
+
+    r = client.post(f"/api/projects/{projekt}/zuruecksetzen")
+
+    assert r.status_code == 200
+    assert set(r.json()) == {"geloeschte_dateien", "geloeschte_bak"}
+    assert (projekt_pfad / "geruest.md").exists()
+    assert (projekt_pfad / "stand_00.md").exists()
+    assert not (projekt_pfad / "kapitel_01.md").exists()
+    assert not (projekt_pfad / "stand_01.md").exists()
+    assert not (projekt_pfad / "befunde_01.json").exists()
+    assert not list(projekt_pfad.glob("*.bak"))
+
+
+def test_projekt_zuruecksetzen_blockiert_waehrend_automatik_laeuft(client, projekt, tmp_path):
+    from app.core import automatik
+
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    status = automatik.status_lesen(projekt_root)
+    status["laeuft"] = True
+    automatik.status_schreiben(projekt_root, status)
+
+    r = client.post(f"/api/projects/{projekt}/zuruecksetzen")
+
+    assert r.status_code == 409
+
+
 def test_geruest_schreiben_aktualisiert_stand_00_aus_ausgangslage(client, projekt, tmp_path):
     r = client.put(f"/api/projects/{projekt}/geruest", json={
         "inhalt": "# STORY-GERUEST\n\n## Titel\nTestprojekt\n\n"
