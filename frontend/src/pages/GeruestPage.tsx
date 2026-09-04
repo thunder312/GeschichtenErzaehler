@@ -1,7 +1,7 @@
 import Editor from "@monaco-editor/react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { FundusFigur, ProjektDetail } from "../api/types";
+import type { FundusFigur, Ort, ProjektDetail } from "../api/types";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { OrdnerUmbenennenDialog } from "../components/OrdnerUmbenennenDialog";
@@ -129,6 +129,15 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   useEffect(() => {
     api.fundusFigurenLesen()
       .then((antwort) => setFundusFiguren(antwort.figuren))
+      .catch(() => {});
+  }, []);
+
+  // Fuer den Fundus-gespeisten Vorschlag im Feld "Ort" des Kapitelplans
+  // (siehe OrtAuswahl.tsx) - gleiches Muster wie fundusFiguren oben.
+  const [orte, setOrte] = useState<Ort[]>([]);
+  useEffect(() => {
+    api.orteListeLesen()
+      .then((antwort) => setOrte(antwort.orte))
       .catch(() => {});
   }, []);
 
@@ -406,6 +415,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
                 }}
                 fehler={kapitelFehler}
                 fundusFiguren={fundusFiguren}
+                orte={orte}
                 epoche={projekt?.epoche}
                 aktiv={aktiv}
               />

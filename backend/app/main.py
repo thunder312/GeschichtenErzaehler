@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import analysator, architekt, auth, benutzer, dokumentation, einstellungen, epochen, fundus, persona_modelle, pipeline, projects, ssh_targets, wissen
+from app.api import analysator, architekt, auth, benutzer, dokumentation, einstellungen, epochen, fundus, orte, persona_modelle, pipeline, projects, ssh_targets, wissen
 from app.auth import get_current_admin, get_current_user
 from app.config import get_settings
 from app.core import analysator as an
@@ -125,10 +125,11 @@ app.include_router(benutzer.router, dependencies=[Depends(get_current_admin)])
 app.include_router(persona_modelle.router, dependencies=[Depends(get_current_admin)])
 app.include_router(wissen.router, dependencies=[Depends(get_current_user)])
 app.include_router(dokumentation.router, dependencies=[Depends(get_current_user)])
-# fundus liest benutzer.username selbst per Depends(get_current_user) aus
-# (analog projects/pipeline/architekt), deshalb kein zusaetzliches
+# fundus/orte lesen benutzer.username selbst per Depends(get_current_user)
+# aus (analog projects/pipeline/architekt), deshalb kein zusaetzliches
 # router-weites dependencies=[...] noetig.
 app.include_router(fundus.router)
+app.include_router(orte.router)
 # Catch-All-Route fuer die Projekt-Detailansicht ("/{ordner:path}", matcht
 # jeden Rest-Pfad) - muss als LETZTES eingebunden werden, sonst verdeckt sie
 # spezifischere Routen aus pipeline/architekt (siehe Kommentar in

@@ -64,6 +64,18 @@ def cover_datei(projekt: Path) -> Path:
     return projekt / "cover.png"
 
 
+def cover_log_datei(projekt: Path) -> Path:
+    """Metadaten (Zeitstempel, Prompt, Kommentar) aller bisherigen Titelbild-
+    Versuche dieses Projekts, siehe app/core/cover_log.py - die eigentlichen
+    Bild-Bytes je Versuch liegen separat unter cover_log_bild_datei(), damit
+    diese Datei klein bleibt."""
+    return projekt / "cover_log.json"
+
+
+def cover_log_bild_datei(projekt: Path, eintrag_id: str) -> Path:
+    return projekt / "cover_log" / f"{eintrag_id}.png"
+
+
 def verbotsliste_datei(projekt: Path) -> Path:
     return projekt / "verbotsliste.md"
 

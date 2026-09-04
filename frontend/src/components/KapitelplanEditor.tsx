@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import type { FundusFigur } from "../api/types";
+import type { FundusFigur, Ort } from "../api/types";
 import type { KapitelEintrag, KapitelplanFehler } from "../utils/kapitelplan";
 import { FUNKTION_IM_SPANNUNGSBOGEN_OPTIONEN, leeresKapitel } from "../utils/kapitelplan";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { FigurenAuswahl } from "./FigurenAuswahl";
+import { OrtAuswahl } from "./OrtAuswahl";
 import { Button, Input, Label, Select, Textarea } from "./ui";
 
 const EIGENE_ANGABE = "__eigene__";
@@ -24,6 +25,8 @@ interface KapitelplanEditorProps {
   /** Fuer den Fundus-gespeisten Vorschlag in "Anwesende Figuren" (siehe
    * FigurenAuswahl.tsx) - beides optional, analog zu RahmenEditor.tsx. */
   fundusFiguren?: FundusFigur[];
+  /** Fuer den Fundus-gespeisten Vorschlag im Feld "Ort" (siehe OrtAuswahl.tsx). */
+  orte?: Ort[];
   epoche?: string | null;
   /** Wird true, sobald der Tab "Architekt / Gerüst" (wieder) betreten wird -
    * klappt dann alle Kapitel-Karten ein, damit man mit demselben
@@ -41,7 +44,7 @@ interface KapitelplanEditorProps {
  * fuer die ueberschaubare Kapitelzahl typischer Projekte), "Löschen" nimmt
  * das Kapitel komplett raus - die Kapitelnummer ergibt sich in allen Faellen
  * automatisch aus der Position im Array, nicht aus einem eigenen Feld. */
-export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, epoche, aktiv }: KapitelplanEditorProps) {
+export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, orte, epoche, aktiv }: KapitelplanEditorProps) {
   // Eigenes Bestaetigen-Popup statt window.confirm() - ein natives
   // confirm() blockiert den kompletten Tab (auch fuer Browser-Automation,
   // siehe ConfirmDialog.tsx), das App-Design vermeidet es deshalb ueberall.
@@ -267,7 +270,13 @@ export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, ep
             )}
             <div>
               <Label>Ort</Label>
-              <Input value={k.ort} onChange={(e) => feldAendern(index, "ort", e.target.value)} className={klasse(index, "ort")} />
+              <OrtAuswahl
+                value={k.ort}
+                onChange={(wert) => feldAendern(index, "ort", wert)}
+                orte={orte}
+                epoche={epoche}
+                className={klasse(index, "ort")}
+              />
             </div>
             <div>
               <Label>Zielwortzahl</Label>

@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, TypeVar
 
 from fastapi import (
-    APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Response, UploadFile,
+    APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Response, UploadFile,
     WebSocket, WebSocketDisconnect,
 )
 from pydantic import ValidationError
@@ -36,6 +36,7 @@ from app.config import Settings, get_settings
 from app.core import automatik
 from app.core import bild_generierung
 from app.core import befunde_ablehnung
+from app.core import cover_log as cl
 from app.core import geruest as g
 from app.core import heuristik as h
 from app.core import projekt_dateien as pd
@@ -64,6 +65,9 @@ from app.schemas import (
     BefundeAntwort,
     Benutzer,
     CoverGenerierenAnfrage,
+    CoverLogAntwort,
+    CoverLogEintragAntwort,
+    CoverLogKommentarAnfrage,
     CoverPromptAntwort,
     RechtschreibAntwort,
     RechtschreibWort,
@@ -1790,6 +1794,27 @@ async def cover_prompt_vorschlagen(ordner: str, ssh_ziel_id: str | None = Query(
     return CoverPromptAntwort(prompt=g.cover_prompt_hochformat_sicherstellen(prompt.strip()))
 
 
+def _cover_log_eintrag_anlegen(
+    projekt: Path, bild_bytes: bytes, herkunft: str,
+    prompt_deutsch: str = "", prompt_englisch: str = "", kommentar: str = "",
+) -> None:
+    """Haengt NACH dem Schreiben von cover.png einen neuen Verlaufs-Eintrag an
+    cover_log.json an (siehe app/core/cover_log.py) und legt eine eigene
+    Bild-Kopie unter cover_log/<id>.png ab - der neue Eintrag wird sofort
+    aktiv, da sein Bild ja gerade erst als cover.png geschrieben wurde."""
+    log_pfad = pd.cover_log_datei(projekt)
+    eintraege, _aktive_id = cl.log_parsen(pd.lies(log_pfad, pflicht=False, ersatz=""))
+    eintrag = cl.CoverLogEintrag(
+        id=cl.neue_id(), zeitpunkt=cl.jetzt_iso(), herkunft=herkunft,
+        prompt_deutsch=prompt_deutsch, prompt_englisch=prompt_englisch, kommentar=kommentar,
+    )
+    eintraege.append(eintrag)
+    bild_pfad = pd.cover_log_bild_datei(projekt, eintrag.id)
+    bild_pfad.parent.mkdir(parents=True, exist_ok=True)
+    bild_pfad.write_bytes(bild_bytes)
+    log_pfad.write_text(cl.log_serialisieren(eintraege, eintrag.id), encoding="utf-8")
+
+
 @router.post("/{ordner:path}/cover/generieren")
 async def cover_generieren(ordner: str, anfrage: CoverGenerierenAnfrage,
                             bild_ziel_id: str = Query(...),
@@ -1828,11 +1853,15 @@ async def cover_generieren(ordner: str, anfrage: CoverGenerierenAnfrage,
         except BildGenerierungFehler as e:
             raise HTTPException(502, str(e)) from e
     pd.cover_datei(projekt).write_bytes(bild_bytes)
+    _cover_log_eintrag_anlegen(
+        projekt, bild_bytes, herkunft="generiert",
+        prompt_deutsch=anfrage.prompt, prompt_englisch=prompt_englisch.strip(),
+    )
     return {"gespeichert": True}
 
 
 @router.post("/{ordner:path}/cover/hochladen")
-async def cover_hochladen(ordner: str, datei: UploadFile = File(...),
+async def cover_hochladen(ordner: str, datei: UploadFile = File(...), kommentar: str = Form(""),
                            settings: Settings = Depends(get_settings),
                            benutzer: Benutzer = Depends(get_current_user)):
     """Alternative zur KI-Generierung oben: ein von Hand erzeugtes Titelbild
@@ -1840,7 +1869,10 @@ async def cover_hochladen(ordner: str, datei: UploadFile = File(...),
     und heruntergeladen) direkt als cover.png uebernehmen, ohne dass das
     Projekt ein eigenes Bild-KI-Ziel braucht. Nimmt PNG/JPEG/WEBP entgegen,
     normalisiert intern immer zu PNG (siehe
-    app/core/bild_generierung.py:cover_aus_upload_normalisieren)."""
+    app/core/bild_generierung.py:cover_aus_upload_normalisieren). kommentar
+    ist optional - z.B. um festzuhalten, in welcher externen KI (Google AI
+    Studio, ...) das hochgeladene Bild entstanden ist (siehe
+    app/core/cover_log.py)."""
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     projekt = projekt_root / "projekt"
     rohdaten = await datei.read()
@@ -1849,6 +1881,7 @@ async def cover_hochladen(ordner: str, datei: UploadFile = File(...),
     except BildGenerierungFehler as e:
         raise HTTPException(400, str(e)) from e
     pd.cover_datei(projekt).write_bytes(png_bytes)
+    _cover_log_eintrag_anlegen(projekt, png_bytes, herkunft="hochgeladen", kommentar=kommentar.strip())
     return {"gespeichert": True}
 
 
@@ -1860,6 +1893,98 @@ def cover_lesen(ordner: str, settings: Settings = Depends(get_settings),
     if not cover_datei.exists():
         raise HTTPException(404, "Kein Titelbild vorhanden.")
     return Response(content=cover_datei.read_bytes(), media_type="image/png")
+
+
+def _cover_log_lesen(projekt: Path) -> tuple[list[cl.CoverLogEintrag], str | None]:
+    return cl.log_parsen(pd.lies(pd.cover_log_datei(projekt), pflicht=False, ersatz=""))
+
+
+def _cover_log_eintrag_finden(eintraege: list[cl.CoverLogEintrag], eintrag_id: str) -> cl.CoverLogEintrag:
+    for eintrag in eintraege:
+        if eintrag.id == eintrag_id:
+            return eintrag
+    raise HTTPException(404, f"Verlaufs-Eintrag '{eintrag_id}' nicht gefunden.")
+
+
+@router.get("/{ordner:path}/cover/log", response_model=CoverLogAntwort)
+def cover_log_lesen(ordner: str, settings: Settings = Depends(get_settings),
+                     benutzer: Benutzer = Depends(get_current_user)):
+    """Liefert den kompletten Titelbild-Verlauf dieses Projekts (Metadaten
+    ohne Bilddaten, siehe app/core/cover_log.py) - jeder Eintrag entstand
+    durch einen Aufruf von cover_generieren()/cover_hochladen() oben."""
+    projekt = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
+    eintraege, aktive_id = _cover_log_lesen(projekt)
+    return CoverLogAntwort(
+        eintraege=[
+            CoverLogEintragAntwort(
+                id=e.id, zeitpunkt=e.zeitpunkt, herkunft=e.herkunft,
+                prompt_deutsch=e.prompt_deutsch, prompt_englisch=e.prompt_englisch, kommentar=e.kommentar,
+            )
+            for e in eintraege
+        ],
+        aktive_id=aktive_id,
+    )
+
+
+@router.get("/{ordner:path}/cover/log/{eintrag_id}/bild")
+def cover_log_bild_lesen(ordner: str, eintrag_id: str, settings: Settings = Depends(get_settings),
+                          benutzer: Benutzer = Depends(get_current_user)):
+    projekt = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
+    bild_pfad = pd.cover_log_bild_datei(projekt, eintrag_id)
+    if not bild_pfad.exists():
+        raise HTTPException(404, "Bild für diesen Verlaufs-Eintrag nicht gefunden.")
+    return Response(content=bild_pfad.read_bytes(), media_type="image/png")
+
+
+@router.put("/{ordner:path}/cover/log/{eintrag_id}/kommentar")
+def cover_log_kommentar_setzen(ordner: str, eintrag_id: str, anfrage: CoverLogKommentarAnfrage,
+                                settings: Settings = Depends(get_settings),
+                                benutzer: Benutzer = Depends(get_current_user)):
+    """Aendert NUR den Kommentar eines Verlaufs-Eintrags - z.B. um
+    nachtraeglich festzuhalten, welche externe KI fuer ein hochgeladenes
+    Bild genutzt wurde, oder wie ein generierter Versuch ausgefallen ist."""
+    projekt = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
+    eintraege, aktive_id = _cover_log_lesen(projekt)
+    eintrag = _cover_log_eintrag_finden(eintraege, eintrag_id)
+    eintrag.kommentar = anfrage.kommentar
+    pd.cover_log_datei(projekt).write_text(cl.log_serialisieren(eintraege, aktive_id), encoding="utf-8")
+    return {"gespeichert": True}
+
+
+@router.post("/{ordner:path}/cover/log/{eintrag_id}/aktivieren")
+def cover_log_aktivieren(ordner: str, eintrag_id: str, settings: Settings = Depends(get_settings),
+                          benutzer: Benutzer = Depends(get_current_user)):
+    """Springt im Verlauf zu einem frueheren Versuch zurueck (oder wieder
+    vor): kopiert dessen gespeichertes Bild erneut nach cover.png, ohne
+    einen neuen Verlaufs-Eintrag anzulegen - der bestehende Eintrag wird
+    einfach wieder als aktiv markiert."""
+    projekt = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
+    eintraege, _aktive_id = _cover_log_lesen(projekt)
+    _cover_log_eintrag_finden(eintraege, eintrag_id)
+    bild_pfad = pd.cover_log_bild_datei(projekt, eintrag_id)
+    if not bild_pfad.exists():
+        raise HTTPException(404, "Bild für diesen Verlaufs-Eintrag nicht gefunden.")
+    pd.cover_datei(projekt).write_bytes(bild_pfad.read_bytes())
+    pd.cover_log_datei(projekt).write_text(cl.log_serialisieren(eintraege, eintrag_id), encoding="utf-8")
+    return {"gespeichert": True}
+
+
+@router.post("/{ordner:path}/cover/log/{eintrag_id}/loeschen")
+def cover_log_eintrag_loeschen(ordner: str, eintrag_id: str, settings: Settings = Depends(get_settings),
+                                benutzer: Benutzer = Depends(get_current_user)):
+    """POST statt DELETE: app/api/projects.py registriert DELETE
+    "/{ordner:path}" (Projekt loeschen) VOR diesem Router (siehe main.py) -
+    der greedy path-Konverter wuerde einen DELETE-Aufruf hierher faelschlich
+    als Projekt-Loeschung mit ordner="<ordner>/cover/log/<id>" interpretieren."""
+    projekt = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
+    eintraege, aktive_id = _cover_log_lesen(projekt)
+    eintrag = _cover_log_eintrag_finden(eintraege, eintrag_id)
+    eintraege.remove(eintrag)
+    if aktive_id == eintrag_id:
+        aktive_id = None
+    pd.cover_log_bild_datei(projekt, eintrag_id).unlink(missing_ok=True)
+    pd.cover_log_datei(projekt).write_text(cl.log_serialisieren(eintraege, aktive_id), encoding="utf-8")
+    return {"gelöscht": True}
 
 
 @router.post("/{ordner:path}/zusammenfassen")

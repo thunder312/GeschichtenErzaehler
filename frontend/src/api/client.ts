@@ -9,6 +9,7 @@ import type {
   Benutzer,
   BenutzerAnlegenEingabe,
   BenutzerEintrag,
+  CoverLogAntwort,
   Einstellungen,
   EpocheErstellenAntwort,
   EpocheKurz,
@@ -20,6 +21,8 @@ import type {
   FundusProjektAntwort,
   LoginEingabe,
   OllamaModellInfo,
+  Ort,
+  OrteAntwort,
   PersonaModell,
   ProjektBereinigenAntwort,
   ProjektZuruecksetzenAntwort,
@@ -298,9 +301,10 @@ export const api = {
     );
   },
 
-  coverHochladen: (ordner: string, datei: File) => {
+  coverHochladen: (ordner: string, datei: File, kommentar?: string) => {
     const formular = new FormData();
     formular.append("datei", datei);
+    if (kommentar) formular.append("kommentar", kommentar);
     // Kein "Content-Type": application/json wie im Default von anfrage() -
     // der Browser setzt bei FormData selbst den korrekten
     // multipart/form-data-Header inkl. Boundary, ein erzwungener JSON-Header
@@ -312,6 +316,32 @@ export const api = {
   },
 
   coverUrl: (ordner: string) => `/api/projects/${ordner}/cover`,
+
+  // Titelbild-Verlauf (siehe backend/app/core/cover_log.py) - jeder Aufruf
+  // von coverGenerieren/coverHochladen legt serverseitig automatisch einen
+  // Eintrag an, hier nur Lesen/Bearbeiten/Aktivieren/Löschen.
+  coverLog: (ordner: string) => anfrage<CoverLogAntwort>(`/api/projects/${ordner}/cover/log`),
+
+  coverLogBildUrl: (ordner: string, eintragId: string) =>
+    `/api/projects/${ordner}/cover/log/${eintragId}/bild`,
+
+  coverLogKommentarSetzen: (ordner: string, eintragId: string, kommentar: string) =>
+    anfrage<{ gespeichert: boolean }>(
+      `/api/projects/${ordner}/cover/log/${eintragId}/kommentar`,
+      { method: "PUT", body: JSON.stringify({ kommentar }) },
+    ),
+
+  coverLogAktivieren: (ordner: string, eintragId: string) =>
+    anfrage<{ gespeichert: boolean }>(
+      `/api/projects/${ordner}/cover/log/${eintragId}/aktivieren`,
+      { method: "POST" },
+    ),
+
+  coverLogLoeschen: (ordner: string, eintragId: string) =>
+    anfrage<{ gelöscht: boolean }>(
+      `/api/projects/${ordner}/cover/log/${eintragId}/loeschen`,
+      { method: "POST" },
+    ),
 
   anleitungUrl: () => "/api/docs/anleitung",
 
@@ -508,6 +538,40 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ epoche, name, feld_name: feldName, wert, fuer_alle: fuerAlle }),
     }),
+
+  // Orte-Fundus (siehe backend/app/api/orte.py) - gleiches Muster wie der
+  // Personen-Fundus oben, aber ohne Import/Custom-Felder.
+  orteLesen: () => anfrage<string>("/api/orte"),
+
+  orteSchreiben: (inhalt: string) =>
+    anfrage<{ gesichert_als: string | null }>("/api/orte", {
+      method: "PUT",
+      body: JSON.stringify({ inhalt }),
+    }),
+
+  orteListeLesen: () => anfrage<OrteAntwort>("/api/orte/orte"),
+
+  ortAnlegen: (epoche: string, name: string, beschreibung: string) =>
+    anfrage<Ort>("/api/orte/orte", {
+      method: "POST",
+      body: JSON.stringify({ epoche, name, beschreibung }),
+    }),
+
+  ortAktualisieren: (
+    epoche: string, name: string, beschreibung: string, neuerName?: string, neueEpoche?: string,
+  ) =>
+    anfrage<Ort>("/api/orte/orte", {
+      method: "PUT",
+      body: JSON.stringify({
+        epoche, name, neuer_name: neuerName ?? null, neue_epoche: neueEpoche ?? null, beschreibung,
+      }),
+    }),
+
+  ortLoeschen: (epoche: string, name: string) =>
+    anfrage<{ gelöscht: boolean }>(
+      `/api/orte/orte?${new URLSearchParams({ epoche, name })}`,
+      { method: "DELETE" },
+    ),
 };
 
 export function schreibenWebSocketUrl(

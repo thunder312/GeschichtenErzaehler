@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { ProjektDetail, SSHZiel } from "../api/types";
+import type { CoverLogEintrag, ProjektDetail, SSHZiel } from "../api/types";
 import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { alsDateiHerunterladen } from "../utils/download";
@@ -49,6 +49,16 @@ export function StandExportPage({
   const [coverFehler, setCoverFehler] = useState<string | null>(null);
   const [bildgeneratorUrl, setBildgeneratorUrl] = useState<string | null>(null);
 
+  // Titelbild-Verlauf (siehe backend/app/core/cover_log.py) - jeder Aufruf
+  // von coverGenerieren/coverHochladen legt serverseitig automatisch einen
+  // Eintrag an, hier nur Anzeige/Kommentar/Aktivieren/Löschen.
+  const [coverHochladenKommentar, setCoverHochladenKommentar] = useState("");
+  const [coverLog, setCoverLog] = useState<CoverLogEintrag[]>([]);
+  const [coverLogAktiveId, setCoverLogAktiveId] = useState<string | null>(null);
+  const [verlaufOffen, setVerlaufOffen] = useState(false);
+  const [verlaufAktionId, setVerlaufAktionId] = useState<string | null>(null);
+  const [bearbeiteteKommentare, setBearbeiteteKommentare] = useState<Record<string, string>>({});
+
   const [fehler, setFehler] = useState<string | null>(null);
   const { starten, beenden } = useAktivitaet();
   useLetztesKapitelSync(projekt, setN);
@@ -70,6 +80,60 @@ export function StandExportPage({
       .then((r) => setCoverVorhanden(r.ok))
       .catch(() => setCoverVorhanden(false));
   }, [ordner, coverVersion]);
+
+  useEffect(() => {
+    coverLogLaden();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordner, coverVersion]);
+
+  function coverLogLaden() {
+    api
+      .coverLog(ordner)
+      .then((antwort) => {
+        setCoverLog(antwort.eintraege);
+        setCoverLogAktiveId(antwort.aktive_id);
+      })
+      .catch(() => {});
+  }
+
+  async function coverLogKommentarSpeichern(eintragId: string) {
+    const kommentar = bearbeiteteKommentare[eintragId] ?? "";
+    setVerlaufAktionId(eintragId);
+    try {
+      await api.coverLogKommentarSetzen(ordner, eintragId, kommentar);
+      setCoverLog((bisher) => bisher.map((e) => (e.id === eintragId ? { ...e, kommentar } : e)));
+    } catch (e) {
+      setCoverFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setVerlaufAktionId(null);
+    }
+  }
+
+  async function coverLogAktivieren(eintragId: string) {
+    setVerlaufAktionId(eintragId);
+    setCoverFehler(null);
+    try {
+      await api.coverLogAktivieren(ordner, eintragId);
+      setCoverVersion((v) => v + 1);
+    } catch (e) {
+      setCoverFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setVerlaufAktionId(null);
+    }
+  }
+
+  async function coverLogLoeschen(eintragId: string) {
+    setVerlaufAktionId(eintragId);
+    setCoverFehler(null);
+    try {
+      await api.coverLogLoeschen(ordner, eintragId);
+      coverLogLaden();
+    } catch (e) {
+      setCoverFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setVerlaufAktionId(null);
+    }
+  }
 
   async function coverPromptVorschlagen() {
     setLadenCoverPrompt(true);
@@ -107,7 +171,8 @@ export function StandExportPage({
     setCoverFehler(null);
     starten("Lädt Titelbild hoch...");
     try {
-      await api.coverHochladen(ordner, datei);
+      await api.coverHochladen(ordner, datei, coverHochladenKommentar.trim() || undefined);
+      setCoverHochladenKommentar("");
       setCoverVersion((v) => v + 1);
     } catch (e) {
       setCoverFehler(e instanceof Error ? e.message : String(e));
@@ -296,6 +361,14 @@ export function StandExportPage({
             erzeugt und heruntergeladen - PNG, JPEG oder WEBP, wird automatisch zu PNG umgewandelt.
             Der Link lässt sich unter "Einstellungen" anpassen.
           </p>
+          <div className="mb-2 max-w-sm">
+            <Label>Kommentar zum Verlauf (optional)</Label>
+            <Input
+              value={coverHochladenKommentar}
+              onChange={(e) => setCoverHochladenKommentar(e.target.value)}
+              placeholder='z.B. "Über Google AI Studio erzeugt"'
+            />
+          </div>
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp"
@@ -323,6 +396,81 @@ export function StandExportPage({
           </div>
         )}
         {coverFehler && <p className="mt-2 text-sm text-red-400">{coverFehler}</p>}
+
+        {coverLog.length > 0 && (
+          <div className="mt-6 border-t border-border pt-4">
+            <button
+              type="button"
+              onClick={() => setVerlaufOffen((o) => !o)}
+              className="text-sm text-accent-light hover:underline"
+            >
+              {verlaufOffen ? "▾" : "▸"} Verlauf ({coverLog.length} Versuch{coverLog.length === 1 ? "" : "e"})
+            </button>
+
+            {verlaufOffen && (
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {[...coverLog].reverse().map((eintrag) => {
+                  const istAktiv = eintrag.id === coverLogAktiveId;
+                  const laeuft = verlaufAktionId === eintrag.id;
+                  return (
+                    <div
+                      key={eintrag.id}
+                      className={`rounded-lg border p-3 text-xs ${
+                        istAktiv ? "border-accent bg-accent-soft/30" : "border-border bg-bg"
+                      }`}
+                    >
+                      <img
+                        src={api.coverLogBildUrl(ordner, eintrag.id)}
+                        alt={`Titelbild-Versuch vom ${eintrag.zeitpunkt}`}
+                        className="mb-2 h-40 w-full rounded-md border border-border object-cover"
+                      />
+                      <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                        <Badge tone={eintrag.herkunft === "generiert" ? "blue" : "neutral"}>
+                          {eintrag.herkunft === "generiert" ? "KI-generiert" : "Hochgeladen"}
+                        </Badge>
+                        {istAktiv && <Badge tone="green">Aktiv</Badge>}
+                      </div>
+                      <p className="text-text-muted">{eintrag.zeitpunkt.replace("T", " ").slice(0, 16)}</p>
+                      {eintrag.prompt_deutsch && (
+                        <p className="mt-1 line-clamp-3 text-text" title={eintrag.prompt_deutsch}>
+                          {eintrag.prompt_deutsch}
+                        </p>
+                      )}
+                      <textarea
+                        value={bearbeiteteKommentare[eintrag.id] ?? eintrag.kommentar}
+                        onChange={(e) =>
+                          setBearbeiteteKommentare((bisher) => ({ ...bisher, [eintrag.id]: e.target.value }))
+                        }
+                        onBlur={() => coverLogKommentarSpeichern(eintrag.id)}
+                        rows={2}
+                        placeholder="Kommentar (z.B. genutzte externe KI)..."
+                        className="mt-2 w-full rounded-md border border-border bg-bg px-2 py-1 text-xs text-text outline-none focus:border-accent"
+                      />
+                      <div className="mt-2 flex justify-between gap-2">
+                        <button
+                          type="button"
+                          disabled={istAktiv || laeuft}
+                          onClick={() => coverLogAktivieren(eintrag.id)}
+                          className="text-accent-light hover:underline disabled:opacity-40"
+                        >
+                          {istAktiv ? "Ist aktiv" : "Als Titelbild verwenden"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={laeuft}
+                          onClick={() => coverLogLoeschen(eintrag.id)}
+                          className="text-red-400/80 hover:text-red-400 disabled:opacity-40"
+                        >
+                          Löschen
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </Card>
 
       <Card>

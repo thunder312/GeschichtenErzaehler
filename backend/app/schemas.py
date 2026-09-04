@@ -396,6 +396,30 @@ class CoverGenerierenAnfrage(BaseModel):
     prompt: str = Field(min_length=1)
 
 
+class CoverLogEintragAntwort(BaseModel):
+    """Ein Eintrag im Titelbild-Verlauf (siehe app/core/cover_log.py:
+    CoverLogEintrag) - das Bild selbst wird separat ueber
+    GET .../cover/log/{id}/bild geladen, um diese Antwort klein zu halten."""
+    id: str
+    zeitpunkt: str
+    herkunft: str  # "generiert" | "hochgeladen"
+    prompt_deutsch: str
+    prompt_englisch: str
+    kommentar: str
+
+
+class CoverLogAntwort(BaseModel):
+    eintraege: list[CoverLogEintragAntwort]
+    # Id des Eintrags, dessen Bild aktuell als cover.png aktiv ist - None,
+    # wenn kein Eintrag (mehr) dem aktuellen Cover entspricht (z.B. nach
+    # Loeschen des aktiven Eintrags).
+    aktive_id: str | None
+
+
+class CoverLogKommentarAnfrage(BaseModel):
+    kommentar: str = ""
+
+
 class StoryFrageAnfrage(BaseModel):
     frage: str = Field(min_length=1)
 
@@ -530,6 +554,36 @@ class FundusFeldHinzufuegenAnfrage(BaseModel):
     # Fundus ergaenzen, die es noch nicht haben - False: nur bei dieser
     # einen Figur.
     fuer_alle: bool = False
+
+
+class OrtAntwort(BaseModel):
+    """Ein Ort fuer den strukturierten Orte-Editor (siehe app/core/orte.py:
+    Ort)."""
+    epoche: str
+    name: str
+    beschreibung: str
+
+
+class OrteAntwort(BaseModel):
+    orte: list[OrtAntwort]
+
+
+class OrtAnlegenAnfrage(BaseModel):
+    epoche: str
+    name: str
+    beschreibung: str = ""
+
+
+class OrtAktualisierenAnfrage(BaseModel):
+    epoche: str
+    # Aktueller Name - identifiziert den zu aendernden Ort (zusammen mit
+    # epoche). Bei Umbenennung bitte NICHT hier den neuen Namen eintragen,
+    # sondern in neuer_name (analog zu FundusFigurAktualisierenAnfrage).
+    name: str
+    neuer_name: str | None = None
+    # Gesetzt = Ort in eine andere Epoche VERSCHIEBEN.
+    neue_epoche: str | None = None
+    beschreibung: str = ""
 
 
 class ProjektBereinigenAntwort(BaseModel):

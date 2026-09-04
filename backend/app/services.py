@@ -65,6 +65,13 @@ def fundus_datei(settings: Settings, username: str) -> Path:
     return projekte_wurzel(settings, username) / "fundus.md"
 
 
+def orte_datei(settings: Settings, username: str) -> Path:
+    """Pfad zur Orte-Fundus-Datei EINES Benutzers - gleiches Muster wie
+    fundus_datei() oben (eigene, vom Personen-Fundus unabhaengige Datei,
+    intern nach '## <Epoche>' gegliedert, siehe app/core/orte.py)."""
+    return projekte_wurzel(settings, username) / "orte.md"
+
+
 def neuer_projekt_pfad(settings: Settings, username: str, titel: str, epoche: str | None = None) -> Path:
     """Ort fuer ein neu anzulegendes Projekt. Ist die Einstellung
     "Unterordner je Epoche" aktiv (siehe app/api/einstellungen.py), landet

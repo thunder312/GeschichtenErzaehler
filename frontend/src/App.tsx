@@ -10,6 +10,7 @@ import { EpocheErstellenPage } from "./pages/EpocheErstellenPage";
 import { FundusPage } from "./pages/FundusPage";
 import { GeruestPage } from "./pages/GeruestPage";
 import { MobilPage } from "./pages/MobilPage";
+import { OrtePage } from "./pages/OrtePage";
 import { StatusFooter } from "./components/StatusFooter";
 import { ZeitUeberbrueckungOverlay } from "./components/ZeitUeberbrueckungOverlay";
 import { AktivitaetProvider } from "./context/AktivitaetContext";
@@ -134,6 +135,7 @@ function App() {
     { id: "analysator", label: "Analysator", icon: "🔬" },
     { id: "epoche", label: "Epoche erstellen", icon: "🏛️" },
     { id: "fundus", label: "Personen-Fundus", icon: "🧬", align: "end" as const },
+    { id: "orte", label: "Orte-Fundus", icon: "🗺️", align: "end" as const },
     // KI-Ziele verwalten, Speicherort-Einstellungen und Benutzerverwaltung
     // betreffen die gesamte Installation, nicht nur das eigene Projekt -
     // deshalb nur fuer Admin-Benutzer sichtbar (serverseitig zusaetzlich ueber
@@ -358,6 +360,10 @@ function App() {
 
         <div className={activeTab === "fundus" ? "" : "hidden"}>
           <FundusPage sshZielId={sshZielId} />
+        </div>
+
+        <div className={activeTab === "orte" ? "" : "hidden"}>
+          <OrtePage />
         </div>
 
         {benutzer.ist_admin && (

@@ -308,6 +308,37 @@ export interface FundusFigurenAntwort {
   standard_felder: string[];
 }
 
+// Titelbild-Verlauf (siehe backend/app/core/cover_log.py) - ein Eintrag je
+// Aufruf von cover/generieren oder cover/hochladen. Das Bild selbst wird
+// separat ueber api.coverLogBildUrl() geladen, um diese Liste klein zu halten.
+export interface CoverLogEintrag {
+  id: string;
+  zeitpunkt: string;
+  herkunft: "generiert" | "hochgeladen";
+  prompt_deutsch: string;
+  prompt_englisch: string;
+  kommentar: string;
+}
+
+export interface CoverLogAntwort {
+  eintraege: CoverLogEintrag[];
+  // Id des Eintrags, dessen Bild aktuell als Titelbild aktiv ist - null,
+  // wenn kein Eintrag (mehr) dem aktuellen Titelbild entspricht.
+  aktive_id: string | null;
+}
+
+// Orte-Fundus (siehe backend/app/core/orte.py) - Pendant zu FundusFigur,
+// aber ohne dynamische Zusatzfelder: nur Name + Beschreibung je Epoche.
+export interface Ort {
+  epoche: string;
+  name: string;
+  beschreibung: string;
+}
+
+export interface OrteAntwort {
+  orte: Ort[];
+}
+
 export interface ProjektBereinigenAntwort {
   geloeschte_bak: number;
   geloeschte_stand: number;
