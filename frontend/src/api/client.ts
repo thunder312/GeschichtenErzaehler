@@ -9,6 +9,7 @@ import type {
   Benutzer,
   BenutzerAnlegenEingabe,
   BenutzerEintrag,
+  BildModell,
   CoverLogAntwort,
   Einstellungen,
   EpocheErstellenAntwort,
@@ -292,12 +293,18 @@ export const api = {
       { method: "POST" },
     ),
 
-  coverGenerieren: (ordner: string, prompt: string, bildZielId: string, sshZielId?: string | null) => {
+  coverGenerieren: (
+    ordner: string,
+    prompt: string,
+    bildZielId: string,
+    bildModell: BildModell,
+    sshZielId?: string | null,
+  ) => {
     const params = new URLSearchParams({ bild_ziel_id: bildZielId });
     if (sshZielId) params.set("ssh_ziel_id", sshZielId);
     return anfrage<{ gespeichert: boolean }>(
       `/api/projects/${ordner}/cover/generieren?${params.toString()}`,
-      { method: "POST", body: JSON.stringify({ prompt }) },
+      { method: "POST", body: JSON.stringify({ prompt, bild_modell: bildModell }) },
     );
   },
 

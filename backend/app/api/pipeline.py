@@ -1797,6 +1797,7 @@ async def cover_prompt_vorschlagen(ordner: str, ssh_ziel_id: str | None = Query(
 def _cover_log_eintrag_anlegen(
     projekt: Path, bild_bytes: bytes, herkunft: str,
     prompt_deutsch: str = "", prompt_englisch: str = "", kommentar: str = "",
+    modell: str = "",
 ) -> None:
     """Haengt NACH dem Schreiben von cover.png einen neuen Verlaufs-Eintrag an
     cover_log.json an (siehe app/core/cover_log.py) und legt eine eigene
@@ -1806,7 +1807,8 @@ def _cover_log_eintrag_anlegen(
     eintraege, _aktive_id = cl.log_parsen(pd.lies(log_pfad, pflicht=False, ersatz=""))
     eintrag = cl.CoverLogEintrag(
         id=cl.neue_id(), zeitpunkt=cl.jetzt_iso(), herkunft=herkunft,
-        prompt_deutsch=prompt_deutsch, prompt_englisch=prompt_englisch, kommentar=kommentar,
+        prompt_deutsch=prompt_deutsch, prompt_englisch=prompt_englisch,
+        kommentar=kommentar, modell=modell,
     )
     eintraege.append(eintrag)
     bild_pfad = pd.cover_log_bild_datei(projekt, eintrag.id)
@@ -1823,8 +1825,9 @@ async def cover_generieren(ordner: str, anfrage: CoverGenerierenAnfrage,
                             benutzer: Benutzer = Depends(get_current_user)):
     """Erzeugt das eigentliche Deckblattbild ueber sd-server (siehe
     app/core/bild_generierung.py) und speichert es als projekt/cover.png.
-    bild_ziel_id waehlt das KI-Ziel mit konfiguriertem bildki_port (siehe
-    app/services.py:bild_basis_url) - unabhaengig vom Text-KI-Ziel aus
+    bild_ziel_id waehlt das KI-Ziel, anfrage.bild_modell ("flux"/"pony")
+    welche der beiden dort ggf. laufenden sd-server-Instanzen genutzt wird
+    (siehe app/services.py:bild_basis_url) - unabhaengig vom Text-KI-Ziel aus
     cover_prompt_vorschlagen(), auch wenn in der Praxis meist dasselbe
     KI-Ziel (Athene) beides bedient. anfrage.prompt ist Deutsch (der User
     tippt/korrigiert im Frontend auf Deutsch, siehe
@@ -1834,28 +1837,36 @@ async def cover_generieren(ordner: str, anfrage: CoverGenerierenAnfrage,
     g.cover_prompt_hochformat_sicherstellen() stellt zusaetzlich sicher, dass
     der Hochformat-Hinweis vorne steht, auch wenn der User ihn aus dem vom
     Vorschlag uebernommenen Text geloescht oder einen eigenen Prompt ganz
-    ohne ihn eingetippt hat."""
+    ohne ihn eingetippt hat. Die Uebersetzung selbst ist bei beiden Modellen
+    identisch (reine woertliche Uebersetzung ohne Content-Filterung, siehe
+    g.COVER_PROMPT_UEBERSETZEN_SYSTEM) - modellspezifisch wird der Prompt erst
+    in bild_generierung.cover_generierung_parameter() ergaenzt (Pony:
+    Score-Tag-Praefix + LoRA/Sampler/CFG)."""
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     projekt = projekt_root / "projekt"
     with ollama_basis_url(settings, ssh_ziel_id) as text_base_url:
-        modell = rollen_modell_override(settings, "cover_prompt")
+        text_modell = rollen_modell_override(settings, "cover_prompt")
         try:
             prompt_englisch, _meta = await _sammle_antwort(
                 text_base_url, "cover_prompt", g.COVER_PROMPT_UEBERSETZEN_SYSTEM,
                 g.cover_prompt_hochformat_sicherstellen(anfrage.prompt),
-                modell_override=modell,
+                modell_override=text_modell,
             )
         except OllamaFehler as e:
             raise HTTPException(502, str(e)) from e
-    with bild_basis_url(settings, bild_ziel_id) as base_url:
+    parameter = bild_generierung.cover_generierung_parameter(
+        anfrage.bild_modell, prompt_englisch.strip()
+    )
+    with bild_basis_url(settings, bild_ziel_id, modell=anfrage.bild_modell) as base_url:
         try:
-            bild_bytes = await bild_generierung.generiere_cover(base_url, prompt_englisch.strip())
+            bild_bytes = await bild_generierung.generiere_cover(base_url, **parameter)
         except BildGenerierungFehler as e:
             raise HTTPException(502, str(e)) from e
     pd.cover_datei(projekt).write_bytes(bild_bytes)
     _cover_log_eintrag_anlegen(
         projekt, bild_bytes, herkunft="generiert",
-        prompt_deutsch=anfrage.prompt, prompt_englisch=prompt_englisch.strip(),
+        prompt_deutsch=anfrage.prompt, prompt_englisch=parameter["prompt"],
+        modell=anfrage.bild_modell,
     )
     return {"gespeichert": True}
 

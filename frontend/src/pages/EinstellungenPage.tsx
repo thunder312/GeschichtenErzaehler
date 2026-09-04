@@ -22,6 +22,7 @@ const LEERES_FORMULAR: SSHZielEingabe = {
   private_key_passphrase: "",
   remote_ollama_port: 11434,
   bildki_port: null,
+  bildki_port_pony: null,
 };
 
 interface EinstellungenPageProps {
@@ -359,6 +360,7 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
       private_key_passphrase: "",
       remote_ollama_port: z.remote_ollama_port,
       bildki_port: z.bildki_port,
+      bildki_port_pony: z.bildki_port_pony,
     });
     setBearbeiteId(z.id);
     setBearbeiteUrsprungAuthMethod(z.auth_method);
@@ -478,7 +480,8 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
                 <span className="truncate text-xs text-text-muted">
                   {z.auth_method === "direct" ? z.host : `${z.username}@${z.host}:${z.port}`}
                 </span>
-                {z.bildki_port != null && <Badge>🎨</Badge>}
+                {z.bildki_port != null && <Badge>🎨 FLUX</Badge>}
+                {z.bildki_port_pony != null && <Badge>🎨 Pony</Badge>}
               </div>
               <div className="flex shrink-0 gap-1.5">
                 <button
@@ -654,7 +657,7 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
           )}
 
           <div>
-            <Label>Bild-Generierung Port (optional, sd-server)</Label>
+            <Label>Bild-Generierung Port FLUX (optional, sd-server)</Label>
             <Input
               type="number"
               min={1}
@@ -662,6 +665,18 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
               value={formular.bildki_port ?? ""}
               placeholder="leer = keine Bildgenerierung auf diesem Ziel"
               onChange={(e) => feld("bildki_port", e.target.value ? Number(e.target.value) : null)}
+            />
+          </div>
+
+          <div>
+            <Label>Bild-Generierung Port Pony (optional, zweite sd-server-Instanz)</Label>
+            <Input
+              type="number"
+              min={1}
+              max={65535}
+              value={formular.bildki_port_pony ?? ""}
+              placeholder="leer = kein Pony-Modell auf diesem Ziel"
+              onChange={(e) => feld("bildki_port_pony", e.target.value ? Number(e.target.value) : null)}
             />
           </div>
 

@@ -63,8 +63,14 @@ from PIL import Image, UnidentifiedImageError
 # HINWEIS: Bei CFG==1 (aktuelles Modell FLUX.1-schnell) wertet sd-server den
 # Negativ-Prompt gar nicht aus - er wird trotzdem gesendet, damit er bei
 # einem Wechsel auf ein CFG>1-Modell (FLUX.1-dev, SD3.5) automatisch greift.
+# "extra arm"/"third arm"/"three arms"/"duplicate arm"/"duplicate hand" bewusst
+# zusaetzlich zu "extra arms"/"extra hands" (Plural) ergaenzt: ein Pony-
+# Testbild (siehe Recherche zu PONY_LORA_PATH) zeigte trotz der Plural-Form
+# eine Figur mit drei Armen - explizite Singular-/Zahlwort-Varianten treffen
+# dieses konkrete Artefakt zuverlaessiger.
 NEGATIV_PROMPT_STANDARD = (
     "extra limbs, extra arms, extra hands, extra legs, extra fingers, "
+    "extra arm, third arm, three arms, duplicate arm, duplicate hand, "
     "fused fingers, missing fingers, deformed hands, mutated hands, "
     "malformed limbs, disfigured, duplicate body parts, bad anatomy, "
     "uncanny face, asymmetric face, deformed face, distorted face, "
@@ -88,6 +94,62 @@ STANDARD_HEIGHT = 1024
 # auf der 780M-iGPU braucht Minuten, haeufigeres Pollen brauchte nur den
 # SSH-Tunnel (siehe app/core/ssh_manager.py) unnoetig unter Last.
 POLL_INTERVALL_S = 3.0
+
+# Zweites Bildmodell (siehe app/services.py:bild_basis_url, modell="pony"):
+# Pony Diffusion V6 XL (GGUF Q8_0) + "Realism LoRA by Stable Yogi" - eigene,
+# unabhaengige sd-server-Instanz auf Athene (Port in bildki_port_pony, siehe
+# app/db.py), fuer fotorealistische Cover ohne die Content-Einschraenkung aus
+# g.COVER_PROMPT_SYSTEM (die gilt nur fuer den AUTOMATISCHEN deutschen
+# Prompt-Vorschlag, nicht fuer einen vom User selbst eingetippten Prompt -
+# siehe app/api/pipeline.py:cover_prompt_vorschlagen/cover_generieren).
+# Anders als FLUX.1-schnell ist Pony KEIN Turbo-Modell: braucht echtes CFG
+# und mehr Schritte, dafuer wirkt der Negativ-Prompt hier tatsaechlich.
+# Werte entsprechen der Compose-Konfiguration auf Athene
+# (~/docker/sd-server-pony-compose.yaml) bzw. der Empfehlung im GGUF-Repo
+# (offgrid-ai/pony-diffusion-v6-xl-GGUF).
+PONY_SAMPLE_STEPS = 24
+PONY_CFG_SCALE = 5.0
+PONY_SAMPLE_METHOD = "dpm++2m"
+
+# Dateiname relativ zu --lora-model-dir auf der Pony-sd-server-Instanz (siehe
+# GET /sdcpp/v1/capabilities -> "loras"). Gewicht 1.0 liegt in der von
+# Stable Yogi empfohlenen Spanne 0.4-1.5.
+PONY_LORA_PATH = "Realism Lora By Stable Yogi_V3_Lite.safetensors"
+PONY_LORA_MULTIPLIER = 1.0
+
+# Pony Diffusion wurde mit einem Aesthetic-Score-System trainiert: ohne diese
+# absteigende Tag-Kette am Prompt-Anfang wirken Bilder flau/unfertig (siehe
+# Recherche zu Pony-Diffusion-Prompting). Rein technische Tokens ohne
+# Bedeutung fuer den User - werden NICHT im editierbaren deutschen/englischen
+# Prompt-Feld angezeigt, sondern erst hier unmittelbar vor der Anfrage an
+# sd-server ergaenzt.
+PONY_SCORE_TAGS_PRAEFIX = (
+    "score_9, score_8_up, score_7_up, score_6_up, score_5_up, score_4_up, "
+)
+
+
+def cover_generierung_parameter(modell: str, prompt_englisch: str) -> dict:
+    """Liefert die Zusatz-Keyword-Argumente fuer generiere_cover() (sample_steps/
+    sample_method/cfg_scale/lora) sowie den ggf. um PONY_SCORE_TAGS_PRAEFIX
+    ergaenzten Prompt - je nach vom User gewaehltem Bildmodell ("flux"
+    (Standard) oder "pony", siehe app/schemas.py:CoverGenerierenAnfrage.bild_modell
+    und app/services.py:bild_basis_url). Ergebnis-Dict passt per **-Entpackung
+    direkt auf generiere_cover(base_url=..., **ergebnis)."""
+    if modell == "pony":
+        return {
+            "prompt": PONY_SCORE_TAGS_PRAEFIX + prompt_englisch,
+            "sample_steps": PONY_SAMPLE_STEPS,
+            "sample_method": PONY_SAMPLE_METHOD,
+            "cfg_scale": PONY_CFG_SCALE,
+            "lora": [{"path": PONY_LORA_PATH, "multiplier": PONY_LORA_MULTIPLIER}],
+        }
+    return {
+        "prompt": prompt_englisch,
+        "sample_steps": STANDARD_SAMPLE_STEPS,
+        "sample_method": None,
+        "cfg_scale": None,
+        "lora": None,
+    }
 
 
 class BildGenerierungFehler(Exception):
@@ -133,10 +195,16 @@ def cover_aus_upload_normalisieren(rohdaten: bytes, max_bytes: int = COVER_UPLOA
 
 
 def _job_payload(prompt: str, negativ_prompt: str, sample_steps: int | None,
-                 width: int | None, height: int | None) -> dict:
+                 width: int | None, height: int | None,
+                 sample_method: str | None = None, cfg_scale: float | None = None,
+                 lora: list[dict] | None = None) -> dict:
     """Baut den Request-Body fuer POST /sdcpp/v1/img_gen. Felder, die None/leer
     sind, werden weggelassen, damit sd-server jeweils seinen eigenen Default
-    verwendet (siehe examples/server/api.md)."""
+    verwendet (siehe examples/server/api.md). sample_method/cfg_scale landen
+    beide unter sample_params (cfg_scale als sample_params.guidance.txt_cfg),
+    lora ist ein eigenes Top-Level-Feld (Liste von {"path", "multiplier"},
+    NICHT die <lora:...>-Prompt-Syntax der CLI - siehe Pony-Recherche in
+    app/core/bild_generierung.py:PONY_LORA_PATH)."""
     payload: dict = {"prompt": prompt, "output_format": "png"}
     if negativ_prompt:
         payload["negative_prompt"] = negativ_prompt
@@ -144,8 +212,17 @@ def _job_payload(prompt: str, negativ_prompt: str, sample_steps: int | None,
         payload["width"] = width
     if height is not None:
         payload["height"] = height
+    if lora:
+        payload["lora"] = lora
+    sample_params: dict = {}
     if sample_steps is not None:
-        payload["sample_params"] = {"sample_steps": sample_steps}
+        sample_params["sample_steps"] = sample_steps
+    if sample_method is not None:
+        sample_params["sample_method"] = sample_method
+    if cfg_scale is not None:
+        sample_params["guidance"] = {"txt_cfg": cfg_scale}
+    if sample_params:
+        payload["sample_params"] = sample_params
     return payload
 
 
@@ -153,15 +230,22 @@ async def generiere_cover(base_url: str, prompt: str, timeout: float = 600.0,
                            negativ_prompt: str = NEGATIV_PROMPT_STANDARD,
                            sample_steps: int | None = STANDARD_SAMPLE_STEPS,
                            width: int | None = STANDARD_WIDTH,
-                           height: int | None = STANDARD_HEIGHT) -> bytes:
+                           height: int | None = STANDARD_HEIGHT,
+                           sample_method: str | None = None,
+                           cfg_scale: float | None = None,
+                           lora: list[dict] | None = None) -> bytes:
     """Startet einen Bild-Job auf sd-server (POST /sdcpp/v1/img_gen), pollt
     ihn bis "completed" (GET /sdcpp/v1/jobs/{id}) und liefert die rohen
     PNG-Bytes des ersten (einzigen) Ergebnisbilds.
-    negativ_prompt/sample_steps/width/height jeweils None bzw. leer lassen,
-    um den sd-server-Default zu verwenden. timeout ist das Gesamt-Zeitbudget
-    fuer Start UND Fertigstellung; laeuft es ab, wird BildGenerierungFehler
-    geworfen (der Job kann serverseitig weiterlaufen)."""
-    payload = _job_payload(prompt, negativ_prompt, sample_steps, width, height)
+    negativ_prompt/sample_steps/width/height/sample_method/cfg_scale/lora
+    jeweils None bzw. leer lassen, um den sd-server-Default zu verwenden (bei
+    FLUX reicht das; fuer Pony liefert
+    app/core/bild_generierung.py:cover_generierung_parameter() passende
+    Werte). timeout ist das Gesamt-Zeitbudget fuer Start UND Fertigstellung;
+    laeuft es ab, wird BildGenerierungFehler geworfen (der Job kann
+    serverseitig weiterlaufen)."""
+    payload = _job_payload(prompt, negativ_prompt, sample_steps, width, height,
+                            sample_method, cfg_scale, lora)
     frist = time.monotonic() + timeout
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:

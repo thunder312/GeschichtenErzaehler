@@ -24,6 +24,10 @@ class CoverLogEintrag:
     prompt_deutsch: str = ""
     prompt_englisch: str = ""
     kommentar: str = ""
+    # "flux"/"pony" bei KI-generierten Eintraegen (siehe
+    # app/core/bild_generierung.py) - leer bei hochgeladenen Bildern oder
+    # Eintraegen aus der Zeit vor dieser Unterscheidung.
+    modell: str = ""
 
 
 def neue_id() -> str:
@@ -59,6 +63,7 @@ def log_parsen(text: str) -> tuple[list[CoverLogEintrag], str | None]:
             prompt_deutsch=e.get("prompt_deutsch", ""),
             prompt_englisch=e.get("prompt_englisch", ""),
             kommentar=e.get("kommentar", ""),
+            modell=e.get("modell", ""),
         )
         for e in daten.get("eintraege", [])
         if "id" in e
@@ -77,6 +82,7 @@ def log_serialisieren(eintraege: list[CoverLogEintrag], aktive_id: str | None) -
                 "prompt_deutsch": e.prompt_deutsch,
                 "prompt_englisch": e.prompt_englisch,
                 "kommentar": e.kommentar,
+                "modell": e.modell,
             }
             for e in eintraege
         ],

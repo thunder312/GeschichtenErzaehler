@@ -199,31 +199,36 @@ def ollama_basis_url(settings: Settings, ssh_ziel_id: str | None):
 
 
 @contextmanager
-def bild_basis_url(settings: Settings, ziel_id: str):
+def bild_basis_url(settings: Settings, ziel_id: str, modell: str = "flux"):
     """Liefert eine base_url fuer app/core/bild_generierung.py - Pendant zu
     ollama_basis_url() fuer den sd-server-Container, der auf demselben Host
-    wie das gewaehlte Text-KI-Ziel laeuft, aber auf einem eigenen Port
-    (bildki_port, siehe app/db.py). Anders als bei Ollama gibt es hier KEIN
-    implizites lokales Standardziel - ohne konfigurierten bildki_port ist
-    Bildgenerierung fuer dieses KI-Ziel schlicht nicht verfuegbar."""
+    wie das gewaehlte Text-KI-Ziel laeuft, aber auf einem eigenen Port.
+    modell waehlt zwischen den zwei unabhaengigen sd-server-Instanzen, die auf
+    demselben KI-Ziel laufen koennen (siehe app/db.py): "flux" -> bildki_port
+    (FLUX.1-schnell), "pony" -> bildki_port_pony (Pony Diffusion V6 XL +
+    Realism-LoRA). Anders als bei Ollama gibt es hier KEIN implizites
+    lokales Standardziel - ohne konfigurierten Port ist Bildgenerierung mit
+    diesem Modell fuer dieses KI-Ziel schlicht nicht verfuegbar."""
+    spalte = "bildki_port" if modell == "flux" else "bildki_port_pony"
     row = db.ssh_ziel_lesen(settings.database_path, ziel_id)
     if row is None:
         raise HTTPException(404, "KI-Ziel nicht gefunden.")
-    if row["bildki_port"] is None:
+    port = row[spalte]
+    if port is None:
         raise HTTPException(
-            400, "Für dieses KI-Ziel ist keine Bildgenerierung konfiguriert "
-                 "(Bild-Port fehlt, siehe Tab \"KI-Ziele\")."
+            400, f"Für dieses KI-Ziel ist keine Bildgenerierung mit dem Modell "
+                 f"\"{modell}\" konfiguriert (Port fehlt, siehe Tab \"KI-Ziele\")."
         )
 
     if row["auth_method"] == "direct":
         teile = urlsplit(row["host"])
         host_ohne_port = (teile.hostname or teile.netloc.split(":")[0])
-        neuer_netloc = f"{host_ohne_port}:{row['bildki_port']}"
+        neuer_netloc = f"{host_ohne_port}:{port}"
         yield urlunsplit((teile.scheme, neuer_netloc, "", "", ""))
         return
 
     ziel = ssh_ziel_aus_db(settings, ziel_id)
-    bild_ziel = dataclasses.replace(ziel, remote_ollama_port=row["bildki_port"])
+    bild_ziel = dataclasses.replace(ziel, remote_ollama_port=port)
     try:
         with ssh_manager.tunnel(bild_ziel) as t:
             yield t.base_url

@@ -14,6 +14,10 @@ frontend/dist/
 frontend/.vite/
 npm-debug.log*
 
+# --- .NET / tools/BildKI ---
+tools/BildKI/bin/
+tools/BildKI/obj/
+
 # --- Laufzeitdaten (lokal, nicht versioniert) ---
 backend/instance/
 backend/*.db

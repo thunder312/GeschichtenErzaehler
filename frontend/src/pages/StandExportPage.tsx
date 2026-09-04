@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { CoverLogEintrag, ProjektDetail, SSHZiel } from "../api/types";
+import type { BildModell, CoverLogEintrag, ProjektDetail, SSHZiel } from "../api/types";
 import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { alsDateiHerunterladen } from "../utils/download";
@@ -38,8 +38,10 @@ export function StandExportPage({
   // Aktion wiederholen kann, statt zu raten.
   const [letzteExportArt, setLetzteExportArt] = useState<"gesamt" | "zwischenstand" | null>(null);
 
-  const bildZiele = sshZiele.filter((z) => z.bildki_port != null);
+  const bildZiele = sshZiele.filter((z) => z.bildki_port != null || z.bildki_port_pony != null);
   const [bildZielId, setBildZielId] = useState("");
+  const bildZielAusgewaehlt = bildZiele.find((z) => z.id === bildZielId);
+  const [bildModell, setBildModell] = useState<BildModell>("flux");
   const [coverPrompt, setCoverPrompt] = useState("");
   const [coverVorhanden, setCoverVorhanden] = useState(false);
   const [coverVersion, setCoverVersion] = useState(0);
@@ -73,6 +75,18 @@ export function StandExportPage({
   useEffect(() => {
     api.einstellungen().then((e) => setBildgeneratorUrl(e.bildgenerator_url)).catch(() => {});
   }, []);
+
+  // Wechselt automatisch auf das jeweils andere Modell, wenn das gewaehlte
+  // KI-Ziel fuer das aktuell ausgewaehlte Modell keinen Port konfiguriert hat
+  // (z.B. beim Wechsel des Bild-KI-Ziels auf eines ohne Pony-Port).
+  useEffect(() => {
+    if (!bildZielAusgewaehlt) return;
+    const fluxVerfuegbar = bildZielAusgewaehlt.bildki_port != null;
+    const ponyVerfuegbar = bildZielAusgewaehlt.bildki_port_pony != null;
+    if (bildModell === "flux" && !fluxVerfuegbar && ponyVerfuegbar) setBildModell("pony");
+    else if (bildModell === "pony" && !ponyVerfuegbar && fluxVerfuegbar) setBildModell("flux");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bildZielId, sshZiele]);
 
   useEffect(() => {
     setCoverVorhanden(false);
@@ -156,7 +170,7 @@ export function StandExportPage({
     setCoverFehler(null);
     starten("Generiert Titelbild (kann bis zu 3 Minuten dauern)...");
     try {
-      await api.coverGenerieren(ordner, coverPrompt.trim(), bildZielId, sshZielId || null);
+      await api.coverGenerieren(ordner, coverPrompt.trim(), bildZielId, bildModell, sshZielId || null);
       setCoverVersion((v) => v + 1);
     } catch (e) {
       setCoverFehler(e instanceof Error ? e.message : String(e));
@@ -328,6 +342,40 @@ export function StandExportPage({
                 {ladenCoverPrompt ? "Erzeugt Vorschlag..." : "Prompt vorschlagen"}
               </Button>
             </div>
+            <div className="mt-3">
+              <Label>Bildmodell</Label>
+              <div className="flex flex-wrap gap-4">
+                {(
+                  [
+                    { wert: "flux" as BildModell, label: "FLUX", verfuegbar: bildZielAusgewaehlt?.bildki_port != null },
+                    { wert: "pony" as BildModell, label: "Pony (fotorealistisch)", verfuegbar: bildZielAusgewaehlt?.bildki_port_pony != null },
+                  ]
+                ).map((option) => (
+                  <label
+                    key={option.wert}
+                    className={`flex items-center gap-1.5 text-sm ${
+                      option.verfuegbar ? "text-text" : "text-text-muted opacity-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="bildModell"
+                      value={option.wert}
+                      checked={bildModell === option.wert}
+                      disabled={!option.verfuegbar}
+                      onChange={() => setBildModell(option.wert)}
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+              {bildModell === "pony" && (
+                <p className="mt-1 text-xs text-text-muted">
+                  Nutzt Pony Diffusion V6 XL + Realism-LoRA - unterliegt NICHT der sonst
+                  automatisch gesetzten Content-Einschränkung des Prompt-Vorschlags.
+                </p>
+              )}
+            </div>
             <div className="mt-4">
               <Label>Bildprompt (Deutsch, editierbar - wird vor der Generierung automatisch übersetzt)</Label>
               <textarea
@@ -428,6 +476,8 @@ export function StandExportPage({
                         <Badge tone={eintrag.herkunft === "generiert" ? "blue" : "neutral"}>
                           {eintrag.herkunft === "generiert" ? "KI-generiert" : "Hochgeladen"}
                         </Badge>
+                        {eintrag.modell === "pony" && <Badge>Pony</Badge>}
+                        {eintrag.modell === "flux" && <Badge>FLUX</Badge>}
                         {istAktiv && <Badge tone="green">Aktiv</Badge>}
                       </div>
                       <p className="text-text-muted">{eintrag.zeitpunkt.replace("T", " ").slice(0, 16)}</p>

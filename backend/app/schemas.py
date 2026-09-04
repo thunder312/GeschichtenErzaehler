@@ -160,6 +160,10 @@ class SSHZielAnlegenAnfrage(BaseModel):
     # siehe app/core/bild_generierung.py) - None bedeutet: dieses KI-Ziel
     # bietet keine Bildgenerierung an.
     bildki_port: int | None = Field(default=None, ge=1, le=65535)
+    # Zweiter, unabhaengiger sd-server-Port fuer das Pony-Diffusion-Modell
+    # (siehe app/core/bild_generierung.py) - None bedeutet: kein Pony-Modell
+    # auf diesem KI-Ziel verfuegbar. bildki_port bleibt FLUX.
+    bildki_port_pony: int | None = Field(default=None, ge=1, le=65535)
 
 
 class SSHZielAntwort(BaseModel):
@@ -171,6 +175,7 @@ class SSHZielAntwort(BaseModel):
     auth_method: str
     remote_ollama_port: int
     bildki_port: int | None = None
+    bildki_port_pony: int | None = None
     favorit: bool
     created_at: str
     updated_at: str
@@ -394,6 +399,11 @@ class CoverPromptAntwort(BaseModel):
 
 class CoverGenerierenAnfrage(BaseModel):
     prompt: str = Field(min_length=1)
+    # Welches auf dem gewaehlten bild_ziel_id laufende Modell genutzt wird
+    # (siehe app/core/bild_generierung.py/app/services.py:bild_basis_url):
+    # "flux" = FLUX.1-schnell (Standard, restriktivere Cover-Prompt-Persona
+    # bleibt unberuehrt), "pony" = Pony Diffusion V6 XL + Realism-LoRA.
+    bild_modell: Literal["flux", "pony"] = "flux"
 
 
 class CoverLogEintragAntwort(BaseModel):
@@ -406,6 +416,10 @@ class CoverLogEintragAntwort(BaseModel):
     prompt_deutsch: str
     prompt_englisch: str
     kommentar: str
+    # "flux"/"pony" bei KI-generierten Eintraegen (siehe
+    # CoverGenerierenAnfrage.bild_modell), leer bei hochgeladenen Bildern
+    # oder Eintraegen aus der Zeit vor dieser Unterscheidung.
+    modell: str = ""
 
 
 class CoverLogAntwort(BaseModel):

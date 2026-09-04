@@ -72,6 +72,10 @@ export interface SSHZiel {
   // siehe api.coverPromptVorschlagen/coverGenerieren) - null = dieses
   // KI-Ziel bietet keine Bildgenerierung an.
   bildki_port: number | null;
+  // Zweiter, unabhaengiger sd-server-Port fuer Pony Diffusion + Realism-LoRA
+  // (siehe backend/app/core/bild_generierung.py) - null = kein Pony-Modell
+  // auf diesem KI-Ziel verfuegbar. bildki_port bleibt FLUX.
+  bildki_port_pony: number | null;
   favorit: boolean;
   created_at: string;
   updated_at: string;
@@ -88,7 +92,14 @@ export interface SSHZielEingabe {
   private_key_passphrase?: string;
   remote_ollama_port: number;
   bildki_port?: number | null;
+  bildki_port_pony?: number | null;
 }
+
+// Welches Bildmodell fuer die Cover-Generierung genutzt wird (siehe
+// backend/app/core/bild_generierung.py) - "flux" (Standard) = FLUX.1-schnell,
+// "pony" = Pony Diffusion V6 XL + Realism-LoRA (fotorealistisch, ohne die
+// Content-Einschraenkung des automatischen Prompt-Vorschlags).
+export type BildModell = "flux" | "pony";
 
 export interface SSHTestErgebnis {
   erfolgreich: boolean;
@@ -318,6 +329,9 @@ export interface CoverLogEintrag {
   prompt_deutsch: string;
   prompt_englisch: string;
   kommentar: string;
+  // "flux"/"pony" bei KI-generierten Eintraegen, leer bei hochgeladenen
+  // Bildern oder Eintraegen aus der Zeit vor dieser Unterscheidung.
+  modell: string;
 }
 
 export interface CoverLogAntwort {

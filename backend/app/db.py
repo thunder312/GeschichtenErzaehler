@@ -28,6 +28,11 @@ CREATE TABLE IF NOT EXISTS ssh_targets (
     secret_encrypted BLOB,
     remote_ollama_port INTEGER NOT NULL DEFAULT 11434,
     bildki_port INTEGER,
+    -- Zweiter, unabhaengiger sd-server-Port fuer ein alternatives Bildmodell
+    -- auf demselben Host (Pony Diffusion + Realism-LoRA, siehe
+    -- app/core/bild_generierung.py) - NULL bedeutet: kein Pony-Modell auf
+    -- diesem KI-Ziel verfuegbar. bildki_port bleibt das FLUX-Modell.
+    bildki_port_pony INTEGER,
     favorit INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -126,6 +131,11 @@ def init_db(db_path: Path) -> None:
         if "bildki_port" not in spalten:
             conn.execute("ALTER TABLE ssh_targets ADD COLUMN bildki_port INTEGER")
 
+        # Migration fuer das zweite Bildmodell (Pony Diffusion + Realism-LoRA,
+        # siehe app/core/bild_generierung.py) - eigener, unabhaengiger Port.
+        if "bildki_port_pony" not in spalten:
+            conn.execute("ALTER TABLE ssh_targets ADD COLUMN bildki_port_pony INTEGER")
+
         if "bildgenerator_url" not in einstellungen_spalten:
             conn.execute("ALTER TABLE einstellungen ADD COLUMN bildgenerator_url TEXT")
 
@@ -148,7 +158,8 @@ def _jetzt() -> str:
 def ssh_ziel_anlegen(db_path: Path, secret_key_path: Path, *, name: str, host: str,
                       port: int, username: str, auth_method: str,
                       geheimnis: dict, remote_ollama_port: int,
-                      bildki_port: int | None = None) -> str:
+                      bildki_port: int | None = None,
+                      bildki_port_pony: int | None = None) -> str:
     """geheimnis enthaelt je nach auth_method: {'password': '...'} oder
     {'private_key_pem': '...', 'passphrase': '...'} oder {} bei 'agent'."""
     ziel_id = str(uuid.uuid4())
@@ -157,9 +168,10 @@ def ssh_ziel_anlegen(db_path: Path, secret_key_path: Path, *, name: str, host: s
         conn.execute(
             "INSERT INTO ssh_targets (id, name, host, port, username, "
             "auth_method, secret_encrypted, remote_ollama_port, bildki_port, "
-            "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "bildki_port_pony, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (ziel_id, name, host, port, username, auth_method, verschluesselt,
-             remote_ollama_port, bildki_port, _jetzt(), _jetzt()),
+             remote_ollama_port, bildki_port, bildki_port_pony, _jetzt(), _jetzt()),
         )
     return ziel_id
 
@@ -168,24 +180,25 @@ def ssh_ziel_aktualisieren(db_path: Path, secret_key_path: Path, ziel_id: str, *
                             name: str, host: str, port: int, username: str,
                             auth_method: str, geheimnis: dict | None,
                             remote_ollama_port: int,
-                            bildki_port: int | None = None) -> None:
+                            bildki_port: int | None = None,
+                            bildki_port_pony: int | None = None) -> None:
     with _verbindung(db_path) as conn:
         if geheimnis is not None:
             verschluesselt = verschluesseln(json.dumps(geheimnis), secret_key_path)
             conn.execute(
                 "UPDATE ssh_targets SET name=?, host=?, port=?, username=?, "
                 "auth_method=?, secret_encrypted=?, remote_ollama_port=?, "
-                "bildki_port=?, updated_at=? WHERE id=?",
+                "bildki_port=?, bildki_port_pony=?, updated_at=? WHERE id=?",
                 (name, host, port, username, auth_method, verschluesselt,
-                 remote_ollama_port, bildki_port, _jetzt(), ziel_id),
+                 remote_ollama_port, bildki_port, bildki_port_pony, _jetzt(), ziel_id),
             )
         else:
             conn.execute(
                 "UPDATE ssh_targets SET name=?, host=?, port=?, username=?, "
                 "auth_method=?, remote_ollama_port=?, bildki_port=?, "
-                "updated_at=? WHERE id=?",
+                "bildki_port_pony=?, updated_at=? WHERE id=?",
                 (name, host, port, username, auth_method, remote_ollama_port,
-                 bildki_port, _jetzt(), ziel_id),
+                 bildki_port, bildki_port_pony, _jetzt(), ziel_id),
             )
 
 
@@ -198,7 +211,8 @@ def ssh_ziele_auflisten(db_path: Path) -> list[sqlite3.Row]:
     with _verbindung(db_path) as conn:
         return conn.execute(
             "SELECT id, name, host, port, username, auth_method, "
-            "remote_ollama_port, bildki_port, favorit, created_at, updated_at "
+            "remote_ollama_port, bildki_port, bildki_port_pony, favorit, "
+            "created_at, updated_at "
             "FROM ssh_targets ORDER BY favorit DESC, name"
         ).fetchall()
 
