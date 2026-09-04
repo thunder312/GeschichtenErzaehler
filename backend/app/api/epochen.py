@@ -17,6 +17,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 
 from app.config import Settings, get_settings
+from app.core import fundus as fu
+from app.core import orte as ort_modul
+from app.core import projekt_dateien as pd
 from app.core.epoche import EpocheAntworten, epoche_dateien_erzeugen
 from app.core.geruest import ordner_lesbarer_name, ordnername_aus_titel
 from app.schemas import (
@@ -119,6 +122,43 @@ def _projekt_ordner_alle(wurzel: Path) -> list[Path]:
     return ergebnis
 
 
+def _epoche_in_fundus_und_orte_umbenennen(benutzer_wurzel: Path, alt: str, neu: str) -> None:
+    """Zieht eine Epoche-Umbenennung auch im Personen-Fundus (fundus.md) und
+    Orte-Fundus (orte.md) EINES Benutzers nach - beide liegen direkt unter
+    dessen Projekte-Wurzel (siehe app/services.py:fundus_datei/orte_datei),
+    tragen aber (anders als die Projekt-'.epoche'-Marker, siehe
+    _epoche_referenzen_aktualisieren oben) den Epoche-Namen nur als '##
+    <Epoche>'-Ueberschrift in der eigenen Datei - ohne dieses Nachziehen
+    blieben bestehende Figuren/Orte nach einer Umbenennung unter der ALTEN
+    Ueberschrift haengen und wuerden vom Epoche-Filter in FigurenAuswahl.tsx/
+    OrtAuswahl.tsx (matcht gegen den NEUEN Projekt-Epoche-Namen) nicht mehr
+    gefunden. Nutzt bewusst den bestehenden Parse-/Serialisieren-Roundtrip
+    statt eines Text-Ersetzens der Ueberschrift direkt, damit z.B. ein
+    Zusammenfall mit einer bereits bestehenden '## <neu>'-Sektion korrekt
+    behandelt wird. Schreibt nur, wenn tatsaechlich ein Treffer da war."""
+    fundus_pfad = benutzer_wurzel / "fundus.md"
+    if fundus_pfad.exists():
+        text = pd.lies(fundus_pfad, pflicht=False, ersatz="")
+        figuren = fu.fundus_parsen(text)
+        if any(f.epoche == alt for f in figuren):
+            for figur in figuren:
+                if figur.epoche == alt:
+                    figur.epoche = neu
+            kopf = fu.kopf_kommentar_extrahieren(text)
+            pd.schreib(fundus_pfad, kopf + fu.fundus_serialisieren(figuren))
+
+    orte_pfad = benutzer_wurzel / "orte.md"
+    if orte_pfad.exists():
+        text = pd.lies(orte_pfad, pflicht=False, ersatz="")
+        orte = ort_modul.orte_parsen(text)
+        if any(o.epoche == alt for o in orte):
+            for ort in orte:
+                if ort.epoche == alt:
+                    ort.epoche = neu
+            kopf = ort_modul.kopf_kommentar_extrahieren(text)
+            pd.schreib(orte_pfad, kopf + ort_modul.orte_serialisieren(orte))
+
+
 def _epoche_referenzen_aktualisieren(settings: Settings, alt: str, neu: str) -> int:
     """Nach einem physischen Ordner-Umzug (siehe epoche_umbenennen() unten)
     tragen bestehende Projekte ALLER Benutzer den alten Ordnernamen noch in
@@ -136,7 +176,12 @@ def _epoche_referenzen_aktualisieren(settings: Settings, alt: str, neu: str) -> 
     den Einzelbenutzer-Betrieb) existiert fuer den synthetischen
     default_username naemlich GAR KEINE Benutzer-Zeile in der DB (siehe
     app/auth.py:get_current_user), die Benutzertabelle waere dann leer und
-    dessen Projekte wuerden faelschlich uebersprungen."""
+    dessen Projekte wuerden faelschlich uebersprungen.
+
+    Zieht bei dieser Gelegenheit auch fundus.md/orte.md JEDES Benutzers nach
+    (siehe _epoche_in_fundus_und_orte_umbenennen oben) - faellt NICHT in den
+    zurueckgegebenen aktualisiert-Zaehler, der zaehlt weiterhin nur
+    Projektordner (Frontend nutzt den Wert aktuell ohnehin nicht)."""
     aktualisiert = 0
     projekte_root = projekte_wurzel_unskopiert(settings)
     for wurzel in sorted(p for p in projekte_root.iterdir() if p.is_dir()):
@@ -149,6 +194,7 @@ def _epoche_referenzen_aktualisieren(settings: Settings, alt: str, neu: str) -> 
                     geaendert = True
             if geaendert:
                 aktualisiert += 1
+        _epoche_in_fundus_und_orte_umbenennen(wurzel, alt, neu)
         alter_gruppenordner = wurzel / alt
         neuer_gruppenordner = wurzel / neu
         if alter_gruppenordner.is_dir() and not neuer_gruppenordner.exists():

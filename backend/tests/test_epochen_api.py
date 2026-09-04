@@ -365,3 +365,45 @@ def test_epoche_umbenennen_leerer_name_wird_abgelehnt(client):
 def test_epoche_umbenennen_unbekannte_epoche_gibt_404(client):
     r = client.put("/api/epochen/Nicht-Vorhanden/name", json={"name": "Neuer Name"})
     assert r.status_code == 404
+
+
+def test_epoche_umbenennen_zieht_fundus_figuren_nach(client):
+    client.post("/api/epochen", json=_reale_epoche())
+    client.post("/api/fundus/figuren", json={
+        "epoche": "Viktorianisches-England", "name": "Lady Amelia", "felder": {},
+    })
+
+    r = client.put("/api/epochen/Viktorianisches-England/name", json={"name": "Viktorianisches England (spät)"})
+    assert r.status_code == 200
+
+    figuren = client.get("/api/fundus/figuren").json()["figuren"]
+    assert len(figuren) == 1
+    assert figuren[0]["epoche"] == "Viktorianisches England (spät)"
+    assert figuren[0]["name"] == "Lady Amelia"
+
+
+def test_epoche_umbenennen_zieht_orte_nach(client):
+    client.post("/api/epochen", json=_reale_epoche())
+    client.post("/api/orte/orte", json={
+        "epoche": "Viktorianisches-England", "name": "Landhaus Rothenfeld", "beschreibung": "Herrschaftssitz.",
+    })
+
+    r = client.put("/api/epochen/Viktorianisches-England/name", json={"name": "Viktorianisches England (spät)"})
+    assert r.status_code == 200
+
+    orte = client.get("/api/orte/orte").json()["orte"]
+    assert len(orte) == 1
+    assert orte[0]["epoche"] == "Viktorianisches England (spät)"
+    assert orte[0]["name"] == "Landhaus Rothenfeld"
+
+
+def test_epoche_umbenennen_laesst_andere_epochen_in_fundus_und_orte_unangetastet(client):
+    client.post("/api/epochen", json=_reale_epoche())
+    client.post("/api/epochen", json=_reale_epoche(name="Mittelalter"))
+    client.post("/api/fundus/figuren", json={"epoche": "Mittelalter", "name": "Bertram", "felder": {}})
+    client.post("/api/orte/orte", json={"epoche": "Mittelalter", "name": "Burgverlies", "beschreibung": ""})
+
+    client.put("/api/epochen/Viktorianisches-England/name", json={"name": "Viktorianisches England (spät)"})
+
+    assert client.get("/api/fundus/figuren").json()["figuren"][0]["epoche"] == "Mittelalter"
+    assert client.get("/api/orte/orte").json()["orte"][0]["epoche"] == "Mittelalter"
