@@ -29,6 +29,9 @@ public partial class MainWindow : Window
     private string _letzterPromptDe = "";
     private string _letzterPromptEn = "";
     private bool _formatWirdGesetzt;
+    /// <summary>Modell der letzten (erfolgreichen) Generierung - fuer die Schritte-Angabe
+    /// in der gespeicherten .txt-Begleitdatei (siehe PromptDateiSchreiben).</summary>
+    private bool _letzteGenerierungIstPony;
 
     public MainWindow()
     {
@@ -204,19 +207,6 @@ public partial class MainWindow : Window
             TxtDeutsch.Text = Regex.Replace(text, @"^Hochformat,?\s*", "", RegexOptions.IgnoreCase);
     }
 
-    private void ChkScoreTags_Changed(object sender, RoutedEventArgs e)
-    {
-        var text = TxtEnglisch.Text.TrimStart();
-        var hat = text.StartsWith("score_9,", StringComparison.OrdinalIgnoreCase);
-        if (ChkScoreTags.IsChecked == true && !hat)
-            TxtEnglisch.Text = PonyScoreTagsPraefix + text;
-        else if (ChkScoreTags.IsChecked != true && hat)
-            TxtEnglisch.Text = Regex.Replace(
-                text,
-                @"^score_9,\s*score_8_up,\s*score_7_up,\s*score_6_up,\s*score_5_up,\s*score_4_up,?\s*",
-                "", RegexOptions.IgnoreCase);
-    }
-
     private void Modell_Changed(object sender, RoutedEventArgs e)
     {
         if (TxtSchritte == null) return; // feuert schon waehrend InitializeComponent()
@@ -278,11 +268,21 @@ public partial class MainWindow : Window
             }
 
             var istPony = AktivesModellIstPony;
+            // Score-Tags werden NICHT in TxtEnglisch geschrieben (fruehere Version tat
+            // das und fuehrte dazu, dass die "ist das Feld leer -> uebersetzen"-Pruefung
+            // oben faelschlich ein bereits uebersetztes Feld annahm, obwohl nur die
+            // Tag-Kette drinstand - die eigentliche Uebersetzung wurde uebersprungen).
+            // Stattdessen wird die Kette erst hier, unmittelbar vor dem Versand,
+            // vorangestellt - TxtEnglisch zeigt weiterhin die reine Uebersetzung.
+            var promptZumSenden = (istPony && ChkScoreTags.IsChecked == true)
+                ? PonyScoreTagsPraefix + englisch
+                : englisch;
+
             Status(istPony ? "Bild-Job wird an sd-server (Pony) geschickt …" : "Bild-Job wird an sd-server geschickt …");
             var fortschritt = new Progress<string>(Status);
             var bytes = await _sd.GeneriereAsync(
                 istPony ? _einst.SdServerUrlPony : _einst.SdServerUrl,
-                englisch, _einst.NegativPrompt,
+                promptZumSenden, _einst.NegativPrompt,
                 _einst.Breite, _einst.Hoehe,
                 istPony ? _einst.SchrittePony : _einst.Schritte,
                 TimeSpan.FromSeconds(_einst.TimeoutSekunden), fortschritt, ct,
@@ -295,10 +295,11 @@ public partial class MainWindow : Window
             BildAnzeigen(bytes);
             _letzterPromptDe = deutsch;
             _letzterPromptEn = englisch;
+            _letzteGenerierungIstPony = istPony;
 
             if (_einst.AutomatischSpeichern)
             {
-                var pfad = AutomatischSpeichern(bytes, deutsch, englisch);
+                var pfad = AutomatischSpeichern(bytes, deutsch, promptZumSenden);
                 LblGespeichert.Text = "Gespeichert: " + Path.GetFileName(pfad);
                 LblGespeichert.ToolTip = pfad;
                 Status($"Fertig – gespeichert unter {pfad}");
@@ -363,7 +364,9 @@ public partial class MainWindow : Window
         var pfad = Path.Combine(_einst.SpeicherOrdner, name);
         File.WriteAllBytes(pfad, bytes);
         if (_einst.PromptDateiMitspeichern)
-            PromptDateiSchreiben(Path.ChangeExtension(pfad, ".txt"), deutsch, englisch);
+            PromptDateiSchreiben(
+                Path.ChangeExtension(pfad, ".txt"), deutsch, englisch,
+                _letzteGenerierungIstPony ? _einst.SchrittePony : _einst.Schritte);
         return pfad;
     }
 
@@ -384,7 +387,9 @@ public partial class MainWindow : Window
         {
             File.WriteAllBytes(dlg.FileName, _bildBytes);
             if (_einst.PromptDateiMitspeichern)
-                PromptDateiSchreiben(Path.ChangeExtension(dlg.FileName, ".txt"), _letzterPromptDe, _letzterPromptEn);
+                PromptDateiSchreiben(
+                    Path.ChangeExtension(dlg.FileName, ".txt"), _letzterPromptDe, _letzterPromptEn,
+                    _letzteGenerierungIstPony ? _einst.SchrittePony : _einst.Schritte);
             LblGespeichert.Text = "Gespeichert: " + Path.GetFileName(dlg.FileName);
             LblGespeichert.ToolTip = dlg.FileName;
             Status($"Gespeichert unter {dlg.FileName}");
@@ -392,11 +397,11 @@ public partial class MainWindow : Window
         catch (Exception ex) { Fehler("Speichern fehlgeschlagen: " + ex.Message); }
     }
 
-    private void PromptDateiSchreiben(string pfad, string deutsch, string englisch)
+    private void PromptDateiSchreiben(string pfad, string deutsch, string englisch, int schritte)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Erstellt: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-        sb.AppendLine($"Größe: {_einst.Breite}x{_einst.Hoehe}, Schritte: {_einst.Schritte}");
+        sb.AppendLine($"Größe: {_einst.Breite}x{_einst.Hoehe}, Schritte: {schritte}");
         sb.AppendLine();
         sb.AppendLine("[Deutsch]");
         sb.AppendLine(deutsch);

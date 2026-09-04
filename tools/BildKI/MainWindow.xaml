@@ -41,8 +41,7 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                     <CheckBox x:Name="ChkScoreTags" Content="Pony-Score-Tags voranstellen" VerticalAlignment="Center"
-                              Checked="ChkScoreTags_Changed" Unchecked="ChkScoreTags_Changed"
-                              ToolTip="Pony Diffusion wurde mit einem Aesthetic-Score-System trainiert - diese Tag-Kette am Prompt-Anfang verhindert flaue/unfertig wirkende Bilder."/>
+                              ToolTip="Pony Diffusion wurde mit einem Aesthetic-Score-System trainiert - diese Tag-Kette wird bei Bedarf automatisch unmittelbar vor dem Versand vorangestellt (erscheint bewusst NICHT im Englisch-Feld oben, um die Übersetzungs-Logik nicht zu verwirren)."/>
                 </StackPanel>
 
                 <TextBlock Text="Prompt (Englisch) – wird an die Bild-KI gesendet, hier korrigierbar" Style="{StaticResource Beschriftung}"/>
