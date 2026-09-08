@@ -153,16 +153,22 @@ fortlaufend nummeriert ab 1. Alle Texte auf der Sprache aus dem Feld
 
 Pro Kapitel:
 - titel: sprechender Untertitel
-- ort: ein konkreter Schauplatz (Wechsel im Kapitel: "A; dann B")
+- ort: ein KONKRETER, benannter Schauplatz des Settings (bei Hogwarts z.B.
+  Bibliothek, Astronomieturm, Raum der Wünsche, Große Halle, Kerker,
+  Gewächshäuser), keine vage Umschreibung wie "ein verlassener Flügel".
+  Nicht zwei Kapitel hintereinander am selben Ort. Ortswechsel im Kapitel:
+  "A; dann B".
 - zielwortzahl: der Wert aus "zielwortzahl_pro_kapitel", ±30 % erlaubt
 - anwesende_figuren: die im Kapitel auftretenden Figuren
-- vergangene_zeit: erzählte Zeit seit Ende des Vorkapitels (z.B. "drei Wochen
-  später"); bei Kapitel 1 leer
-- ereignis: 3-5 Sätze - was passiert und warum, mit dem Zeitabstand zum
-  Vorkapitel; jeder Ortswechsel wird begründet
-- funktion_im_spannungsbogen: genau einer von "Exposition", "Erregendes
-  Moment", "Steigende Handlung", "Höhepunkt/Peripetie", "Fallende Handlung",
-  "Auflösung/Lösung"
+- vergangene_zeit: erzählte Zeit seit Ende des Vorkapitels, z.B. "zwei Wochen
+  später" - PFLICHT ab Kapitel 2, nur bei Kapitel 1 leer
+- ereignis: 3-5 vollständige Sätze mit der KONKRETEN Handlung des Kapitels -
+  wer tut was, wo, warum; nenne den Zeitabstand zum Vorkapitel; begründe jeden
+  Ortswechsel. KEIN Stichwort, KEINE Zusammenfassung in einem Halbsatz.
+- funktion_im_spannungsbogen: AUSSCHLIESSLICH genau eines dieser sechs Wörter,
+  nichts sonst, kein Satz, keine Erklärung: Exposition | Erregendes Moment |
+  Steigende Handlung | Höhepunkt/Peripetie | Fallende Handlung |
+  Auflösung/Lösung
 - stand_der_liebeshandlung: 1-2 Sätze, entwickelt sich von Kapitel zu Kapitel;
   "entfällt" bei Geschichten ohne Liebeshandlung
 - zustand_am_kapitelende: 1-2 Sätze mit dem Haken ins nächste Kapitel
@@ -221,7 +227,15 @@ _KAPITEL_ITEM_SCHEMA = {
         "anwesende_figuren": {"type": "array", "items": {"type": "string"}},
         "vergangene_zeit": {"type": "string"},
         "ereignis": {"type": "string"},
-        "funktion_im_spannungsbogen": {"type": "string"},
+        # enum statt freiem String: gemma4 hat sonst einen ganzen Absatz
+        # Analyse in dieses Feld geschrieben statt einer der sechs Kategorien
+        # (Live-Test 2026-09-08). Die "Eigene Angabe"-Freiheit der Spezifikation
+        # entfällt damit für den KI-Erstentwurf - der Nutzer kann den Wert im
+        # KapitelplanEditor immer noch auf Freitext umstellen.
+        "funktion_im_spannungsbogen": {
+            "type": "string",
+            "enum": list(FUNKTION_IM_SPANNUNGSBOGEN_OPTIONEN),
+        },
         "stand_der_liebeshandlung": {"type": "string"},
         "zustand_am_kapitelende": {"type": "string"},
     },

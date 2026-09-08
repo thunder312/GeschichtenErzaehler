@@ -121,6 +121,12 @@ def test_antwort_schema_erzwingt_die_kapitelanzahl():
     assert "titel_der_geschichte" in s["required"]
 
 
+def test_antwort_schema_bindet_spannungsbogen_an_die_sechs_werte():
+    feld = gk.antwort_schema(3)["properties"]["kapitel"]["items"]["properties"]["funktion_im_spannungsbogen"]
+    assert feld["enum"] == list(gk.FUNKTION_IM_SPANNUNGSBOGEN_OPTIONEN)
+    assert "Exposition" in feld["enum"] and len(feld["enum"]) == 6
+
+
 def test_dynamische_optionen_skalieren_mit_kapitelanzahl_und_sind_gedeckelt():
     assert gk.num_ctx_fuer(2) < gk.num_ctx_fuer(10)
     assert gk.num_ctx_fuer(30) == 16384
