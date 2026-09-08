@@ -34,8 +34,19 @@ const LEERE_FIGUR: KiGeruestFigurEingabe = { name: "", alter: "", rolle: "", kur
  * Karte darunter ein. */
 function FeldHilfe({ kurz, children }: { kurz: string; children: ReactNode }) {
   const [offen, setOffen] = useState(false);
+  const wrapperRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!offen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOffen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [offen]);
+
   return (
-    <span className="relative inline-block">
+    <span ref={wrapperRef} className="relative inline-block">
       <button
         type="button"
         title={kurz}
@@ -96,6 +107,11 @@ export function KiGeruestOverlay({
   const [wirdGestartet, setWirdGestartet] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const [mehrOffen, setMehrOffen] = useState(false);
+  // Sicherheitsabfrage vor dem Schließen mit ausgefülltem Formular - das
+  // Overlay schließt NICHT mehr per Klick auf den Hintergrund (zu leicht aus
+  // Versehen ausgelöst, Eingaben gingen verloren), nur noch über ✕/Abbrechen,
+  // und die fragen bei vorhandenem Inhalt zuerst nach.
+  const [abbruchNachfrage, setAbbruchNachfrage] = useState(false);
 
   // Formularfelder (Spez. Kapitel 2 + eigene Felder jahr / jugendschutz_stufe).
   const [praemisse, setPraemisse] = useState("");
@@ -178,6 +194,40 @@ export function KiGeruestOverlay({
     ]);
   }
 
+  const formularHatInhalt =
+    praemisse.trim() !== "" ||
+    verlauf.trim() !== "" ||
+    konflikt.trim() !== "" ||
+    zeitraum.trim() !== "" ||
+    schluss.trim() !== "" ||
+    tabus.trim() !== "" ||
+    genre.trim() !== "" ||
+    jahr.trim() !== "" ||
+    figuren.some((f) => f.name.trim() || f.kurzbeschreibung.trim());
+
+  /** Schließen-Wunsch (✕ / Abbrechen / Escape). Im Formular mit Inhalt erst
+   * eine Sicherheitsabfrage, sonst direkt zu. Während ein Lauf läuft, ist
+   * Schließen unkritisch (der Task läuft serverseitig weiter). */
+  function schliessenAnfragen() {
+    if (phase === "eingabe" && formularHatInhalt && !wirdGestartet) {
+      setAbbruchNachfrage(true);
+      return;
+    }
+    onAbbrechen();
+  }
+
+  // Escape schließt (mit derselben Sicherheitsabfrage).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (abbruchNachfrage) setAbbruchNachfrage(false);
+        else schliessenAnfragen();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   async function starten() {
     if (!praemisse.trim() || kapitelanzahl < 1) return;
     setWirdGestartet(true);
@@ -213,12 +263,27 @@ export function KiGeruestOverlay({
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
-      onClick={onAbbrechen}
     >
-      <div
-        className="relative my-8 w-full max-w-2xl rounded-2xl border border-border bg-surface p-6 shadow-2xl shadow-black/50"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="relative my-8 w-full max-w-2xl rounded-2xl border border-border bg-surface p-6 shadow-2xl shadow-black/50">
+        {abbruchNachfrage && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center rounded-2xl bg-surface/95 p-6">
+            <div className="max-w-sm text-center">
+              <h4 className="font-heading mb-2 text-base font-semibold text-text">Eingaben verwerfen?</h4>
+              <p className="mb-4 text-sm text-text-muted">
+                Deine Vorgaben im Formular gehen dabei verloren.
+              </p>
+              <div className="flex justify-center gap-2">
+                <Button variant="secondary" onClick={() => setAbbruchNachfrage(false)}>
+                  Weiter bearbeiten
+                </Button>
+                <Button variant="danger" onClick={onAbbrechen}>
+                  Verwerfen
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h3 className="font-heading text-lg font-semibold text-text">✨ KI entwirft das Gerüst</h3>
@@ -229,7 +294,7 @@ export function KiGeruestOverlay({
           </div>
           <button
             type="button"
-            onClick={onAbbrechen}
+            onClick={schliessenAnfragen}
             className="shrink-0 text-text-muted hover:text-text"
             aria-label="Schließen"
           >
@@ -417,7 +482,7 @@ export function KiGeruestOverlay({
             {fehler && <p className="text-sm text-red-400">{fehler}</p>}
 
             <div className="flex justify-end gap-2 border-t border-border pt-3">
-              <Button variant="secondary" onClick={onAbbrechen} disabled={wirdGestartet}>
+              <Button variant="secondary" onClick={schliessenAnfragen} disabled={wirdGestartet}>
                 Abbrechen
               </Button>
               <Button onClick={starten} disabled={wirdGestartet || !praemisse.trim() || kapitelanzahl < 1}>
