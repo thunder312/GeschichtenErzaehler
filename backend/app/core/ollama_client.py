@@ -60,7 +60,10 @@ async def chat_stream(
             {"role": "user", "content": user},
         ],
         "stream": True,
-        "keep_alive": KEEP_ALIVE,
+        # Rollen duerfen ein eigenes Keep-Alive setzen (siehe rollen.py:
+        # KEEP_ALIVE_INTERVIEW fuer die Architekten-Rollen) - sonst der
+        # globale Default.
+        "keep_alive": cfg.get("keep_alive", KEEP_ALIVE),
         "think": cfg.get("think", False),
         "options": optionen,
     }

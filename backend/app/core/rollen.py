@@ -10,43 +10,82 @@ enthalten.
 
 KEEP_ALIVE = "30m"
 
+# Architekten-Interview: laengeres Keep-Alive als der Default. Zwischen zwei
+# Fragen ueberlegt der Nutzer oft mehrere Minuten (kreative Entscheidung,
+# Multiple-Choice abwaegen) - faellt das Modell in dieser Zeit aus dem
+# Speicher (30m), kostet der naechste Zug einen kompletten Kaltstart samt
+# Prefill des gesamten bisherigen Gespraechsverlaufs. Gilt fuer beide
+# Interview-Rollen ("architekt_frage" fuer die Fragen, "architekt" fuer die
+# einmalige Geruest-Synthese am Schluss).
+KEEP_ALIVE_INTERVIEW = "2h"
+
+# Gemeinsame Sampling-Parameter fuer beide Interview-Rollen - "architekt_frage"
+# (jeder Frage-Zug, schlank) und "architekt" (nur der finale Geruest-Zug)
+# sollen sich im Gespraechston nicht unterscheiden.
+_ARCHITEKT_SAMPLING = {
+    "temperature": 0.4,
+    "top_p": 0.9,
+    "min_p": 0.05,
+    "top_k": 40,
+    "repeat_penalty": 1.05,
+    "repeat_last_n": 64,
+    "seed": 42,
+}
+
 ROLLEN: dict[str, dict] = {
+    # Jeder einzelne Frage-Zug des Architekten-Interviews (siehe
+    # app/api/architekt.py:_zug). Bewusst schlank gehalten, weil das die
+    # eigentliche Engstelle ist - der Nutzer wartet zwischen JEDER Frage:
+    # - think=False: fuer eine Multiple-Choice-Rueckfrage bringt ein
+    #   versteckter Reasoning-Block nichts ausser CPU-Generierungszeit, die
+    #   als "denkt nach..." abgesessen wird.
+    # - num_ctx=8192 statt 32768: auf CPU-Inferenz (Athene) skaliert die
+    #   Prefill-Zeit mit der ALLOZIERTEN Kontextgroesse, nicht nur mit der
+    #   echten Promptlaenge (siehe "analysator"-Kommentar unten). Ein
+    #   laufendes Interview hat selten mehr als 2-3k Token Verlauf.
+    # - num_predict=1024: eine Frage samt Optionen ist kurz; reicht auch,
+    #   um den "# STORY-GERUEST"-Praefix zu erkennen, wenn das Modell hier
+    #   ins Finale kippt (_zug wiederholt diesen einen Zug dann mit der
+    #   vollen "architekt"-Rolle).
+    # Das Modell kann unter "KI-Ziele -> Persona-Modell-Zuordnung" separat
+    # auf ein kleineres, noch schnelleres getauscht werden.
+    "architekt_frage": {
+        "modell": "gemma4",
+        "think": False,
+        "keep_alive": KEEP_ALIVE_INTERVIEW,
+        "optionen": {
+            **_ARCHITEKT_SAMPLING,
+            "num_ctx": 8192,
+            "num_predict": 1024,
+        },
+    },
     "architekt": {
         "modell": "gemma4",
         "think": True,
+        "keep_alive": KEEP_ALIVE_INTERVIEW,
         "optionen": {
-            "temperature": 0.4,
-            "top_p": 0.9,
-            "min_p": 0.05,
-            "top_k": 40,
-            "repeat_penalty": 1.05,
-            "repeat_last_n": 64,
-            # Der ganze bisherige Gespraechsverlauf wird bei jedem Zug neu
-            # als eine einzige User-Nachricht mitgeschickt (siehe
-            # app/core/architekt.py) UND die letzte Antwort muss im Erfolgs-
-            # fall das komplette Story-Geruest (Rahmen, Figuren, Konflikt,
-            # ausführlicher Kapitelplan, Ausgangslage, ...) enthalten - bei
-            # einem langen Interview (viele Kapitel, ausfuehrliche
-            # Nutzerantworten) plus "think": True-Denkanteil reichte das
-            # alte 8192/4096-Budget nicht mehr aus und die Antwort wurde
-            # mitten im Geruest abgeschnitten, aber trotzdem als fertig
-            # gespeichert (siehe app/api/architekt.py:_zug, Vorfall
+            **_ARCHITEKT_SAMPLING,
+            # Diese Rolle laeuft NUR noch fuer den einen finalen Zug, der das
+            # komplette Story-Geruest erzeugt (siehe app/api/architekt.py:_zug -
+            # die Frage-Zuege davor nutzen "architekt_frage"). Der ganze
+            # bisherige Gespraechsverlauf wird als eine User-Nachricht
+            # mitgeschickt UND die Antwort muss das komplette Geruest (Rahmen,
+            # Figuren, Konflikt, ausführlicher Kapitelplan, Ausgangslage, ...)
+            # enthalten - bei einem langen Interview plus "think": True-Denk-
+            # anteil reichte das alte 8192/4096-Budget nicht (abgeschnittenes
+            # Geruest, trotzdem als fertig gespeichert - Vorfall
             # "Der-Preis-der-Wuerde-Ein-Geheimnis-in-Mayfair").
-            # Zweiter, aehnlicher Vorfall (2026-08-19, "Japanisches-
-            # Hochmittelalter/neu"): ein von Hand offline ausgefuelltes
-            # Vorlage-Dokument (siehe arch.erste_eingabe_mit_vorlage) kann
-            # bereits so vollstaendig sein, dass der Architekt OHNE jede
-            # Rueckfrage direkt im ERSTEN Zug das komplette Story-Geruest
-            # ausgibt - dieser einzelne Zug muss dann den gesamten Inhalt
-            # (sechs ausformulierte Kapitel, vier Figuren, Nebenstrang) neu
-            # erzeugen, plus Denkanteil, und sprengte selbst das verdoppelte
-            # Retry-Budget (16384) noch. 24576/8192 auf 32768/12288 erhoeht,
-            # das Retry-Budget (Verdopplung in _zug()) bleibt dabei
-            # weiterhin unterhalb von num_ctx, damit fuer den Prompt selbst
-            # (Persona + Vorlage-Text + Verlauf) genug Platz bleibt.
+            # Zweiter Vorfall (2026-08-19, "Japanisches-Hochmittelalter/neu"):
+            # ein offline ausgefuelltes Vorlage-Dokument (siehe
+            # arch.erste_eingabe_mit_vorlage) kann so vollstaendig sein, dass
+            # der Architekt OHNE Rueckfrage direkt das komplette Geruest ausgibt
+            # (sechs Kapitel, vier Figuren, Nebenstrang, plus Denkanteil) -
+            # sprengte selbst das verdoppelte Retry-Budget (16384). 24576/8192
+            # auf 32768/12288 erhoeht, das Retry-Budget (Verdopplung in _zug())
+            # bleibt unterhalb von num_ctx, damit fuer den Prompt (Persona +
+            # Vorlage-Text + Verlauf) genug Platz bleibt.
             "num_ctx": 32768,
             "num_predict": 12288,
-            "seed": 42,
         },
     },
     # Einziger Schreiber (Stand 2026-08-13): Hermes3 und Qwen3 wurden als

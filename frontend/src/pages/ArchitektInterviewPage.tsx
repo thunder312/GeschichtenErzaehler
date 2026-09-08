@@ -67,6 +67,11 @@ export function ArchitektInterviewPage({
   const [eingabe, setEingabe] = useState("");
   const [wartetAufAntwort, setWartetAufAntwort] = useState(false);
   const [denktNach, setDenktNach] = useState(false);
+  // Live gestreamter Text der gerade entstehenden Architekten-Frage (siehe
+  // backend "phase":"frage","typ":"teil") - wird in der Warte-Blase statt
+  // "denkt nach..." angezeigt und bei "typ":"fertig" durch den finalen,
+  // ein-Frage-gekuerzten Text als echte Chat-Blase ersetzt.
+  const [teilAntwort, setTeilAntwort] = useState("");
   const [abgeschlossen, setAbgeschlossen] = useState(false);
   // Nicht aufgeloeste Figuren-Platzhalter im fertigen Kapitelplan (siehe
   // app/core/geruest.py:kapitelplan_platzhalter_erkennen) - z.B. "Name/
@@ -132,6 +137,7 @@ export function ArchitektInterviewPage({
   function starten() {
     setGestartet(true);
     setNachrichten([]);
+    setTeilAntwort("");
     setFehler(null);
     setAbgeschlossen(false);
     setBeendetOhneSpeichern(false);
@@ -160,6 +166,15 @@ export function ArchitektInterviewPage({
 
     socket.onmessage = (ereignis) => {
       const nachricht: ArchitektNachricht = JSON.parse(ereignis.data);
+      if (
+        nachricht.phase === "fortgesetzt" ||
+        nachricht.phase === "zurueckgesetzt" ||
+        nachricht.phase === "abgeschlossen" ||
+        nachricht.phase === "beendet_ohne_speichern" ||
+        nachricht.phase === "fehler"
+      ) {
+        setTeilAntwort("");
+      }
       if (nachricht.phase === "fortgesetzt") {
         // Erster ("Ich: Lass uns anfangen...") und letzter Eintrag
         // (die gerade noch offene Frage) werden ausgelassen - Ersterer wird
@@ -179,14 +194,20 @@ export function ArchitektInterviewPage({
       if (nachricht.phase === "frage" && nachricht.typ === "start") {
         setWartetAufAntwort(true);
         setDenktNach(false);
+        setTeilAntwort("");
         aktivitaetStarten("Architekt denkt nach...");
       }
       if (nachricht.phase === "frage" && nachricht.typ === "denkt_nach") {
         setDenktNach(true);
       }
+      if (nachricht.phase === "frage" && nachricht.typ === "teil") {
+        setDenktNach(false);
+        setTeilAntwort((bisher) => bisher + nachricht.text);
+      }
       if (nachricht.phase === "frage" && nachricht.typ === "fertig") {
         setDenktNach(false);
         setWartetAufAntwort(false);
+        setTeilAntwort("");
         setNachrichten((bisher) => [...bisher, { rolle: "architekt", text: nachricht.text }]);
         aktivitaetBeenden();
       }
@@ -247,6 +268,7 @@ export function ArchitektInterviewPage({
       socketRef.current.send(JSON.stringify({ eingabe: text }));
     }
     setEingabe("");
+    setTeilAntwort("");
     setWartetAufAntwort(true);
     aktivitaetStarten("Architekt denkt nach...");
   }
@@ -494,9 +516,17 @@ export function ArchitektInterviewPage({
           ))}
           {wartetAufAntwort && (
             <div className="flex justify-start">
-              <div className="rounded-2xl bg-surface-hover px-4 py-2.5 text-sm italic text-text-muted">
-                {denktNach ? "🗺️ Architekt denkt nach..." : "🗺️ Architekt antwortet..."}
-              </div>
+              {teilAntwort ? (
+                <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl bg-surface-hover px-4 py-2.5 text-sm text-text">
+                  <div className="mb-1 text-xs text-text-muted">🗺️ Architekt</div>
+                  {teilAntwort}
+                  <span className="ml-0.5 animate-pulse">▋</span>
+                </div>
+              ) : (
+                <div className="rounded-2xl bg-surface-hover px-4 py-2.5 text-sm italic text-text-muted">
+                  {denktNach ? "🗺️ Architekt denkt nach..." : "🗺️ Architekt antwortet..."}
+                </div>
+              )}
             </div>
           )}
           {abgeschlossen && (

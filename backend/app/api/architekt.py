@@ -189,14 +189,30 @@ async def _fundus_aktualisieren(settings: Settings, benutzer: Benutzer, projekt_
 _MAX_GERUEST_VERSUCHE = 2
 
 
+# Ab so vielen nicht-leeren Zeichen laesst sich der "# STORY-GERUEST"-Praefix
+# sicher ausschliessen bzw. bestaetigen - bis dahin werden gestreamte
+# Content-Stuecke zurueckgehalten, damit ein ins Finale kippender Frage-Zug
+# nicht kurz ein angefangenes Geruest als Chat-Blase zeigt.
+_STREAM_ENTSCHEIDUNGS_LAENGE = 24
+
+
 async def _einen_zug_generieren(base_url: str, settings: Settings, persona_text: str,
                                  verlauf: list[str], websocket: WebSocket,
-                                 ueberschreibe: dict | None) -> str:
+                                 ueberschreibe: dict | None, *, rolle: str = "architekt",
+                                 streamen: bool = False) -> str:
+    """Ein einzelner Ollama-Zug. `rolle` ist "architekt_frage" fuer die
+    Frage-Zuege (schlank, schnell) und "architekt" fuer den finalen Geruest-
+    Zug (siehe _zug). Bei `streamen` werden die Content-Stuecke live als
+    {"phase": "frage", "typ": "teil"} ans Frontend geschickt - aber erst,
+    sobald feststeht, dass es KEIN Geruest ist (sonst blitzt ein angefangenes
+    Geruest als Chat-Blase auf, bevor _zug den Zug mit der vollen Rolle
+    wiederholt)."""
     teile: list[str] = []
+    stream_freigegeben = False
     async for event in chat_stream(
-        base_url, "architekt", persona_text, arch.verlauf_zu_text(verlauf),
+        base_url, rolle, persona_text, arch.verlauf_zu_text(verlauf),
         ueberschreibe=ueberschreibe,
-        modell_override=rollen_modell_override(settings, "architekt"),
+        modell_override=rollen_modell_override(settings, rolle),
     ):
         if event.typ == "error":
             await websocket.send_json({"phase": "fehler", "typ": "error", "text": event.text})
@@ -205,6 +221,21 @@ async def _einen_zug_generieren(base_url: str, settings: Settings, persona_text:
             await websocket.send_json({"phase": "frage", "typ": "denkt_nach"})
         if event.typ == "content":
             teile.append(event.text)
+            if not streamen:
+                continue
+            if stream_freigegeben:
+                await websocket.send_json({"phase": "frage", "typ": "teil", "text": event.text})
+                continue
+            bisher = "".join(teile).strip()
+            if len(bisher) < _STREAM_ENTSCHEIDUNGS_LAENGE:
+                continue
+            if arch.ist_geruest_antwort(bisher):
+                streamen = False  # Finale - nicht als Chat-Blase streamen
+                continue
+            # Erster Schwung: das bisher Angesammelte am Stueck nachreichen,
+            # danach die einzelnen Stuecke.
+            await websocket.send_json({"phase": "frage", "typ": "teil", "text": bisher})
+            stream_freigegeben = True
     return "".join(teile).strip()
 
 
@@ -220,20 +251,37 @@ async def _zug(websocket: WebSocket, settings: Settings, base_url: str, persona_
     bearbeiteten eigenen Antwort enden)."""
     await websocket.send_json({"phase": "frage", "typ": "start"})
 
-    # Ein fertiges Geruest MUSS einen auswertbaren Kapitelplan enthalten -
-    # Automatikmodus und letztes_geplantes_kapitel() bauen direkt darauf auf
-    # (siehe app/core/geruest.py). Wird die Antwort durch die num_predict-
-    # Grenze abgeschnitten, bevor der Kapitelplan geschrieben wurde, kam
-    # bisher trotzdem "# STORY-GERUEST..." als Praefix durch und wurde
-    # klaglos als abgeschlossen gespeichert - ein Projekt blieb dauerhaft
-    # ohne Kapitelplan zurueck (siehe Vorfall
-    # "Der-Preis-der-Wuerde-Ein-Geheimnis-in-Mayfair"). Ein Retry mit
-    # verdoppeltem num_predict behebt die meisten Faelle automatisch, ohne
-    # dass der Nutzer davon etwas mitbekommt.
+    # 1. Frage-Zug: schlanke, schnelle Rolle "architekt_frage" (kein "think",
+    #    kleines num_ctx/num_predict, siehe rollen.py) - live gestreamt, damit
+    #    die Frage Token fuer Token in der Chat-Blase erscheint statt erst am
+    #    Stueck nach langem "denkt nach...".
+    antwort = await _einen_zug_generieren(
+        base_url, settings, persona_text, verlauf, websocket, None,
+        rolle="architekt_frage", streamen=True,
+    )
+    if not arch.ist_geruest_antwort(antwort):
+        antwort = arch.nur_erste_frage(antwort)
+        verlauf.append(f"Du: {antwort}")
+        return antwort, False
+
+    # 2. Das Modell ist ins Finale gekippt ("# STORY-GERUEST"-Praefix). Der
+    #    Frage-Zug oben hatte nur ein schmales Budget - das komplette Geruest
+    #    (Rahmen, Figuren, ausfuehrlicher Kapitelplan, Ausgangslage) mit der
+    #    vollen "architekt"-Rolle NEU erzeugen. Nicht gestreamt: das Geruest
+    #    landet nicht als Chat-Blase, sondern per "abgeschlossen" im Geruest-Tab.
+    #    Ein fertiges Geruest MUSS einen auswertbaren Kapitelplan enthalten -
+    #    Automatikmodus und letztes_geplantes_kapitel() bauen darauf auf (siehe
+    #    app/core/geruest.py). Wird die Antwort durch die num_predict-Grenze
+    #    abgeschnitten, bevor der Kapitelplan geschrieben wurde, kam bisher
+    #    trotzdem "# STORY-GERUEST..." durch und wurde klaglos gespeichert
+    #    (Vorfall "Der-Preis-der-Wuerde-Ein-Geheimnis-in-Mayfair"). Ein Retry
+    #    mit verdoppeltem num_predict behebt die meisten Faelle automatisch.
     ueberschreibe: dict | None = None
-    antwort = ""
     for versuch in range(1, _MAX_GERUEST_VERSUCHE + 1):
-        antwort = await _einen_zug_generieren(base_url, settings, persona_text, verlauf, websocket, ueberschreibe)
+        antwort = await _einen_zug_generieren(
+            base_url, settings, persona_text, verlauf, websocket, ueberschreibe,
+            rolle="architekt", streamen=False,
+        )
         ist_geruest = arch.ist_geruest_antwort(antwort)
         if not ist_geruest or g.kapitelplan_erkennen(antwort):
             break
@@ -250,6 +298,8 @@ async def _zug(websocket: WebSocket, settings: Settings, base_url: str, persona_
         raise OllamaFehler(fehlertext)
 
     if not ist_geruest:
+        # Die volle Rolle hat wider Erwarten doch eine Frage gestellt - wie
+        # einen normalen Frage-Zug behandeln (Text kommt gleich per "fertig").
         antwort = arch.nur_erste_frage(antwort)
     verlauf.append(f"Du: {antwort}")
     return antwort, ist_geruest

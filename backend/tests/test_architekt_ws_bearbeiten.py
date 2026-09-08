@@ -51,11 +51,12 @@ _ANTWORTEN = [
 
 def _naechste_frage(ws):
     """Jeder Zug (siehe _zug() in app/api/architekt.py) schickt VOR der
-    eigentlichen Frage noch ein "start"-Signal (fuer den "denkt nach..."-
-    Ladezustand im Frontend) - hier uebersprungen, damit die Tests sich auf
-    den eigentlichen Frageinhalt konzentrieren koennen."""
+    fertigen Frage noch Zwischensignale: "start" (Ladezustand), ggf.
+    "denkt_nach" und live gestreamte "teil"-Stuecke der Frage - hier alle
+    uebersprungen, damit die Tests sich auf den fertigen Frageinhalt
+    ("typ": "fertig") konzentrieren koennen."""
     nachricht = ws.receive_json()
-    if nachricht.get("phase") == "frage" and nachricht.get("typ") == "start":
+    while nachricht.get("phase") == "frage" and nachricht.get("typ") in ("start", "denkt_nach", "teil"):
         nachricht = ws.receive_json()
     return nachricht
 

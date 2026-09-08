@@ -450,6 +450,7 @@ export type ArchitektNachricht =
   | { phase: "zurueckgesetzt"; verlauf: string[] }
   | { phase: "frage"; typ: "start" }
   | { phase: "frage"; typ: "denkt_nach" }
+  | { phase: "frage"; typ: "teil"; text: string }
   | { phase: "frage"; typ: "fertig"; text: string }
   | {
       phase: "abgeschlossen";

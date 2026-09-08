@@ -706,7 +706,8 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
 }
 
 const PERSONA_LABELS: Record<string, string> = {
-  architekt: "Architekt",
+  architekt_frage: "Architekt: Interview-Fragen",
+  architekt: "Architekt: Gerüst-Synthese",
   autor: "Autor",
   chronist: "Chronist",
   anachronismus: "Prüfer: Anachronismus",

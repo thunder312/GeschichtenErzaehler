@@ -36,45 +36,44 @@ GERUEST_VOLLSTAENDIG = (
 
 GERUEST_OHNE_KAPITELPLAN = "# STORY-GERUEST\n\n## Titel\nAbgeschnitten\n\n## Figuren\nMira, 20 Jahre.\n"
 
-
-def _antwort_stream(text: str):
-    async def stream(*args, ueberschreibe=None, **kwargs):
-        yield ChatEvent("content", text=text)
-    return stream
+NORMALE_FRAGE = "1. Wie soll die Geschichte heissen? a) frei b) Vorgabe"
 
 
-def test_zug_akzeptiert_vollstaendiges_geruest_ohne_retry(settings, monkeypatch):
-    aufrufe = []
+def _rollen_mitschnitt(monkeypatch, antworten: list[str]):
+    """Patcht chat_stream und protokolliert (rolle, ueberschreibe) je Aufruf.
+    `antworten` liefert der Reihe nach den Content der Zuege."""
+    aufrufe: list[tuple[str, dict | None]] = []
 
     async def fake_chat_stream(*args, ueberschreibe=None, **kwargs):
-        aufrufe.append(ueberschreibe)
-        yield ChatEvent("content", text=GERUEST_VOLLSTAENDIG)
-
-    monkeypatch.setattr(api_arch, "chat_stream", fake_chat_stream)
-    ws = FakeWebSocket()
-    verlauf: list[str] = ["Ich: Frage 13 Antwort"]
-
-    antwort, fertig = asyncio.run(
-        api_arch._zug(ws, settings, "http://fake", "persona", verlauf)
-    )
-
-    assert fertig is True
-    assert antwort == GERUEST_VOLLSTAENDIG.strip()
-    assert len(aufrufe) == 1  # kein Retry noetig
-    assert verlauf[-1] == f"Du: {GERUEST_VOLLSTAENDIG.strip()}"
-
-
-def test_zug_wiederholt_mit_verdoppeltem_num_predict_bei_fehlendem_kapitelplan(settings, monkeypatch):
-    antworten = [GERUEST_OHNE_KAPITELPLAN, GERUEST_VOLLSTAENDIG]
-    aufrufe = []
-
-    async def fake_chat_stream(*args, ueberschreibe=None, **kwargs):
-        aufrufe.append(ueberschreibe)
+        rolle = args[1]
+        aufrufe.append((rolle, ueberschreibe))
         yield ChatEvent("content", text=antworten[len(aufrufe) - 1])
 
     monkeypatch.setattr(api_arch, "chat_stream", fake_chat_stream)
+    return aufrufe
+
+
+def test_zug_normale_frage_nutzt_nur_die_schlanke_rolle(settings, monkeypatch):
+    aufrufe = _rollen_mitschnitt(monkeypatch, [NORMALE_FRAGE])
     ws = FakeWebSocket()
-    verlauf: list[str] = ["Ich: Frage 13 Antwort"]
+    verlauf = ["Ich: Lass uns anfangen."]
+
+    antwort, fertig = asyncio.run(
+        api_arch._zug(ws, settings, "http://fake", "persona", verlauf)
+    )
+
+    assert fertig is False
+    assert "Wie soll die Geschichte heissen?" in antwort
+    assert aufrufe == [("architekt_frage", None)]  # kein Finale-Zug
+    # Frage wurde live gestreamt.
+    assert any(n.get("typ") == "teil" for n in ws.gesendet)
+
+
+def test_zug_finale_wird_mit_voller_rolle_neu_erzeugt(settings, monkeypatch):
+    # Schlanke Rolle kippt ins Finale -> voller Zug erzeugt das Geruest neu.
+    aufrufe = _rollen_mitschnitt(monkeypatch, [GERUEST_VOLLSTAENDIG, GERUEST_VOLLSTAENDIG])
+    ws = FakeWebSocket()
+    verlauf = ["Ich: Frage 13 Antwort"]
 
     antwort, fertig = asyncio.run(
         api_arch._zug(ws, settings, "http://fake", "persona", verlauf)
@@ -82,19 +81,39 @@ def test_zug_wiederholt_mit_verdoppeltem_num_predict_bei_fehlendem_kapitelplan(s
 
     assert fertig is True
     assert antwort == GERUEST_VOLLSTAENDIG.strip()
-    assert len(aufrufe) == 2
-    assert aufrufe[0] is None  # erster Versuch mit Standard-Budget
+    assert [r for r, _ in aufrufe] == ["architekt_frage", "architekt"]
+    assert aufrufe[1][1] is None  # Finale-Zug ohne Retry, Standard-Budget
+    assert verlauf[-1] == f"Du: {GERUEST_VOLLSTAENDIG.strip()}"
+    # Ein angefangenes Geruest darf NICHT als Chat-Blase gestreamt werden.
+    assert not any(n.get("typ") == "teil" for n in ws.gesendet)
+
+
+def test_zug_finale_retry_mit_verdoppeltem_num_predict(settings, monkeypatch):
+    aufrufe = _rollen_mitschnitt(
+        monkeypatch, [GERUEST_VOLLSTAENDIG, GERUEST_OHNE_KAPITELPLAN, GERUEST_VOLLSTAENDIG]
+    )
+    ws = FakeWebSocket()
+    verlauf = ["Ich: Frage 13 Antwort"]
+
+    antwort, fertig = asyncio.run(
+        api_arch._zug(ws, settings, "http://fake", "persona", verlauf)
+    )
+
+    assert fertig is True
+    assert antwort == GERUEST_VOLLSTAENDIG.strip()
+    assert [r for r, _ in aufrufe] == ["architekt_frage", "architekt", "architekt"]
     basis_num_predict = ROLLEN["architekt"]["optionen"]["num_predict"]
-    assert aufrufe[1] == {"num_predict": basis_num_predict * 2}  # Retry mit verdoppeltem Budget
+    assert aufrufe[1][1] is None
+    assert aufrufe[2][1] == {"num_predict": basis_num_predict * 2}
 
 
 def test_zug_scheitert_sichtbar_wenn_kapitelplan_auch_nach_retry_fehlt(settings, monkeypatch):
-    async def fake_chat_stream(*args, ueberschreibe=None, **kwargs):
-        yield ChatEvent("content", text=GERUEST_OHNE_KAPITELPLAN)
-
-    monkeypatch.setattr(api_arch, "chat_stream", fake_chat_stream)
+    _rollen_mitschnitt(
+        monkeypatch,
+        [GERUEST_OHNE_KAPITELPLAN, GERUEST_OHNE_KAPITELPLAN, GERUEST_OHNE_KAPITELPLAN],
+    )
     ws = FakeWebSocket()
-    verlauf: list[str] = ["Ich: Frage 13 Antwort"]
+    verlauf = ["Ich: Frage 13 Antwort"]
 
     with pytest.raises(OllamaFehler):
         asyncio.run(api_arch._zug(ws, settings, "http://fake", "persona", verlauf))
@@ -106,16 +125,12 @@ def test_zug_scheitert_sichtbar_wenn_kapitelplan_auch_nach_retry_fehlt(settings,
     assert len(fehler_nachrichten) == 1
 
 
-def test_zug_normale_frage_wird_ohne_retry_akzeptiert(settings, monkeypatch):
-    aufrufe = []
-
-    async def fake_chat_stream(*args, ueberschreibe=None, **kwargs):
-        aufrufe.append(ueberschreibe)
-        yield ChatEvent("content", text="1. Wie soll die Geschichte heissen?")
-
-    monkeypatch.setattr(api_arch, "chat_stream", fake_chat_stream)
+def test_zug_volle_rolle_stellt_doch_eine_frage(settings, monkeypatch):
+    # Randfall: schlanke Rolle kippt ins Finale, die volle Rolle liefert aber
+    # wider Erwarten doch eine Frage - dann wie ein Frage-Zug behandeln.
+    aufrufe = _rollen_mitschnitt(monkeypatch, [GERUEST_VOLLSTAENDIG, NORMALE_FRAGE])
     ws = FakeWebSocket()
-    verlauf: list[str] = ["Ich: Lass uns anfangen."]
+    verlauf = ["Ich: Frage 13 Antwort"]
 
     antwort, fertig = asyncio.run(
         api_arch._zug(ws, settings, "http://fake", "persona", verlauf)
@@ -123,4 +138,4 @@ def test_zug_normale_frage_wird_ohne_retry_akzeptiert(settings, monkeypatch):
 
     assert fertig is False
     assert "Wie soll die Geschichte heissen?" in antwort
-    assert len(aufrufe) == 1
+    assert [r for r, _ in aufrufe] == ["architekt_frage", "architekt"]
