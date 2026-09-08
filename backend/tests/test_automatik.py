@@ -250,6 +250,37 @@ def test_zustand_zusammenfassen_gestoppt_vor_abschluss():
     assert automatik.zustand_zusammenfassen(status) == "gestoppt"
 
 
+def test_zustand_zusammenfassen_gestoppt_aber_alle_kapitel_geschrieben():
+    """Ein "gestoppt"-Lauf, dessen Geschichte inzwischen komplett
+    fertiggeschrieben ist (alle geplanten Kapitel existieren), soll NICHT
+    mehr als "gestoppt"/"Automatik angehalten" in der Projektliste stehen -
+    es gibt nichts mehr fortzusetzen (Vorfall "Die Macht der Zweisamkeit")."""
+    status = {
+        "gestartet_am": "irgendwann", "laeuft": False, "fehler": None, "abgeschlossen": False,
+        "protokoll": [{"art": "angewendet"}],
+    }
+    assert automatik.zustand_zusammenfassen(
+        status, geschriebene_kapitel=8, geplante_kapitel=8,
+    ) == "abgeschlossen_sauber"
+    # Noch fehlende Kapitel -> weiterhin fortsetzbar, bleibt "gestoppt".
+    assert automatik.zustand_zusammenfassen(
+        status, geschriebene_kapitel=5, geplante_kapitel=8,
+    ) == "gestoppt"
+
+
+def test_zustand_zusammenfassen_gestoppt_alle_kapitel_aber_reste_offen():
+    """Alle Kapitel geschrieben, aber im Protokoll steht noch ein
+    uebersprungener Fund - dann "abgeschlossen_mit_resten" (Reste pruefen),
+    nicht faelschlich "sauber"."""
+    status = {
+        "gestartet_am": "irgendwann", "laeuft": False, "fehler": None, "abgeschlossen": False,
+        "protokoll": [{"art": "uebersprungen", "grund": "konflikt", "kapitel": 3}],
+    }
+    assert automatik.zustand_zusammenfassen(
+        status, geschriebene_kapitel=8, geplante_kapitel=8,
+    ) == "abgeschlossen_mit_resten"
+
+
 def test_status_schreiben_und_lesen_roundtrip(tmp_path):
     status = automatik.status_lesen(tmp_path)
     status["laeuft"] = True

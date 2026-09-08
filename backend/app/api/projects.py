@@ -142,14 +142,20 @@ def _projekt_kurz(pfad, wurzel, settings: Settings) -> ProjektKurz:
     geruest_pfad = pd.geruest_datei(projekt_unterordner)
     geruest_text = pd.lies(geruest_pfad, pflicht=False, ersatz="")
     titel = g.titel_erkennen(geruest_text) if geruest_text else None
+    anzahl_kapitel = len(pd.vorhandene_kapitel(projekt_unterordner))
+    letztes_geplantes_kapitel = g.letztes_geplantes_kapitel(geruest_text) if geruest_text else None
     return ProjektKurz(
         ordner=pfad.relative_to(wurzel).as_posix(),
         titel=titel,
         epoche=pd.epoche_von_projekt(pfad),
         zweite_epoche=pd.zweite_epoche_von_projekt(pfad),
-        anzahl_kapitel=len(pd.vorhandene_kapitel(projekt_unterordner)),
-        letztes_geplantes_kapitel=g.letztes_geplantes_kapitel(geruest_text) if geruest_text else None,
-        automatik_zustand=automatik.zustand_zusammenfassen(automatik.status_lesen(pfad)),
+        anzahl_kapitel=anzahl_kapitel,
+        letztes_geplantes_kapitel=letztes_geplantes_kapitel,
+        automatik_zustand=automatik.zustand_zusammenfassen(
+            automatik.status_lesen(pfad),
+            geschriebene_kapitel=anzahl_kapitel,
+            geplante_kapitel=letztes_geplantes_kapitel,
+        ),
         neu_geschrieben_aus=pd.neuschreiben_quelle(pfad),
         erstellt_am=_erstellt_am(pfad),
         zuletzt_bearbeitet_am=_zuletzt_bearbeitet_am(geruest_pfad, projekt_unterordner),

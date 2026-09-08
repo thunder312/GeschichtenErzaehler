@@ -230,7 +230,12 @@ def verlauf_eintrag_anhaengen(projekt_root: Path, eintrag: dict[str, Any]) -> No
     pfad.write_text(json.dumps(eintraege, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def zustand_zusammenfassen(status: dict[str, Any]) -> str | None:
+def zustand_zusammenfassen(
+    status: dict[str, Any],
+    *,
+    geschriebene_kapitel: int | None = None,
+    geplante_kapitel: int | None = None,
+) -> str | None:
     """Fasst den Status zu EINEM Wort fuer die Projektliste zusammen (siehe
     app/api/projects.py:_projekt_kurz), damit man ohne den Schreiben-Tab zu
     oeffnen sieht, ob ein ueber Nacht laufender Automatik-Lauf fertig ist
@@ -251,14 +256,31 @@ def zustand_zusammenfassen(status: dict[str, Any]) -> str | None:
       per "Pruefung abschliessen"-Button (siehe reste_bestaetigen()) noch
       nicht als erledigt bestaetigt
     - "abgeschlossen_sauber": fertig, nichts uebrig (oder Reste wurden
-      manuell als erledigt bestaetigt)"""
+      manuell als erledigt bestaetigt)
+
+    `geschriebene_kapitel`/`geplante_kapitel` (beide optional, aus
+    _projekt_kurz): ist ein "gestoppt"-Lauf inzwischen auf anderem Weg fertig
+    geschrieben worden - alle laut Kapitelplan geplanten Kapitel existieren -,
+    verliert das "gestoppt" seine Bedeutung. Es gibt nichts mehr
+    fortzusetzen; der Lauf wurde nur nie sauber als "abgeschlossen" markiert
+    (Stop-Klick kurz vor Schluss, Backend-Neustart, manuell zu Ende
+    geschrieben). Dann wie ein abgeschlossener Lauf behandeln, damit die
+    Projektliste nicht dauerhaft "Automatik angehalten" anzeigt (Vorfall
+    2026-09-08, "Die Macht der Zweisamkeit" auf Produktiv). Die Reste-Logik
+    unten greift weiter, ein noch nicht durchgesehener Prueferrest zeigt also
+    weiterhin "abgeschlossen_mit_resten" statt faelschlich "sauber"."""
     if status.get("gestartet_am") is None:
         return None
     if status.get("laeuft"):
         return "laeuft"
     if status.get("fehler"):
         return "fehler"
-    if not status.get("abgeschlossen"):
+    alle_geplanten_kapitel_da = (
+        geplante_kapitel is not None
+        and geschriebene_kapitel is not None
+        and geschriebene_kapitel >= geplante_kapitel
+    )
+    if not status.get("abgeschlossen") and not alle_geplanten_kapitel_da:
         return "gestoppt"
     if reste_vorhanden(status) and not status.get("resten_bestaetigt"):
         return "abgeschlossen_mit_resten"
