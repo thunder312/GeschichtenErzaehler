@@ -640,6 +640,8 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
       <KiGeruestOverlay
         ordner={ordner}
         epocheAnzeigename={(projekt?.epoche ?? "").replace(/-/g, " ")}
+        epoche={projekt?.epoche}
+        fundusFiguren={fundusFiguren}
         sshZielId={sshZielId}
         startphase={kiOverlay}
         onFertig={() => {

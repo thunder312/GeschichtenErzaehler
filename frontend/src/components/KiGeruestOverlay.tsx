@@ -1,12 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { KiGeruestFigurEingabe, KiGeruestRandbedingungen, KiGeruestStatus } from "../api/types";
+import type { FundusFigur, KiGeruestFigurEingabe, KiGeruestRandbedingungen, KiGeruestStatus } from "../api/types";
+import { fundusFigurenFuerEpoche } from "../utils/fundusMatch";
 import { Button, Input, Label, Select, Textarea } from "./ui";
 
 interface KiGeruestOverlayProps {
   ordner: string;
   /** Vorbelegung fuer das Feld "Setting/Kanon-Detail" (Anzeigename der Epoche). */
   epocheAnzeigename: string;
+  /** Ordner-/Identifier-Name der Projekt-Epoche - fuer den Fundus-Abgleich
+   * der Figuren-Auswahl (siehe fundusFigurenFuerEpoche). */
+  epoche?: string | null;
+  /** Personen-Fundus des Nutzers (GeruestPage laedt ihn ohnehin) - erlaubt,
+   * Hauptfiguren aus dem Fundus der passenden Epoche zu uebernehmen statt
+   * neu einzutippen. */
+  fundusFiguren?: FundusFigur[];
   sshZielId: string;
   /** "eingabe": normal (Formular). "laeuft": beim Oeffnen lief schon ein
    * Entwurf (z.B. aus ProjektePage angestossen) - direkt in die
@@ -33,6 +41,8 @@ const PHASE_LABEL: Record<string, string> = {
 export function KiGeruestOverlay({
   ordner,
   epocheAnzeigename,
+  epoche,
+  fundusFiguren = [],
   sshZielId,
   startphase,
   onFertig,
@@ -91,6 +101,38 @@ export function KiGeruestOverlay({
 
   function figurAendern(index: number, feld: keyof KiGeruestFigurEingabe, wert: string) {
     setFiguren((bisher) => bisher.map((f, i) => (i === index ? { ...f, [feld]: wert } : f)));
+  }
+
+  // Figuren aus dem Personen-Fundus der passenden Epoche (plus "## Allgemein"),
+  // die noch nicht in der Liste stehen - Vorschlag im Dropdown "aus Fundus".
+  const fundusOptionen = useMemo(() => {
+    const schonDrin = new Set(figuren.map((f) => f.name.trim().toLowerCase()).filter(Boolean));
+    return fundusFigurenFuerEpoche(fundusFiguren, epoche).filter(
+      (f) => !schonDrin.has(f.name.trim().toLowerCase()),
+    );
+  }, [fundusFiguren, epoche, figuren]);
+
+  function figurAusFundusUebernehmen(name: string) {
+    const treffer = fundusFiguren.find((f) => f.name === name);
+    if (!treffer) return;
+    const felder = treffer.felder ?? {};
+    // Standardfelder des Fundus (backend/app/core/fundus.py:STANDARD_FELDER):
+    // Alter, Stand/Rolle, Eigenschaften, Aussehen, Ziel, Angst, Geheimnis.
+    // Alter + Stand/Rolle wandern in die eigenen Spalten, der Rest wird zur
+    // Kurzbeschreibung zusammengefasst (ohne die "Geschichten"-Liste).
+    const rest = Object.entries(felder)
+      .filter(([k, v]) => v.trim() && k !== "Geschichten" && k !== "Alter" && k !== "Stand/Rolle")
+      .map(([, v]) => v.trim())
+      .join("; ");
+    setFiguren((bisher) => [
+      ...bisher,
+      {
+        name: treffer.name,
+        alter: (felder["Alter"] ?? "").trim(),
+        rolle: (felder["Stand/Rolle"] ?? "").trim(),
+        kurzbeschreibung: rest,
+      },
+    ]);
   }
 
   async function starten() {
@@ -162,6 +204,10 @@ export function KiGeruestOverlay({
                 onChange={(e) => setPraemisse(e.target.value)}
                 placeholder="Ein bis drei Sätze: Worum geht es? Wer trifft wen, was verbindet sie?"
               />
+              <p className="mt-1 text-xs text-text-muted">
+                Die Grundsituation der ganzen Geschichte in ein bis drei Sätzen - wer sind die Figuren,
+                was bringt sie zusammen, worum geht es im Kern.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -213,15 +259,34 @@ export function KiGeruestOverlay({
             </div>
 
             <div>
-              <div className="mb-1 flex items-center justify-between">
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                 <Label>Hauptfiguren (optional)</Label>
-                <button
-                  type="button"
-                  onClick={() => setFiguren((b) => [...b, { ...LEERE_FIGUR }])}
-                  className="text-xs text-accent-light hover:underline"
-                >
-                  + Figur
-                </button>
+                <div className="flex items-center gap-3">
+                  {fundusOptionen.length > 0 && (
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) figurAusFundusUebernehmen(e.target.value);
+                        e.target.value = "";
+                      }}
+                      className="rounded-lg border border-border bg-bg px-2 py-1 text-xs text-text outline-none focus:border-accent"
+                    >
+                      <option value="">📋 aus Fundus übernehmen…</option>
+                      {fundusOptionen.map((f) => (
+                        <option key={f.name} value={f.name}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setFiguren((b) => [...b, { ...LEERE_FIGUR }])}
+                    className="text-xs text-accent-light hover:underline"
+                  >
+                    + Figur
+                  </button>
+                </div>
               </div>
               <div className="space-y-2">
                 {figuren.map((f, i) => (
@@ -265,6 +330,10 @@ export function KiGeruestOverlay({
                     onChange={(e) => setVerlauf(e.target.value)}
                     placeholder='z.B. "Kapitel 1 Kennenlernen, Kapitel 2-7 Annäherung, Kapitel 8 Happy End"'
                   />
+                  <p className="mt-1 text-xs text-text-muted">
+                    Nicht die Ausgangssituation (das ist die Prämisse), sondern der Weg dorthin: wie sich der
+                    Bogen über die Kapitel entwickelt. Leer lassen = die KI verteilt den Spannungsbogen selbst.
+                  </p>
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
