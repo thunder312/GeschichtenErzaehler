@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { api } from "../api/client";
 import type { FundusFigur, KiGeruestFigurEingabe, KiGeruestRandbedingungen, KiGeruestStatus } from "../api/types";
 import { fundusFigurenFuerEpoche } from "../utils/fundusMatch";
@@ -27,6 +28,48 @@ interface KiGeruestOverlayProps {
 }
 
 const LEERE_FIGUR: KiGeruestFigurEingabe = { name: "", alter: "", rolle: "", kurzbeschreibung: "" };
+
+/** Kleines "?"-Icon neben einem Feld-Label: MouseOver zeigt den Kurztext als
+ * nativen Tooltip, Klick blendet den ausführlichen Hilfetext als kleine
+ * Karte darunter ein. */
+function FeldHilfe({ kurz, children }: { kurz: string; children: ReactNode }) {
+  const [offen, setOffen] = useState(false);
+  return (
+    <span className="relative inline-block">
+      <button
+        type="button"
+        title={kurz}
+        aria-label="Hilfe"
+        onClick={() => setOffen((o) => !o)}
+        className="flex h-4 w-4 items-center justify-center rounded-full border border-border text-[10px] font-bold text-text-muted hover:border-accent hover:text-accent-light"
+      >
+        ?
+      </button>
+      {offen && (
+        <div className="absolute left-0 top-6 z-20 w-72 rounded-lg border border-border bg-surface p-3 text-xs leading-relaxed text-text shadow-lg">
+          {children}
+        </div>
+      )}
+    </span>
+  );
+}
+
+const HILFE_PRAEMISSE_VERLAUF = (
+  <>
+    <p className="mb-1">
+      <strong>Prämisse</strong> = die Grundsituation der ganzen Geschichte (wer sind die Figuren,
+      was bringt sie zusammen, worum geht es im Kern). Zeitlos, der Ausgangspunkt.
+    </p>
+    <p className="mb-1">
+      <strong>Grober Verlauf</strong> = die Form des Bogens über die Kapitel (wie sich das
+      entwickelt). Leer lassen = die KI verteilt den Spannungsbogen selbst.
+    </p>
+    <p className="text-text-muted">
+      Beispiel Prämisse: „Zwei Schüler aus verschiedenen Häusern finden über ihren Wissensdurst
+      zueinander." — Verlauf: „Kap. 1 Kennenlernen, Kap. 2–7 Annäherung, Kap. 8 Happy End."
+    </p>
+  </>
+);
 
 const PHASE_LABEL: Record<string, string> = {
   entwurf: "Die KI entwirft den Kapitelplan...",
@@ -197,17 +240,18 @@ export function KiGeruestOverlay({
         {phase === "eingabe" ? (
           <div className="space-y-3">
             <div>
-              <Label>Prämisse (Pflicht)</Label>
+              <div className="flex items-center gap-1.5">
+                <Label>Prämisse (Pflicht)</Label>
+                <FeldHilfe kurz="Die Grundsituation der Geschichte - nicht der Verlauf über die Kapitel (das ist 'Grober Verlauf').">
+                  {HILFE_PRAEMISSE_VERLAUF}
+                </FeldHilfe>
+              </div>
               <Textarea
                 rows={3}
                 value={praemisse}
                 onChange={(e) => setPraemisse(e.target.value)}
                 placeholder="Ein bis drei Sätze: Worum geht es? Wer trifft wen, was verbindet sie?"
               />
-              <p className="mt-1 text-xs text-text-muted">
-                Die Grundsituation der ganzen Geschichte in ein bis drei Sätzen - wer sind die Figuren,
-                was bringt sie zusammen, worum geht es im Kern.
-              </p>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -323,17 +367,18 @@ export function KiGeruestOverlay({
             {mehrOffen && (
               <div className="space-y-3 rounded-lg border border-border bg-bg/40 p-3">
                 <div>
-                  <Label>Grober Verlauf</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label>Grober Verlauf</Label>
+                    <FeldHilfe kurz="Der Weg über die Kapitel - nicht die Ausgangssituation (das ist die Prämisse).">
+                      {HILFE_PRAEMISSE_VERLAUF}
+                    </FeldHilfe>
+                  </div>
                   <Textarea
                     rows={2}
                     value={verlauf}
                     onChange={(e) => setVerlauf(e.target.value)}
                     placeholder='z.B. "Kapitel 1 Kennenlernen, Kapitel 2-7 Annäherung, Kapitel 8 Happy End"'
                   />
-                  <p className="mt-1 text-xs text-text-muted">
-                    Nicht die Ausgangssituation (das ist die Prämisse), sondern der Weg dorthin: wie sich der
-                    Bogen über die Kapitel entwickelt. Leer lassen = die KI verteilt den Spannungsbogen selbst.
-                  </p>
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
