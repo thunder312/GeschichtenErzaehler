@@ -39,6 +39,11 @@ from pydantic import BaseModel
 from app.core import analysator as an
 
 GERUEST_KI_STATUS_DATEINAME = "geruest_ki_status.json"
+# Zuletzt abgeschickte Randbedingungen (siehe eingabe_speichern) - damit der
+# Nutzer sie beim nächsten Öffnen des Overlays nicht neu tippen muss, wenn ein
+# Lauf fehlschlug/abgebrochen wurde. Analog zu app/core/analysator.py:
+# analyse_speichern, das den importierten Rohtext dauerhaft sichert.
+GERUEST_KI_EINGABE_DATEINAME = "geruest_ki_eingabe.json"
 
 # Obergrenze wie im Formular (siehe app/schemas.py:KiGeruestStartAnfrage und
 # der Spezifikation Kapitel 2: "kapitelanzahl int (1-30)").
@@ -479,6 +484,30 @@ def status_schreiben(projekt_root: Path, status: dict) -> None:
     pfad = status_datei(projekt_root)
     pfad.parent.mkdir(parents=True, exist_ok=True)
     pfad.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def eingabe_datei(projekt_root: Path) -> Path:
+    return projekt_root / "projekt" / GERUEST_KI_EINGABE_DATEINAME
+
+
+def eingabe_speichern(projekt_root: Path, anfrage: dict) -> None:
+    """Sichert die abgeschickten Randbedingungen, BEVOR der (lang laufende,
+    evtl. fehlschlagende) Entwurf startet - so gehen die Formular-Eingaben
+    nie verloren, auch wenn der Lauf abbricht oder das Overlay geschlossen
+    wird."""
+    pfad = eingabe_datei(projekt_root)
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    pfad.write_text(json.dumps(anfrage, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def eingabe_lesen(projekt_root: Path) -> dict | None:
+    pfad = eingabe_datei(projekt_root)
+    if not pfad.exists():
+        return None
+    try:
+        return json.loads(pfad.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
 
 
 def verwaiste_laeufe_zuruecksetzen(projects_root: Path) -> int:

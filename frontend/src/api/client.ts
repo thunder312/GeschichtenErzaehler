@@ -192,6 +192,12 @@ export const api = {
   kiGeruestStatus: (ordner: string) =>
     anfrage<KiGeruestStatus>(`/api/projects/${ordner}/geruest-ki/status`),
 
+  /** Die zuletzt für dieses Projekt abgeschickten Randbedingungen (oder null) -
+   * das Overlay bietet sie beim Öffnen zum Übernehmen an, damit man nach einem
+   * fehlgeschlagenen/abgebrochenen Lauf nicht alles neu tippen muss. */
+  kiGeruestEingabe: (ordner: string) =>
+    anfrage<KiGeruestRandbedingungen | null>(`/api/projects/${ordner}/geruest-ki/eingabe`),
+
   geruestSchreiben: (ordner: string, inhalt: string) =>
     anfrage<{
       gespeichert: string;

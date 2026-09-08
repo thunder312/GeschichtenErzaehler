@@ -214,6 +214,9 @@ def geruest_ki_starten(ordner: str, anfrage: KiGeruestStartAnfrage, background_t
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     rb = _anfrage_zu_randbedingungen(anfrage)
     epoche_anzeigename = (pd.epoche_von_projekt(projekt_root) or "").replace("-", " ")
+    # Eingaben SOFORT sichern (vor dem lang laufenden, evtl. abbrechenden Lauf) -
+    # damit sie beim nächsten Öffnen des Overlays wieder da sind.
+    gk.eingabe_speichern(projekt_root, anfrage.model_dump())
     background_tasks.add_task(
         _entwurf_lauf, settings, benutzer.username, projekt_root, ssh_ziel_id, rb, epoche_anzeigename,
     )
@@ -225,3 +228,18 @@ def geruest_ki_status(ordner: str, settings: Settings = Depends(get_settings),
                        benutzer: Benutzer = Depends(get_current_user)):
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     return KiGeruestStatusAntwort(**gk.status_lesen(projekt_root))
+
+
+@router.get("/{ordner:path}/geruest-ki/eingabe", response_model=KiGeruestStartAnfrage | None)
+def geruest_ki_eingabe(ordner: str, settings: Settings = Depends(get_settings),
+                        benutzer: Benutzer = Depends(get_current_user)):
+    """Die zuletzt für dieses Projekt abgeschickten Randbedingungen (oder
+    null) - das Overlay bietet sie beim Öffnen zum Übernehmen an."""
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    gespeichert = gk.eingabe_lesen(projekt_root)
+    if not gespeichert:
+        return None
+    try:
+        return KiGeruestStartAnfrage(**gespeichert)
+    except ValidationError:
+        return None

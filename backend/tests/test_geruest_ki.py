@@ -231,3 +231,21 @@ def test_api_status_ohne_lauf_ist_leer(client):
     ordner = client.post("/api/projects", json={"titel": "Leer", "epoche": "Regency"}).json()["ordner"]
     status = client.get(f"/api/projects/{ordner}/geruest-ki/status").json()
     assert status == {"laeuft": False, "phase": None, "log": [], "abgeschlossen": False, "fehler": None}
+
+
+def test_api_eingabe_wird_gesichert_und_ist_wieder_abrufbar(client):
+    ordner = client.post("/api/projects", json={"titel": "EingabeTest", "epoche": "Regency"}).json()["ordner"]
+
+    assert client.get(f"/api/projects/{ordner}/geruest-ki/eingabe").json() is None
+
+    client.post(
+        f"/api/projects/{ordner}/geruest-ki/starten",
+        json={"praemisse": "Zwei treffen sich im Nebel.", "kapitelanzahl": 4, "genre": "Krimi",
+              "figuren": [{"name": "Mara", "alter": "30", "rolle": "Ermittlerin", "kurzbeschreibung": "zäh"}]},
+    )
+
+    gespeichert = client.get(f"/api/projects/{ordner}/geruest-ki/eingabe").json()
+    assert gespeichert["praemisse"] == "Zwei treffen sich im Nebel."
+    assert gespeichert["kapitelanzahl"] == 4
+    assert gespeichert["genre"] == "Krimi"
+    assert gespeichert["figuren"][0]["name"] == "Mara"

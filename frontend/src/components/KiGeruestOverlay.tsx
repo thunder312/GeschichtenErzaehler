@@ -133,9 +133,55 @@ export function KiGeruestOverlay({
   const [schluss, setSchluss] = useState("");
   const [tabus, setTabus] = useState("");
   const [figuren, setFiguren] = useState<KiGeruestFigurEingabe[]>([]);
+  // Hinweis, wenn die Felder aus einem früheren (fehlgeschlagenen/abgebrochenen)
+  // Lauf vorbefüllt wurden.
+  const [ausLetztemLauf, setAusLetztemLauf] = useState(false);
 
   const onFertigRef = useRef(onFertig);
   onFertigRef.current = onFertig;
+
+  // Beim Öffnen des Formulars: zuletzt abgeschickte Randbedingungen dieses
+  // Projekts holen und vorbefüllen (backend/app/api/geruest_ki.py speichert
+  // sie bei jedem Start). Nur einmal, nur solange der Nutzer noch nichts
+  // getippt hat.
+  const eingabeGeladen = useRef(false);
+  useEffect(() => {
+    if (phase !== "eingabe" || eingabeGeladen.current) return;
+    eingabeGeladen.current = true;
+    api
+      .kiGeruestEingabe(ordner)
+      .then((e) => {
+        if (!e || praemisse.trim()) return;
+        setPraemisse(e.praemisse ?? "");
+        setKapitelanzahl(e.kapitelanzahl || 8);
+        if (e.setting) setSetting(e.setting);
+        setGenre(e.genre ?? "");
+        setJahr(e.jahr ?? "");
+        setJugendschutzStufe(e.jugendschutz_stufe || "voll");
+        setZielwortzahl(e.zielwortzahl_pro_kapitel || 1500);
+        setVerlauf(e.verlauf ?? "");
+        setKonflikt(e.konflikt ?? "");
+        setDramatik(e.dramatik ?? "");
+        setZeitraum(e.zeitraum ?? "");
+        setSchluss(e.schluss ?? "");
+        setTabus(e.tabus ?? "");
+        setFiguren(e.figuren ?? []);
+        if ((e.verlauf ?? "") || (e.konflikt ?? "") || (e.schluss ?? "") || (e.tabus ?? "") ||
+            (e.dramatik ?? "") || (e.zeitraum ?? "")) {
+          setMehrOffen(true);
+        }
+        setAusLetztemLauf(true);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, ordner]);
+
+  function formularLeeren() {
+    setPraemisse(""); setKapitelanzahl(8); setSetting(epocheAnzeigename); setGenre("");
+    setJahr(""); setJugendschutzStufe("voll"); setZielwortzahl(1500); setVerlauf("");
+    setKonflikt(""); setDramatik(""); setZeitraum(""); setSchluss(""); setTabus("");
+    setFiguren([]); setAusLetztemLauf(false);
+  }
 
   // Fortschritt pollen, solange ein Lauf laeuft. Intervall bewusst 10 s (nicht
   // 3-4 s wie bei Automatik/Schreiben) - haeufiges Pollen WAEHREND eines
@@ -310,6 +356,14 @@ export function KiGeruestOverlay({
 
         {phase === "eingabe" ? (
           <div className="space-y-3">
+            {ausLetztemLauf && (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-accent-light/30 bg-accent-soft px-3 py-2 text-xs text-accent-light">
+                <span>↩️ Vorbefüllt mit deinen Vorgaben aus dem letzten Entwurf für dieses Projekt.</span>
+                <button type="button" onClick={formularLeeren} className="shrink-0 hover:underline">
+                  Formular leeren
+                </button>
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-1.5">
                 <Label>Prämisse (Pflicht)</Label>
