@@ -28,7 +28,7 @@ from app.core import architekt as arch
 from app.core import fundus as fu
 from app.core import geruest_ki as gk
 from app.core import projekt_dateien as pd
-from app.core.ollama_client import OllamaFehler, sammle_antwort
+from app.core.ollama_client import OllamaFehler, chat_stream
 from app.schemas import Benutzer, KiGeruestStartAnfrage, KiGeruestStartAntwort, KiGeruestStatusAntwort
 from app.services import fundus_datei, ollama_basis_url, projekt_pfad, rollen_modell_override
 
@@ -46,6 +46,49 @@ def _log_anhaengen(projekt_root, *zeilen: str, **weitere) -> None:
     status["log"] = list(status.get("log", [])) + list(zeilen)
     status.update(weitere)
     gk.status_schreiben(projekt_root, status)
+
+
+def _fortschritt_setzen(projekt_root, zeile: str) -> None:
+    """Aktualisiert die laufende "Kapitel N von M ..."-Zeile: ersetzt sie, wenn
+    sie schon existiert (letzte Zeile beginnt mit "Kapitel "), sonst wird sie
+    einmalig angehängt - so bleibt eine evtl. "zweiter Versuch"-Notiz davor
+    erhalten."""
+    status = gk.status_lesen(projekt_root)
+    log = list(status.get("log", []))
+    if log and log[-1].startswith("Kapitel "):
+        log[-1] = zeile
+    else:
+        log.append(zeile)
+    status["log"] = log
+    gk.status_schreiben(projekt_root, status)
+
+
+async def _stream_mit_fortschritt(base_url, system, user, *, schema, ueberschreibe, modell,
+                                   projekt_root, kapitelanzahl) -> str:
+    """chat_stream() statt sammle_antwort(): sammelt die Antwort auf UND meldet
+    den Fortschritt weiter - jedes im Teil-JSON abgeschlossene Kapitel
+    (erkennbar an "zustand_am_kapitelende") aktualisiert die Statusdatei auf
+    "Kapitel N von M entworfen...", damit die GUI nicht 10 Minuten lang nur
+    "entwirft..." zeigt."""
+    teile: list[str] = []
+    gemeldet = 0
+    async for ev in chat_stream(
+        base_url, "geruest_dramaturg", system, user,
+        ueberschreibe=ueberschreibe, format=schema, modell_override=modell,
+    ):
+        if ev.typ == "error":
+            raise OllamaFehler(ev.text)
+        if ev.typ == "content":
+            teile.append(ev.text)
+            fertige = "".join(teile).count('"zustand_am_kapitelende"')
+            if fertige > gemeldet:
+                gemeldet = fertige
+                _fortschritt_setzen(
+                    projekt_root, f"Kapitel {min(fertige, kapitelanzahl)} von {kapitelanzahl} entworfen...",
+                )
+        if ev.typ == "done":
+            return ev.text or "".join(teile)
+    return "".join(teile)
 
 
 def _fundus_kontext(settings: Settings, username: str, projekt_root) -> str:
@@ -100,20 +143,29 @@ async def _entwurf_lauf(settings: Settings, username: str, projekt_root,
         log=[f"KI entwirft {rb.kapitelanzahl} Kapitel aus deinen Vorgaben..."],
     )
     try:
-        system = gk.system_prompt(rb) + _fundus_kontext(settings, username, projekt_root)
+        # Der Fundus-Auszug hängt hinten dran, damit der große statische
+        # SYSTEM_PROMPT-Präfix davor über Aufrufe hinweg cachebar bleibt.
+        system = gk.system_prompt() + _fundus_kontext(settings, username, projekt_root)
         user = gk.randbedingungen_json(rb)
         modell = rollen_modell_override(settings, "geruest_dramaturg")
+        schema = gk.antwort_schema(rb.kapitelanzahl)
+        ueberschreibe = {
+            "num_ctx": gk.num_ctx_fuer(rb.kapitelanzahl),
+            "num_predict": gk.num_predict_fuer(rb.kapitelanzahl),
+        }
 
         with ollama_basis_url(settings, ssh_ziel_id) as base_url:
             ergebnis = None
             for versuch in (1, 2):
                 nachricht = user if versuch == 1 else (
-                    user + "\n\nDeine letzte Antwort war kein gültiges JSON im geforderten Format. "
-                    "Antworte NUR mit dem JSON-Objekt, ohne Erklärung, ohne Markdown."
+                    user + "\n\nDeine letzte Antwort war unvollständig. Antworte NUR mit dem "
+                    "vollständigen JSON-Objekt gemäß Schema."
                 )
-                antwort_text, _meta = await sammle_antwort(
-                    base_url, "geruest_dramaturg", system, nachricht,
-                    format="json", modell_override=modell,
+                if versuch == 2:
+                    _log_anhaengen(projekt_root, "Antwort war unvollständig - zweiter Versuch...")
+                antwort_text = await _stream_mit_fortschritt(
+                    base_url, system, nachricht, schema=schema, ueberschreibe=ueberschreibe,
+                    modell=modell, projekt_root=projekt_root, kapitelanzahl=rb.kapitelanzahl,
                 )
                 try:
                     ergebnis = gk.antwort_validieren(antwort_text, rb)
@@ -121,7 +173,6 @@ async def _entwurf_lauf(settings: Settings, username: str, projekt_root,
                 except (ValidationError, ValueError, json.JSONDecodeError):
                     if versuch == 2:
                         raise
-                    _log_anhaengen(projekt_root, "Antwort war unvollständig - zweiter Versuch...")
 
         assert ergebnis is not None
         for hinweis in ergebnis.hinweise:

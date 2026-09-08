@@ -138,19 +138,23 @@ async def chat_stream(
 
 async def sammle_antwort(
     base_url: str, rolle: str, system: str, user: str, format: dict | str | None = None,
-    modell_override: str | None = None,
+    modell_override: str | None = None, ueberschreibe: dict | None = None,
 ) -> tuple[str, dict]:
     """Sammelt chat_stream() zu einer fertigen (nicht-streamenden) Antwort
     auf - fuer Rollen, deren Ergebnis als Ganzes weiterverarbeitet wird
     (z.B. format="json" fuer strukturierte Antworten) statt live an ein
-    Frontend gestreamt zu werden. Raised OllamaFehler bei Stream-Fehler oder
-    leerer Antwort - bewusst KEINE HTTPException hier (core/ darf nicht von
-    FastAPI abhaengen; app/api/pipeline.py uebersetzt OllamaFehler bei
-    Bedarf in eine HTTPException, app/api/architekt.py faengt sie direkt
-    als nicht-fatalen Fehler ab, siehe dortiger Fundus-Auto-Save)."""
+    Frontend gestreamt zu werden. `ueberschreibe` erlaubt einzelne Optionen
+    pro Aufruf zu setzen (z.B. num_ctx/num_predict abhaengig von der
+    Eingabegroesse, siehe app/api/geruest_ki.py). Raised OllamaFehler bei
+    Stream-Fehler oder leerer Antwort - bewusst KEINE HTTPException hier
+    (core/ darf nicht von FastAPI abhaengen; app/api/pipeline.py uebersetzt
+    OllamaFehler bei Bedarf in eine HTTPException, app/api/architekt.py
+    faengt sie direkt als nicht-fatalen Fehler ab, siehe dortiger
+    Fundus-Auto-Save)."""
     text = ""
     meta: dict = {}
-    async for event in chat_stream(base_url, rolle, system, user, format=format, modell_override=modell_override):
+    async for event in chat_stream(base_url, rolle, system, user, ueberschreibe=ueberschreibe,
+                                   format=format, modell_override=modell_override):
         if event.typ == "error":
             raise OllamaFehler(f"Ollama-Fehler ({rolle}): {event.text}")
         if event.typ == "done":

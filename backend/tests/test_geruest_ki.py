@@ -11,6 +11,7 @@ from app.config import Settings, get_settings
 from app.core import architekt as arch
 from app.core import geruest as g
 from app.core import geruest_ki as gk
+from app.core.ollama_client import ChatEvent
 from app.db import init_db
 from app.main import app
 
@@ -104,6 +105,29 @@ def test_validieren_wirft_bei_leerer_kapitelliste():
         gk.antwort_validieren(json.dumps({"titel_der_geschichte": "X", "kapitel": []}), _rb(1))
 
 
+# --- Prompt / Schema / dynamische Optionen -----------------------------------
+
+def test_system_prompt_ist_statisch_und_ohne_platzhalter():
+    p = gk.system_prompt()
+    assert "{{" not in p and "}}" not in p
+    # zwei Aufrufe müssen exakt denselben String liefern (Prompt-Cache-Präfix)
+    assert gk.system_prompt() == p
+
+
+def test_antwort_schema_erzwingt_die_kapitelanzahl():
+    s = gk.antwort_schema(5)
+    assert s["properties"]["kapitel"]["minItems"] == 5
+    assert s["properties"]["kapitel"]["maxItems"] == 5
+    assert "titel_der_geschichte" in s["required"]
+
+
+def test_dynamische_optionen_skalieren_mit_kapitelanzahl_und_sind_gedeckelt():
+    assert gk.num_ctx_fuer(2) < gk.num_ctx_fuer(10)
+    assert gk.num_ctx_fuer(30) == 16384
+    assert gk.num_ctx_fuer(8) % 2048 == 0
+    assert gk.num_predict_fuer(2) < gk.num_predict_fuer(10) <= 8192
+
+
 # --- geruest_zusammenbauen ----------------------------------------------------
 
 def test_zusammenbauen_besteht_kapitelplan_pruefen_und_liefert_alle_kapitel():
@@ -170,11 +194,13 @@ def client(tmp_path, monkeypatch):
     init_db(settings.database_path)
     app.dependency_overrides[get_settings] = lambda: settings
 
-    async def _fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
-        return json.dumps(_antwort(3)), {}
+    async def _fake_chat_stream(base_url, rolle, system, user, ueberschreibe=None,
+                                 timeout=3600.0, format=None, modell_override=None):
+        antwort = json.dumps(_antwort(3))
+        yield ChatEvent("content", text=antwort)
+        yield ChatEvent("done", text=antwort, meta={})
 
-    # Sowohl im core-Client als auch im bereits importierten api-Modul patchen.
-    monkeypatch.setattr("app.api.geruest_ki.sammle_antwort", _fake_sammle_antwort)
+    monkeypatch.setattr("app.api.geruest_ki.chat_stream", _fake_chat_stream)
 
     with TestClient(app) as c:
         yield c

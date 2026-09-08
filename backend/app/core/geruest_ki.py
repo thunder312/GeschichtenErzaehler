@@ -128,115 +128,136 @@ def randbedingungen_json(rb: Randbedingungen) -> str:
 
 
 # --------------------------------------------------------------------------
-# System-Prompt (Spez. Kapitel 5 + gekürzter Few-Shot aus Kapitel 7)
+# System-Prompt (Spez. Kapitel 5, gestrafft) - bewusst KOMPLETT STATISCH:
+# alle variablen Angaben (kapitelanzahl, zielwortzahl, sprache, ...) stehen im
+# User-JSON (siehe randbedingungen_json), NICHT hier. Dadurch ist der
+# System-Prompt über alle Aufrufe identisch und Ollama kann den KV-Cache-
+# Präfix wiederverwenden - "neu würfeln" spart sich fast den kompletten
+# Prefill. Die Struktur wird zusätzlich per JSON-Schema erzwungen (siehe
+# antwort_schema), deshalb hier nur ein KURZES 1-Kapitel-Beispiel für Ton
+# und Feld-Dichte statt der vollen Formatvorgabe.
 # --------------------------------------------------------------------------
 
-# Fester String im Modul (epochenunabhängig, wie geruest.py:COVER_PROMPT_SYSTEM).
-# {{...}}-Platzhalter werden in system_prompt() ersetzt.
-_SYSTEM_PROMPT_VORLAGE = """Du bist Dramaturg für die Software „GeschichtenErzähler". Deine Aufgabe ist es,
-aus wenigen Randbedingungen ein vollständiges Kapitel-Gerüst für eine Geschichte
-zu entwerfen. Du schreibst noch keine Prosa, sondern planst.
+SYSTEM_PROMPT = """Du bist Dramaturg für die Software „GeschichtenErzähler". Du entwirfst aus
+wenigen Randbedingungen (im JSON der Nutzernachricht) ein vollständiges
+Kapitel-Gerüst. Du schreibst noch keine Prosa, sondern planst.
 
-Erzeuge genau {{kapitelanzahl}} Kapitel.
+Erzeuge genau so viele Kapitel wie im Feld "kapitelanzahl" angegeben,
+fortlaufend nummeriert ab 1. Alle Texte auf der Sprache aus dem Feld
+"sprache" (Standard Deutsch); Eigennamen bleiben im Original.
 
-Für jedes Kapitel füllst du folgende Felder:
-- nummer: fortlaufend ab 1
-- titel: ein sprechender Untertitel
-- ort: ein konkreter Schauplatz (bei Wechsel innerhalb des Kapitels: "A; dann B")
-- zielwortzahl: Standard {{zielwortzahl_pro_kapitel}}, ±30 % erlaubt
-- anwesende_figuren: Liste der Figuren, die im Kapitel auftreten
-- vergangene_zeit: wie viel erzählte Zeit seit dem Ende des vorigen Kapitels
-  vergeht (z.B. "drei Wochen später"); bei Kapitel 1 leer lassen
-- ereignis: 3-8 Sätze, was passiert und warum; nenne immer den Zeitabstand zum
-  vorherigen Kapitel; begründe jeden Ortswechsel
-- funktion_im_spannungsbogen: genau einer dieser Werte -
-  "Exposition", "Erregendes Moment", "Steigende Handlung", "Höhepunkt/Peripetie",
-  "Fallende Handlung", "Auflösung/Lösung" - oder "Eigene Angabe: <Text>"
-- stand_der_liebeshandlung: 1-3 Sätze; muss sich von Kapitel zu Kapitel
-  entwickeln; "entfällt", wenn die Geschichte keine Liebeshandlung hat
-- zustand_am_kapitelende: 1-3 Sätze mit dem Haken ins nächste Kapitel
+Pro Kapitel:
+- titel: sprechender Untertitel
+- ort: ein konkreter Schauplatz (Wechsel im Kapitel: "A; dann B")
+- zielwortzahl: der Wert aus "zielwortzahl_pro_kapitel", ±30 % erlaubt
+- anwesende_figuren: die im Kapitel auftretenden Figuren
+- vergangene_zeit: erzählte Zeit seit Ende des Vorkapitels (z.B. "drei Wochen
+  später"); bei Kapitel 1 leer
+- ereignis: 3-5 Sätze - was passiert und warum, mit dem Zeitabstand zum
+  Vorkapitel; jeder Ortswechsel wird begründet
+- funktion_im_spannungsbogen: genau einer von "Exposition", "Erregendes
+  Moment", "Steigende Handlung", "Höhepunkt/Peripetie", "Fallende Handlung",
+  "Auflösung/Lösung"
+- stand_der_liebeshandlung: 1-2 Sätze, entwickelt sich von Kapitel zu Kapitel;
+  "entfällt" bei Geschichten ohne Liebeshandlung
+- zustand_am_kapitelende: 1-2 Sätze mit dem Haken ins nächste Kapitel
 
-Regeln:
-1. Verteile die Spannungsbogen-Stufen in ihrer natürlichen Reihenfolge; der
-   Höhepunkt liegt bei etwa 75 % der Kapitel; "Steigende Handlung" trägt den
-   Mittelteil und darf mehrfach vorkommen.
-2. Kapitel 1 stellt alle Hauptfiguren vor. Das letzte Kapitel greift ein Motiv
-   aus Kapitel 1 wieder auf und löst den Kernkonflikt vollständig (kein
-   offener Cliffhanger).
-3. Halte dich an das Setting und seinen Kanon; erfinde nichts, was bekannten
-   Fakten des Settings widerspricht. Nutze Orte und Figuren des Settings.
-4. Explizite Intimität nur zwischen eindeutig volljährigen Figuren. Sind
-   beteiligte Figuren minderjährig, endet die Liebeshandlung spätestens beim
-   Kuss - auch wenn der gewünschte Schluss weiter geht. Vermerke die Anpassung
-   in "zeitlinie_kurz".
-5. Lasse alles aus, was unter "tabus" steht.
-6. Schreibe alle Texte auf {{sprache}}. Eigennamen bleiben im Original.
+Dramaturgie:
+- Spannungsbogen-Stufen in natürlicher Reihenfolge; Höhepunkt bei ca. 75 %
+  der Kapitel; "Steigende Handlung" trägt den Mittelteil und darf mehrfach
+  vorkommen.
+- Kapitel 1 stellt alle Hauptfiguren vor. Das letzte Kapitel greift ein Motiv
+  aus Kapitel 1 wieder auf und löst den Kernkonflikt vollständig - kein
+  offener Cliffhanger.
+- Setting und Kanon (Feld "setting") einhalten; bekannte Orte/Figuren
+  namentlich nutzen, nichts erfinden, was bekannten Fakten widerspricht.
+- Explizite Intimität nur zwischen eindeutig volljährigen Figuren. Sind
+  Beteiligte minderjährig, endet die Liebeshandlung spätestens beim Kuss -
+  auch wenn "schluss" weiter geht; vermerke die Anpassung in "zeitlinie_kurz".
+- Alles unter "tabus" wird ausgelassen.
 
-Antworte AUSSCHLIESSLICH mit einem JSON-Objekt dieser Form, ohne Erklärungen,
-ohne Markdown, ohne Codeblock:
+zeitlinie_kurz: ein Satz pro Kapitel - wann es spielt, wie groß der Abstand
+zum Vorkapitel ist.
 
+Halte alle Felder knapp und stichwortartig - das ist ein Plan, keine
+Erzählung. Antworte ausschließlich mit dem JSON-Objekt.
+
+Beispiel für Ton und Feld-Dichte (ein Kapitel, Harry-Potter-Setting):
 {
-  "titel_der_geschichte": "...",
-  "zeitlinie_kurz": "ein Satz pro Kapitel: wann es spielt, wie groß der Abstand zum vorigen Kapitel ist",
-  "kapitel": [
-    {
-      "nummer": 1,
-      "titel": "...",
-      "ort": "...",
-      "zielwortzahl": {{zielwortzahl_pro_kapitel}},
-      "anwesende_figuren": ["..."],
-      "vergangene_zeit": "",
-      "ereignis": "...",
-      "funktion_im_spannungsbogen": "...",
-      "stand_der_liebeshandlung": "...",
-      "zustand_am_kapitelende": "..."
-    }
-  ]
-}
-
-Beispiel für die erwartete Form (nur die ersten beiden Kapitel eines
-8-Kapitel-Gerüsts, Harry-Potter-Setting, Romantik):
-
-{
-  "titel_der_geschichte": "Gleicher Tisch",
-  "zeitlinie_kurz": "Schuljahr 1995/96 in Hogwarts. Kap. 1 Anfang September; Kap. 2 Ende September (+3 Wochen); ...",
-  "kapitel": [
-    {
-      "nummer": 1,
-      "titel": "Zwei Hände an einem Buch",
-      "ort": "Bibliothek von Hogwarts, Regal für Arithmantik; dann Lesetisch am Fenster",
-      "zielwortzahl": 1500,
-      "anwesende_figuren": ["Daniel", "Hermine Granger", "Madam Pince"],
-      "vergangene_zeit": "",
-      "ereignis": "Zweiter Septemberabend 1995. Daniel und Hermine greifen im selben Moment nach dem einzigen Exemplar eines Fachbuchs. Höflicher Streit, wer es dringender braucht; Daniel schlägt vor, es zu teilen. Zwei Stunden am Fenstertisch, nur über das Buch, doch beide merken, dass der andere genauso denkt wie man selbst. Vorstellung Daniels: muggelstämmig, Einzelgänger, kennt jede Regalreihe. Hermine findet hier die erste ruhige Stunde des Jahres.",
-      "funktion_im_spannungsbogen": "Exposition",
-      "stand_der_liebeshandlung": "Fremde. Gegenseitiger intellektueller Respekt, ein zweiter Blick beim Auseinandergehen.",
-      "zustand_am_kapitelende": "Madam Pince schließt. Daniel legt einen Zettel ins Buch: „Gleicher Tisch am Donnerstag?" Hermine nimmt den Zettel mit, statt ihn wegzuwerfen."
-    },
-    {
-      "nummer": 2,
-      "titel": "Donnerstagabende",
-      "ort": "Fenstertisch in der Bibliothek; dann Korridore zu den Türmen",
-      "zielwortzahl": 1500,
-      "anwesende_figuren": ["Daniel", "Hermine Granger", "Ron Weasley", "Harry Potter"],
-      "vergangene_zeit": "drei Wochen später, Ende September",
-      "ereignis": "Aus dem geteilten Buch ist ein fester Donnerstagstermin geworden. Hermine findet einen Fehler in Daniels Übersetzung, den er übersehen hat - er ist nicht gekränkt, sondern begeistert, und genau das unterscheidet ihn für sie von anderen. Ron und Harry holen Hermine ab und beäugen Daniel misstrauisch.",
-      "funktion_im_spannungsbogen": "Erregendes Moment",
-      "stand_der_liebeshandlung": "Studienfreunde. Sie freut sich auf Donnerstag mehr, als sie zugeben würde; er merkt, dass er sich für die Abende umzieht.",
-      "zustand_am_kapitelende": "Hermine lädt Daniel ein, am Samstag „nur zum Zuhören" mitzukommen."
-    }
-  ]
+  "nummer": 1,
+  "titel": "Zwei Hände an einem Buch",
+  "ort": "Bibliothek von Hogwarts; dann Lesetisch am Fenster",
+  "zielwortzahl": 1500,
+  "anwesende_figuren": ["Daniel", "Hermine Granger", "Madam Pince"],
+  "vergangene_zeit": "",
+  "ereignis": "Zweiter Septemberabend 1995. Daniel und Hermine greifen gleichzeitig nach dem einzigen Exemplar eines Fachbuchs; höflicher Streit, wer es dringender braucht. Daniel schlägt vor, es zu teilen. Zwei Stunden am Fenstertisch, nur über das Buch - beide merken, dass der andere genauso denkt wie man selbst. Vorstellung Daniels: muggelstämmig, Einzelgänger, kennt jede Regalreihe.",
+  "funktion_im_spannungsbogen": "Exposition",
+  "stand_der_liebeshandlung": "Fremde. Gegenseitiger intellektueller Respekt, ein zweiter Blick beim Auseinandergehen.",
+  "zustand_am_kapitelende": "Madam Pince schließt. Daniel legt einen Zettel ins Buch: Gleicher Tisch am Donnerstag? Hermine nimmt ihn mit, statt ihn wegzuwerfen."
 }
 """
 
 
-def system_prompt(rb: Randbedingungen) -> str:
-    return (
-        _SYSTEM_PROMPT_VORLAGE
-        .replace("{{kapitelanzahl}}", str(rb.kapitelanzahl))
-        .replace("{{zielwortzahl_pro_kapitel}}", str(rb.zielwortzahl_pro_kapitel))
-        .replace("{{sprache}}", rb.sprache.strip() or "Deutsch")
-    )
+def system_prompt() -> str:
+    return SYSTEM_PROMPT
+
+
+# Ollama-JSON-Schema als `format`-Wert (statt des schwächeren format="json"):
+# erzwingt die exakte Struktur UND per minItems/maxItems die exakte
+# Kapitelanzahl - das Modell kann nicht mehr ausufern (Hauptgrund für die
+# 30-Minuten-Läufe im ersten Test) und liefert kaum noch ungültiges JSON.
+_KAPITEL_ITEM_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "nummer": {"type": "integer"},
+        "titel": {"type": "string"},
+        "ort": {"type": "string"},
+        "zielwortzahl": {"type": "integer"},
+        "anwesende_figuren": {"type": "array", "items": {"type": "string"}},
+        "vergangene_zeit": {"type": "string"},
+        "ereignis": {"type": "string"},
+        "funktion_im_spannungsbogen": {"type": "string"},
+        "stand_der_liebeshandlung": {"type": "string"},
+        "zustand_am_kapitelende": {"type": "string"},
+    },
+    "required": [
+        "nummer", "titel", "ort", "anwesende_figuren", "ereignis",
+        "funktion_im_spannungsbogen", "stand_der_liebeshandlung", "zustand_am_kapitelende",
+    ],
+}
+
+
+def antwort_schema(kapitelanzahl: int) -> dict:
+    return {
+        "type": "object",
+        "properties": {
+            "titel_der_geschichte": {"type": "string"},
+            "zeitlinie_kurz": {"type": "string"},
+            "kapitel": {
+                "type": "array",
+                "items": _KAPITEL_ITEM_SCHEMA,
+                "minItems": kapitelanzahl,
+                "maxItems": kapitelanzahl,
+            },
+        },
+        "required": ["titel_der_geschichte", "kapitel"],
+    }
+
+
+def num_ctx_fuer(kapitelanzahl: int) -> int:
+    """Dynamische Kontextgröße: System-Prompt (~900 Token) + User-JSON +
+    Ausgabe (~250-350 Token/Kapitel) - auf das nächste Vielfache von 2048
+    aufgerundet, gedeckelt bei 16384. CPU-Prefill auf Athene skaliert mit der
+    ALLOZIERTEN Größe, nicht nur der genutzten (siehe rollen.py:analysator)."""
+    grob = 3072 + kapitelanzahl * 1024
+    aufgerundet = ((grob + 2047) // 2048) * 2048
+    return max(6144, min(16384, aufgerundet))
+
+
+def num_predict_fuer(kapitelanzahl: int) -> int:
+    """Obergrenze für die Ausgabe - großzügig, aber nicht unbegrenzt (ein
+    Runaway war die Hauptursache der 30-Minuten-Läufe)."""
+    return min(8192, 768 + kapitelanzahl * 512)
 
 
 # --------------------------------------------------------------------------
