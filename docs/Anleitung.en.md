@@ -76,8 +76,29 @@ Altes Ägypten (Ancient Egypt), Jetzt-2026 (Now-2026), Zukunft (Future),
 Shadowrun) as well as any custom era/setting you created yourself via the
 **Epoche erstellen** (Create Era) tab.
 
-Right after that: open the **Architekt / Gerüst** (Architect / Outline)
-tab and click "Interview neu führen" (Start new interview). The
+When creating the project you also choose **how the outline should come about**:
+
+- **🗣️ Architekten-Interview** (Architect Interview) — the AI questions you
+  step by step (see below).
+- **📝 Gerüst selbst schreiben** (Write the outline yourself) — opens the
+  outline editor directly with a placeholder skeleton to fill in, no
+  conversation.
+- **✨ KI entwirft das Gerüst** (AI drafts the outline) — you only provide a
+  few constraints (premise and number of chapters are required, everything
+  else optional: genre, rough arc, main characters, conflict, desired
+  ending, taboos …), and the AI builds a complete first-draft chapter plan
+  in one pass. The form opens right after creating the project; the draft
+  then keeps running on the server even if you close the window (progress
+  view like the Analyzer). The result is a perfectly normal outline —
+  **please proof-read every chapter**, check characters/places, then save.
+  The same path is also available later as the **"✨ KI-Entwurf"** button in
+  the outline editor (e.g. to re-roll an outline completely).
+
+A fourth path is the **🔬 Analysator** (Analyzer) tab (section further
+below): import an existing outside story and derive a project from it.
+
+For the Architect interview: open the **Architekt / Gerüst** (Architect /
+Outline) tab and click "Interview neu führen" (Start new interview). The
 conversation proceeds step by step (one question at a time) and
 automatically produces the story outline ("Gerüst") at the end. **The
 conversation can be interrupted at any time** (close the tab, close the

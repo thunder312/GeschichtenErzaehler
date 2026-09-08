@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import type { FundusFigur, Ort, ProjektDetail } from "../api/types";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { KiGeruestOverlay } from "../components/KiGeruestOverlay";
 import { OrdnerUmbenennenDialog } from "../components/OrdnerUmbenennenDialog";
 import { KapitelplanEditor } from "../components/KapitelplanEditor";
 import { RahmenEditor } from "../components/RahmenEditor";
@@ -62,6 +63,14 @@ interface GeruestPageProps {
   /** true, solange der Tab "Architekt / Gerüst" sichtbar ist - der Wechsel
    * auf true beim erneuten Betreten klappt die Kapitel-Karten wieder ein. */
   aktiv: boolean;
+  /** Fuer den KI-Gerüst-Entwurf (siehe KiGeruestOverlay) - kommt aus App.tsx,
+   * wird an den Hintergrund-Task durchgereicht. */
+  sshZielId: string;
+  /** true, wenn der Nutzer beim Projekt-Anlegen "✨ KI entwirft das Gerüst"
+   * gewaehlt hat (ProjektePage) - dann oeffnet sich das Overlay direkt beim
+   * ersten Betreten. Muster wie interviewErzwungen in App.tsx. */
+  kiEntwurfAuto: boolean;
+  onKiEntwurfAutoVerbraucht: () => void;
 }
 
 /** Rohtext-Ansicht von geruest.md, fuer die manuelle Nachjustierung NACH dem
@@ -71,7 +80,7 @@ interface GeruestPageProps {
  * exakt wie im CLI (siehe backend/app/core/geruest.py) und wird hier zur
  * Kontrolle angezeigt. Verbotsliste (fuer die Anachronismus-Pruefung)
  * liegt gleich daneben, da beide Dateien zusammen das Setting definieren. */
-export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, onInterviewStarten, onNeuSchreibenGestartet, aktiv }: GeruestPageProps) {
+export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, onInterviewStarten, onNeuSchreibenGestartet, aktiv, sshZielId, kiEntwurfAuto, onKiEntwurfAutoVerbraucht }: GeruestPageProps) {
   // Kapitelplan strukturiert (KapitelplanEditor), Rest des Gerüsts bleibt
   // Freitext in zwei Editoren links/rechts davon (siehe utils/kapitelplan.ts
   // fuer die Begruendung, warum nur der Kapitelplan formalisiert wird).
@@ -119,6 +128,37 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   const [stilprobenHinweis, setStilprobenHinweis] = useState<string | null>(null);
 
   const [architektenGespraech, setArchitektenGespraech] = useState<string | null>(null);
+
+  // KI-Gerüst-Entwurf (KiGeruestOverlay). `kiOverlay` steuert Sichtbarkeit +
+  // Startphase: "eingabe" = Formular, "laeuft" = direkt Fortschritt (ein Lauf
+  // war beim Betreten schon aktiv). `kiHinweis` ist das schließbare Banner
+  // nach einem fertigen Entwurf ("bitte jedes Kapitel prüfen").
+  const [kiOverlay, setKiOverlay] = useState<null | "eingabe" | "laeuft">(null);
+  const [kiHinweis, setKiHinweis] = useState(false);
+
+  // Beim Betreten eines Projekts einmal prüfen, ob ein KI-Entwurf noch läuft
+  // (z.B. aus ProjektePage angestoßen, oder Tab war zwischendurch zu) - dann
+  // direkt die Fortschrittsansicht zeigen.
+  useEffect(() => {
+    let abgebrochen = false;
+    api
+      .kiGeruestStatus(ordner)
+      .then((s) => {
+        if (!abgebrochen && s.laeuft) setKiOverlay("laeuft");
+      })
+      .catch(() => {});
+    return () => {
+      abgebrochen = true;
+    };
+  }, [ordner]);
+
+  // "✨ KI entwirft das Gerüst" beim Anlegen gewählt (ProjektePage -> App.tsx):
+  // Formular direkt öffnen und das Flag verbrauchen.
+  useEffect(() => {
+    if (!kiEntwurfAuto) return;
+    setKiOverlay("eingabe");
+    onKiEntwurfAutoVerbraucht();
+  }, [kiEntwurfAuto, onKiEntwurfAutoVerbraucht]);
 
   // Fuer den Fundus-Abgleich im Figuren-Abschnitt (siehe RahmenEditor.tsx:
   // FigurenBlock) - einmal geladen, nicht projektabhaengig (der Fundus ist
@@ -347,6 +387,13 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
             <Button variant="secondary" onClick={onInterviewStarten}>
               Interview neu führen
             </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setKiOverlay("eingabe")}
+              title="Die KI entwirft aus ein paar Randbedingungen einen kompletten Kapitelplan-Erstentwurf (überschreibt beim Speichern das aktuelle Gerüst)"
+            >
+              ✨ KI-Entwurf
+            </Button>
             <Button onClick={speichern} disabled={wirdGespeichert}>
               {wirdGespeichert ? "Speichert..." : "Speichern"}
             </Button>
@@ -357,6 +404,18 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
           <p className="whitespace-pre-line border-b border-border bg-red-400/10 px-4 py-3 text-sm text-red-400">
             {geruestFehler}
           </p>
+        )}
+
+        {kiHinweis && (
+          <div className="flex items-start justify-between gap-3 border-b border-border bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+            <span>
+              ✨ Dieses Gerüst wurde von der KI entworfen - bitte jedes Kapitel gegenlesen, Figuren/Orte
+              prüfen und dann <strong>Speichern</strong>.
+            </span>
+            <button type="button" onClick={() => setKiHinweis(false)} className="shrink-0 hover:text-amber-200">
+              ✕
+            </button>
+          </div>
         )}
 
         <div className="border-b border-border">
@@ -574,6 +633,21 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
         wirdAusgefuehrt={wirdZurueckgesetzt}
         onBestaetigen={zuruecksetzenBestaetigt}
         onAbbrechen={() => setZuruecksetzenOffen(false)}
+      />
+    )}
+
+    {kiOverlay && (
+      <KiGeruestOverlay
+        ordner={ordner}
+        epocheAnzeigename={(projekt?.epoche ?? "").replace(/-/g, " ")}
+        sshZielId={sshZielId}
+        startphase={kiOverlay}
+        onFertig={() => {
+          setKiOverlay(null);
+          setKiHinweis(true);
+          onGeaendert();
+        }}
+        onAbbrechen={() => setKiOverlay(null)}
       />
     )}
 

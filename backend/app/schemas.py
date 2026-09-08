@@ -480,6 +480,47 @@ class AnalyseEintrag(BaseModel):
     woerter: int
 
 
+class KiGeruestFigur(BaseModel):
+    name: str = ""
+    alter: str = ""
+    rolle: str = ""
+    kurzbeschreibung: str = ""
+
+
+class KiGeruestStartAnfrage(BaseModel):
+    """Randbedingungen aus dem Formular (siehe
+    frontend/src/components/KiGeruestOverlay.tsx und app/core/geruest_ki.py:
+    Randbedingungen bzw. der Spezifikation Kapitel 2). Nur `praemisse` und
+    `kapitelanzahl` sind Pflicht - die KI ergänzt fehlende Angaben selbst."""
+    praemisse: str = Field(min_length=1)
+    kapitelanzahl: int = Field(ge=1, le=30)
+    setting: str = ""
+    zielwortzahl_pro_kapitel: int = Field(default=1500, ge=100, le=20000)
+    figuren: list[KiGeruestFigur] = []
+    genre: str = ""
+    verlauf: str = ""
+    konflikt: str = ""
+    dramatik: str = ""
+    zeitraum: str = ""
+    schluss: str = ""
+    tabus: str = ""
+    sprache: str = "Deutsch"
+    jahr: str = ""
+    jugendschutz_stufe: str = "voll"
+
+
+class KiGeruestStartAntwort(BaseModel):
+    gestartet: bool
+
+
+class KiGeruestStatusAntwort(BaseModel):
+    laeuft: bool
+    phase: str | None
+    log: list[str]
+    abgeschlossen: bool
+    fehler: str | None
+
+
 class EinstellungenAntwort(BaseModel):
     projects_dir: str
     ist_standard: bool

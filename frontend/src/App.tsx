@@ -35,6 +35,9 @@ function App() {
   const [projektDetail, setProjektDetail] = useState<ProjektDetail | null>(null);
   const [activeTab, setActiveTab] = useState("projekte");
   const [interviewErzwungen, setInterviewErzwungen] = useState(false);
+  // true nach "✨ KI entwirft das Gerüst" beim Anlegen (ProjektePage) - laesst
+  // GeruestPage beim ersten Betreten direkt das KI-Entwurf-Overlay oeffnen.
+  const [kiEntwurfAuto, setKiEntwurfAuto] = useState(false);
   // Geteilt ueber alle Pipeline-Schritte hinweg (Architekt, Schreiben,
   // Pruefen, Stand): das gewaehlte KI-Ziel soll beim
   // Tab-Wechsel erhalten bleiben, statt bei jedem neu gemounteten Tab auf
@@ -261,6 +264,11 @@ function App() {
             onProjektAuswaehlen={projektAuswaehlen}
             onProjektGeloescht={projektGeloescht}
             onNeuSchreibenGestartet={projektAuswaehlen}
+            onKiEntwurfGestartet={(ordner) => {
+              projekteLaden();
+              projektAuswaehlen(ordner);
+              setKiEntwurfAuto(true);
+            }}
           />
         </div>
 
@@ -288,6 +296,9 @@ function App() {
                     projektAuswaehlen(neuerOrdner);
                   }}
                   aktiv={activeTab === "geruest"}
+                  sshZielId={sshZielId}
+                  kiEntwurfAuto={kiEntwurfAuto}
+                  onKiEntwurfAutoVerbraucht={() => setKiEntwurfAuto(false)}
                 />
               )}
             </div>

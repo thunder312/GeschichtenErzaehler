@@ -159,6 +159,34 @@ ROLLEN: dict[str, dict] = {
             "num_predict": 4096,
         },
     },
+    # Gerüst-Dramaturg (siehe app/core/geruest_ki.py, ToDo.md "KI designt
+    # Gerüst aus ein paar Randbedingungen"): entwirft aus wenigen Vorgaben des
+    # Nutzers (Prämisse, Kapitelanzahl, optional Genre/Verlauf/Figuren/...) in
+    # EINEM Aufruf einen kompletten Kapitelplan-Erstentwurf als JSON. Bewusst
+    # dasselbe Modell wie "autor"/"analysator" (Nutzer-Vorgabe: bleibt im
+    # selben Modell-Ökosystem wie der spätere Neu-Schreiben-Durchlauf).
+    # Höhere Temperatur als "analysator" (0.8 statt 0.3): die Aufgabe ist hier
+    # ERFINDEN (Dramaturgie aus dünnen Vorgaben), nicht Fakten aus vorgegebenem
+    # Text extrahieren - die Spezifikation empfiehlt ausdrücklich 0.7-0.9 für
+    # Ideenvielfalt. Wird mit format="json" aufgerufen (siehe
+    # app/api/geruest_ki.py). num_ctx/num_predict wie "autor" (Athene-Prefill-
+    # Historie, siehe "analysator"-Kommentar oben); num_predict etwas höher,
+    # weil ein 8-Kapitel-Gerüst als JSON grob 4-6k Tokens Ausgabe braucht.
+    # Per "KI-Ziele -> Persona-Modell-Zuordnung" tauschbar.
+    "geruest_dramaturg": {
+        "modell": "mistral-small3.2:latest",
+        "think": False,
+        "optionen": {
+            "temperature": 0.8,
+            "top_p": 0.9,
+            "top_k": 40,
+            "min_p": 0.0,
+            "repeat_penalty": 1.1,
+            "repeat_last_n": 128,
+            "num_ctx": 16384,
+            "num_predict": 8192,
+        },
+    },
     "chronist": {
         "modell": "gemma4",
         "think": False,

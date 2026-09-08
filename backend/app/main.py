@@ -17,11 +17,12 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import analysator, architekt, auth, benutzer, dokumentation, einstellungen, epochen, fundus, orte, persona_modelle, pipeline, projects, ssh_targets, wissen
+from app.api import analysator, architekt, auth, benutzer, dokumentation, einstellungen, epochen, fundus, geruest_ki, orte, persona_modelle, pipeline, projects, ssh_targets, wissen
 from app.auth import get_current_admin, get_current_user
 from app.config import get_settings
 from app.core import analysator as an
 from app.core import automatik
+from app.core import geruest_ki as gk
 from app.core.ollama_client import OllamaFehler
 from app.core.projekt_dateien import DateiFehlt
 from app.core.ssh_manager import SSHVerbindungsFehler
@@ -56,6 +57,16 @@ if _verwaiste_analysen:
         "%d verwaiste(n) Analysator-Lauf/Läufe beim Start zurückgesetzt (laeuft: true ohne "
         "lebenden Hintergrund-Task, vermutlich durch einen vorherigen Neustart).",
         _verwaiste_analysen,
+    )
+
+# Dasselbe fuer verwaiste KI-Geruest-Entwuerfe (siehe app/core/geruest_ki.py:
+# verwaiste_laeufe_zuruecksetzen) - gleicher Grund, gleiches Muster.
+_verwaiste_geruest_ki = gk.verwaiste_laeufe_zuruecksetzen(projekte_wurzel_unskopiert(settings))
+if _verwaiste_geruest_ki:
+    logging.getLogger(__name__).warning(
+        "%d verwaiste(n) KI-Gerüst-Entwurf/Entwürfe beim Start zurückgesetzt (laeuft: true ohne "
+        "lebenden Hintergrund-Task, vermutlich durch einen vorherigen Neustart).",
+        _verwaiste_geruest_ki,
     )
 
 # Einmalig beim Start befuellen, falls die Tabelle noch leer ist (z.B. beim
@@ -113,6 +124,7 @@ app.include_router(projects.router)
 app.include_router(pipeline.router)
 app.include_router(architekt.router)
 app.include_router(analysator.router)
+app.include_router(geruest_ki.router)
 app.include_router(ssh_targets.router, dependencies=[Depends(get_current_user)])
 app.include_router(epochen.router, dependencies=[Depends(get_current_user)])
 # einstellungen (Speicherort) und benutzer (Benutzerverwaltung) sind

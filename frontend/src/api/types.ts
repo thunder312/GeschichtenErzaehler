@@ -226,6 +226,45 @@ export interface AnalysatorStatus {
   fehler: string | null;
 }
 
+// POST /api/projects/{ordner}/geruest-ki/starten - Randbedingungen, aus denen
+// die KI einen Kapitelplan-Erstentwurf baut (siehe
+// backend/app/schemas.py:KiGeruestStartAnfrage und
+// frontend/src/components/KiGeruestOverlay.tsx). Nur praemisse + kapitelanzahl
+// sind Pflicht.
+export interface KiGeruestFigurEingabe {
+  name: string;
+  alter: string;
+  rolle: string;
+  kurzbeschreibung: string;
+}
+
+export interface KiGeruestRandbedingungen {
+  praemisse: string;
+  kapitelanzahl: number;
+  setting: string;
+  zielwortzahl_pro_kapitel: number;
+  figuren: KiGeruestFigurEingabe[];
+  genre: string;
+  verlauf: string;
+  konflikt: string;
+  dramatik: string;
+  zeitraum: string;
+  schluss: string;
+  tabus: string;
+  sprache: string;
+  jahr: string;
+  jugendschutz_stufe: string;
+}
+
+// GET /api/projects/{ordner}/geruest-ki/status
+export interface KiGeruestStatus {
+  laeuft: boolean;
+  phase: string | null;
+  log: string[];
+  abgeschlossen: boolean;
+  fehler: string | null;
+}
+
 // /api/analysator/analysen - dauerhaft gespeicherte Rohtexte importierter
 // Geschichten (siehe backend/app/core/analysator.py:analyse_speichern).
 export interface AnalyseEintrag {

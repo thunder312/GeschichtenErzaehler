@@ -73,8 +73,28 @@ die vorbereiteten Epochen (aktuell u. a. Regency, Mittelalter, Altes
 Ägypten, Jetzt-2026, Zukunft, Shadowrun) sowie jede selbst über den Tab
 **Epoche erstellen** angelegte eigene Epoche.
 
-Direkt danach: Tab **Architekt / Gerüst** öffnen und „Interview neu
-führen“. Das Gespräch läuft schrittweise (eine Frage nach der anderen) und
+Beim Anlegen wählst du außerdem, **wie das Gerüst entstehen soll**:
+
+- **🗣️ Architekten-Interview** — die KI befragt dich Schritt für Schritt
+  (siehe unten).
+- **📝 Gerüst selbst schreiben** — öffnet direkt den Gerüst-Editor mit einem
+  Platzhalter-Skelett zum Ausfüllen, kein Gespräch.
+- **✨ KI entwirft das Gerüst** — du gibst nur ein paar Randbedingungen vor
+  (Prämisse und Kapitelanzahl sind Pflicht, alles andere optional: Genre,
+  grober Verlauf, Hauptfiguren, Konflikt, gewünschtes Ende, Tabus …), die KI
+  baut daraus in einem Zug einen kompletten Kapitelplan-Erstentwurf. Das
+  Formular öffnet sich direkt nach dem Anlegen; der Entwurf läuft danach auf
+  dem Server weiter, auch wenn du das Fenster schließt (Fortschritt wie beim
+  Analysator). Das Ergebnis ist ein ganz normales Gerüst — **bitte jedes
+  Kapitel gegenlesen**, Figuren/Orte prüfen und dann speichern. Denselben
+  Weg gibt es auch später als Button **„✨ KI-Entwurf“** im Gerüst-Editor
+  (z. B. um ein Gerüst komplett neu würfeln zu lassen).
+
+Ein vierter Weg ist der Tab **🔬 Analysator** (Abschnitt weiter unten): eine
+bestehende Fremdgeschichte importieren und daraus ein Projekt ableiten.
+
+Beim Architekten-Interview: Tab **Architekt / Gerüst** öffnen und „Interview
+neu führen“. Das Gespräch läuft schrittweise (eine Frage nach der anderen) und
 erzeugt am Ende automatisch das Story-Gerüst. **Das Gespräch lässt sich
 jederzeit unterbrechen** (Tab schließen, Browser zu) und beim nächsten
 Öffnen des Projekts genau an der Stelle fortsetzen, an der es aufgehört

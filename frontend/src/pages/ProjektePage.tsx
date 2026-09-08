@@ -27,6 +27,10 @@ interface ProjektePageProps {
   onProjektAuswaehlen: (ordner: string) => void;
   onProjektGeloescht: (ordner: string) => void;
   onNeuSchreibenGestartet: (ordner: string) => void;
+  /** "✨ KI entwirft das Gerüst" gewählt: Projekt ist angelegt + mit
+   * Platzhalter-Skelett versehen, GeruestPage soll das KI-Entwurf-Overlay
+   * direkt öffnen (siehe App.tsx: setKiEntwurfAuto). */
+  onKiEntwurfGestartet: (ordner: string) => void;
 }
 
 export function ProjektePage({
@@ -38,6 +42,7 @@ export function ProjektePage({
   onProjektAuswaehlen,
   onProjektGeloescht,
   onNeuSchreibenGestartet,
+  onKiEntwurfGestartet,
 }: ProjektePageProps) {
   const [titel, setTitel] = useState("");
   // Alternative zum Architekten-Interview (siehe ToDo.md): statt der
@@ -46,7 +51,7 @@ export function ProjektePage({
   // danach, ob `projektDetail.geruest` bereits gesetzt ist - ein frisch
   // angelegtes Projekt hat das nur, wenn wir hier "manuell" waehlen und
   // sofort nach dem Anlegen leeresGeruestSkelett() speichern.
-  const [startModus, setStartModus] = useState<"interview" | "manuell">("interview");
+  const [startModus, setStartModus] = useState<"interview" | "manuell" | "ki">("interview");
   const [epoche, setEpoche] = useState("");
   const [zweiteEpoche, setZweiteEpoche] = useState("");
   const [epocheEinleitungssatz, setEpocheEinleitungssatz] = useState<string | null>(null);
@@ -522,7 +527,11 @@ export function ProjektePage({
       // verstecken - Projekt bleibt in jedem Fall nutzbar, notfalls landet
       // man dann eben doch im Interview und kann spaeter manuell wechseln.
       let ordnerZumOeffnen = neues.ordner;
-      if (startModus === "manuell") {
+      // "ki" verhält sich beim Anlegen wie "manuell" (Platzhalter-Skelett
+      // speichern, damit App.tsx den Gerüst-Editor statt des Interviews zeigt) -
+      // die KI-Anfrage stößt danach GeruestPage über das automatisch geöffnete
+      // Overlay an (siehe onKiEntwurfGestartet / App.tsx:kiEntwurfAuto).
+      if (startModus === "manuell" || startModus === "ki") {
         try {
           const skelett = leeresGeruestSkelett(titel.trim(), {
             ...epocheAnhaltspunkte,
@@ -546,7 +555,8 @@ export function ProjektePage({
       setTitel("");
       setZweiteEpoche("");
       onProjekteGeaendert();
-      onProjektAuswaehlen(ordnerZumOeffnen);
+      if (startModus === "ki") onKiEntwurfGestartet(ordnerZumOeffnen);
+      else onProjektAuswaehlen(ordnerZumOeffnen);
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {
@@ -778,7 +788,7 @@ export function ProjektePage({
           </div>
           <div>
             <Label>Wie soll das Gerüst entstehen?</Label>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <button
                 type="button"
                 onClick={() => setStartModus("interview")}
@@ -805,6 +815,21 @@ export function ProjektePage({
                 <span className="font-medium">📝 Gerüst selbst schreiben</span>
                 <p className="mt-0.5 text-xs text-text-muted">
                   Öffnet direkt den Gerüst-Editor mit einem Platzhalter-Skelett zum Ausfüllen - kein Gespräch.
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStartModus("ki")}
+                className={`rounded-lg border p-3 text-left text-sm transition-colors ${
+                  startModus === "ki"
+                    ? "border-accent bg-accent/10 text-text"
+                    : "border-border text-text-muted hover:bg-surface-hover"
+                }`}
+              >
+                <span className="font-medium">✨ KI entwirft das Gerüst</span>
+                <p className="mt-0.5 text-xs text-text-muted">
+                  Du gibst ein paar Randbedingungen vor (Prämisse, Kapitelanzahl ...), die KI baut daraus einen
+                  Kapitelplan-Erstentwurf.
                 </p>
               </button>
             </div>

@@ -20,6 +20,8 @@ import type {
   FundusFigurenAntwort,
   FundusImportAntwort,
   FundusProjektAntwort,
+  KiGeruestRandbedingungen,
+  KiGeruestStatus,
   LoginEingabe,
   OllamaModellInfo,
   Ort,
@@ -175,6 +177,20 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ name }),
     }),
+
+  // KI entwirft das Gerüst aus Randbedingungen (siehe
+  // backend/app/api/geruest_ki.py, KiGeruestOverlay.tsx) - Hintergrund-Task
+  // wie der Analysator, das Frontend pollt danach kiGeruestStatus.
+  kiGeruestStarten: (
+    ordner: string, randbedingungen: KiGeruestRandbedingungen, sshZielId?: string | null,
+  ) =>
+    anfrage<{ gestartet: boolean }>(
+      `/api/projects/${ordner}/geruest-ki/starten${sshQuery(sshZielId)}`,
+      { method: "POST", body: JSON.stringify(randbedingungen) },
+    ),
+
+  kiGeruestStatus: (ordner: string) =>
+    anfrage<KiGeruestStatus>(`/api/projects/${ordner}/geruest-ki/status`),
 
   geruestSchreiben: (ordner: string, inhalt: string) =>
     anfrage<{
