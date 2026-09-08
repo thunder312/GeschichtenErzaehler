@@ -209,6 +209,66 @@ def test_automatik_start_ueberspringt_bereits_konvergierte_kapitel_bei_neuem_kap
     assert any("Kapitel 3, Durchlauf 1: Prüfer laufen..." in z for z in status2["log"])
 
 
+def test_automatik_start_prueft_altes_kapitel_mit_veraltetem_marker_nicht_neu(
+    client, projekt_mit_kapitelplan, monkeypatch,
+):
+    """Wiederkehrender Prod-Vorfall: eine fertig geprüfte Geschichte wird im
+    Gerüst um Kapitel erweitert, danach normaler "Automatikmodus starten".
+    Phase 2 fing trotzdem wieder bei einem ALTEN Kapitel an, weil dessen
+    Konvergenz-Marker durch eine einzelne Handkorrektur im Tab "Prüfen &
+    Anwenden" ungültig geworden war (automatik.kapitel_bereits_konvergiert
+    greift dann nicht mehr). Regel (b) in _automatik_lauf fängt das ab:
+    Kapitel, die schon VOR diesem Lauf existierten und mindestens einmal
+    komplett durch Phase 2 liefen (Eintrag in automatik_geprueft.json,
+    egal ob aktuell), werden nicht erneut geprüft."""
+    from app.services import projekt_pfad
+
+    settings = app.dependency_overrides[get_settings]()
+    projekt = projekt_pfad(settings, "daniel", projekt_mit_kapitelplan) / "projekt"
+
+    r1 = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 1})
+    assert r1.status_code == 200
+    assert client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()["abgeschlossen"] is True
+
+    # Kapitel 1 "von Hand" nachkorrigieren -> sein Marker-Hash passt nicht mehr.
+    kap1 = projekt / "kapitel_01.md"
+    kap1_neu = kap1.read_text(encoding="utf-8") + "\n\nEin von Hand ergänzter Satz."
+    kap1.write_text(kap1_neu, encoding="utf-8")
+
+    geruest_mit_kapitel_3 = (
+        "# STORY-GERUEST\n\n## Rahmen\nJahr: 1815\n\n## Kapitelplan\n"
+        "Kapitel 1: Ein Anfang. 5 Wörter.\n"
+        "Kapitel 2: Ein Ende. 5 Wörter.\n"
+        "Kapitel 3: Eine Fortsetzung. 5 Wörter.\n"
+    )
+    client.put(f"/api/projects/{projekt_mit_kapitelplan}/geruest", json={"inhalt": geruest_mit_kapitel_3})
+
+    geprueft: list[int] = []
+    urspruenglich = pipeline._pruefe_kapitel
+
+    async def _spy(settings_, p, base_url, n, kapiteltext, zusatzhinweis=""):
+        geprueft.append(n)
+        return await urspruenglich(settings_, p, base_url, n, kapiteltext, zusatzhinweis)
+
+    monkeypatch.setattr(pipeline, "_pruefe_kapitel", _spy)
+
+    r2 = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 1})
+    assert r2.status_code == 200
+    status2 = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert status2["abgeschlossen"] is True
+
+    # Kapitel 1 (veralteter Marker) UND Kapitel 2 (gültiger Marker) bleiben
+    # unberührt, nur das neue Kapitel 3 wird geprüft.
+    assert set(geprueft) == {3}
+    assert kap1.read_text(encoding="utf-8") == kap1_neu
+    assert any("Kapitel 1: vor diesem Lauf bereits geschrieben und geprüft" in z for z in status2["log"])
+    assert any("Kapitel 2:" in z and "übersprungen" in z.lower() for z in status2["log"]) \
+        or any("Kapitel 2: bereits vollständig geprüft" in z for z in status2["log"])
+    assert not any("Kapitel 1, Durchlauf" in z for z in status2["log"])
+    assert not any("Kapitel 2, Durchlauf" in z for z in status2["log"])
+    assert any("Kapitel 3, Durchlauf 1" in z for z in status2["log"])
+
+
 def test_automatik_start_verweigert_zweiten_gleichzeitigen_lauf(client, projekt_mit_kapitelplan, monkeypatch):
     # Simuliert einen bereits laufenden Job, ohne tatsaechlich einen zu
     # starten (der echte Lauf ist in Tests synchron/blockierend ueber

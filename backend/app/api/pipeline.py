@@ -1251,41 +1251,51 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                 )
                 status["fehler_schritt"] = None
 
-            # Phase 2: jedes Kapitel pruefen und Korrekturen anwenden -
-            # auch bereits vorher manuell geschriebene, nicht nur die
-            # gerade in Phase 1 neu entstandenen. Bei einer Fortsetzung
-            # werden Kapitel VOR dem Unterbrechungspunkt uebersprungen, da
-            # deren Korrekturen im vorigen Lauf bereits vollstaendig
-            # angewendet wurden (das Protokoll dafuer wurde oben schon
+            # Phase 2: jedes Kapitel pruefen und Korrekturen anwenden. Bei
+            # einer Fortsetzung werden Kapitel VOR dem Unterbrechungspunkt
+            # uebersprungen (deren Korrekturen wurden im vorigen Lauf bereits
+            # vollstaendig angewendet, das Protokoll dafuer wurde oben schon
             # uebernommen). Im "nur_neue_kapitel"-Modus faengt Phase 2 erst
-            # bei der ersten in diesem Lauf neu geschriebenen Kapitelnummer an -
-            # die fertigen Vorkapitel bleiben komplett unberuehrt.
+            # bei der ersten in diesem Lauf neu geschriebenen Kapitelnummer an.
             phase2_start = erste_neue_kapitel if nur_neue_kapitel else 1
             if nur_neue_kapitel and erste_neue_kapitel > 1:
                 status["log"].append(
                     f"Nur-neue-Kapitel-Modus: Kapitel 1–{erste_neue_kapitel - 1} "
                     f"werden nicht erneut geprüft oder verändert."
                 )
+            geprueft_vorher = automatik.geprueft_lesen(projekt_root)
             for n in range(phase2_start, letztes + 1):
                 if fortsetzen_ab_kapitel and n < fortsetzen_ab_kapitel:
                     continue
                 kapitel_pfad = pd.kapitel_datei(projekt, n)
                 if not kapitel_pfad.exists():
                     continue
-                # Unabhaengig vom nur_neue_kapitel-Modus: ein Kapitel, das
-                # laut automatik.geprueft_markieren() bereits bis zur
-                # Konvergenz geprueft wurde und seither unveraendert ist,
-                # wird nicht erneut geprueft - sonst wuerde der normale
-                # "Automatikmodus starten"-Button (nicht "Weitere Kapitel
-                # schreiben") auf einer im Geruest um Kapitel ergaenzten,
-                # laengst fertig geprueften Geschichte Phase 2 wieder bei
-                # Kapitel 1 anfangen lassen (siehe automatik.py:
-                # kapitel_bereits_konvergiert fuer den Vorfall).
                 aktueller_kapiteltext = pd.lies(kapitel_pfad)
+                # (a) Kapitel wurde schon bis zur Konvergenz geprueft und ist
+                # seither Byte-fuer-Byte unveraendert - immer ueberspringen.
                 if automatik.kapitel_bereits_konvergiert(projekt_root, n, aktueller_kapiteltext):
                     status["log"].append(
                         f"Kapitel {n}: bereits vollständig geprüft und seither unverändert - "
                         f"wird übersprungen."
+                    )
+                    _automatik_status_schreiben(status, projekt_root)
+                    continue
+                # (b) Kapitel existierte schon VOR diesem Lauf (n <
+                # erste_neue_kapitel) und war frueher mindestens einmal
+                # komplett durch Phase 2 (Eintrag in automatik_geprueft.json,
+                # ggf. inzwischen veraltet, weil im Tab "Prüfen & Anwenden"
+                # von Hand nachkorrigiert). Solche Kapitel gelten als
+                # abgeschlossen: ein Lauf, der nur wegen NEU angehaengter
+                # Kapitel gestartet wurde, darf sie nicht wieder komplett
+                # durch die Prüfer schicken. Wiederkehrender Vorfall: nach dem
+                # Anhaengen von Kapitel 5+6 fing Phase 2 wieder bei Kapitel 3
+                # an, weil dessen Konvergenz-Marker durch eine einzelne
+                # Handkorrektur ungueltig geworden war. Bei fortsetzen zaehlt
+                # stattdessen der exakte Wiederaufnahmepunkt (oben).
+                if not fortsetzen_ab_kapitel and n < erste_neue_kapitel and str(n) in geprueft_vorher:
+                    status["log"].append(
+                        f"Kapitel {n}: vor diesem Lauf bereits geschrieben und geprüft - "
+                        f"wird nicht erneut geprüft oder verändert."
                     )
                     _automatik_status_schreiben(status, projekt_root)
                     continue
