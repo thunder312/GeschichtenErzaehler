@@ -21,6 +21,10 @@ interface KiGeruestOverlayProps {
    * Entwurf (z.B. aus ProjektePage angestossen) - direkt in die
    * Fortschrittsansicht. */
   startphase: "eingabe" | "laeuft";
+  /** Direkt nach erfolgreichem Start eines Entwurfs - der Aufrufer (GeruestPage)
+   * wirft daraufhin sein eigenes Hintergrund-Polling an, damit der Lauf auch
+   * nach dem Schliessen des Overlays im Editor sichtbar bleibt. */
+  onGestartet?: () => void;
   /** KI-Lauf fertig - der Aufrufer laedt das Geruest neu und schliesst das
    * Overlay. */
   onFertig: () => void;
@@ -99,6 +103,7 @@ export function KiGeruestOverlay({
   fundusFiguren = [],
   sshZielId,
   startphase,
+  onGestartet,
   onFertig,
   onAbbrechen,
 }: KiGeruestOverlayProps) {
@@ -253,6 +258,7 @@ export function KiGeruestOverlay({
       await api.kiGeruestStarten(ordner, randbedingungen, sshZielId);
       setStatus(null);
       setPhase("laeuft");
+      onGestartet?.();
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
     } finally {

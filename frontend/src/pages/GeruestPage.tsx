@@ -1,7 +1,7 @@
 import Editor from "@monaco-editor/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { FundusFigur, Ort, ProjektDetail } from "../api/types";
+import type { FundusFigur, KiGeruestStatus, Ort, ProjektDetail } from "../api/types";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { KiGeruestOverlay } from "../components/KiGeruestOverlay";
@@ -135,22 +135,72 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   // nach einem fertigen Entwurf ("bitte jedes Kapitel prüfen").
   const [kiOverlay, setKiOverlay] = useState<null | "eingabe" | "laeuft">(null);
   const [kiHinweis, setKiHinweis] = useState(false);
+  // Serverseitiger Stand des KI-Gerüst-Entwurfs für dieses Projekt - wird
+  // unabhängig vom Overlay gepollt, damit ein im Hintergrund laufender
+  // Entwurf im Editor sichtbar bleibt (Banner) und sein Abschluss/Fehler
+  // auch dann erkannt wird, wenn das Overlay geschlossen ist.
+  const [kiStatus, setKiStatus] = useState<KiGeruestStatus | null>(null);
+  // Bump = "gerade einen Entwurf gestartet" -> Polling (neu) anwerfen.
+  const [kiLaufToken, setKiLaufToken] = useState(0);
+  const kiPrevLaeuftRef = useRef(false);
+  const kiFertigBehandeltRef = useRef(false);
+  const onGeaendertRef = useRef(onGeaendert);
+  onGeaendertRef.current = onGeaendert;
 
-  // Beim Betreten eines Projekts einmal prüfen, ob ein KI-Entwurf noch läuft
-  // (z.B. aus ProjektePage angestoßen, oder Tab war zwischendurch zu) - dann
-  // direkt die Fortschrittsansicht zeigen.
+  // Status des KI-Gerüst-Entwurfs pollen: einmal beim Betreten des Projekts
+  // bzw. nach dem Start eines Entwurfs (kiLaufToken), danach im 8-s-Takt,
+  // solange laeuft=true. Beim Übergang laeuft -> fertig wird das Gerüst neu
+  // geladen und das Prüf-Banner gezeigt; bei laeuft -> fehler bleibt der
+  // Fehler im Banner stehen (siehe Render). Bewusst 8 s (nicht 3-4 s wie
+  // Automatik/Schreiben) - häufiges Pollen während eines laufenden
+  // Ollama-Aufrufs über den SSH-Tunnel bremst diesen aus (siehe
+  // AnalysatorPage / KiGeruestOverlay).
   useEffect(() => {
-    let abgebrochen = false;
-    api
-      .kiGeruestStatus(ordner)
-      .then((s) => {
-        if (!abgebrochen && s.laeuft) setKiOverlay("laeuft");
-      })
-      .catch(() => {});
-    return () => {
-      abgebrochen = true;
+    let gestoppt = false;
+    let intervall: ReturnType<typeof setInterval> | undefined;
+    kiPrevLaeuftRef.current = false;
+    kiFertigBehandeltRef.current = false;
+    setKiStatus(null);
+
+    const einmalPruefen = async (): Promise<boolean> => {
+      try {
+        const s = await api.kiGeruestStatus(ordner);
+        if (gestoppt) return false;
+        setKiStatus(s);
+        if (s.laeuft) {
+          kiPrevLaeuftRef.current = true;
+          kiFertigBehandeltRef.current = false;
+        } else if (kiPrevLaeuftRef.current && !kiFertigBehandeltRef.current) {
+          kiPrevLaeuftRef.current = false;
+          kiFertigBehandeltRef.current = true;
+          if (s.abgeschlossen && !s.fehler) {
+            setKiOverlay(null);
+            setKiHinweis(true);
+            onGeaendertRef.current();
+          }
+        }
+        return s.laeuft;
+      } catch {
+        return false;
+      }
     };
-  }, [ordner]);
+
+    einmalPruefen().then((laeuft) => {
+      if (gestoppt || !laeuft) return;
+      intervall = setInterval(async () => {
+        const nochLaeuft = await einmalPruefen();
+        if (!nochLaeuft && intervall) {
+          clearInterval(intervall);
+          intervall = undefined;
+        }
+      }, 8000);
+    });
+
+    return () => {
+      gestoppt = true;
+      if (intervall) clearInterval(intervall);
+    };
+  }, [ordner, kiLaufToken]);
 
   // "✨ KI entwirft das Gerüst" beim Anlegen gewählt (ProjektePage -> App.tsx):
   // Formular direkt öffnen und das Flag verbrauchen.
@@ -406,6 +456,36 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
           </p>
         )}
 
+        {kiStatus?.laeuft && (
+          <div className="flex items-center justify-between gap-3 border-b border-border bg-accent-soft px-4 py-3 text-sm text-accent-light">
+            <span className="animate-pulse">
+              ✨ Die KI entwirft gerade den Kapitelplan im Hintergrund
+              {kiStatus.log.length > 0 ? ` – ${kiStatus.log[kiStatus.log.length - 1]}` : "…"}
+            </span>
+            <button
+              type="button"
+              onClick={() => setKiOverlay("laeuft")}
+              className="shrink-0 rounded-full border border-accent-light/40 px-3 py-1 text-xs hover:bg-accent-light/10"
+            >
+              Fortschritt anzeigen
+            </button>
+          </div>
+        )}
+
+        {kiStatus && !kiStatus.laeuft && kiStatus.fehler && !kiHinweis && (
+          <div className="flex items-start justify-between gap-3 border-b border-border bg-red-400/10 px-4 py-3 text-sm text-red-400">
+            <span>✨ Der KI-Gerüst-Entwurf ist fehlgeschlagen: {kiStatus.fehler}</span>
+            <span className="flex shrink-0 gap-3">
+              <button type="button" onClick={() => setKiOverlay("eingabe")} className="hover:underline">
+                Erneut versuchen
+              </button>
+              <button type="button" onClick={() => setKiStatus(null)} className="hover:text-red-300">
+                ✕
+              </button>
+            </span>
+          </div>
+        )}
+
         {kiHinweis && (
           <div className="flex items-start justify-between gap-3 border-b border-border bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
             <span>
@@ -644,7 +724,10 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
         fundusFiguren={fundusFiguren}
         sshZielId={sshZielId}
         startphase={kiOverlay}
+        onGestartet={() => setKiLaufToken((t) => t + 1)}
         onFertig={() => {
+          kiPrevLaeuftRef.current = false;
+          kiFertigBehandeltRef.current = true;
           setKiOverlay(null);
           setKiHinweis(true);
           onGeaendert();
