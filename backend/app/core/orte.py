@@ -27,6 +27,9 @@ einen Block in genau diesem Format einfügen:
 
 Eine neue Epoche bekommt automatisch eine eigene "## <Epoche>"-Überschrift
 beim ersten Ort.
+
+Orte unter der Überschrift "## Allgemein" gehören zu keiner bestimmten
+Epoche und werden in JEDER Epoche als Vorschlag angeboten.
 -->
 '''
 

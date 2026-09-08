@@ -15,16 +15,38 @@ export function normalisierteEpoche(epoche: string): string {
   return epoche.trim().toLowerCase().replace(/[-\s]+/g, " ");
 }
 
+/** Pseudo-Epoche im Personen- und Orte-Fundus: eine Figur/ein Ort, der unter
+ * "## Allgemein" gepflegt wird, taucht in JEDER Epoche als Vorschlag auf
+ * (z.B. der Autor selbst als Figur, ein epochenuebergreifender Schauplatz).
+ * Technisch nur eine weitere "## <Epoche>"-Sektion mit diesem festen Namen. */
+export const ALLGEMEIN_EPOCHE = "Allgemein";
+
+const ALLGEMEIN_NORMALISIERT = normalisierteEpoche(ALLGEMEIN_EPOCHE);
+
+export function istAllgemeineEpoche(epoche: string | null | undefined): boolean {
+  return !!epoche && normalisierteEpoche(epoche) === ALLGEMEIN_NORMALISIERT;
+}
+
+/** True, wenn ein Fundus-Eintrag mit `eintragEpoche` fuer ein Projekt der
+ * Epoche `zielEpoche` angeboten werden soll - bei (Bindestrich-/Leerzeichen-
+ * tolerantem) Treffer ODER wenn der Eintrag als "Allgemein" gepflegt ist. */
+export function epochePasstOderAllgemein(
+  eintragEpoche: string, zielEpoche: string | null | undefined,
+): boolean {
+  if (istAllgemeineEpoche(eintragEpoche)) return true;
+  if (!zielEpoche) return false;
+  return normalisierteEpoche(eintragEpoche) === normalisierteEpoche(zielEpoche);
+}
+
 /** Liefert alle Fundus-Figuren der angegebenen Epoche (gleicher Bindestrich-/
- * Leerzeichen-tolerante Abgleich wie fundusFigurFinden) - Grundlage fuer die
- * Vorschlagsliste in FigurenAuswahl.tsx (Mehrfachauswahl "Anwesende Figuren"
- * im Kapitelplan). Leeres Array, wenn Epoche fehlt oder nichts passt. */
+ * Leerzeichen-tolerante Abgleich wie fundusFigurFinden) PLUS aller als
+ * "Allgemein" gepflegten Figuren - Grundlage fuer die Vorschlagsliste in
+ * FigurenAuswahl.tsx (Mehrfachauswahl "Anwesende Figuren" im Kapitelplan).
+ * Leeres Array, wenn Epoche fehlt und keine Allgemein-Figuren da sind. */
 export function fundusFigurenFuerEpoche(
   fundusFiguren: FundusFigur[], epoche: string | null | undefined,
 ): FundusFigur[] {
-  if (!epoche) return [];
-  const gesuchteEpoche = normalisierteEpoche(epoche);
-  return fundusFiguren.filter((f) => normalisierteEpoche(f.epoche) === gesuchteEpoche);
+  return fundusFiguren.filter((f) => epochePasstOderAllgemein(f.epoche, epoche));
 }
 
 /** Case-insensitive Namensvergleich, auf die Epoche des aktuellen Projekts
@@ -36,10 +58,9 @@ export function fundusFigurFinden(
   fundusFiguren: FundusFigur[], epoche: string | null | undefined, name: string,
 ): FundusFigur | undefined {
   const gesucht = name.trim().toLowerCase();
-  if (!gesucht || !epoche) return undefined;
-  const gesuchteEpoche = normalisierteEpoche(epoche);
+  if (!gesucht) return undefined;
   return fundusFiguren.find(
-    (f) => normalisierteEpoche(f.epoche) === gesuchteEpoche && f.name.trim().toLowerCase() === gesucht,
+    (f) => epochePasstOderAllgemein(f.epoche, epoche) && f.name.trim().toLowerCase() === gesucht,
   );
 }
 

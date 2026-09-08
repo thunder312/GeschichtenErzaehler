@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { Ort } from "../api/types";
+import type { EpocheKurz, Ort } from "../api/types";
+import { normalisierteEpoche } from "../utils/fundusMatch";
 import { Button, Card, Input, Label, Select, Textarea } from "./ui";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { EpocheSelect } from "./EpocheSelect";
 
 interface OrteEditorProps {
+  epochen: EpocheKurz[];
   /** Wird nach jeder erfolgreichen Aenderung aufgerufen, damit z.B. die
    * eingeklappte Rohtext-Ansicht (OrtePage.tsx) bei ihrem naechsten
    * Aufklappen den aktuellen Stand zeigt statt eines veralteten. */
@@ -20,7 +23,7 @@ function ortSchluessel(o: Pick<Ort, "epoche" | "name">): string {
  * Bearbeitung rechts. Anders als bei Figuren gibt es hier nur zwei Felder
  * und keine dynamischen Zusatzfelder, deshalb auch keine "Eigenes Feld"-/
  * "Kopieren"-Dialoge. */
-export function OrteEditor({ onGeaendert }: OrteEditorProps) {
+export function OrteEditor({ epochen, onGeaendert }: OrteEditorProps) {
   const [orte, setOrte] = useState<Ort[]>([]);
   const [wirdGeladen, setWirdGeladen] = useState(true);
   const [ausgewaehlt, setAusgewaehlt] = useState<string | null>(null);
@@ -57,6 +60,13 @@ export function OrteEditor({ onGeaendert }: OrteEditorProps) {
     () => Array.from(new Set(orte.map((o) => o.epoche))).sort((a, b) => a.localeCompare(b, "de")),
     [orte],
   );
+
+  /** Ordner-/Identifier-Name einer Epoche zum lesbaren Anzeigenamen - fuer
+   * die "## <Epoche>"-Werte aus orte.md, die den stabilen Namen tragen. */
+  const epocheLabel = useMemo(() => {
+    const map = new Map(epochen.map((e) => [normalisierteEpoche(e.name), e.anzeigename]));
+    return (name: string) => map.get(normalisierteEpoche(name)) ?? name;
+  }, [epochen]);
 
   const gefiltert = useMemo(() => {
     const suche = suchtext.trim().toLowerCase();
@@ -141,12 +151,6 @@ export function OrteEditor({ onGeaendert }: OrteEditorProps) {
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_1.4fr]">
-      <datalist id="orte-epochen-liste">
-        {epochenListe.map((e) => (
-          <option key={e} value={e} />
-        ))}
-      </datalist>
-
       <Card className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-heading text-sm font-semibold tracking-wide text-text">
@@ -166,7 +170,7 @@ export function OrteEditor({ onGeaendert }: OrteEditorProps) {
           <option value="">Alle Epochen</option>
           {epochenListe.map((e) => (
             <option key={e} value={e}>
-              {e}
+              {epocheLabel(e)}
             </option>
           ))}
         </Select>
@@ -184,7 +188,7 @@ export function OrteEditor({ onGeaendert }: OrteEditorProps) {
                 }`}
               >
                 <div className="font-medium">{o.name}</div>
-                <div className="text-xs text-text-muted">{o.epoche}</div>
+                <div className="text-xs text-text-muted">{epocheLabel(o.epoche)}</div>
               </button>
             </li>
           ))}
@@ -205,10 +209,10 @@ export function OrteEditor({ onGeaendert }: OrteEditorProps) {
                 </div>
                 <div>
                   <Label>Epoche</Label>
-                  <Input
-                    list="orte-epochen-liste"
+                  <EpocheSelect
+                    epochen={epochen}
                     value={bearbeiteteEpoche}
-                    onChange={(e) => setBearbeiteteEpoche(e.target.value)}
+                    onChange={setBearbeiteteEpoche}
                   />
                 </div>
               </div>
@@ -229,7 +233,7 @@ export function OrteEditor({ onGeaendert }: OrteEditorProps) {
             {fehler && <p className="text-sm text-red-400">{fehler}</p>}
 
             <div className="flex justify-end">
-              <Button onClick={speichern} disabled={wirdGespeichert}>
+              <Button onClick={speichern} disabled={wirdGespeichert || !bearbeiteteEpoche.trim() || !neuerName.trim()}>
                 {wirdGespeichert ? "Speichert..." : "Speichern"}
               </Button>
             </div>
@@ -250,12 +254,7 @@ export function OrteEditor({ onGeaendert }: OrteEditorProps) {
             <div className="space-y-3">
               <div>
                 <Label>Epoche</Label>
-                <Input
-                  list="orte-epochen-liste"
-                  value={neueEpoche}
-                  onChange={(e) => setNeueEpoche(e.target.value)}
-                  placeholder="z.B. Regency"
-                />
+                <EpocheSelect epochen={epochen} value={neueEpoche} onChange={setNeueEpoche} />
               </div>
               <div>
                 <Label>Name</Label>
@@ -278,7 +277,7 @@ export function OrteEditor({ onGeaendert }: OrteEditorProps) {
       {zeigtLoeschenBestaetigung && ausgewaehlterOrt && (
         <ConfirmDialog
           titel="Ort löschen?"
-          beschreibung={`"${ausgewaehlterOrt.name}" (${ausgewaehlterOrt.epoche}) wird endgültig aus dem Fundus entfernt.`}
+          beschreibung={`"${ausgewaehlterOrt.name}" (${epocheLabel(ausgewaehlterOrt.epoche)}) wird endgültig aus dem Fundus entfernt.`}
           bestaetigenText="Löschen"
           wirdAusgefuehrt={wirdGeloescht}
           onBestaetigen={loeschen}

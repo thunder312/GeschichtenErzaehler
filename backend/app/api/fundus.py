@@ -54,7 +54,15 @@ def _strukturiert_lesen(settings: Settings, benutzer: Benutzer) -> tuple[str, li
 
 
 def _strukturiert_schreiben(settings: Settings, benutzer: Benutzer, kopf: str, figuren: list[fu.Figur]) -> None:
-    pd.schreib(fundus_datei(settings, benutzer.username), kopf + fu.fundus_serialisieren(figuren))
+    rumpf = fu.fundus_serialisieren(figuren)
+    # `kopf` endet nicht zwingend mit Zeilenumbruch: pd.lies() strippt eine
+    # bestehende Datei, und solange es noch keinen "## <Epoche>"-Abschnitt
+    # gibt, IST der gesamte Vorlagen-Kommentar der kopf (endet dann auf
+    # "-->"). Ohne diese Normalisierung klebte die erste
+    # "## <Epoche>"-Ueberschrift direkt an "-->" und wuerde von
+    # fundus_parsen() nicht mehr als Ueberschrift erkannt.
+    text = kopf.rstrip("\n") + "\n\n" + rumpf if rumpf.strip() else kopf
+    pd.schreib(fundus_datei(settings, benutzer.username), text)
 
 
 def _figur_finden(figuren: list[fu.Figur], epoche: str, name: str) -> fu.Figur:

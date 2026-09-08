@@ -44,7 +44,15 @@ def _strukturiert_lesen(settings: Settings, benutzer: Benutzer) -> tuple[str, li
 
 
 def _strukturiert_schreiben(settings: Settings, benutzer: Benutzer, kopf: str, orte: list[ort_modul.Ort]) -> None:
-    pd.schreib(orte_datei(settings, benutzer.username), kopf + ort_modul.orte_serialisieren(orte))
+    rumpf = ort_modul.orte_serialisieren(orte)
+    # `kopf` endet nicht zwingend mit Zeilenumbruch: pd.lies() strippt eine
+    # bestehende Datei, und solange es noch keinen "## <Epoche>"-Abschnitt
+    # gibt, IST der gesamte Vorlagen-Kommentar der kopf (endet dann auf
+    # "-->"). Ohne diese Normalisierung klebte die erste
+    # "## <Epoche>"-Ueberschrift direkt an "-->" und wuerde von
+    # orte_parsen() nicht mehr als Ueberschrift erkannt.
+    text = kopf.rstrip("\n") + "\n\n" + rumpf if rumpf.strip() else kopf
+    pd.schreib(orte_datei(settings, benutzer.username), text)
 
 
 def _ort_finden(orte: list[ort_modul.Ort], epoche: str, name: str) -> ort_modul.Ort:

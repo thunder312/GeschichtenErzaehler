@@ -157,3 +157,28 @@ def test_fundus_kontext_haengt_epoche_abschnitt_an(settings, benutzer, projekt_r
 
 def test_fundus_kontext_ist_leer_ohne_fundus_datei(settings, benutzer, projekt_root):
     assert api_arch._fundus_kontext(settings, benutzer, projekt_root) == ""
+
+
+def test_fundus_kontext_haengt_allgemein_abschnitt_mit_an(settings, benutzer, projekt_root):
+    from app.services import fundus_datei
+    pd.schreib(
+        fundus_datei(settings, benutzer.username),
+        "## Regency\n\n### Lady Amelia\n- Alter: 24\n\n"
+        "## Allgemein\n\n### Daniel Ertl\n- Stand/Rolle: Autor\n",
+    )
+
+    kontext = api_arch._fundus_kontext(settings, benutzer, projekt_root)
+    assert "Lady Amelia" in kontext
+    assert "Daniel Ertl" in kontext
+
+
+def test_fundus_kontext_nur_allgemein_ohne_epoche_abschnitt(settings, benutzer, projekt_root):
+    from app.services import fundus_datei
+    pd.schreib(
+        fundus_datei(settings, benutzer.username),
+        "## Allgemein\n\n### Daniel Ertl\n- Stand/Rolle: Autor\n",
+    )
+
+    kontext = api_arch._fundus_kontext(settings, benutzer, projekt_root)
+    assert "FUNDUS DIESER EPOCHE" in kontext
+    assert "Daniel Ertl" in kontext

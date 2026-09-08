@@ -1,6 +1,7 @@
 import Editor from "@monaco-editor/react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import type { EpocheKurz } from "../api/types";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { PersonenEditor } from "../components/PersonenEditor";
 import { Button, Card, CardTitle } from "../components/ui";
@@ -8,6 +9,7 @@ import { useAktivitaet } from "../context/AktivitaetContext";
 
 interface FundusPageProps {
   sshZielId: string;
+  epochen: EpocheKurz[];
 }
 
 /** Personen-Fundus: strukturierter Editor (PersonenEditor.tsx) als
@@ -19,7 +21,7 @@ interface FundusPageProps {
  * andere Ollama-aufrufende Seite (siehe SchreibenPage/PruefenAnwendenPage) -
  * ohne das faellt der Aufruf serverseitig auf das lokale Standard-Ollama
  * zurueck, das z.B. auf dem Produktivserver gar nicht existiert. */
-export function FundusPage({ sshZielId }: FundusPageProps) {
+export function FundusPage({ sshZielId, epochen }: FundusPageProps) {
   const [inhalt, setInhalt] = useState("");
   const [wirdGeladen, setWirdGeladen] = useState(true);
   const [wirdGespeichert, setWirdGespeichert] = useState(false);
@@ -87,7 +89,7 @@ export function FundusPage({ sshZielId }: FundusPageProps) {
         {importHinweis && <p className="mt-2 text-xs text-text-muted">{importHinweis}</p>}
       </Card>
 
-      <PersonenEditor onGeaendert={laden} />
+      <PersonenEditor epochen={epochen} onGeaendert={laden} />
 
       <CollapsibleCard title="📄 Rohtext (.md) zur Kontrolle" defaultOffen={false}>
         <div className="flex items-center justify-between border-b border-border px-4 py-2.5">

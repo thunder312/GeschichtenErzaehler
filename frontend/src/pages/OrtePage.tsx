@@ -1,16 +1,21 @@
 import Editor from "@monaco-editor/react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import type { EpocheKurz } from "../api/types";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { OrteEditor } from "../components/OrteEditor";
 import { Button, Card, CardTitle } from "../components/ui";
+
+interface OrtePageProps {
+  epochen: EpocheKurz[];
+}
 
 /** Orte-Fundus: strukturierter Editor (OrteEditor.tsx) als Standardansicht,
  * gleicher Aufbau wie FundusPage.tsx (Personen-Fundus) - die rohe orte.md
  * bleibt als Kontroll-/Notfall-Ansicht verfuegbar (eingeklappte
  * CollapsibleCard). Anders als beim Personen-Fundus gibt es hier keinen
  * Import-Button - Orte werden ausschliesslich manuell gepflegt. */
-export function OrtePage() {
+export function OrtePage({ epochen }: OrtePageProps) {
   const [inhalt, setInhalt] = useState("");
   const [wirdGeladen, setWirdGeladen] = useState(true);
   const [wirdGespeichert, setWirdGespeichert] = useState(false);
@@ -49,7 +54,7 @@ export function OrtePage() {
         </p>
       </Card>
 
-      <OrteEditor onGeaendert={laden} />
+      <OrteEditor epochen={epochen} onGeaendert={laden} />
 
       <CollapsibleCard title="📄 Rohtext (.md) zur Kontrolle" defaultOffen={false}>
         <div className="flex items-center justify-between border-b border-border px-4 py-2.5">

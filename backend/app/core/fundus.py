@@ -35,6 +35,10 @@ einer weiteren Geschichte vorkommt. Die anderen Zeilen darfst du jederzeit
 von Hand nachbessern - sie werden beim automatischen Zusammenführen NICHT
 überschrieben, nur die Geschichten-Liste wächst. Eine neue Epoche bekommt
 automatisch eine eigene "## <Epoche>"-Überschrift bei der ersten Figur.
+
+Figuren unter der Überschrift "## Allgemein" gehören zu keiner bestimmten
+Epoche und werden in JEDER Epoche als Vorschlag angeboten (z.B. der Autor
+selbst, falls er in einer Geschichte auftauchen soll).
 -->
 '''
 

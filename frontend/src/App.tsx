@@ -359,11 +359,11 @@ function App() {
         </div>
 
         <div className={activeTab === "fundus" ? "" : "hidden"}>
-          <FundusPage sshZielId={sshZielId} />
+          <FundusPage sshZielId={sshZielId} epochen={epochen} />
         </div>
 
         <div className={activeTab === "orte" ? "" : "hidden"}>
-          <OrtePage />
+          <OrtePage epochen={epochen} />
         </div>
 
         {benutzer.ist_admin && (

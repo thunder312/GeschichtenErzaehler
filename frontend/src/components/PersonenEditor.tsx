@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { FundusFigur } from "../api/types";
+import type { EpocheKurz, FundusFigur } from "../api/types";
+import { normalisierteEpoche } from "../utils/fundusMatch";
 import { Button, Card, Input, Label, Select } from "./ui";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { EpocheSelect } from "./EpocheSelect";
 
 interface PersonenEditorProps {
+  epochen: EpocheKurz[];
   /** Wird nach jeder erfolgreichen Aenderung aufgerufen, damit z.B. die
    * eingeklappte Rohtext-Ansicht (FundusPage.tsx) bei ihrem naechsten
    * Aufklappen den aktuellen Stand zeigt statt eines veralteten. */
@@ -20,7 +23,7 @@ function figurSchluessel(f: Pick<FundusFigur, "epoche" | "name">): string {
  * Figur rechts. Haelt eine EIGENE Kopie der Figuren-Liste (statt sie vom
  * Elternteil zu bekommen), da sie ihre eigenen CRUD-Aufrufe macht und nach
  * jeder Aenderung ohnehin neu laden muss. */
-export function PersonenEditor({ onGeaendert }: PersonenEditorProps) {
+export function PersonenEditor({ epochen, onGeaendert }: PersonenEditorProps) {
   const [figuren, setFiguren] = useState<FundusFigur[]>([]);
   const [wirdGeladen, setWirdGeladen] = useState(true);
   const [ausgewaehlt, setAusgewaehlt] = useState<string | null>(null);
@@ -69,6 +72,13 @@ export function PersonenEditor({ onGeaendert }: PersonenEditorProps) {
     () => Array.from(new Set(figuren.map((f) => f.epoche))).sort((a, b) => a.localeCompare(b, "de")),
     [figuren],
   );
+
+  /** Ordner-/Identifier-Name einer Epoche zum lesbaren Anzeigenamen - fuer
+   * die "## <Epoche>"-Werte aus fundus.md, die den stabilen Namen tragen. */
+  const epocheLabel = useMemo(() => {
+    const map = new Map(epochen.map((e) => [normalisierteEpoche(e.name), e.anzeigename]));
+    return (name: string) => map.get(normalisierteEpoche(name)) ?? name;
+  }, [epochen]);
 
   const gefiltert = useMemo(() => {
     const suche = suchtext.trim().toLowerCase();
@@ -212,12 +222,6 @@ export function PersonenEditor({ onGeaendert }: PersonenEditorProps) {
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_1.4fr]">
-      <datalist id="fundus-epochen-liste">
-        {epochenListe.map((e) => (
-          <option key={e} value={e} />
-        ))}
-      </datalist>
-
       <Card className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-heading text-sm font-semibold tracking-wide text-text">
@@ -238,7 +242,7 @@ export function PersonenEditor({ onGeaendert }: PersonenEditorProps) {
             <option value="">Alle Epochen</option>
             {epochenListe.map((e) => (
               <option key={e} value={e}>
-                {e}
+                {epocheLabel(e)}
               </option>
             ))}
           </Select>
@@ -260,7 +264,7 @@ export function PersonenEditor({ onGeaendert }: PersonenEditorProps) {
               >
                 <div className="font-medium">{f.name}</div>
                 <div className="text-xs text-text-muted">
-                  {f.epoche}
+                  {epocheLabel(f.epoche)}
                   {f.felder["Alter"] ? ` · ${f.felder["Alter"]}` : ""}
                   {f.felder["Stand/Rolle"] ? ` · ${f.felder["Stand/Rolle"]}` : ""}
                 </div>
@@ -284,10 +288,10 @@ export function PersonenEditor({ onGeaendert }: PersonenEditorProps) {
                 </div>
                 <div>
                   <Label>Epoche</Label>
-                  <Input
-                    list="fundus-epochen-liste"
+                  <EpocheSelect
+                    epochen={epochen}
                     value={bearbeiteteEpoche}
-                    onChange={(e) => setBearbeiteteEpoche(e.target.value)}
+                    onChange={setBearbeiteteEpoche}
                   />
                 </div>
               </div>
@@ -324,7 +328,7 @@ export function PersonenEditor({ onGeaendert }: PersonenEditorProps) {
             {fehler && <p className="text-sm text-red-400">{fehler}</p>}
 
             <div className="flex justify-end">
-              <Button onClick={speichern} disabled={wirdGespeichert}>
+              <Button onClick={speichern} disabled={wirdGespeichert || !bearbeiteteEpoche.trim() || !neuerName.trim()}>
                 {wirdGespeichert ? "Speichert..." : "Speichern"}
               </Button>
             </div>
@@ -345,12 +349,7 @@ export function PersonenEditor({ onGeaendert }: PersonenEditorProps) {
             <div className="space-y-3">
               <div>
                 <Label>Epoche</Label>
-                <Input
-                  list="fundus-epochen-liste"
-                  value={neueEpoche}
-                  onChange={(e) => setNeueEpoche(e.target.value)}
-                  placeholder="z.B. Regency"
-                />
+                <EpocheSelect epochen={epochen} value={neueEpoche} onChange={setNeueEpoche} />
               </div>
               <div>
                 <Label>Name</Label>
@@ -426,12 +425,7 @@ export function PersonenEditor({ onGeaendert }: PersonenEditorProps) {
             <div className="space-y-3">
               <div>
                 <Label>Ziel-Epoche</Label>
-                <Input
-                  list="fundus-epochen-liste"
-                  value={kopierZielEpoche}
-                  onChange={(e) => setKopierZielEpoche(e.target.value)}
-                  placeholder="z.B. Mittelalter"
-                />
+                <EpocheSelect epochen={epochen} value={kopierZielEpoche} onChange={setKopierZielEpoche} />
               </div>
               <div>
                 <Label>Name der Kopie (optional)</Label>
@@ -458,7 +452,7 @@ export function PersonenEditor({ onGeaendert }: PersonenEditorProps) {
       {zeigtLoeschenBestaetigung && ausgewaehlteFigur && (
         <ConfirmDialog
           titel="Person löschen?"
-          beschreibung={`"${ausgewaehlteFigur.name}" (${ausgewaehlteFigur.epoche}) wird endgültig aus dem Fundus entfernt.`}
+          beschreibung={`"${ausgewaehlteFigur.name}" (${epocheLabel(ausgewaehlteFigur.epoche)}) wird endgültig aus dem Fundus entfernt.`}
           bestaetigenText="Löschen"
           wirdAusgefuehrt={wirdGeloescht}
           onBestaetigen={loeschen}

@@ -123,17 +123,25 @@ async def architekt_extraktion(ordner: str, anfrage: HandlungstextAnfrage,
 
 def _fundus_kontext(settings: Settings, benutzer: Benutzer, projekt_root) -> str:
     """Baut den einmalig an persona_text anzuhaengenden Fundus-Auszug fuer
-    die aktuelle Epoche des Projekts (siehe app/core/fundus.py) - leerer
-    String, falls das Projekt keine Epoche hat oder der Fundus dafuer noch
-    keinen Abschnitt enthaelt."""
+    die aktuelle Epoche des Projekts (siehe app/core/fundus.py) - plus die
+    unter "## Allgemein" gepflegten, epochenuebergreifenden Figuren (siehe
+    frontend/src/utils/fundusMatch.ts:ALLGEMEIN_EPOCHE). Leerer String, falls
+    das Projekt keine Epoche hat oder der Fundus weder fuer die Epoche noch
+    fuer "Allgemein" einen Abschnitt enthaelt."""
     epoche = pd.epoche_von_projekt(projekt_root)
     if not epoche:
         return ""
     fundus_text = pd.lies(fundus_datei(settings, benutzer.username), pflicht=False, ersatz="")
-    abschnitt = fu.epoche_abschnitt_erkennen(fundus_text, epoche) if fundus_text else None
-    if not abschnitt:
+    if not fundus_text:
         return ""
-    return f"\n\n## FUNDUS DIESER EPOCHE\n{abschnitt}\n"
+    abschnitte = [
+        fu.epoche_abschnitt_erkennen(fundus_text, epoche),
+        fu.epoche_abschnitt_erkennen(fundus_text, "Allgemein"),
+    ]
+    zusammen = "\n".join(a.strip() for a in abschnitte if a).strip()
+    if not zusammen:
+        return ""
+    return f"\n\n## FUNDUS DIESER EPOCHE\n{zusammen}\n"
 
 
 async def _fundus_aktualisieren(settings: Settings, benutzer: Benutzer, projekt_root, base_url: str,

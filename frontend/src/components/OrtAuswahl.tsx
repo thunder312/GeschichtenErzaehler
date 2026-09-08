@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { Ort } from "../api/types";
+import { epochePasstOderAllgemein } from "../utils/fundusMatch";
 
 interface OrtAuswahlProps {
   /** Freitext, wie ihn das Geruest-Format erwartet (KapitelEintrag.ort) -
@@ -26,7 +27,9 @@ export function OrtAuswahl({ value, onChange, orte = [], epoche, className = "" 
   const inputRef = useRef<HTMLInputElement>(null);
 
   const orteOptionen = useMemo(
-    () => orte.filter((o) => !epoche || o.epoche === epoche),
+    // Orte derselben Epoche (Bindestrich-/Leerzeichen-tolerant) plus alle als
+    // "Allgemein" gepflegten; ohne Projekt-Epoche werden alle Orte angeboten.
+    () => orte.filter((o) => !epoche || epochePasstOderAllgemein(o.epoche, epoche)),
     [orte, epoche],
   );
 
