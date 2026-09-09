@@ -27,6 +27,12 @@ from app.core.ssh_manager import SSHZiel
 HTTP_TIMEOUT = 20.0
 CONTAINER_TIMEOUT = 130.0
 
+# Welcher Container auf dem KI-Host welches Bildmodell bedient - entspricht den
+# Compose-Dateien in athene/compose/. Wird gebraucht, um beim "Bild trotz
+# Schreibens"-Fall (siehe app/api/pipeline.py:cover_generieren) gezielt den
+# richtigen Container hochzufahren. Weicht ein Setup davon ab, hier anpassen.
+BILD_MODELL_CONTAINER = {"flux": "sd-server", "pony": "sd-server-pony"}
+
 
 class SteuerFehler(Exception):
     """KI-Host-Steuerung nicht verfügbar oder Aktion fehlgeschlagen."""

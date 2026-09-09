@@ -114,3 +114,73 @@ def test_cover_prompt_vorschlagen_zeigt_hochformat_praefix_sichtbar(client, proj
     r = client.post(f"/api/projects/{projekt}/cover/prompt-vorschlagen")
     assert r.status_code == 200
     assert r.json()["prompt"] == g.COVER_PROMPT_HOCHFORMAT_PRAEFIX + "mittelalterlicher Marktplatz, Abendlicht"
+
+
+# --- Feature "KI- und Speicherkontrolle": Bild trotz Schreibens -----------
+
+def _speicherkontrolle_an(client):
+    client.put("/api/einstellungen", json={
+        "speicherkontrolle_aktiv": True,
+        "speicherkontrolle_container": ["sd-server", "sd-server-pony"],
+    })
+
+
+def _cover_mocks(monkeypatch, container_laeuft: bool, automatik_laeuft: bool):
+    async def fake_sammle_antwort(*a, **k):
+        return "english prompt", {}
+
+    async def fake_generiere_cover(base_url, prompt, **kwargs):
+        return b"\x89PNG\r\n\x1a\nDATA"
+
+    async def fake_warte(base_url, **k):
+        return None
+
+    starts = []
+    monkeypatch.setattr(api_pipeline, "_sammle_antwort", fake_sammle_antwort)
+    monkeypatch.setattr(api_pipeline.bild_generierung, "generiere_cover", fake_generiere_cover)
+    monkeypatch.setattr(api_pipeline.bild_generierung, "warte_bis_bereit", fake_warte)
+    monkeypatch.setattr(api_pipeline, "athene_steuerung_verfuegbar", lambda *a, **k: True)
+    monkeypatch.setattr(api_pipeline, "athene_status", lambda *a, **k: {
+        "verfuegbar": True, "ram": {}, "swap": {},
+        "containers": [{"name": "sd-server", "running": container_laeuft},
+                       {"name": "sd-server-pony", "running": True}],
+        "ollama": [],
+    })
+    monkeypatch.setattr(api_pipeline, "athene_container_setzen",
+                        lambda s, z, name, aktion: starts.append((name, aktion)) or {"name": name, "aktion": aktion, "running": True})
+    monkeypatch.setattr(api_pipeline.automatik, "status_lesen", lambda pr: {"laeuft": automatik_laeuft})
+    return starts
+
+
+def test_cover_generieren_warnt_wenn_bildki_aus_und_automatik_laeuft(client, projekt, bild_ziel_id, monkeypatch):
+    _speicherkontrolle_an(client)
+    _cover_mocks(monkeypatch, container_laeuft=False, automatik_laeuft=True)
+    r = client.post(
+        f"/api/projects/{projekt}/cover/generieren?bild_ziel_id={bild_ziel_id}",
+        json={"prompt": "ein Schloss", "bild_modell": "flux"},
+    )
+    assert r.status_code == 409
+    assert r.json()["detail"]["code"] == "bildki_aus_waehrend_schreiben"
+    assert r.json()["detail"]["container"] == "sd-server"
+
+
+def test_cover_generieren_faehrt_bildki_hoch_bei_bestaetigung(client, projekt, bild_ziel_id, monkeypatch):
+    _speicherkontrolle_an(client)
+    starts = _cover_mocks(monkeypatch, container_laeuft=False, automatik_laeuft=True)
+    r = client.post(
+        f"/api/projects/{projekt}/cover/generieren?bild_ziel_id={bild_ziel_id}&trotz_schreibens=true",
+        json={"prompt": "ein Schloss", "bild_modell": "flux"},
+    )
+    assert r.status_code == 200
+    assert ("sd-server", "start") in starts
+
+
+def test_cover_generieren_faehrt_bildki_still_hoch_wenn_kein_lauf_aktiv(client, projekt, bild_ziel_id, monkeypatch):
+    _speicherkontrolle_an(client)
+    starts = _cover_mocks(monkeypatch, container_laeuft=False, automatik_laeuft=False)
+    r = client.post(
+        f"/api/projects/{projekt}/cover/generieren?bild_ziel_id={bild_ziel_id}",
+        json={"prompt": "ein Schloss", "bild_modell": "flux"},
+    )
+    assert r.status_code == 200
+    assert ("sd-server", "start") in starts

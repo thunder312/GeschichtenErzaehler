@@ -226,6 +226,28 @@ def _job_payload(prompt: str, negativ_prompt: str, sample_steps: int | None,
     return payload
 
 
+async def warte_bis_bereit(base_url: str, timeout: float = 240.0, intervall: float = 3.0) -> None:
+    """Pollt GET /sdcpp/v1/capabilities, bis der sd-server antwortet - für den
+    Fall, dass der Container gerade erst hochgefahren wurde (Feature "KI- und
+    Speicherkontrolle") und noch sein Modell lädt (FLUX/Pony: bis ~2 min).
+    Wirft BildGenerierungFehler bei Zeitüberschreitung."""
+    frist = time.monotonic() + timeout
+    letzter_fehler = "keine Antwort"
+    while time.monotonic() < frist:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                antwort = await client.get(f"{base_url}/sdcpp/v1/capabilities")
+            if antwort.status_code < 500:
+                return
+            letzter_fehler = f"HTTP {antwort.status_code}"
+        except httpx.HTTPError as e:
+            letzter_fehler = str(e)
+        await asyncio.sleep(intervall)
+    raise BildGenerierungFehler(
+        f"sd-server unter {base_url} wurde nach {timeout:.0f}s nicht bereit ({letzter_fehler})."
+    )
+
+
 async def generiere_cover(base_url: str, prompt: str, timeout: float = 600.0,
                            negativ_prompt: str = NEGATIV_PROMPT_STANDARD,
                            sample_steps: int | None = STANDARD_SAMPLE_STEPS,

@@ -110,6 +110,7 @@ def status_lesen(projekt_root: Path) -> dict[str, Any]:
             "fehler_schritt": None,
             "aktueller_text": None,
             "kapitel_letzter_durchlauf": {},
+            "speicherkontrolle_gestoppt": [],
         }
     status = json.loads(pfad.read_text(encoding="utf-8"))
     status.setdefault("aktueller_durchlauf", None)
@@ -130,6 +131,9 @@ def status_lesen(projekt_root: Path) -> dict[str, Any]:
     # bekannter "letzter Durchlauf", also faellt reste_vorhanden() dort auf
     # die reine Protokoll-Heuristik zurueck).
     status.setdefault("kapitel_letzter_durchlauf", {})
+    # Feature "KI- und Speicherkontrolle": Container, die der Lauf am Anfang
+    # heruntergefahren hat (Wiederhochfahren-Angebot nach Lauf-Ende).
+    status.setdefault("speicherkontrolle_gestoppt", [])
     return status
 
 

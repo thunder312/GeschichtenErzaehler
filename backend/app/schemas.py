@@ -377,6 +377,10 @@ class AutomatikStatusAntwort(BaseModel):
     # interaktiven Schreiben ueber die WebSocket-Verbindung. None ausserhalb
     # der Phase "schreiben" bzw. vor dem ersten Fortschritts-Update.
     aktueller_text: str | None = None
+    # Feature "KI- und Speicherkontrolle": Container, die dieser Lauf am Anfang
+    # heruntergefahren hat. Nach Lauf-Ende bietet das Frontend anhand dieser
+    # Liste das Wiederhochfahren an (Entscheidung des Nutzers: "fragen").
+    speicherkontrolle_gestoppt: list[str] = []
 
 
 class AutomatikAnknuepfpunkt(BaseModel):

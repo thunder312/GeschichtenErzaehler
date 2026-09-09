@@ -31,8 +31,10 @@ from fastapi import (
 )
 from pydantic import ValidationError
 
+from app import db
 from app.auth import get_current_user, get_current_user_ws
 from app.config import Settings, get_settings
+from app.core import athene_steuerung as ath
 from app.core import automatik
 from app.core import bild_generierung
 from app.core import befunde_ablehnung
@@ -74,7 +76,16 @@ from app.schemas import (
     StoryFrageAnfrage,
     StoryFrageAntwort,
 )
-from app.services import bild_basis_url, ollama_basis_url, projekt_pfad, rollen_modell_override, ssh_ziel_aus_db
+from app.services import (
+    athene_container_setzen,
+    athene_status,
+    athene_steuerung_verfuegbar,
+    bild_basis_url,
+    ollama_basis_url,
+    projekt_pfad,
+    rollen_modell_override,
+    ssh_ziel_aus_db,
+)
 
 OnEvent = Callable[[dict], Awaitable[None]]
 
@@ -847,6 +858,59 @@ async def _kapitel_schreiben_kern(
     }
 
 
+# ---------------------------------------------------------------------------
+# Feature "KI- und Speicherkontrolle": beim Schreibstart nicht benoetigte
+# Container auf dem KI-Host herunterfahren (siehe app/core/athene_steuerung.py,
+# athene/README.md). Alle Aufrufe defensiv - schlaegt die Steuerung fehl,
+# wird geschrieben wie bisher.
+# ---------------------------------------------------------------------------
+
+def _speicherkontrolle_aktiv_fuer(settings: Settings, ssh_ziel_id: str | None) -> tuple[bool, list[str]]:
+    if not ssh_ziel_id:
+        return False, []
+    aktiv, container = db.einstellung_speicherkontrolle_lesen(settings.database_path)
+    if not aktiv or not container or not athene_steuerung_verfuegbar(settings, ssh_ziel_id):
+        return False, []
+    return True, container
+
+
+def _container_stoppen(settings: Settings, ssh_ziel_id: str, namen: list[str]) -> list[str]:
+    gestoppt: list[str] = []
+    for name in namen:
+        try:
+            athene_container_setzen(settings, ssh_ziel_id, name, "stop")
+            gestoppt.append(name)
+        except ath.SteuerFehler as e:
+            logger.warning("Speicherkontrolle: konnte %s nicht stoppen: %s", name, e)
+    return gestoppt
+
+
+async def _speicherkontrolle_ws_frage(websocket: WebSocket, settings: Settings,
+                                       ssh_ziel_id: str | None) -> None:
+    """Interaktives Schreiben: vor dem ersten KI-Aufruf den Nutzer fragen, ob
+    die im Leerlauf laufenden Bild-Container heruntergefahren werden sollen.
+    Erwartet als Antwort {"aktion": "herunterfahren"|"weiter"}."""
+    aktiv, container = _speicherkontrolle_aktiv_fuer(settings, ssh_ziel_id)
+    if not aktiv:
+        return
+    try:
+        status = await asyncio.to_thread(athene_status, settings, ssh_ziel_id, container)
+    except ath.SteuerFehler:
+        return
+    if not ath.herunterfahren_empfohlen(status):
+        return
+    await websocket.send_json({"phase": "speicherkontrolle", "typ": "frage", "status": status})
+    try:
+        antwort = await asyncio.wait_for(websocket.receive_json(), timeout=180)
+    except (asyncio.TimeoutError, WebSocketDisconnect, ValueError):
+        return
+    if not isinstance(antwort, dict) or antwort.get("aktion") != "herunterfahren":
+        return
+    laufende = [c["name"] for c in status["containers"] if c["running"]]
+    gestoppt = await asyncio.to_thread(_container_stoppen, settings, ssh_ziel_id, laufende)
+    await websocket.send_json({"phase": "speicherkontrolle", "typ": "erledigt", "gestoppt": gestoppt})
+
+
 @router.websocket("/{ordner:path}/ws/schreiben/{n}")
 async def ws_schreiben(websocket: WebSocket, ordner: str, n: int,
                         zusatzhinweis: str = "", ssh_ziel_id: str | None = None,
@@ -857,6 +921,7 @@ async def ws_schreiben(websocket: WebSocket, ordner: str, n: int,
     await websocket.accept()
     try:
         projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+        await _speicherkontrolle_ws_frage(websocket, settings, ssh_ziel_id)
         with ollama_basis_url(settings, ssh_ziel_id) as base_url:
             await _kapitel_schreiben_kern(
                 settings, projekt_root, base_url, n, zusatzhinweis, ssh_ziel_id,
@@ -1231,6 +1296,10 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
         "abgeschlossen": False, "fehler": None,
         "resten_bestaetigt": False,
         "fehler_schritt": None,
+        # Feature "KI- und Speicherkontrolle": am Lauf-Anfang heruntergefahrene
+        # Container - bleibt nach dem Lauf stehen, damit das Frontend "wieder
+        # hochfahren?" anbieten kann.
+        "speicherkontrolle_gestoppt": [],
     })
     if fortsetzen_ab_kapitel:
         status["log"].append(
@@ -1250,6 +1319,30 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
             )
         status["gesamt_kapitel"] = letztes
         _automatik_status_schreiben(status, projekt_root)
+
+        # Feature "KI- und Speicherkontrolle": ein Automatik-Lauf ist der
+        # klassische Fall, in dem die dauerhaft laufenden Bild-Container den
+        # 24B-Autor in den Swap draengen (siehe athene/README.md). Kein
+        # Prompt - der Lauf ist unbeaufsichtigt; nach dem Lauf bietet das
+        # Frontend anhand von status["speicherkontrolle_gestoppt"] das
+        # Wiederhochfahren an.
+        sk_aktiv, sk_container = _speicherkontrolle_aktiv_fuer(settings, ssh_ziel_id)
+        if sk_aktiv:
+            try:
+                host = await asyncio.to_thread(athene_status, settings, ssh_ziel_id, sk_container)
+                laufende = [c["name"] for c in host["containers"] if c["running"]]
+            except ath.SteuerFehler:
+                laufende = []
+            if laufende:
+                gestoppt = await asyncio.to_thread(_container_stoppen, settings, ssh_ziel_id, laufende)
+                if gestoppt:
+                    status["speicherkontrolle_gestoppt"] = gestoppt
+                    status["log"].append(
+                        f"Speicherkontrolle: {', '.join(gestoppt)} heruntergefahren "
+                        f"(mehr RAM für den Autor)."
+                    )
+                    _automatik_status_schreiben(status, projekt_root)
+
         on_event = _automatik_on_event(status, projekt_root)
 
         with ollama_basis_url(settings, ssh_ziel_id) as base_url:
@@ -1872,10 +1965,50 @@ def _cover_log_eintrag_anlegen(
     log_pfad.write_text(cl.log_serialisieren(eintraege, eintrag.id), encoding="utf-8")
 
 
+async def _bildki_container_sicherstellen(settings: Settings, bild_ziel_id: str,
+                                          bild_modell: str, projekt_root: Path,
+                                          trotz_schreibens: bool) -> None:
+    """Feature "KI- und Speicherkontrolle": ist der für dieses Bildmodell
+    zuständige Container heruntergefahren (weil beim Schreibstart gestoppt),
+    ihn hier hochfahren. Läuft gerade ein Automatik-Lauf, VORHER per 409 die
+    Performance-Warnung erzwingen (Frontend: "auf eigene Gefahr"); erst mit
+    trotz_schreibens=True wird der Container mitten im Lauf gestartet."""
+    container = ath.BILD_MODELL_CONTAINER.get(bild_modell)
+    if not container:
+        return
+    aktiv, konfiguriert = db.einstellung_speicherkontrolle_lesen(settings.database_path)
+    if not aktiv or container not in konfiguriert:
+        return
+    if not athene_steuerung_verfuegbar(settings, bild_ziel_id):
+        return
+    try:
+        host = await asyncio.to_thread(athene_status, settings, bild_ziel_id, konfiguriert)
+    except ath.SteuerFehler:
+        return
+    laeuft = next((c["running"] for c in host["containers"] if c["name"] == container), True)
+    if laeuft:
+        return
+    if automatik.status_lesen(projekt_root).get("laeuft") and not trotz_schreibens:
+        raise HTTPException(409, detail={
+            "code": "bildki_aus_waehrend_schreiben",
+            "container": container,
+            "text": (
+                f"Das Bild-Modell ({container}) ist heruntergefahren, weil gerade "
+                f"geschrieben wird. Es jetzt hochzufahren belegt mehrere GB RAM, "
+                f"drückt den KI-Host womöglich in den Swap und verlangsamt den "
+                f"laufenden Text. Trotzdem generieren?"
+            ),
+        })
+    await asyncio.to_thread(athene_container_setzen, settings, bild_ziel_id, container, "start")
+    with bild_basis_url(settings, bild_ziel_id, modell=bild_modell) as base_url:
+        await bild_generierung.warte_bis_bereit(base_url)
+
+
 @router.post("/{ordner:path}/cover/generieren")
 async def cover_generieren(ordner: str, anfrage: CoverGenerierenAnfrage,
                             bild_ziel_id: str = Query(...),
                             ssh_ziel_id: str | None = Query(None),
+                            trotz_schreibens: bool = Query(False),
                             settings: Settings = Depends(get_settings),
                             benutzer: Benutzer = Depends(get_current_user)):
     """Erzeugt das eigentliche Deckblattbild ueber sd-server (siehe
@@ -1899,6 +2032,9 @@ async def cover_generieren(ordner: str, anfrage: CoverGenerierenAnfrage,
     Score-Tag-Praefix + LoRA/Sampler/CFG)."""
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     projekt = projekt_root / "projekt"
+    await _bildki_container_sicherstellen(
+        settings, bild_ziel_id, anfrage.bild_modell, projekt_root, trotz_schreibens,
+    )
     with ollama_basis_url(settings, ssh_ziel_id) as text_base_url:
         text_modell = rollen_modell_override(settings, "cover_prompt")
         try:
