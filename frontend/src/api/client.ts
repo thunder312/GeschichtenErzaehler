@@ -20,6 +20,8 @@ import type {
   FundusFigurenAntwort,
   FundusImportAntwort,
   FundusProjektAntwort,
+  HostContainerInfo,
+  HostStatus,
   KiGeruestRandbedingungen,
   KiGeruestStatus,
   LoginEingabe,
@@ -39,6 +41,22 @@ import type {
   WissenNaechstesAntwort,
 } from "./types";
 
+/** Fehler mit HTTP-Status und (falls vorhanden) strukturiertem `detail`.
+ * `message` bleibt die menschenlesbare Meldung, damit bestehende
+ * `e instanceof Error ? e.message : ...`-Stellen unveraendert funktionieren.
+ * Strukturierte Faelle (z.B. das 409 "bildki_aus_waehrend_schreiben" aus
+ * cover/generieren) lesen `detail`. */
+export class ApiError extends Error {
+  status: number;
+  detail: unknown;
+  constructor(message: string, status: number, detail: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
 async function anfrage<T>(pfad: string, init?: RequestInit): Promise<T> {
   const antwort = await fetch(pfad, {
     headers: { "Content-Type": "application/json" },
@@ -46,14 +64,20 @@ async function anfrage<T>(pfad: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!antwort.ok) {
-    let detail = antwort.statusText;
+    let detail: unknown = antwort.statusText;
     try {
       const body = await antwort.json();
       detail = body.detail ?? detail;
     } catch {
       // Antwort war kein JSON - Statustext reicht als Fehlermeldung.
     }
-    throw new Error(detail);
+    const meldung =
+      typeof detail === "string"
+        ? detail
+        : (detail && typeof detail === "object" && "text" in detail
+            ? String((detail as { text: unknown }).text)
+            : antwort.statusText);
+    throw new ApiError(meldung, antwort.status, detail);
   }
   if (antwort.status === 204) {
     return undefined as T;
@@ -321,9 +345,14 @@ export const api = {
     bildZielId: string,
     bildModell: BildModell,
     sshZielId?: string | null,
+    /** true = Performance-Warnung bereits bestätigt (Feature "KI- und
+     * Speicherkontrolle"): den ggf. heruntergefahrenen Bild-Container jetzt
+     * hochfahren, auch wenn gerade ein Automatik-Lauf läuft. */
+    trotzSchreibens = false,
   ) => {
     const params = new URLSearchParams({ bild_ziel_id: bildZielId });
     if (sshZielId) params.set("ssh_ziel_id", sshZielId);
+    if (trotzSchreibens) params.set("trotz_schreibens", "true");
     return anfrage<{ gespeichert: boolean }>(
       `/api/projects/${ordner}/cover/generieren?${params.toString()}`,
       { method: "POST", body: JSON.stringify({ prompt, bild_modell: bildModell }) },
@@ -484,6 +513,8 @@ export const api = {
     unnuetzesWissenAktiv: boolean;
     unnuetzesWissenStartSekunden: number;
     unnuetzesWissenWechselSekunden: number;
+    speicherkontrolleAktiv: boolean;
+    speicherkontrolleContainer: string[];
   }) =>
     anfrage<Einstellungen>("/api/einstellungen", {
       method: "PUT",
@@ -494,8 +525,18 @@ export const api = {
         unnuetzes_wissen_aktiv: werte.unnuetzesWissenAktiv,
         unnuetzes_wissen_start_sekunden: werte.unnuetzesWissenStartSekunden,
         unnuetzes_wissen_wechsel_sekunden: werte.unnuetzesWissenWechselSekunden,
+        speicherkontrolle_aktiv: werte.speicherkontrolleAktiv,
+        speicherkontrolle_container: werte.speicherkontrolleContainer,
       }),
     }),
+
+  hostStatus: (zielId: string) => anfrage<HostStatus>(`/api/ssh-targets/${zielId}/host-status`),
+
+  hostContainer: (zielId: string, name: string, aktion: "start" | "stop") =>
+    anfrage<HostContainerInfo>(
+      `/api/ssh-targets/${zielId}/container/${encodeURIComponent(name)}/${aktion}`,
+      { method: "POST" },
+    ),
 
   unnuetzesWissen: () => anfrage<WissenEintrag[]>("/api/unnuetzeswissen"),
 

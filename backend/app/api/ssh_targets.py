@@ -126,15 +126,14 @@ def aktualisieren(ziel_id: str, anfrage: SSHZielAnlegenAnfrage,
     hat_neues_geheimnis = bool(anfrage.password or anfrage.private_key_pem)
     auth_method_geaendert = anfrage.auth_method != bestehend["auth_method"]
     kein_geheimnis_noetig = anfrage.auth_method in ("agent", "direct")
-    # steuer_token: None = unveraendert lassen, "" = loeschen, sonst setzen.
-    steuer_token_geaendert = anfrage.steuer_token is not None
+    # Leeres steuer_token-Feld = unveraendert lassen (analog zu Passwoertern);
+    # nur ein neu eingegebener Token ueberschreibt.
+    neuer_steuer_token = (anfrage.steuer_token or "").strip()
     bestehendes_geheim = db.ssh_ziel_geheimnis(bestehend, settings.secret_key_path)
 
-    if hat_neues_geheimnis or kein_geheimnis_noetig or steuer_token_geaendert:
+    if hat_neues_geheimnis or kein_geheimnis_noetig or neuer_steuer_token:
         geheimnis = _geheimnis_aus_anfrage(anfrage)
-        # Ohne neu mitgeschickten Token den bestehenden erhalten (analog zu
-        # nicht erneut eingegebenen Passwoertern).
-        if not steuer_token_geaendert and bestehendes_geheim.get("steuer_token"):
+        if not neuer_steuer_token and bestehendes_geheim.get("steuer_token"):
             geheimnis["steuer_token"] = bestehendes_geheim["steuer_token"]
     elif auth_method_geaendert:
         # Ohne neue Zugangsdaten bliebe das alte, zur neuen Auth-Methode nicht

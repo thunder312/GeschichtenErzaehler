@@ -6,12 +6,14 @@ import type {
   AutomatikVerlaufEintrag,
   BefundeAntwort,
   Finding,
+  HostStatus,
   ProjektDetail,
   SchreibenNachricht,
 } from "../api/types";
 import { BefundListe } from "../components/BefundListe";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { FindingsList } from "../components/FindingsList";
+import { SpeicherkontrolleDialog, SpeicherkontrolleWiederhochBanner } from "../components/SpeicherkontrolleDialog";
 import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { automatikAktionsText, hatReste, resteZusammenfassen } from "../utils/automatik";
@@ -68,6 +70,11 @@ export function SchreibenPage({
   const [frageVerlauf, setFrageVerlauf] = useState<{ frage: string; antwort: string }[]>([]);
   const [ladenFrage, setLadenFrage] = useState(false);
   const [frageFehler, setFrageFehler] = useState<string | null>(null);
+  // Feature "KI- und Speicherkontrolle": Rückfrage vor dem ersten KI-Aufruf
+  // ("Bild-Container herunterfahren?"). Der Server wartet auf die Antwort
+  // über denselben Socket, deshalb hält das den Schreibablauf so lange an.
+  const [speicherkontrolleFrage, setSpeicherkontrolleFrage] = useState<HostStatus | null>(null);
+  const [speicherkontrolleLaeuft, setSpeicherkontrolleLaeuft] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const letztesProjekt = useRef<string | null>(null);
   const autoVorgeschlageneNummerRef = useRef<number | null>(null);
@@ -279,6 +286,14 @@ export function SchreibenPage({
 
     socket.onmessage = (ereignis) => {
       const nachricht: SchreibenNachricht = JSON.parse(ereignis.data);
+      if (nachricht.phase === "speicherkontrolle") {
+        if (nachricht.typ === "frage") setSpeicherkontrolleFrage(nachricht.status);
+        if (nachricht.typ === "erledigt") {
+          setSpeicherkontrolleFrage(null);
+          setSpeicherkontrolleLaeuft(false);
+        }
+        return;
+      }
       setPhase(nachricht.phase);
       phaseRef.current = nachricht.phase;
       if (nachricht.phase === "autor") {
@@ -324,9 +339,13 @@ export function SchreibenPage({
     socket.onerror = () => {
       setFehler("WebSocket-Verbindung fehlgeschlagen.");
       setLaeuft(false);
+      setSpeicherkontrolleFrage(null);
+      setSpeicherkontrolleLaeuft(false);
       aktivitaetBeenden();
     };
     socket.onclose = () => {
+      setSpeicherkontrolleFrage(null);
+      setSpeicherkontrolleLaeuft(false);
       // Verbindung ist weg, OHNE dass "abgeschlossen" oder "fehler" das schon
       // erklaert hat - z.B. ein Netzwerk-/Tunnel-Aussetzer mitten in der
       // Generierung (haeufigste bekannte Ursache: instabile Strecke zum
@@ -349,6 +368,15 @@ export function SchreibenPage({
       setLaeuft(false);
       aktivitaetBeenden();
     };
+  }
+
+  function speicherkontrolleAntwort(aktion: "herunterfahren" | "weiter") {
+    if (aktion === "herunterfahren") {
+      setSpeicherkontrolleLaeuft(true);
+    } else {
+      setSpeicherkontrolleFrage(null);
+    }
+    socketRef.current?.send(JSON.stringify({ aktion }));
   }
 
   async function fragen() {
@@ -409,6 +437,14 @@ export function SchreibenPage({
 
   return (
     <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_2fr]">
+      {speicherkontrolleFrage && (
+        <SpeicherkontrolleDialog
+          status={speicherkontrolleFrage}
+          wirdAusgefuehrt={speicherkontrolleLaeuft}
+          onHerunterfahren={() => speicherkontrolleAntwort("herunterfahren")}
+          onWeiter={() => speicherkontrolleAntwort("weiter")}
+        />
+      )}
       <div className="space-y-4">
         <Card className="h-fit space-y-3">
           <CardTitle>✍️ Kapitel schreiben</CardTitle>
@@ -645,6 +681,12 @@ export function SchreibenPage({
           </div>
         ) : (
           <div className="space-y-3">
+            {automatikStatus?.abgeschlossen && (automatikStatus.speicherkontrolle_gestoppt?.length ?? 0) > 0 && (
+              <SpeicherkontrolleWiederhochBanner
+                container={automatikStatus.speicherkontrolle_gestoppt}
+                zielId={sshZielId || null}
+              />
+            )}
             {automatikStatus?.fortsetzbar && (
               <div className="flex flex-wrap items-center gap-3">
                 <Button onClick={() => automatikStarten(true)}>Fortsetzen</Button>

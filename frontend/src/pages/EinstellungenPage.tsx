@@ -9,6 +9,8 @@ import type {
   SSHZiel,
   SSHZielEingabe,
 } from "../api/types";
+import type { HostStatus } from "../api/types";
+import { HostStatusPanel } from "../components/SpeicherkontrolleDialog";
 import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 
 const LEERES_FORMULAR: SSHZielEingabe = {
@@ -23,6 +25,8 @@ const LEERES_FORMULAR: SSHZielEingabe = {
   remote_ollama_port: 11434,
   bildki_port: null,
   bildki_port_pony: null,
+  steuer_port: null,
+  steuer_token: "",
 };
 
 interface EinstellungenPageProps {
@@ -60,6 +64,8 @@ export function EinstellungenPage({ sshZiele, onSshZieleGeaendert }: Einstellung
   const [wissenAktiv, setWissenAktiv] = useState(true);
   const [wissenStartMinuten, setWissenStartMinuten] = useState(String(20 / 60));
   const [wissenWechselSekunden, setWissenWechselSekunden] = useState("20");
+  const [speicherkontrolleAktiv, setSpeicherkontrolleAktiv] = useState(false);
+  const [speicherkontrolleContainer, setSpeicherkontrolleContainer] = useState("sd-server, sd-server-pony");
   const [laden, setLaden] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const [gespeichert, setGespeichert] = useState(false);
@@ -72,6 +78,8 @@ export function EinstellungenPage({ sshZiele, onSshZieleGeaendert }: Einstellung
     setWissenAktiv(e.unnuetzes_wissen_aktiv);
     setWissenStartMinuten(String(Math.round((e.unnuetzes_wissen_start_sekunden / 60) * 100) / 100));
     setWissenWechselSekunden(String(e.unnuetzes_wissen_wechsel_sekunden));
+    setSpeicherkontrolleAktiv(e.speicherkontrolle_aktiv);
+    setSpeicherkontrolleContainer(e.speicherkontrolle_container.join(", "));
   }
 
   useEffect(() => {
@@ -89,8 +97,10 @@ export function EinstellungenPage({ sshZiele, onSshZieleGeaendert }: Einstellung
     neuUnterordnerJeEpoche: boolean,
     neueBildgeneratorUrl: string,
     wissen?: WissenWerte,
+    speicherkontrolle?: { aktiv: boolean; container: string },
   ) {
     const w = wissen ?? { aktiv: wissenAktiv, startMinuten: wissenStartMinuten, wechselSekunden: wissenWechselSekunden };
+    const sk = speicherkontrolle ?? { aktiv: speicherkontrolleAktiv, container: speicherkontrolleContainer };
     setLaden(true);
     setFehler(null);
     setGespeichert(false);
@@ -102,6 +112,11 @@ export function EinstellungenPage({ sshZiele, onSshZieleGeaendert }: Einstellung
         unnuetzesWissenAktiv: w.aktiv,
         unnuetzesWissenStartSekunden: Math.max(0, Math.round((Number(w.startMinuten) || 0) * 60)),
         unnuetzesWissenWechselSekunden: Math.max(3, Math.round(Number(w.wechselSekunden) || 0)),
+        speicherkontrolleAktiv: sk.aktiv,
+        speicherkontrolleContainer: sk.container
+          .split(",")
+          .map((c) => c.trim())
+          .filter(Boolean),
       });
       uebernehmen(antwort);
       setGespeichert(true);
@@ -282,6 +297,38 @@ export function EinstellungenPage({ sshZiele, onSshZieleGeaendert }: Einstellung
                   </div>
                 )}
 
+                <div className="space-y-3 border-t border-border pt-3">
+                  <label className="flex items-start gap-2 text-sm text-text">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={speicherkontrolleAktiv}
+                      onChange={(e) => setSpeicherkontrolleAktiv(e.target.checked)}
+                      disabled={laden}
+                    />
+                    <span>
+                      Vor dem Schreiben anbieten, nicht benötigte KI-Container herunterzufahren
+                      <span className="mt-0.5 block text-xs text-text-muted">
+                        Wenn auf dem KI-Host (z. B. Athene) Bild-KI-Container im Leerlauf laufen und
+                        Speicher belegen, fragt der Schreibstart, ob sie heruntergefahren werden sollen –
+                        mehr RAM für den Autor. Ein Automatik-Lauf fährt sie ohne Rückfrage herunter.
+                        Braucht ein KI-Ziel mit hinterlegtem Steuer-Port + Token (unten bei „KI-Ziele").
+                      </span>
+                    </span>
+                  </label>
+                  {speicherkontrolleAktiv && (
+                    <div>
+                      <Label>Container-Namen (durch Komma getrennt)</Label>
+                      <Input
+                        value={speicherkontrolleContainer}
+                        onChange={(e) => setSpeicherkontrolleContainer(e.target.value)}
+                        placeholder="sd-server, sd-server-pony"
+                        disabled={laden}
+                      />
+                    </div>
+                  )}
+                </div>
+
                 {fehler && <p className="text-sm text-red-400">{fehler}</p>}
                 {gespeichert && !fehler && <p className="text-sm text-accent-light">Gespeichert.</p>}
                 <Button
@@ -361,6 +408,8 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
       remote_ollama_port: z.remote_ollama_port,
       bildki_port: z.bildki_port,
       bildki_port_pony: z.bildki_port_pony,
+      steuer_port: z.steuer_port,
+      steuer_token: "",
     });
     setBearbeiteId(z.id);
     setBearbeiteUrsprungAuthMethod(z.auth_method);
@@ -482,6 +531,7 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
                 </span>
                 {z.bildki_port != null && <Badge>🎨 FLUX</Badge>}
                 {z.bildki_port_pony != null && <Badge>🎨 Pony</Badge>}
+                {(z.steuer_port != null || z.auth_method !== "direct") && <Badge>🧠 Steuerung</Badge>}
               </div>
               <div className="flex shrink-0 gap-1.5">
                 <button
@@ -501,6 +551,8 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
           ))}
         </ul>
       )}
+
+      {sshZiele.length > 0 && <HostSteuerungStatus sshZiele={sshZiele} />}
 
       {sshZiele.length > 0 && (
         <p className="mb-2 text-xs text-text-muted">
@@ -680,6 +732,37 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
             />
           </div>
 
+          {istDirekt && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_2fr]">
+              <div>
+                <Label>Steuer-Port (optional)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={65535}
+                  value={formular.steuer_port ?? ""}
+                  placeholder="z. B. 18324"
+                  onChange={(e) => feld("steuer_port", e.target.value ? Number(e.target.value) : null)}
+                />
+              </div>
+              <div>
+                <Label>Steuer-Token</Label>
+                <Input
+                  type="password"
+                  autoComplete="off"
+                  value={formular.steuer_token ?? ""}
+                  placeholder={bearbeiteId ? "unverändert lassen = leer" : "Token des athene-steuerung-Dienstes"}
+                  onChange={(e) => feld("steuer_token", e.target.value)}
+                />
+              </div>
+              <p className="text-xs text-text-muted sm:col-span-2">
+                Für das Feature „KI- und Speicherkontrolle": erlaubt der App, RAM/Container auf
+                dem KI-Host zu sehen und Bild-Container beim Schreiben herunterzufahren. Port +
+                Token stammen vom <code>athene-steuerung</code>-Dienst (siehe <code>athene/README.md</code>).
+              </p>
+            </div>
+          )}
+
           {geheimnisUnveraendert && (
             <p className="text-xs text-text-muted">
               Test/Speichern verwenden die bereits hinterlegten Zugangsdaten, da hier nichts Neues
@@ -702,6 +785,94 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
         </div>
       )}
     </Card>
+  );
+}
+
+/** Live-Panel im Tab „KI-Ziele" (Feature „KI- und Speicherkontrolle"):
+ * RAM/Swap des KI-Hosts + Bild-Container einzeln starten/stoppen. */
+function HostSteuerungStatus({ sshZiele }: { sshZiele: SSHZiel[] }) {
+  const [offen, setOffen] = useState(false);
+  const [zielId, setZielId] = useState(sshZiele[0]?.id ?? "");
+  const [status, setStatus] = useState<HostStatus | null>(null);
+  const [laden, setLaden] = useState(false);
+  const [fehler, setFehler] = useState<string | null>(null);
+  const [aktion, setAktion] = useState<string | null>(null);
+
+  async function statusLaden() {
+    if (!zielId) return;
+    setLaden(true);
+    setFehler(null);
+    try {
+      setStatus(await api.hostStatus(zielId));
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLaden(false);
+    }
+  }
+
+  useEffect(() => {
+    if (offen && zielId) statusLaden();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offen, zielId]);
+
+  async function container(name: string, a: "start" | "stop") {
+    setAktion(`${name}:${a}`);
+    try {
+      await api.hostContainer(zielId, name, a);
+      await statusLaden();
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAktion(null);
+    }
+  }
+
+  return (
+    <div className="mt-3 border-t border-border pt-3">
+      <button
+        onClick={() => setOffen((b) => !b)}
+        className="text-xs font-medium text-accent-light hover:underline"
+      >
+        {offen ? "▾ " : "▸ "}KI-Host: Speicher &amp; Container
+      </button>
+      {offen && (
+        <div className="mt-2 space-y-3">
+          {sshZiele.length > 1 && (
+            <Select value={zielId} onChange={(e) => setZielId(e.target.value)} className="max-w-xs">
+              {sshZiele.map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.name}
+                </option>
+              ))}
+            </Select>
+          )}
+          {laden && <p className="text-xs text-text-muted">Fragt Status ab…</p>}
+          {fehler && <p className="text-xs text-red-400">{fehler}</p>}
+          {status && (
+            <>
+              <HostStatusPanel status={status} />
+              {status.verfuegbar && status.containers.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {status.containers.map((c) => (
+                    <Button
+                      key={c.name}
+                      variant="secondary"
+                      disabled={aktion !== null}
+                      onClick={() => container(c.name, c.running ? "stop" : "start")}
+                    >
+                      {aktion === `${c.name}:${c.running ? "stop" : "start"}`
+                        ? "…"
+                        : `${c.name} ${c.running ? "stoppen" : "starten"}`}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

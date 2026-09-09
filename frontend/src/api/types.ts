@@ -76,6 +76,11 @@ export interface SSHZiel {
   // (siehe backend/app/core/bild_generierung.py) - null = kein Pony-Modell
   // auf diesem KI-Ziel verfuegbar. bildki_port bleibt FLUX.
   bildki_port_pony: number | null;
+  // Port des athene-steuerung-Dienstes (Feature "KI- und Speicherkontrolle",
+  // siehe athene/README.md) - null = dieses KI-Ziel kann Container/RAM nicht
+  // fernsteuern. Nur fuer 'direct'-Ziele relevant.
+  steuer_port: number | null;
+  steuer_token_gesetzt: boolean;
   favorit: boolean;
   created_at: string;
   updated_at: string;
@@ -93,6 +98,30 @@ export interface SSHZielEingabe {
   remote_ollama_port: number;
   bildki_port?: number | null;
   bildki_port_pony?: number | null;
+  steuer_port?: number | null;
+  // Leer = unveraendert lassen (analog zu Passwoertern); nur ein neu
+  // eingegebener Token ueberschreibt.
+  steuer_token?: string;
+}
+
+export interface HostSpeicherInfo {
+  total_mb: number;
+  available_mb: number;
+  used_mb: number;
+}
+
+export interface HostContainerInfo {
+  name: string;
+  running: boolean;
+}
+
+export interface HostStatus {
+  verfuegbar: boolean;
+  ram: HostSpeicherInfo;
+  swap: HostSpeicherInfo;
+  containers: HostContainerInfo[];
+  ollama: { name: string; processor: string }[];
+  herunterfahren_empfohlen: boolean;
 }
 
 // Welches Bildmodell fuer die Cover-Generierung genutzt wird (siehe
@@ -301,6 +330,10 @@ export interface AutomatikStatus {
     durchlauf: number | null;
     fehler_nummer?: string;
   } | null;
+  /** Feature "KI- und Speicherkontrolle": Container, die dieser Lauf am
+   * Anfang heruntergefahren hat - nach Lauf-Ende bietet das Frontend das
+   * Wiederhochfahren an. */
+  speicherkontrolle_gestoppt: string[];
 }
 
 // Ein Eintrag pro bisherigem Automatik-Lauf dieses Projekts (dauerhaftes
@@ -418,6 +451,11 @@ export interface Einstellungen {
   unnuetzes_wissen_aktiv: boolean;
   unnuetzes_wissen_start_sekunden: number;
   unnuetzes_wissen_wechsel_sekunden: number;
+  /** Feature "KI- und Speicherkontrolle": beim Schreibstart anbieten, nicht
+   * benoetigte Container auf dem KI-Host herunterzufahren (mehr RAM fuer den
+   * Autor). speicherkontrolle_container = Namen der abzuschaltenden Container. */
+  speicherkontrolle_aktiv: boolean;
+  speicherkontrolle_container: string[];
 }
 
 // /api/auth/*
@@ -480,6 +518,10 @@ export type SchreibenNachricht =
     }
   | { phase: "pruefen"; typ: "start" }
   | { phase: "pruefen"; typ: "done"; befunde: BefundeAntwort }
+  // Feature "KI- und Speicherkontrolle": Rückfrage vor dem ersten KI-Aufruf.
+  // Antwort per socket.send({aktion: "herunterfahren" | "weiter"}).
+  | { phase: "speicherkontrolle"; typ: "frage"; status: HostStatus }
+  | { phase: "speicherkontrolle"; typ: "erledigt"; gestoppt: string[] }
   | { phase: "abgeschlossen"; kapitel_text: string }
   | { phase: "fehler"; typ: "error"; text: string };
 

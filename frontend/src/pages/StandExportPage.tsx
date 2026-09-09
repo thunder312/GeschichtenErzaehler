@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import type { BildModell, CoverLogEintrag, ProjektDetail, SSHZiel } from "../api/types";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { alsDateiHerunterladen } from "../utils/download";
@@ -48,6 +49,9 @@ export function StandExportPage({
   const [ladenCoverPrompt, setLadenCoverPrompt] = useState(false);
   const [ladenCoverBild, setLadenCoverBild] = useState(false);
   const [ladenCoverUpload, setLadenCoverUpload] = useState(false);
+  // Feature "KI- und Speicherkontrolle": Performance-Warnung, wenn der Bild-
+  // Container heruntergefahren ist und gerade geschrieben wird.
+  const [bildkiWarnung, setBildkiWarnung] = useState<string | null>(null);
   const [coverFehler, setCoverFehler] = useState<string | null>(null);
   const [bildgeneratorUrl, setBildgeneratorUrl] = useState<string | null>(null);
 
@@ -164,16 +168,27 @@ export function StandExportPage({
     }
   }
 
-  async function coverGenerieren() {
+  async function coverGenerieren(trotzSchreibens = false) {
     if (!bildZielId || !coverPrompt.trim()) return;
     setLadenCoverBild(true);
     setCoverFehler(null);
+    setBildkiWarnung(null);
     starten("Generiert Titelbild (kann bis zu 3 Minuten dauern)...");
     try {
-      await api.coverGenerieren(ordner, coverPrompt.trim(), bildZielId, bildModell, sshZielId || null);
+      await api.coverGenerieren(
+        ordner, coverPrompt.trim(), bildZielId, bildModell, sshZielId || null, trotzSchreibens,
+      );
       setCoverVersion((v) => v + 1);
     } catch (e) {
-      setCoverFehler(e instanceof Error ? e.message : String(e));
+      const detail = e instanceof ApiError ? e.detail : null;
+      if (
+        e instanceof ApiError && e.status === 409 &&
+        detail && typeof detail === "object" && (detail as { code?: string }).code === "bildki_aus_waehrend_schreiben"
+      ) {
+        setBildkiWarnung((detail as { text: string }).text);
+      } else {
+        setCoverFehler(e instanceof Error ? e.message : String(e));
+      }
     } finally {
       setLadenCoverBild(false);
       beenden();
@@ -271,6 +286,17 @@ export function StandExportPage({
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
+      {bildkiWarnung && (
+        <ConfirmDialog
+          titel="Bild-KI ist heruntergefahren"
+          beschreibung={bildkiWarnung}
+          bestaetigenText="Trotzdem generieren"
+          abbrechenText="Abbrechen"
+          wirdAusgefuehrt={ladenCoverBild}
+          onBestaetigen={() => coverGenerieren(true)}
+          onAbbrechen={() => setBildkiWarnung(null)}
+        />
+      )}
       <Card>
         <CardTitle>📦 Zustand nach Kapitel festhalten (Chronist)</CardTitle>
         <div className="flex flex-wrap items-end gap-4">
@@ -387,7 +413,7 @@ export function StandExportPage({
               />
             </div>
             <div className="mt-3 flex items-center gap-4">
-              <Button onClick={coverGenerieren} disabled={ladenCoverBild || !coverPrompt.trim()}>
+              <Button onClick={() => coverGenerieren()} disabled={ladenCoverBild || !coverPrompt.trim()}>
                 {ladenCoverBild ? "Generiert Bild..." : coverVorhanden ? "Bild neu generieren" : "Bild generieren"}
               </Button>
             </div>

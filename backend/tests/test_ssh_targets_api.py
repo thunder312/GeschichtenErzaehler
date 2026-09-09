@@ -258,19 +258,24 @@ def test_steuer_port_und_token_werden_gespeichert_token_nie_zurueckgegeben(clien
     assert body["steuer_token_gesetzt"] is True
     assert "steuer_token" not in body
 
-    # Update ohne Token-Feld -> Token bleibt erhalten
+    # Update mit leerem/fehlendem Token-Feld -> bestehender Token bleibt erhalten
     r2 = client.put(f"/api/ssh-targets/{body['id']}", json={
         "name": "Athene umbenannt", "host": "http://127.0.0.1:18321", "auth_method": "direct",
         "steuer_port": 18324,
     })
     assert r2.json()["steuer_token_gesetzt"] is True
-
-    # Leerer Token loescht ihn
     r3 = client.put(f"/api/ssh-targets/{body['id']}", json={
         "name": "Athene", "host": "http://127.0.0.1:18321", "auth_method": "direct",
         "steuer_port": 18324, "steuer_token": "",
     })
-    assert r3.json()["steuer_token_gesetzt"] is False
+    assert r3.json()["steuer_token_gesetzt"] is True
+
+    # Neuer Token überschreibt
+    r4 = client.put(f"/api/ssh-targets/{body['id']}", json={
+        "name": "Athene", "host": "http://127.0.0.1:18321", "auth_method": "direct",
+        "steuer_port": 18324, "steuer_token": "neuer-token",
+    })
+    assert r4.json()["steuer_token_gesetzt"] is True
 
 
 def test_host_status_ohne_steuerweg_liefert_verfuegbar_false(client):
