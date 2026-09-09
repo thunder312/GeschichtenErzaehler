@@ -14,6 +14,7 @@ from fastapi import HTTPException
 
 from app import db
 from app.config import Settings
+from app.core import athene_steuerung as ath
 from app.core import ssh_manager
 from app.core.geruest import ordnername_aus_titel
 
@@ -234,6 +235,61 @@ def bild_basis_url(settings: Settings, ziel_id: str, modell: str = "flux"):
             yield t.base_url
     except ssh_manager.SSHVerbindungsFehler as e:
         raise HTTPException(502, f"SSH-Verbindung fehlgeschlagen: {e}") from e
+
+
+def _steuer_url_aus_direct_host(host: str, steuer_port: int) -> str:
+    teile = urlsplit(host)
+    host_ohne_port = teile.hostname or teile.netloc.split(":")[0]
+    return urlunsplit((teile.scheme or "http", f"{host_ohne_port}:{steuer_port}", "", "", ""))
+
+
+def athene_steuerung_verfuegbar(settings: Settings, ziel_id: str) -> bool:
+    """True, wenn dieses KI-Ziel seine Container/RAM fernsteuern kann - per
+    Steuer-Dienst ('direct' + steuer_port + Token) oder per SSH (echtes
+    SSH-Ziel)."""
+    row = db.ssh_ziel_lesen(settings.database_path, ziel_id)
+    if row is None:
+        return False
+    if row["auth_method"] == "direct":
+        geheim = db.ssh_ziel_geheimnis(row, settings.secret_key_path)
+        return bool(row["steuer_port"] and geheim.get("steuer_token"))
+    return True
+
+
+def athene_status(settings: Settings, ziel_id: str, container_namen: list[str]) -> dict:
+    """Speicher-/Container-Lage des KI-Hosts (siehe
+    app/core/athene_steuerung.py). Wirft SteuerFehler, wenn der Host nicht
+    fernsteuerbar/erreichbar ist."""
+    row = db.ssh_ziel_lesen(settings.database_path, ziel_id)
+    if row is None:
+        raise HTTPException(404, "KI-Ziel nicht gefunden.")
+    if row["auth_method"] == "direct":
+        geheim = db.ssh_ziel_geheimnis(row, settings.secret_key_path)
+        token = geheim.get("steuer_token")
+        if not row["steuer_port"] or not token:
+            raise ath.SteuerFehler(
+                "Für dieses KI-Ziel ist kein Steuer-Dienst konfiguriert "
+                "(Port + Token, siehe Tab \"KI-Ziele\")."
+            )
+        return ath.status_ueber_http(
+            _steuer_url_aus_direct_host(row["host"], row["steuer_port"]), token, container_namen,
+        )
+    return ath.status_ueber_ssh(ssh_ziel_aus_db(settings, ziel_id), container_namen)
+
+
+def athene_container_setzen(settings: Settings, ziel_id: str, name: str, aktion: str) -> dict:
+    row = db.ssh_ziel_lesen(settings.database_path, ziel_id)
+    if row is None:
+        raise HTTPException(404, "KI-Ziel nicht gefunden.")
+    if row["auth_method"] == "direct":
+        geheim = db.ssh_ziel_geheimnis(row, settings.secret_key_path)
+        token = geheim.get("steuer_token")
+        if not row["steuer_port"] or not token:
+            raise ath.SteuerFehler("Kein Steuer-Dienst für dieses KI-Ziel konfiguriert.")
+        return ath.container_ueber_http(
+            _steuer_url_aus_direct_host(row["host"], row["steuer_port"]), token, name, aktion,
+        )
+    return ath.container_ueber_ssh(ssh_ziel_aus_db(settings, ziel_id), name, aktion)
 
 
 def rollen_modell_override(settings: Settings, persona: str) -> str | None:

@@ -33,6 +33,13 @@ CREATE TABLE IF NOT EXISTS ssh_targets (
     -- app/core/bild_generierung.py) - NULL bedeutet: kein Pony-Modell auf
     -- diesem KI-Ziel verfuegbar. bildki_port bleibt das FLUX-Modell.
     bildki_port_pony INTEGER,
+    -- Port des athene-steuerung-Dienstes (Feature "KI- und Speicherkontrolle",
+    -- siehe app/core/athene_steuerung.py + athene/steuerung/). NULL = dieses
+    -- KI-Ziel kann seine Container/RAM nicht fernsteuern. Der zugehoerige
+    -- Bearer-Token liegt (verschluesselt) im secret_encrypted-Blob unter
+    -- "steuer_token". Fuer echte SSH-Ziele wird stattdessen exec_command
+    -- genutzt, dann ist steuer_port irrelevant.
+    steuer_port INTEGER,
     favorit INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -49,7 +56,13 @@ CREATE TABLE IF NOT EXISTS einstellungen (
     -- erscheint und wie schnell es zum naechsten Fakt weiterblaettert.
     unnuetzes_wissen_aktiv INTEGER NOT NULL DEFAULT 1,
     unnuetzes_wissen_start_sekunden INTEGER NOT NULL DEFAULT 20,
-    unnuetzes_wissen_wechsel_sekunden INTEGER NOT NULL DEFAULT 20
+    unnuetzes_wissen_wechsel_sekunden INTEGER NOT NULL DEFAULT 20,
+    -- Feature "KI- und Speicherkontrolle" (siehe app/core/athene_steuerung.py):
+    -- beim Schreibstart anbieten, nicht benoetigte Container auf dem KI-Host
+    -- herunterzufahren. speicherkontrolle_container ist eine JSON-Liste von
+    -- Container-Namen.
+    speicherkontrolle_aktiv INTEGER NOT NULL DEFAULT 0,
+    speicherkontrolle_container TEXT NOT NULL DEFAULT '["sd-server","sd-server-pony"]'
 );
 
 CREATE TABLE IF NOT EXISTS persona_modelle (
@@ -136,6 +149,11 @@ def init_db(db_path: Path) -> None:
         if "bildki_port_pony" not in spalten:
             conn.execute("ALTER TABLE ssh_targets ADD COLUMN bildki_port_pony INTEGER")
 
+        # Migration fuer das Feature "KI- und Speicherkontrolle" (Steuer-Dienst
+        # auf dem KI-Host, siehe app/core/athene_steuerung.py).
+        if "steuer_port" not in spalten:
+            conn.execute("ALTER TABLE ssh_targets ADD COLUMN steuer_port INTEGER")
+
         if "bildgenerator_url" not in einstellungen_spalten:
             conn.execute("ALTER TABLE einstellungen ADD COLUMN bildgenerator_url TEXT")
 
@@ -150,6 +168,14 @@ def init_db(db_path: Path) -> None:
         if "unnuetzes_wissen_wechsel_sekunden" not in einstellungen_spalten:
             conn.execute("ALTER TABLE einstellungen ADD COLUMN unnuetzes_wissen_wechsel_sekunden INTEGER NOT NULL DEFAULT 20")
 
+        if "speicherkontrolle_aktiv" not in einstellungen_spalten:
+            conn.execute("ALTER TABLE einstellungen ADD COLUMN speicherkontrolle_aktiv INTEGER NOT NULL DEFAULT 0")
+        if "speicherkontrolle_container" not in einstellungen_spalten:
+            conn.execute(
+                "ALTER TABLE einstellungen ADD COLUMN speicherkontrolle_container "
+                "TEXT NOT NULL DEFAULT '[\"sd-server\",\"sd-server-pony\"]'"
+            )
+
 
 def _jetzt() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -159,19 +185,23 @@ def ssh_ziel_anlegen(db_path: Path, secret_key_path: Path, *, name: str, host: s
                       port: int, username: str, auth_method: str,
                       geheimnis: dict, remote_ollama_port: int,
                       bildki_port: int | None = None,
-                      bildki_port_pony: int | None = None) -> str:
+                      bildki_port_pony: int | None = None,
+                      steuer_port: int | None = None) -> str:
     """geheimnis enthaelt je nach auth_method: {'password': '...'} oder
-    {'private_key_pem': '...', 'passphrase': '...'} oder {} bei 'agent'."""
+    {'private_key_pem': '...', 'passphrase': '...'} oder {} bei 'agent';
+    optional zusaetzlich {'steuer_token': '...'} fuer den athene-steuerung-
+    Dienst eines 'direct'-Ziels (siehe app/core/athene_steuerung.py)."""
     ziel_id = str(uuid.uuid4())
     verschluesselt = verschluesseln(json.dumps(geheimnis), secret_key_path)
     with _verbindung(db_path) as conn:
         conn.execute(
             "INSERT INTO ssh_targets (id, name, host, port, username, "
             "auth_method, secret_encrypted, remote_ollama_port, bildki_port, "
-            "bildki_port_pony, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "bildki_port_pony, steuer_port, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (ziel_id, name, host, port, username, auth_method, verschluesselt,
-             remote_ollama_port, bildki_port, bildki_port_pony, _jetzt(), _jetzt()),
+             remote_ollama_port, bildki_port, bildki_port_pony, steuer_port,
+             _jetzt(), _jetzt()),
         )
     return ziel_id
 
@@ -181,24 +211,26 @@ def ssh_ziel_aktualisieren(db_path: Path, secret_key_path: Path, ziel_id: str, *
                             auth_method: str, geheimnis: dict | None,
                             remote_ollama_port: int,
                             bildki_port: int | None = None,
-                            bildki_port_pony: int | None = None) -> None:
+                            bildki_port_pony: int | None = None,
+                            steuer_port: int | None = None) -> None:
     with _verbindung(db_path) as conn:
         if geheimnis is not None:
             verschluesselt = verschluesseln(json.dumps(geheimnis), secret_key_path)
             conn.execute(
                 "UPDATE ssh_targets SET name=?, host=?, port=?, username=?, "
                 "auth_method=?, secret_encrypted=?, remote_ollama_port=?, "
-                "bildki_port=?, bildki_port_pony=?, updated_at=? WHERE id=?",
+                "bildki_port=?, bildki_port_pony=?, steuer_port=?, updated_at=? WHERE id=?",
                 (name, host, port, username, auth_method, verschluesselt,
-                 remote_ollama_port, bildki_port, bildki_port_pony, _jetzt(), ziel_id),
+                 remote_ollama_port, bildki_port, bildki_port_pony, steuer_port,
+                 _jetzt(), ziel_id),
             )
         else:
             conn.execute(
                 "UPDATE ssh_targets SET name=?, host=?, port=?, username=?, "
                 "auth_method=?, remote_ollama_port=?, bildki_port=?, "
-                "bildki_port_pony=?, updated_at=? WHERE id=?",
+                "bildki_port_pony=?, steuer_port=?, updated_at=? WHERE id=?",
                 (name, host, port, username, auth_method, remote_ollama_port,
-                 bildki_port, bildki_port_pony, _jetzt(), ziel_id),
+                 bildki_port, bildki_port_pony, steuer_port, _jetzt(), ziel_id),
             )
 
 
@@ -211,8 +243,8 @@ def ssh_ziele_auflisten(db_path: Path) -> list[sqlite3.Row]:
     with _verbindung(db_path) as conn:
         return conn.execute(
             "SELECT id, name, host, port, username, auth_method, "
-            "remote_ollama_port, bildki_port, bildki_port_pony, favorit, "
-            "created_at, updated_at "
+            "remote_ollama_port, bildki_port, bildki_port_pony, steuer_port, "
+            "favorit, created_at, updated_at "
             "FROM ssh_targets ORDER BY favorit DESC, name"
         ).fetchall()
 
@@ -329,6 +361,39 @@ def einstellung_unnuetzes_wissen_schreiben(db_path: Path, *, aktiv: bool,
             "unnuetzes_wissen_start_sekunden=excluded.unnuetzes_wissen_start_sekunden, "
             "unnuetzes_wissen_wechsel_sekunden=excluded.unnuetzes_wissen_wechsel_sekunden",
             (1 if aktiv else 0, start_sekunden, wechsel_sekunden),
+        )
+
+
+SPEICHERKONTROLLE_CONTAINER_STANDARD = ["sd-server", "sd-server-pony"]
+
+
+def einstellung_speicherkontrolle_lesen(db_path: Path) -> tuple[bool, list[str]]:
+    """(aktiv, container-liste) fuer das Feature "KI- und Speicherkontrolle".
+    Ohne je gespeicherte Einstellung: aus, Standard-Containerliste."""
+    with _verbindung(db_path) as conn:
+        zeile = conn.execute(
+            "SELECT speicherkontrolle_aktiv, speicherkontrolle_container "
+            "FROM einstellungen WHERE id=1"
+        ).fetchone()
+    if not zeile:
+        return False, list(SPEICHERKONTROLLE_CONTAINER_STANDARD)
+    try:
+        container = [str(c) for c in json.loads(zeile["speicherkontrolle_container"])]
+    except (ValueError, TypeError):
+        container = list(SPEICHERKONTROLLE_CONTAINER_STANDARD)
+    return bool(zeile["speicherkontrolle_aktiv"]), container
+
+
+def einstellung_speicherkontrolle_schreiben(db_path: Path, *, aktiv: bool,
+                                             container: list[str]) -> None:
+    with _verbindung(db_path) as conn:
+        conn.execute(
+            "INSERT INTO einstellungen (id, speicherkontrolle_aktiv, "
+            "speicherkontrolle_container) VALUES (1, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET "
+            "speicherkontrolle_aktiv=excluded.speicherkontrolle_aktiv, "
+            "speicherkontrolle_container=excluded.speicherkontrolle_container",
+            (1 if aktiv else 0, json.dumps(list(container))),
         )
 
 
