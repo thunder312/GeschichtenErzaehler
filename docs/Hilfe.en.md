@@ -178,6 +178,9 @@ such a target, this area stays hidden in the tab.
 „Prompt vorschlagen“ (Suggest prompt) has an AI formulate a short, German
 image prompt from the outline (title, setting, characters, conflict) —
 deliberately without proper names and without any text-in-image, since the
-image model can't do anything useful with those. The prompt remains freely
-editable and is only automatically translated into English immediately
-before the actual generation.
+image model can't do anything useful with those. If the **character pool**
+records an appearance for the (up to two) main characters, their look (age,
+build, hair, clothing) is folded into the suggestion so the people on the
+cover match the story. The prompt remains freely editable and is only
+automatically translated into English immediately before the actual
+generation.

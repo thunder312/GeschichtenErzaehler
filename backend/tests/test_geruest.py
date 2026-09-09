@@ -344,3 +344,22 @@ def test_titelseite_erzeugen_ohne_vorlage_faellt_auf_epoche_zurueck():
 def test_letztes_geplantes_kapitel():
     assert g.letztes_geplantes_kapitel(BEISPIEL_GERUEST) == 3
     assert g.letztes_geplantes_kapitel("kein Kapitelplan") is None
+
+
+def test_hauptfiguren_namen_beide_geruest_formate_und_limit():
+    architekt = (
+        "## Figuren\n"
+        "*   **Hermine (junge Erwachsene):** Alter: 18. Gryffindor.\n"
+        "*   **Daniel (junger Erwachsener):** Alter: 20; Ravenclaw.\n"
+        "*   **Madam Pince:** Bibliothekarin.\n\n"
+        "## Konflikt\nx\n"
+    )
+    assert g.hauptfiguren_namen(architekt) == ["Hermine", "Daniel"]
+    assert g.hauptfiguren_namen(architekt, max_anzahl=3) == ["Hermine", "Daniel", "Madam Pince"]
+
+    ki_geruest = "## Figuren\n*   **Hermine Granger:** Alter: 18. Schülerin.\n\n## Konflikt\ny\n"
+    assert g.hauptfiguren_namen(ki_geruest) == ["Hermine Granger"]
+
+
+def test_hauptfiguren_namen_ohne_figuren_abschnitt():
+    assert g.hauptfiguren_namen("## Rahmen\nJahr: 1815\n") == []

@@ -281,3 +281,26 @@ def test_kopf_kommentar_extrahieren_liefert_alles_vor_erster_epoche():
 def test_kopf_kommentar_extrahieren_faellt_auf_vorlage_zurueck_ohne_epoche():
     assert fu.kopf_kommentar_extrahieren("") == fu.leere_vorlage()
     assert fu.kopf_kommentar_extrahieren("   ") == fu.leere_vorlage()
+
+
+def test_figuren_aussehen_matcht_epoche_und_teilnamen_nur_mit_aussehen():
+    fundus = (
+        fu.leere_vorlage()
+        + "\n## Harry-Potter-Universum\n\n"
+        + "### Hermine Granger\n- Alter: 18\n- Stand/Rolle: Schülerin\n"
+        + "- Aussehen: buschiges braunes Haar, schmale Statur\n- Geschichten: X\n\n"
+        + "### Daniel Ertl\n- Alter: 20\n- Aussehen: \n- Geschichten: X\n\n"
+        + "## Regency\n\n### Hermine von Falsch\n- Aussehen: darf nicht matchen\n- Geschichten: Y\n"
+    )
+    ergebnis = fu.figuren_aussehen(fundus, "Harry-Potter-Universum", ["Hermine", "Daniel"])
+    # Daniel: kein Aussehen -> raus. Hermine von Falsch: andere Epoche -> raus.
+    assert ergebnis == [("Hermine Granger", "18, Schülerin, buschiges braunes Haar, schmale Statur")]
+
+
+def test_figuren_aussehen_leer_ohne_treffer():
+    assert fu.figuren_aussehen(fu.leere_vorlage(), "Regency", ["Niemand"]) == []
+
+
+def test_name_passt_kurzform_aber_kein_falscher_teiltreffer():
+    assert fu._name_passt("Hermine", "Hermine Granger") is True
+    assert fu._name_passt("Daniel", "Daniela Klein") is False

@@ -210,6 +210,37 @@ def figuren_abschnitt_erkennen(geruest: str) -> str | None:
     return inhalt or None
 
 
+# Namenszeile im '## Figuren'-Abschnitt: "*   **Hermine (junge Erwachsene):**
+# ..." (Architekt-Interview) bzw. "*   **Hermine Granger:** ..." (KI-Geruest,
+# siehe geruest_ki._figuren_block). Faengt den reinen Namen bis zur ersten
+# Klammer, dem Doppelpunkt oder den schliessenden Sternchen.
+_HAUPTFIGUR_NAME_MUSTER = re.compile(r"^\s*[*+-]\s+\*\*\s*([^*(:]+?)\s*(?:\(|:|\*\*)")
+
+
+def hauptfiguren_namen(geruest: str, max_anzahl: int = 2) -> list[str]:
+    """Die ersten `max_anzahl` im '## Figuren'-Abschnitt gelisteten Namen -
+    das sind laut Architekt-/KI-Geruest-Format die Hauptfiguren (nach
+    Wichtigkeit sortiert). Nur der Name, ohne Klammer-/Doppelpunkt-Zusatz
+    ('Hermine (junge Erwachsene):' -> 'Hermine'). Fuer die Cover-Prompt-
+    Anreicherung mit dem Aussehen aus dem Personen-Fundus (siehe
+    app/core/fundus.py:figuren_aussehen, app/api/pipeline.py:
+    cover_prompt_vorschlagen)."""
+    block = figuren_abschnitt_erkennen(geruest)
+    if not block:
+        return []
+    namen: list[str] = []
+    for zeile in block.splitlines():
+        m = _HAUPTFIGUR_NAME_MUSTER.match(zeile)
+        if not m:
+            continue
+        name = m.group(1).strip()
+        if name and name not in namen:
+            namen.append(name)
+        if len(namen) >= max_anzahl:
+            break
+    return namen
+
+
 def jahr_erkennen(geruest: str) -> str:
     """Fallback-Kette: explizite 'Jahr: 1815'-Angabe (laut Architekt-Vorgabe
     MUSS die Zeitangabe im Geruest mit dem Wort "Jahr" davor stehen) -> erste
@@ -421,6 +452,12 @@ COVER_PROMPT_SYSTEM = (
     "Fasse daraus einen kurzen, stichwortartigen Bildprompt AUF DEUTSCH "
     "fuer ein Buchcover zusammen: Szene, Schauplatz, Stimmung/Lichtstimmung, "
     "Bildstil (z.B. 'gemalte Illustration', 'episch', 'filmisches Licht'). "
+    "Wird ein Abschnitt 'AUSSEHEN DER HAUPTFIGUREN' mitgeliefert, sollen "
+    "diese Personen im Bild zu sehen sein: uebernimm ihre beschriebene "
+    "Erscheinung (Alter, Statur, Haarfarbe/-laenge, Kleidung) in den Prompt "
+    "und ordne sie in die Szene ein - aber OHNE ihre Namen. Hoechstens ZWEI "
+    "Personen abbilden, sonst verdoppelt das Modell Gesichter; sind mehr "
+    "genannt, waehle die ersten beiden. "
     "Regeln: KEINE Eigennamen von Figuren (das Modell kann damit nichts "
     "anfangen), KEIN Text/Schriftzug im Bild (das Modell kann keinen "
     "lesbaren Text rendern), keine expliziten/sexuellen Inhalte unabhaengig "

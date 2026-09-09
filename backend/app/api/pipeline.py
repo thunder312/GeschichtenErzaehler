@@ -39,6 +39,7 @@ from app.core import automatik
 from app.core import bild_generierung
 from app.core import befunde_ablehnung
 from app.core import cover_log as cl
+from app.core import fundus as fundus_core
 from app.core import geruest as g
 from app.core import heuristik as h
 from app.core import projekt_dateien as pd
@@ -81,6 +82,7 @@ from app.services import (
     athene_status,
     athene_steuerung_verfuegbar,
     bild_basis_url,
+    fundus_datei,
     ollama_basis_url,
     projekt_pfad,
     rollen_modell_override,
@@ -1855,25 +1857,55 @@ async def story_frage(ordner: str, anfrage: StoryFrageAnfrage, ssh_ziel_id: str 
     return StoryFrageAntwort(antwort=antwort.strip())
 
 
+def _hauptfiguren_aussehen_block(settings: Settings, username: str,
+                                  projekt_root: Path, geruest_text: str) -> str:
+    """Ergaenzt den Cover-Prompt-Kontext um das im Personen-Fundus hinterlegte
+    Aussehen der (bis zu zwei) Hauptfiguren dieser Geschichte - der
+    Geruest-'## Figuren'-Abschnitt selbst fuehrt kein Aussehen-Feld. Leerer
+    String, wenn keine Epoche/kein Fundus/kein passender Eintrag mit Aussehen
+    vorliegt (dann bleibt es beim reinen Szenen-Cover wie bisher)."""
+    namen = g.hauptfiguren_namen(geruest_text, max_anzahl=2)
+    if not namen:
+        return ""
+    epoche = pd.epoche_von_projekt(projekt_root)
+    if not epoche:
+        return ""
+    fundus_text = pd.lies(fundus_datei(settings, username), pflicht=False, ersatz="")
+    if not fundus_text:
+        return ""
+    eintraege = fundus_core.figuren_aussehen(fundus_text, epoche, namen)
+    if not eintraege:
+        return ""
+    zeilen = "\n".join(f"- {name}: {beschreibung}" for name, beschreibung in eintraege)
+    return (
+        "\n\n=== AUSSEHEN DER HAUPTFIGUREN (aus dem Personen-Fundus) ===\n"
+        + zeilen
+    )
+
+
 @router.post("/{ordner:path}/cover/prompt-vorschlagen", response_model=CoverPromptAntwort)
 async def cover_prompt_vorschlagen(ordner: str, ssh_ziel_id: str | None = Query(None),
                                     settings: Settings = Depends(get_settings),
                                     benutzer: Benutzer = Depends(get_current_user)):
-    """Fasst geruest.md per Text-KI-Ziel (ssh_ziel_id, wie bei /pruefen und
-    /stand) zu einem deutschen Bildprompt-Entwurf zusammen - siehe
-    app/core/geruest.py:COVER_PROMPT_SYSTEM. Liefert nur den Prompt-Text,
-    generiert noch KEIN Bild (siehe cover_generieren(), die den Prompt vor
-    der sd-server-Anfrage erst ins Englische uebersetzt)."""
+    """Fasst geruest.md (+ das Aussehen der Hauptfiguren aus dem Personen-
+    Fundus, siehe _hauptfiguren_aussehen_block) per Text-KI-Ziel (ssh_ziel_id,
+    wie bei /pruefen und /stand) zu einem deutschen Bildprompt-Entwurf
+    zusammen - siehe app/core/geruest.py:COVER_PROMPT_SYSTEM. Liefert nur den
+    Prompt-Text, generiert noch KEIN Bild (siehe cover_generieren(), die den
+    Prompt vor der sd-server-Anfrage erst ins Englische uebersetzt)."""
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     projekt = projekt_root / "projekt"
     geruest_text = pd.lies(pd.geruest_datei(projekt), pflicht=False, ersatz="")
     if not geruest_text:
         raise HTTPException(404, "Kein Gerüst gefunden.")
+    kontext = geruest_text + _hauptfiguren_aussehen_block(
+        settings, benutzer.username, projekt_root, geruest_text,
+    )
     with ollama_basis_url(settings, ssh_ziel_id) as base_url:
         modell = rollen_modell_override(settings, "cover_prompt")
         try:
             prompt, _meta = await _sammle_antwort(
-                base_url, "cover_prompt", g.COVER_PROMPT_SYSTEM, geruest_text,
+                base_url, "cover_prompt", g.COVER_PROMPT_SYSTEM, kontext,
                 modell_override=modell,
             )
         except OllamaFehler as e:

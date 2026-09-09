@@ -116,6 +116,39 @@ def test_cover_prompt_vorschlagen_zeigt_hochformat_praefix_sichtbar(client, proj
     assert r.json()["prompt"] == g.COVER_PROMPT_HOCHFORMAT_PRAEFIX + "mittelalterlicher Marktplatz, Abendlicht"
 
 
+def test_cover_prompt_vorschlagen_haengt_hauptfiguren_aussehen_aus_fundus_an(client, projekt, monkeypatch):
+    from app.services import fundus_datei
+
+    settings = app.dependency_overrides[get_settings]()
+    projekt_root = projekt_pfad(settings, settings.default_username, projekt)
+    pd.schreib(
+        pd.geruest_datei(projekt_root / "projekt"),
+        "# STORY-GERUEST\n\n## Figuren\n"
+        "*   **Amelia:** Alter: 24. Baronesse.\n"
+        "*   **Marcus:** Alter: 30. Verwalter.\n\n## Konflikt\nx\n",
+    )
+    fundus_datei(settings, settings.default_username).write_text(
+        "## Regency\n\n### Lady Amelia Hartwell\n- Alter: 24\n- Stand/Rolle: Baronesse\n"
+        "- Aussehen: rotblondes Haar, schmale Gestalt, geflickte Seidenkleider\n- Geschichten: X\n\n"
+        "### Marcus Bell\n- Alter: 30\n- Aussehen: \n- Geschichten: X\n",
+        encoding="utf-8",
+    )
+
+    erhalten = {}
+
+    async def fake_sammle_antwort(base_url, rolle, system, user, format=None, modell_override=None):
+        erhalten["user"] = user
+        return "Szene", {}
+
+    monkeypatch.setattr(api_pipeline, "_sammle_antwort", fake_sammle_antwort)
+    r = client.post(f"/api/projects/{projekt}/cover/prompt-vorschlagen")
+    assert r.status_code == 200
+    assert "AUSSEHEN DER HAUPTFIGUREN" in erhalten["user"]
+    assert "rotblondes Haar, schmale Gestalt" in erhalten["user"]
+    # Marcus: kein Aussehen hinterlegt -> nicht im Block
+    assert "Marcus Bell" not in erhalten["user"]
+
+
 # --- Feature "KI- und Speicherkontrolle": Bild trotz Schreibens -----------
 
 def _speicherkontrolle_an(client):

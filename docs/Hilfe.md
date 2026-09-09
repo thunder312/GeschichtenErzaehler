@@ -170,6 +170,9 @@ Tab ausgeblendet.
 „Prompt vorschlagen“ lässt eine KI aus dem Gerüst (Titel, Setting, Figuren,
 Konflikt) einen kurzen, deutschen Bildprompt formulieren — bewusst ohne
 Eigennamen und ohne Bildtext, da das Bildmodell damit nichts anfangen kann.
-Der Prompt bleibt frei editierbar und wird erst unmittelbar vor der
-eigentlichen Generierung automatisch ins Englische übersetzt.
+Ist im **Personen-Fundus** für die (bis zu zwei) Hauptfiguren ein Aussehen
+hinterlegt, fließt deren Erscheinung (Alter, Statur, Haar, Kleidung) mit in
+den Vorschlag, damit die Personen auf dem Cover zur Geschichte passen. Der
+Prompt bleibt frei editierbar und wird erst unmittelbar vor der eigentlichen
+Generierung automatisch ins Englische übersetzt.
 

@@ -267,6 +267,42 @@ def fundus_parsen(fundus_text: str) -> list[Figur]:
     return ergebnis
 
 
+def _name_passt(kurz_oder_lang_a: str, kurz_oder_lang_b: str) -> bool:
+    """Toleranter Namensabgleich: der kuerzere Name (nach Woertern) muss
+    vollstaendig im laengeren enthalten sein - 'Hermine' passt zu
+    'Hermine Granger', 'Daniel' passt NICHT zu 'Daniela Klein'."""
+    ta, tb = kurz_oder_lang_a.lower().split(), kurz_oder_lang_b.lower().split()
+    kurz, lang = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+    return bool(kurz) and all(w in lang for w in kurz)
+
+
+def figuren_aussehen(fundus_text: str, epoche: str, namen: list[str]) -> list[tuple[str, str]]:
+    """Fuer jeden gesuchten Namen (aus dem Geruest-'## Figuren'-Abschnitt,
+    siehe geruest.hauptfiguren_namen) den passenden Fundus-Eintrag DIESER
+    Epoche suchen und (kanonischer Name, Kurzbeschreibung) liefern - Alter,
+    Stand und Aussehen zu einem Satz zusammengezogen. Eintraege OHNE
+    hinterlegtes Aussehen werden uebersprungen (davon haette das Cover
+    nichts). Reihenfolge = Reihenfolge von `namen`. Fuer die Cover-Prompt-
+    Anreicherung, siehe app/api/pipeline.py:cover_prompt_vorschlagen."""
+    figuren = [
+        f for f in fundus_parsen(fundus_text)
+        if f.epoche.strip().lower() == epoche.strip().lower()
+    ]
+    ergebnis: list[tuple[str, str]] = []
+    for gesucht in namen:
+        treffer = next((f for f in figuren if _name_passt(gesucht, f.name.strip())), None)
+        if treffer is None:
+            continue
+        aussehen = treffer.felder.get("Aussehen", "").strip()
+        if not aussehen:
+            continue
+        alter = treffer.felder.get("Alter", "").strip()
+        stand = (treffer.felder.get("Stand/Rolle", "") or treffer.felder.get("Stand", "")).strip()
+        teile = [t for t in (alter, stand, aussehen) if t]
+        ergebnis.append((treffer.name.strip(), ", ".join(teile)))
+    return ergebnis
+
+
 def fundus_serialisieren(figuren: list[Figur]) -> str:
     """Baut eine komplette fundus.md aus einer flachen Figuren-Liste neu auf
     - Inverse von fundus_parsen(), OHNE den Kopf-Kommentar (der bleibt beim
