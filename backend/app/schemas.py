@@ -164,6 +164,11 @@ class SSHZielAnlegenAnfrage(BaseModel):
     # (siehe app/core/bild_generierung.py) - None bedeutet: kein Pony-Modell
     # auf diesem KI-Ziel verfuegbar. bildki_port bleibt FLUX.
     bildki_port_pony: int | None = Field(default=None, ge=1, le=65535)
+    # Port + Token des athene-steuerung-Dienstes (Feature "KI- und
+    # Speicherkontrolle", siehe app/core/athene_steuerung.py). Nur fuer
+    # 'direct'-Ziele relevant; echte SSH-Ziele steuern per exec_command.
+    steuer_port: int | None = Field(default=None, ge=1, le=65535)
+    steuer_token: str | None = None
 
 
 class SSHZielAntwort(BaseModel):
@@ -176,6 +181,9 @@ class SSHZielAntwort(BaseModel):
     remote_ollama_port: int
     bildki_port: int | None = None
     bildki_port_pony: int | None = None
+    steuer_port: int | None = None
+    # Token wird nie zurueckgegeben (nur ob einer hinterlegt ist).
+    steuer_token_gesetzt: bool = False
     favorit: bool
     created_at: str
     updated_at: str
@@ -183,6 +191,39 @@ class SSHZielAntwort(BaseModel):
 
 class SSHZielFavoritAnfrage(BaseModel):
     favorit: bool
+
+
+# --- KI-Host-Steuerung (Feature "KI- und Speicherkontrolle") --------------
+
+class HostSpeicherInfo(BaseModel):
+    total_mb: int = 0
+    available_mb: int = 0  # nur RAM; bei Swap ungenutzt/0
+    used_mb: int = 0
+
+
+class HostContainerInfo(BaseModel):
+    name: str
+    running: bool
+
+
+class HostOllamaModell(BaseModel):
+    name: str
+    processor: str = ""
+
+
+class HostStatusAntwort(BaseModel):
+    verfuegbar: bool
+    ram: HostSpeicherInfo = HostSpeicherInfo()
+    swap: HostSpeicherInfo = HostSpeicherInfo()
+    containers: list[HostContainerInfo] = []
+    ollama: list[HostOllamaModell] = []
+    herunterfahren_empfohlen: bool = False
+
+
+class HostContainerAktionAntwort(BaseModel):
+    name: str
+    aktion: str
+    running: bool
 
 
 class SSHTestAnfrage(BaseModel):
@@ -538,6 +579,10 @@ class EinstellungenAntwort(BaseModel):
     unnuetzes_wissen_aktiv: bool
     unnuetzes_wissen_start_sekunden: int
     unnuetzes_wissen_wechsel_sekunden: int
+    # Feature "KI- und Speicherkontrolle": beim Schreibstart anbieten, nicht
+    # benoetigte Container auf dem KI-Host herunterzufahren.
+    speicherkontrolle_aktiv: bool = False
+    speicherkontrolle_container: list[str] = []
 
 
 class FundusImportAntwort(BaseModel):
@@ -674,6 +719,8 @@ class EinstellungenAnfrage(BaseModel):
     unnuetzes_wissen_aktiv: bool = True
     unnuetzes_wissen_start_sekunden: int = Field(default=20, ge=0, le=3600)
     unnuetzes_wissen_wechsel_sekunden: int = Field(default=20, ge=3, le=3600)
+    speicherkontrolle_aktiv: bool = False
+    speicherkontrolle_container: list[str] = Field(default_factory=lambda: ["sd-server", "sd-server-pony"])
 
 
 class WissenEintrag(BaseModel):

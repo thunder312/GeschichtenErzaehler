@@ -242,7 +242,7 @@ def ssh_ziel_loeschen(db_path: Path, ziel_id: str) -> None:
 def ssh_ziele_auflisten(db_path: Path) -> list[sqlite3.Row]:
     with _verbindung(db_path) as conn:
         return conn.execute(
-            "SELECT id, name, host, port, username, auth_method, "
+            "SELECT id, name, host, port, username, auth_method, secret_encrypted, "
             "remote_ollama_port, bildki_port, bildki_port_pony, steuer_port, "
             "favorit, created_at, updated_at "
             "FROM ssh_targets ORDER BY favorit DESC, name"

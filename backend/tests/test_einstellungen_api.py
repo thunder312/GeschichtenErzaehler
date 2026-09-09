@@ -176,3 +176,25 @@ def test_einstellungen_schreiben_ist_immer_vollstaendiger_ersatz_nicht_teilupdat
     r = client.put("/api/einstellungen", json={"unterordner_je_epoche": True})
     assert r.status_code == 200
     assert r.json()["bildgenerator_url"] == STANDARD_BILDGENERATOR_URL
+
+
+def test_speicherkontrolle_default_und_roundtrip(client):
+    d = client.get("/api/einstellungen").json()
+    assert d["speicherkontrolle_aktiv"] is False
+    assert d["speicherkontrolle_container"] == ["sd-server", "sd-server-pony"]
+
+    client.put("/api/einstellungen", json={
+        "speicherkontrolle_aktiv": True,
+        "speicherkontrolle_container": ["sd-server", "  ", "mein-container"],
+    })
+    d2 = client.get("/api/einstellungen").json()
+    assert d2["speicherkontrolle_aktiv"] is True
+    assert d2["speicherkontrolle_container"] == ["sd-server", "mein-container"]
+
+
+def test_speicherkontrolle_leere_liste_faellt_auf_standard_zurueck(client):
+    client.put("/api/einstellungen", json={
+        "speicherkontrolle_aktiv": True, "speicherkontrolle_container": [],
+    })
+    d = client.get("/api/einstellungen").json()
+    assert d["speicherkontrolle_container"] == ["sd-server", "sd-server-pony"]

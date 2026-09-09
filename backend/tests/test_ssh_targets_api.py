@@ -243,3 +243,51 @@ def test_bildki_port_wird_gespeichert_und_bleibt_bei_update_erhalten(client):
     ))
     assert r.status_code == 200
     assert r.json()["bildki_port"] == 7860
+
+
+# --- Feature "KI- und Speicherkontrolle" ------------------------------------
+
+def test_steuer_port_und_token_werden_gespeichert_token_nie_zurueckgegeben(client):
+    r = client.post("/api/ssh-targets", json={
+        "name": "Athene", "host": "http://127.0.0.1:18321", "auth_method": "direct",
+        "steuer_port": 18324, "steuer_token": "geheimer-token",
+    })
+    assert r.status_code == 201
+    body = r.json()
+    assert body["steuer_port"] == 18324
+    assert body["steuer_token_gesetzt"] is True
+    assert "steuer_token" not in body
+
+    # Update ohne Token-Feld -> Token bleibt erhalten
+    r2 = client.put(f"/api/ssh-targets/{body['id']}", json={
+        "name": "Athene umbenannt", "host": "http://127.0.0.1:18321", "auth_method": "direct",
+        "steuer_port": 18324,
+    })
+    assert r2.json()["steuer_token_gesetzt"] is True
+
+    # Leerer Token loescht ihn
+    r3 = client.put(f"/api/ssh-targets/{body['id']}", json={
+        "name": "Athene", "host": "http://127.0.0.1:18321", "auth_method": "direct",
+        "steuer_port": 18324, "steuer_token": "",
+    })
+    assert r3.json()["steuer_token_gesetzt"] is False
+
+
+def test_host_status_ohne_steuerweg_liefert_verfuegbar_false(client):
+    r = client.post("/api/ssh-targets", json={
+        "name": "Nur Ollama", "host": "http://127.0.0.1:11434", "auth_method": "direct",
+    })
+    ziel_id = r.json()["id"]
+    s = client.get(f"/api/ssh-targets/{ziel_id}/host-status")
+    assert s.status_code == 200
+    assert s.json()["verfuegbar"] is False
+
+
+def test_container_endpunkt_lehnt_nicht_freigegebenen_namen_ab(client):
+    r = client.post("/api/ssh-targets", json={
+        "name": "Athene", "host": "http://127.0.0.1:18321", "auth_method": "direct",
+        "steuer_port": 18324, "steuer_token": "t",
+    })
+    ziel_id = r.json()["id"]
+    bad = client.post(f"/api/ssh-targets/{ziel_id}/container/postgres/stop")
+    assert bad.status_code == 403

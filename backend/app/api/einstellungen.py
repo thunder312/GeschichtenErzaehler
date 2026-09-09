@@ -27,6 +27,7 @@ def _antwort(settings: Settings) -> EinstellungenAntwort:
     aktuell = Path(override) if override else settings.projects_dir
     bildgenerator_override = db.einstellung_bildgenerator_url_lesen(settings.database_path)
     wissen_aktiv, wissen_start, wissen_wechsel = db.einstellung_unnuetzes_wissen_lesen(settings.database_path)
+    sk_aktiv, sk_container = db.einstellung_speicherkontrolle_lesen(settings.database_path)
     return EinstellungenAntwort(
         projects_dir=str(aktuell.resolve()),
         ist_standard=override is None,
@@ -37,6 +38,8 @@ def _antwort(settings: Settings) -> EinstellungenAntwort:
         unnuetzes_wissen_aktiv=wissen_aktiv,
         unnuetzes_wissen_start_sekunden=wissen_start,
         unnuetzes_wissen_wechsel_sekunden=wissen_wechsel,
+        speicherkontrolle_aktiv=sk_aktiv,
+        speicherkontrolle_container=sk_container,
     )
 
 
@@ -55,6 +58,12 @@ def einstellungen_schreiben(anfrage: EinstellungenAnfrage, settings: Settings = 
         aktiv=anfrage.unnuetzes_wissen_aktiv,
         start_sekunden=anfrage.unnuetzes_wissen_start_sekunden,
         wechsel_sekunden=anfrage.unnuetzes_wissen_wechsel_sekunden,
+    )
+    db.einstellung_speicherkontrolle_schreiben(
+        settings.database_path,
+        aktiv=anfrage.speicherkontrolle_aktiv,
+        container=[c.strip() for c in anfrage.speicherkontrolle_container if c.strip()]
+        or list(db.SPEICHERKONTROLLE_CONTAINER_STANDARD),
     )
 
     neuer_pfad = (anfrage.projects_dir or "").strip()
