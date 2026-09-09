@@ -1,0 +1,46 @@
+# Ollama auf Athene — Text-KI für Geschichten Erzähler.
+#
+# AMD Radeon 780M (gfx1103) via VULKAN, NICHT ROCm: ROCm stürzt auf dieser
+# APU im Runner ab (github.com/Kalim23/Radeon-780M-ollama). Ollama verwirft
+# iGPUs sonst ("dropping integrated GPU") — daher OLLAMA_IGPU_ENABLE.
+#
+# Deploy:  docker compose -f ollama-compose.yaml up -d
+# Modelle: ollama pull gemma4 ; ollama pull mistral-small3.2   (siehe README)
+#
+# Hinweis: die native /etc/systemd/system/ollama.service ist bewusst
+# `disable`d — es läuft NUR dieser Container (bindet Port 11434).
+
+name: ge-ollama
+
+services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    tty: true
+    stdin_open: true
+    environment:
+      OLLAMA_MODELS: /usr/share/ollama
+      OLLAMA_VULKAN: "1"
+      GGML_VK_VISIBLE_DEVICES: "0"
+      OLLAMA_IGPU_ENABLE: "1"
+      OLLAMA_FLASH_ATTENTION: "1"
+      OLLAMA_KV_CACHE_TYPE: "q8_0"
+      OLLAMA_CONTEXT_LENGTH: "8192"
+      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_NUM_PARALLEL: "1"
+    devices:
+      - "/dev/kfd"
+      - "/dev/dri"
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_PTRACE
+    ipc: host
+    group_add:
+      - video
+    volumes:
+      - /home/daniel/.ollama:/root/.ollama
+      - /home/daniel/ollama/models:/usr/share/ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped

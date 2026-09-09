@@ -1,0 +1,31 @@
+[Unit]
+Description=Reverse-SSH-Tunnel zu Strato (Ollama + Bildgenerierung + Steuerung)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=daniel
+# Reverse-Forwards: Strato-lokaler Port  ->  Athene-lokaler Port
+#   18321 -> 11434   Ollama
+#   18322 ->  7860   sd-server (FLUX)
+#   18323 ->  7861   sd-server-pony
+#   18324 ->  7862   athene-steuerung  (Feature "KI- und Speicherkontrolle")
+# Jeder hier ergänzte Port MUSS auch in der Strato-sshd_config im
+# "Match User tunnel"-Block als "PermitOpen localhost:<port>" stehen,
+# sonst schlägt der Tunnel wegen ExitOnForwardFailure komplett fehl.
+ExecStart=/usr/bin/ssh -N \
+    -o ExitOnForwardFailure=yes \
+    -o ServerAliveInterval=15 \
+    -o ServerAliveCountMax=3 \
+    -o StrictHostKeyChecking=accept-new \
+    -i /home/daniel/.ssh/strato_tunnel \
+    -R 18321:127.0.0.1:11434 \
+    -R 18322:127.0.0.1:7860 \
+    -R 18323:127.0.0.1:7861 \
+    -R 18324:127.0.0.1:7862 \
+    tunnel@82.165.153.177
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

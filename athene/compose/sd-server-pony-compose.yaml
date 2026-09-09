@@ -1,0 +1,64 @@
+# sd-server-pony (stable-diffusion.cpp, Vulkan) — Pony Diffusion V6 XL Q8
+# + Realism-LoRA (Stable Yogi) + ControlNet (SDXL Canny) + IP-Adapter (SDXL
+# ViT-H). Fotorealistisch, für erwachsene Fiktion. Port 7861.
+# Eigenständige Instanz neben sd-server (FLUX, Port 7860).
+#
+#   working_dir: /models ist ZWINGEND (siehe sd-server-compose.yaml).
+#   --clip_vision  hat einen UNTERSTRICH (nicht --clip-vision).
+#   --ip-adapter   BRAUCHT zwingend --clip_vision.
+#   sd.cpp lädt immer nur EIN control-net- und EIN ip-adapter-Modell.
+#
+# Modelle holen:  ./modelle-holen.sh pony
+# Deploy:         docker compose -f sd-server-pony-compose.yaml up -d --force-recreate
+# Prüfen:         curl -s http://localhost:7861/sdcpp/v1/capabilities | jq
+#                 -> ip_adapters / control_nets dürfen NICHT null sein.
+#
+# RAM-Not: ControlNet auf CPU verlagern —
+#   --backend te=cpu,controlnet=cpu,diffusion=vulkan0   (statt --clip-on-cpu + vulkan0)
+
+name: ge-sd-server-pony
+
+services:
+  sd-server-pony:
+    image: sd-vulkan
+    container_name: sd-server-pony
+    restart: unless-stopped
+    entrypoint: ["/sd-server"]
+    working_dir: /models
+    cap_add:
+      - SYS_PTRACE
+    devices:
+      - /dev/dri:/dev/dri
+    ports:
+      - "7861:7860"
+    volumes:
+      - /home/daniel/sd-test/models-pony:/models
+    command:
+      - "-m"
+      - "/models/pony-diffusion-v6-xl-Q8_0.gguf"
+      - "--lora-model-dir"
+      - "/models/loras"
+      - "--control-net"
+      - "/models/controlnet/controlnet-canny-sdxl.safetensors"
+      - "--ip-adapter"
+      - "/models/ipadapter/ip-adapter_sdxl_vit-h.safetensors"
+      - "--clip_vision"
+      - "/models/clip_vision/clip_vision_vit_h.safetensors"
+      - "--clip-on-cpu"
+      - "--vae-tiling"
+      - "--backend"
+      - "vulkan0"
+      - "--steps"
+      - "24"
+      - "--cfg-scale"
+      - "5"
+      - "--sampling-method"
+      - "dpm++2m"
+      - "-W"
+      - "1024"
+      - "-H"
+      - "1024"
+      - "--listen-ip"
+      - "0.0.0.0"
+      - "--listen-port"
+      - "7860"

@@ -1,0 +1,19 @@
+[Unit]
+Description=athene-steuerung (RAM/Container-Status + start/stop für Geschichten Erzähler)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+User=__USER__
+WorkingDirectory=__DIR__
+Environment=STEUERUNG_PORT=7862
+Environment=STEUERUNG_TOKEN_FILE=__DIR__/token
+Environment=STEUERBARE_CONTAINER=sd-server,sd-server-pony
+ExecStart=/usr/bin/python3 __DIR__/app.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

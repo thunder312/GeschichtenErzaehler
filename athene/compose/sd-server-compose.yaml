@@ -1,0 +1,59 @@
+# sd-server (stable-diffusion.cpp, Vulkan) — Titelbild-Generierung, Modell
+# FLUX.1-schnell. Port 7860. Läuft neben sd-server-pony (Port 7861) — ein
+# sd-server-Prozess kann immer nur EIN Basismodell geladen haben.
+#
+#   working_dir: /models ist ZWINGEND. Ohne das scannt sd-server bei jeder
+#   Anfrage rekursiv ab / und läuft in /proc -> HTTP 500 "Operation not
+#   permitted [./proc/...]". (cap_add SYS_PTRACE allein reicht NICHT.)
+#
+# Modelle holen:  ./modelle-holen.sh flux
+# Deploy:         docker compose -f sd-server-compose.yaml up -d --force-recreate
+# Prüfen:         curl -s http://localhost:7860/sdcpp/v1/capabilities | jq
+
+name: ge-sd-server
+
+services:
+  sd-server:
+    image: sd-vulkan
+    container_name: sd-server
+    restart: unless-stopped
+    entrypoint: ["/sd-server"]
+    working_dir: /models
+    cap_add:
+      - SYS_PTRACE
+    devices:
+      - /dev/dri:/dev/dri
+    ports:
+      - "7860:7860"
+    volumes:
+      - /home/daniel/sd-test/models:/models
+    command:
+      - "--diffusion-model"
+      - "/models/flux1-schnell-Q4_K_S.gguf"
+      - "--vae"
+      - "/models/ae.safetensors"
+      - "--clip_l"
+      - "/models/clip_l.safetensors"
+      - "--t5xxl"
+      - "/models/t5xxl-Q5_K_M.gguf"     # GGUF, NICHT .safetensors: sd.cpp lädt
+                                        # einen .safetensors-T5 immer als f16
+                                        # (~9,3 GB RAM) -> Swap voll. GGUF Q5_K_M
+                                        # bleibt quantisiert (~3,9 GB).
+      - "--clip-on-cpu"
+      - "--vae-tiling"                  # senkt den VAE-Decode-Peak (~27 GB -> ok)
+      - "--backend"
+      - "vulkan0"
+      - "--steps"
+      - "4"                             # FLUX.1-schnell ist auf 4 Steps distilliert
+      - "--cfg-scale"
+      - "1.0"
+      - "--sampling-method"
+      - "euler"
+      - "-W"
+      - "1024"
+      - "-H"
+      - "1024"
+      - "--listen-ip"
+      - "0.0.0.0"
+      - "--listen-port"
+      - "7860"
