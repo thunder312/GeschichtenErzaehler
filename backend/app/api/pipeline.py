@@ -859,56 +859,14 @@ async def _kapitel_schreiben_kern(
 
 
 # ---------------------------------------------------------------------------
-# Feature "KI- und Speicherkontrolle": beim Schreibstart nicht benoetigte
-# Container auf dem KI-Host herunterfahren (siehe app/core/athene_steuerung.py,
-# athene/README.md). Alle Aufrufe defensiv - schlaegt die Steuerung fehl,
-# wird geschrieben wie bisher.
+# Feature "KI- und Speicherkontrolle": das eigentliche Fragen + Herunterfahren
+# der nicht benoetigten Bild-Container passiert VOR dem Start im Frontend
+# (SchreibenPage: dieselbe Rueckfrage fuer interaktives Schreiben,
+# Automatik-Start UND "Bestaetige alles"). Das Backend bekommt hier nur noch
+# die Liste der bereits gestoppten Container mitgeteilt - fuer den
+# "wieder hochfahren?"-Hinweis nach einem Automatik-Lauf. Siehe
+# app/core/athene_steuerung.py, athene/README.md.
 # ---------------------------------------------------------------------------
-
-def _speicherkontrolle_aktiv_fuer(settings: Settings, ssh_ziel_id: str | None) -> tuple[bool, list[str]]:
-    if not ssh_ziel_id:
-        return False, []
-    aktiv, container = db.einstellung_speicherkontrolle_lesen(settings.database_path)
-    if not aktiv or not container or not athene_steuerung_verfuegbar(settings, ssh_ziel_id):
-        return False, []
-    return True, container
-
-
-def _container_stoppen(settings: Settings, ssh_ziel_id: str, namen: list[str]) -> list[str]:
-    gestoppt: list[str] = []
-    for name in namen:
-        try:
-            athene_container_setzen(settings, ssh_ziel_id, name, "stop")
-            gestoppt.append(name)
-        except ath.SteuerFehler as e:
-            logger.warning("Speicherkontrolle: konnte %s nicht stoppen: %s", name, e)
-    return gestoppt
-
-
-async def _speicherkontrolle_ws_frage(websocket: WebSocket, settings: Settings,
-                                       ssh_ziel_id: str | None) -> None:
-    """Interaktives Schreiben: vor dem ersten KI-Aufruf den Nutzer fragen, ob
-    die im Leerlauf laufenden Bild-Container heruntergefahren werden sollen.
-    Erwartet als Antwort {"aktion": "herunterfahren"|"weiter"}."""
-    aktiv, container = _speicherkontrolle_aktiv_fuer(settings, ssh_ziel_id)
-    if not aktiv:
-        return
-    try:
-        status = await asyncio.to_thread(athene_status, settings, ssh_ziel_id, container)
-    except ath.SteuerFehler:
-        return
-    if not ath.herunterfahren_empfohlen(status):
-        return
-    await websocket.send_json({"phase": "speicherkontrolle", "typ": "frage", "status": status})
-    try:
-        antwort = await asyncio.wait_for(websocket.receive_json(), timeout=180)
-    except (asyncio.TimeoutError, WebSocketDisconnect, ValueError):
-        return
-    if not isinstance(antwort, dict) or antwort.get("aktion") != "herunterfahren":
-        return
-    laufende = [c["name"] for c in status["containers"] if c["running"]]
-    gestoppt = await asyncio.to_thread(_container_stoppen, settings, ssh_ziel_id, laufende)
-    await websocket.send_json({"phase": "speicherkontrolle", "typ": "erledigt", "gestoppt": gestoppt})
 
 
 @router.websocket("/{ordner:path}/ws/schreiben/{n}")
@@ -921,7 +879,6 @@ async def ws_schreiben(websocket: WebSocket, ordner: str, n: int,
     await websocket.accept()
     try:
         projekt_root = projekt_pfad(settings, benutzer.username, ordner)
-        await _speicherkontrolle_ws_frage(websocket, settings, ssh_ziel_id)
         with ollama_basis_url(settings, ssh_ziel_id) as base_url:
             await _kapitel_schreiben_kern(
                 settings, projekt_root, base_url, n, zusatzhinweis, ssh_ziel_id,
@@ -1229,7 +1186,8 @@ def _automatik_on_event(status: dict, projekt_root: Path) -> OnEvent:
 async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: str | None,
                            max_durchlaeufe: int, fortsetzen: bool = False,
                            automatisch_bestaetigen: bool = False,
-                           nur_neue_kapitel: bool = False) -> None:
+                           nur_neue_kapitel: bool = False,
+                           speicherkontrolle_gestoppt: list[str] | None = None) -> None:
     """Hintergrund-Job (siehe automatik_start(), per FastAPI BackgroundTasks
     gestartet - laeuft unabhaengig von einer offenen Browser-Verbindung
     weiter): schreibt zuerst alle fehlenden Kapitel, wendet dann pro
@@ -1296,10 +1254,10 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
         "abgeschlossen": False, "fehler": None,
         "resten_bestaetigt": False,
         "fehler_schritt": None,
-        # Feature "KI- und Speicherkontrolle": am Lauf-Anfang heruntergefahrene
-        # Container - bleibt nach dem Lauf stehen, damit das Frontend "wieder
-        # hochfahren?" anbieten kann.
-        "speicherkontrolle_gestoppt": [],
+        # Feature "KI- und Speicherkontrolle": vom Frontend vor dem Start
+        # (nach Nutzer-Rueckfrage) heruntergefahrene Container - bleibt nach
+        # dem Lauf stehen, damit das Frontend "wieder hochfahren?" anbieten kann.
+        "speicherkontrolle_gestoppt": list(speicherkontrolle_gestoppt or []),
     })
     if fortsetzen_ab_kapitel:
         status["log"].append(
@@ -1318,31 +1276,12 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                 "braucht eine geplante Gesamtzahl an Kapiteln."
             )
         status["gesamt_kapitel"] = letztes
+        if status["speicherkontrolle_gestoppt"]:
+            status["log"].append(
+                f"Speicherkontrolle: {', '.join(status['speicherkontrolle_gestoppt'])} "
+                f"vor dem Lauf heruntergefahren (mehr RAM für den Autor)."
+            )
         _automatik_status_schreiben(status, projekt_root)
-
-        # Feature "KI- und Speicherkontrolle": ein Automatik-Lauf ist der
-        # klassische Fall, in dem die dauerhaft laufenden Bild-Container den
-        # 24B-Autor in den Swap draengen (siehe athene/README.md). Kein
-        # Prompt - der Lauf ist unbeaufsichtigt; nach dem Lauf bietet das
-        # Frontend anhand von status["speicherkontrolle_gestoppt"] das
-        # Wiederhochfahren an.
-        sk_aktiv, sk_container = _speicherkontrolle_aktiv_fuer(settings, ssh_ziel_id)
-        if sk_aktiv:
-            try:
-                host = await asyncio.to_thread(athene_status, settings, ssh_ziel_id, sk_container)
-                laufende = [c["name"] for c in host["containers"] if c["running"]]
-            except ath.SteuerFehler:
-                laufende = []
-            if laufende:
-                gestoppt = await asyncio.to_thread(_container_stoppen, settings, ssh_ziel_id, laufende)
-                if gestoppt:
-                    status["speicherkontrolle_gestoppt"] = gestoppt
-                    status["log"].append(
-                        f"Speicherkontrolle: {', '.join(gestoppt)} heruntergefahren "
-                        f"(mehr RAM für den Autor)."
-                    )
-                    _automatik_status_schreiben(status, projekt_root)
-
         on_event = _automatik_on_event(status, projekt_root)
 
         with ollama_basis_url(settings, ssh_ziel_id) as base_url:
@@ -1637,7 +1576,7 @@ async def automatik_start(ordner: str, anfrage: AutomatikStartAnfrage,
         raise HTTPException(409, "Automatikmodus läuft für dieses Projekt bereits.")
     background_tasks.add_task(
         _automatik_lauf, settings, projekt_root, ssh_ziel_id, anfrage.max_durchlaeufe, anfrage.fortsetzen,
-        anfrage.automatisch_bestaetigen, anfrage.nur_neue_kapitel,
+        anfrage.automatisch_bestaetigen, anfrage.nur_neue_kapitel, anfrage.speicherkontrolle_gestoppt,
     )
     return {"gestartet": True}
 

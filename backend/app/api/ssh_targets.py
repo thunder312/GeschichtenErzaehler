@@ -224,12 +224,15 @@ def host_status(ziel_id: str, settings: Settings = Depends(get_settings),
     das. Liefert `verfuegbar: false` (statt eines Fehlers), wenn dieses
     KI-Ziel keinen Steuer-Weg hat, damit das Frontend das Feature dann
     einfach ausblendet."""
-    _, container = db.einstellung_speicherkontrolle_lesen(settings.database_path)
+    sk_aktiv, container = db.einstellung_speicherkontrolle_lesen(settings.database_path)
     try:
         d = athene_status(settings, ziel_id, container)
     except ath.SteuerFehler:
         return HostStatusAntwort(verfuegbar=False)
-    d["herunterfahren_empfohlen"] = ath.herunterfahren_empfohlen(d)
+    # herunterfahren_empfohlen ist zugleich das Signal fuers Frontend, ob der
+    # Schreibstart-Dialog erscheinen soll - deshalb hier auch an die
+    # Feature-Einstellung koppeln, nicht nur an die Speicherlage.
+    d["herunterfahren_empfohlen"] = sk_aktiv and ath.herunterfahren_empfohlen(d)
     return HostStatusAntwort(**d)
 
 

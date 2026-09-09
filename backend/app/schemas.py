@@ -344,6 +344,10 @@ class AutomatikStartAnfrage(BaseModel):
     # Kapitel davor bleiben komplett unangetastet (keine erneute Pruefung, keine
     # automatische Korrektur) - siehe app/api/pipeline.py:_automatik_lauf.
     nur_neue_kapitel: bool = False
+    # Feature "KI- und Speicherkontrolle": Container, die das Frontend nach
+    # Nutzer-Rückfrage schon VOR dem Start heruntergefahren hat - nur zum
+    # Vermerken im Status (für das "wieder hochfahren?"-Angebot danach).
+    speicherkontrolle_gestoppt: list[str] = []
 
 
 class AutomatikStatusAntwort(BaseModel):

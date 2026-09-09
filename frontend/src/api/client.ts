@@ -428,6 +428,7 @@ export const api = {
     fortsetzen = false,
     automatischBestaetigen = false,
     nurNeueKapitel = false,
+    speicherkontrolleGestoppt: string[] = [],
   ) =>
     anfrage<{ gestartet: boolean }>(
       `/api/projects/${ordner}/automatik/start${sshQuery(sshZielId)}`,
@@ -438,6 +439,7 @@ export const api = {
           fortsetzen,
           automatisch_bestaetigen: automatischBestaetigen,
           nur_neue_kapitel: nurNeueKapitel,
+          speicherkontrolle_gestoppt: speicherkontrolleGestoppt,
         }),
       },
     ),

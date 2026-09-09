@@ -70,11 +70,19 @@ export function SchreibenPage({
   const [frageVerlauf, setFrageVerlauf] = useState<{ frage: string; antwort: string }[]>([]);
   const [ladenFrage, setLadenFrage] = useState(false);
   const [frageFehler, setFrageFehler] = useState<string | null>(null);
-  // Feature "KI- und Speicherkontrolle": Rückfrage vor dem ersten KI-Aufruf
-  // ("Bild-Container herunterfahren?"). Der Server wartet auf die Antwort
-  // über denselben Socket, deshalb hält das den Schreibablauf so lange an.
-  const [speicherkontrolleFrage, setSpeicherkontrolleFrage] = useState<HostStatus | null>(null);
-  const [speicherkontrolleLaeuft, setSpeicherkontrolleLaeuft] = useState(false);
+  // Feature "KI- und Speicherkontrolle": Rückfrage VOR jedem Start (interaktiv,
+  // Automatik, "Bestätige alles") - "Bild-Container herunterfahren?". Rein
+  // clientseitig: der Dialog wird per Promise aufgelöst, dann startet der
+  // eigentliche Ablauf.
+  const [skDialog, setSkDialog] = useState<{
+    status: HostStatus;
+    entscheiden: (herunterfahren: boolean) => void;
+  } | null>(null);
+  const [skLaeuft, setSkLaeuft] = useState(false);
+  // Beim interaktiven Schreiben heruntergefahrene Container - für ein
+  // "wieder hochfahren?"-Banner nach dem Kapitel (beim Automatik kommt das
+  // aus automatikStatus.speicherkontrolle_gestoppt).
+  const [skInteraktivGestoppt, setSkInteraktivGestoppt] = useState<string[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
   const letztesProjekt = useRef<string | null>(null);
   const autoVorgeschlageneNummerRef = useRef<number | null>(null);
@@ -147,11 +155,51 @@ export function SchreibenPage({
     };
   }, [ordner]);
 
+  /** Fragt den KI-Host-Status ab und zeigt bei Speicherdruck den Dialog.
+   * Liefert die Liste der (auf Nutzer-Wunsch) heruntergefahrenen Container -
+   * leer, wenn nichts nötig/gewünscht oder das KI-Ziel nicht steuerbar ist. */
+  function speicherkontrollePruefen(): Promise<string[]> {
+    if (!sshZielId) return Promise.resolve([]);
+    return api
+      .hostStatus(sshZielId)
+      .then((status) => {
+        if (!status.verfuegbar || !status.herunterfahren_empfohlen) return [];
+        return new Promise<string[]>((resolve) => {
+          setSkDialog({
+            status,
+            entscheiden: async (herunterfahren: boolean) => {
+              if (!herunterfahren) {
+                setSkDialog(null);
+                resolve([]);
+                return;
+              }
+              setSkLaeuft(true);
+              const gestoppt: string[] = [];
+              for (const c of status.containers.filter((x) => x.running)) {
+                try {
+                  await api.hostContainer(sshZielId, c.name, "stop");
+                  gestoppt.push(c.name);
+                } catch {
+                  // defensiv: einzelner Fehlschlag stoppt den Start nicht
+                }
+              }
+              setSkLaeuft(false);
+              setSkDialog(null);
+              resolve(gestoppt);
+            },
+          });
+        });
+      })
+      .catch(() => []);
+  }
+
   async function automatikStarten(fortsetzen = false, automatischBestaetigen = false, nurNeueKapitel = false) {
     setAutomatikFehler(null);
+    const gestoppt = await speicherkontrollePruefen();
     try {
       await api.automatikStarten(
         ordner, automatikMaxDurchlaeufe, sshZielId || null, fortsetzen, automatischBestaetigen, nurNeueKapitel,
+        gestoppt,
       );
       setVorschau(null);
       setAutomatikStatus(await api.automatikStatus(ordner));
@@ -268,7 +316,10 @@ export function SchreibenPage({
     setReloadToken((t) => t + 1);
   }, [aktiv, laeuft, onKapitelGeschrieben]);
 
-  function starten() {
+  async function starten() {
+    const gestoppt = await speicherkontrollePruefen();
+    setSkInteraktivGestoppt(gestoppt);
+
     setLaeuft(true);
     setAutorText("");
     setGeladenAusDatei(false);
@@ -286,14 +337,6 @@ export function SchreibenPage({
 
     socket.onmessage = (ereignis) => {
       const nachricht: SchreibenNachricht = JSON.parse(ereignis.data);
-      if (nachricht.phase === "speicherkontrolle") {
-        if (nachricht.typ === "frage") setSpeicherkontrolleFrage(nachricht.status);
-        if (nachricht.typ === "erledigt") {
-          setSpeicherkontrolleFrage(null);
-          setSpeicherkontrolleLaeuft(false);
-        }
-        return;
-      }
       setPhase(nachricht.phase);
       phaseRef.current = nachricht.phase;
       if (nachricht.phase === "autor") {
@@ -339,13 +382,9 @@ export function SchreibenPage({
     socket.onerror = () => {
       setFehler("WebSocket-Verbindung fehlgeschlagen.");
       setLaeuft(false);
-      setSpeicherkontrolleFrage(null);
-      setSpeicherkontrolleLaeuft(false);
       aktivitaetBeenden();
     };
     socket.onclose = () => {
-      setSpeicherkontrolleFrage(null);
-      setSpeicherkontrolleLaeuft(false);
       // Verbindung ist weg, OHNE dass "abgeschlossen" oder "fehler" das schon
       // erklaert hat - z.B. ein Netzwerk-/Tunnel-Aussetzer mitten in der
       // Generierung (haeufigste bekannte Ursache: instabile Strecke zum
@@ -368,15 +407,6 @@ export function SchreibenPage({
       setLaeuft(false);
       aktivitaetBeenden();
     };
-  }
-
-  function speicherkontrolleAntwort(aktion: "herunterfahren" | "weiter") {
-    if (aktion === "herunterfahren") {
-      setSpeicherkontrolleLaeuft(true);
-    } else {
-      setSpeicherkontrolleFrage(null);
-    }
-    socketRef.current?.send(JSON.stringify({ aktion }));
   }
 
   async function fragen() {
@@ -437,13 +467,22 @@ export function SchreibenPage({
 
   return (
     <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_2fr]">
-      {speicherkontrolleFrage && (
+      {skDialog && (
         <SpeicherkontrolleDialog
-          status={speicherkontrolleFrage}
-          wirdAusgefuehrt={speicherkontrolleLaeuft}
-          onHerunterfahren={() => speicherkontrolleAntwort("herunterfahren")}
-          onWeiter={() => speicherkontrolleAntwort("weiter")}
+          status={skDialog.status}
+          wirdAusgefuehrt={skLaeuft}
+          onHerunterfahren={() => skDialog.entscheiden(true)}
+          onWeiter={() => skDialog.entscheiden(false)}
         />
+      )}
+      {!laeuft && skInteraktivGestoppt.length > 0 && (
+        <div className="lg:col-span-2">
+          <SpeicherkontrolleWiederhochBanner
+            key={skInteraktivGestoppt.join(",")}
+            container={skInteraktivGestoppt}
+            zielId={sshZielId || null}
+          />
+        </div>
       )}
       <div className="space-y-4">
         <Card className="h-fit space-y-3">

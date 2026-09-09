@@ -103,9 +103,11 @@ docker start sd-server-pony               # bzw. sd-server
 ```
 
 Das automatisiert das Feature **„KI- und Speicherkontrolle"** (siehe
-`athene/steuerung/` und den Einstellungs-Schalter in der App): beim Schreibstart
-werden die nicht benötigten Bild-Container auf Wunsch heruntergefahren, für ein
-Bild mitten im Schreiben kommt eine Performance-Warnung mit „auf eigene Gefahr".
+`athene/steuerung/` und den Einstellungs-Schalter in der App): vor **jedem**
+Start (interaktives Schreiben, Automatik, „Bestätige alles") fragt die App, ob
+die nicht benötigten Bild-Container heruntergefahren werden sollen; nach einem
+Automatik-Lauf bietet sie das Wiederhochfahren an. Für ein Bild mitten im
+Schreiben kommt eine Performance-Warnung mit „auf eigene Gefahr".
 
 **sd-server liefert HTTP 500 `Operation not permitted [./proc/...]`** →
 `working_dir: /models` fehlt in der Compose-Datei (sd.cpp scannt sonst ab `/`).

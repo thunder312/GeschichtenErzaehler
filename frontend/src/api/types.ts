@@ -518,10 +518,6 @@ export type SchreibenNachricht =
     }
   | { phase: "pruefen"; typ: "start" }
   | { phase: "pruefen"; typ: "done"; befunde: BefundeAntwort }
-  // Feature "KI- und Speicherkontrolle": Rückfrage vor dem ersten KI-Aufruf.
-  // Antwort per socket.send({aktion: "herunterfahren" | "weiter"}).
-  | { phase: "speicherkontrolle"; typ: "frage"; status: HostStatus }
-  | { phase: "speicherkontrolle"; typ: "erledigt"; gestoppt: string[] }
   | { phase: "abgeschlossen"; kapitel_text: string }
   | { phase: "fehler"; typ: "error"; text: string };
 

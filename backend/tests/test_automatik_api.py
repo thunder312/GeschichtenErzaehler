@@ -843,58 +843,26 @@ def test_kapitel_befunde_neu_verankern_repositioniert_offene_funde(tmp_path):
 
 
 # --- Feature "KI- und Speicherkontrolle" -----------------------------------
+# Das Fragen + Herunterfahren macht das Frontend VOR dem Start; das Backend
+# vermerkt nur die schon gestoppten Container fuer das "wieder hochfahren?"-
+# Angebot nach dem Lauf.
 
-def test_automatik_faehrt_bildki_container_herunter_und_merkt_sie_sich(
-    client, projekt_mit_kapitelplan, monkeypatch,
+def test_automatik_uebernimmt_vom_frontend_gestoppte_container_in_den_status(
+    client, projekt_mit_kapitelplan,
 ):
-    r = client.post("/api/ssh-targets", json={
-        "name": "Athene", "host": "http://127.0.0.1:18321", "auth_method": "direct",
-        "steuer_port": 18324, "steuer_token": "t",
-    })
-    ziel_id = r.json()["id"]
-    client.put("/api/einstellungen", json={
-        "speicherkontrolle_aktiv": True,
-        "speicherkontrolle_container": ["sd-server", "sd-server-pony"],
-    })
-
-    gestoppt = []
-    monkeypatch.setattr(pipeline, "athene_steuerung_verfuegbar", lambda *a, **k: True)
-    monkeypatch.setattr(pipeline, "athene_status", lambda *a, **k: {
-        "verfuegbar": True, "ram": {}, "swap": {},
-        "containers": [{"name": "sd-server", "running": True},
-                       {"name": "sd-server-pony", "running": True}],
-        "ollama": [],
-    })
-    monkeypatch.setattr(pipeline, "athene_container_setzen",
-                        lambda s, z, name, aktion: gestoppt.append((name, aktion)) or {"name": name, "aktion": aktion, "running": False})
-
-    r2 = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start?ssh_ziel_id={ziel_id}",
-                     json={"max_durchlaeufe": 1})
-    assert r2.status_code == 200
-
+    r = client.post(
+        f"/api/projects/{projekt_mit_kapitelplan}/automatik/start",
+        json={"max_durchlaeufe": 1, "speicherkontrolle_gestoppt": ["sd-server", "sd-server-pony"]},
+    )
+    assert r.status_code == 200
     status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
     assert status["abgeschlossen"] is True
     assert sorted(status["speicherkontrolle_gestoppt"]) == ["sd-server", "sd-server-pony"]
-    assert {a for _, a in gestoppt} == {"stop"}
     assert any("Speicherkontrolle" in z for z in status["log"])
 
 
-def test_automatik_ohne_speicherkontrolle_ruehrt_container_nicht_an(
-    client, projekt_mit_kapitelplan, monkeypatch,
-):
-    r = client.post("/api/ssh-targets", json={
-        "name": "Athene", "host": "http://127.0.0.1:18321", "auth_method": "direct",
-        "steuer_port": 18324, "steuer_token": "t",
-    })
-    ziel_id = r.json()["id"]
-    # speicherkontrolle_aktiv NICHT gesetzt -> Default aus
-
-    def _darf_nicht_aufgerufen_werden(*a, **k):
-        raise AssertionError("athene_status hätte nicht aufgerufen werden dürfen")
-
-    monkeypatch.setattr(pipeline, "athene_status", _darf_nicht_aufgerufen_werden)
-    r2 = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start?ssh_ziel_id={ziel_id}",
-                     json={"max_durchlaeufe": 1})
-    assert r2.status_code == 200
+def test_automatik_ohne_angabe_hat_leere_gestoppt_liste(client, projekt_mit_kapitelplan):
+    r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/start", json={"max_durchlaeufe": 1})
+    assert r.status_code == 200
     status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
     assert status["speicherkontrolle_gestoppt"] == []

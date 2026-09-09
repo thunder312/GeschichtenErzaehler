@@ -296,3 +296,27 @@ def test_container_endpunkt_lehnt_nicht_freigegebenen_namen_ab(client):
     ziel_id = r.json()["id"]
     bad = client.post(f"/api/ssh-targets/{ziel_id}/container/postgres/stop")
     assert bad.status_code == 403
+
+
+def test_host_status_herunterfahren_empfohlen_nur_wenn_einstellung_an(client, monkeypatch):
+    import app.api.ssh_targets as st
+
+    r = client.post("/api/ssh-targets", json={
+        "name": "Athene", "host": "http://127.0.0.1:18321", "auth_method": "direct",
+        "steuer_port": 18324, "steuer_token": "t",
+    })
+    ziel_id = r.json()["id"]
+    monkeypatch.setattr(st, "athene_status", lambda *a, **k: {
+        "verfuegbar": True, "ram": {"available_mb": 1000, "total_mb": 30000, "used_mb": 29000},
+        "swap": {"used_mb": 3000, "total_mb": 8000},
+        "containers": [{"name": "sd-server", "running": True}], "ollama": [],
+    })
+
+    # Einstellung aus (Default) -> trotz Speicherdruck kein Vorschlag
+    d = client.get(f"/api/ssh-targets/{ziel_id}/host-status").json()
+    assert d["verfuegbar"] is True
+    assert d["herunterfahren_empfohlen"] is False
+
+    client.put("/api/einstellungen", json={"speicherkontrolle_aktiv": True})
+    d2 = client.get(f"/api/ssh-targets/{ziel_id}/host-status").json()
+    assert d2["herunterfahren_empfohlen"] is True
