@@ -133,8 +133,10 @@ cmd_steuerung() {
   sudo systemctl daemon-reload
   sudo systemctl enable --now athene-steuerung.service
   sleep 1
-  curl -fsS -H "Authorization: Bearer $(cat "$tokfile")" http://127.0.0.1:7862/status | head -c 400; echo
-  echo "  ok — Port 7862 (Reverse-Tunnel 18324, siehe './setup.sh tunnel')"
+  curl -sS -H "Authorization: Bearer $(cat "$tokfile")" http://127.0.0.1:7862/status | head -c 400 || true
+  echo
+  systemctl is-active athene-steuerung.service || true
+  echo "  Port 7862 (Reverse-Tunnel 18324, siehe './setup.sh tunnel')"
 }
 
 # -----------------------------------------------------------------------------
