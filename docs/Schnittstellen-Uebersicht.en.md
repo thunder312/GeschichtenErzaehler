@@ -503,6 +503,24 @@ Threshold: 3%. A pure heuristic alarm, not a hard language-detection tool.
 Fixed list of known vague euphemisms (e.g. "Sprache des Samens", "Blumenkelch",
 "eins wurden"), simple substring search on lowercased text.
 
+### 5.7a Punctuation check (slipped replacements)
+
+Purely deterministic, no LLM call (`heuristik.zeichensetzung_pruefen`).
+Detects two patterns that typically arise when a preceding checker
+replacement cut away its surrounding whitespace/quote, and which the LLM
+copy-editor regularly misses:
+
+- **Missing space after sentence punctuation** (`Wort.Wort`, `Wort.„speech`):
+  the preceding word must contain >= 2 consecutive lowercase letters (a
+  leading capital is captured too), followed by a capital letter or an
+  opening `„`. Excludes common abbreviations (z.B., u.a., d.h., Dr., Nr.),
+  digits (`3.Januar`) and three-dot ellipses (`Wort...Der`). In the
+  `pruefen` path additionally surfaced as a **one-click applicable
+  copy-editing finding** with suggestion (`…Wort. Wort…`), see
+  `pipeline._zeichensetzung_roh_befunde`.
+- **Unbalanced quotation marks**: count of `„` != count of `“`, or an odd
+  number of straight `"` - usually an unclosed line of dialogue.
+
 ### 5.8 Narrative-perspective check (first-person drift)
 
 Checks whether the outline prescribes "Dritte Person" (third person) in the

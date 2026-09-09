@@ -500,6 +500,24 @@ Feste Liste bekannter vager Umschreibungen (z. B. „Sprache des Samens",
 „Blumenkelch", „eins wurden"), einfache Teilstring-Suche in
 kleingeschriebenem Text.
 
+### 5.7a Zeichensetzungs-Check (verrutschte Ersetzungen)
+
+Rein deterministisch, kein KI-Aufruf (`heuristik.zeichensetzung_pruefen`).
+Erkennt zwei Muster, die typisch entstehen, wenn eine vorangegangene
+Prüfer-Ersetzung ihre Nachbarschaft mit weggeschnitten hat und die der
+LLM-Lektor regelmäßig übersieht:
+
+- **Fehlendes Leerzeichen nach Satzzeichen** (`Wort.Wort`, `Wort.„Rede`):
+  Wort davor muss ≥ 2 aufeinanderfolgende Kleinbuchstaben enthalten (ein
+  führender Großbuchstabe wird mitgefangen), danach ein Groß­buchstabe oder
+  ein öffnendes `„`. Schließt gängige Abkürzungen (z.B., u.a., d.h., Dr.,
+  Nr.), Ziffern (`3.Januar`) und Drei-Punkt-Auslassungen (`Wort...Der`)
+  aus. Im `pruefen`-Weg zusätzlich als **direkt übernehmbarer
+  Lektorat-Fund** mit Ein-Klick-Vorschlag (`…Wort. Wort…`), siehe
+  `pipeline._zeichensetzung_roh_befunde`.
+- **Unpaarige Anführungszeichen**: Anzahl `„` ≠ Anzahl `“` bzw. ungerade
+  Anzahl gerader `"` - meist eine nicht geschlossene wörtliche Rede.
+
 ### 5.8 Erzählperspektive-Check (Ich-Perspektive-Drift)
 
 Prüft, ob das Geruest im Rahmen-Abschnitt „Dritte Person" vorschreibt, aber

@@ -68,6 +68,25 @@ export function installBefundReview(
     if (!liveRange) return; // sollte durch pruefeVerwaist() bereits abgefangen sein
     const befund = aktuelleBefunde.get(befundId);
     if (!befund?.vorschlag) return;
+
+    // Anker-Check ERNEUT unmittelbar vor dem Ersetzen: der Anker wird sonst
+    // nur beim Anlegen der Decoration (setzeBefunde()) geprueft. Monacos
+    // Decoration-Range verschiebt sich bei Edits an anderer Stelle sauber
+    // mit, waechst aber auch mit, wenn der Nutzer GENAU an/in der markierten
+    // Stelle etwas eintippt (z.B. einen anderen Fund von Hand behebt) - dann
+    // steht dort nicht mehr `fundstelle`, die Decoration kollabiert aber
+    // nicht, pruefeVerwaist() greift also nicht. Ohne diesen Check wuerde
+    // executeEdits() den (haeufig Kontext mit-zitierenden) Vorschlag ueber
+    // die inzwischen veraenderte Spanne legen -> doppelte/zerhackte Saetze
+    // (realer Vorfall "Die-Bibliothek-der-verborgenen-Kapitel"). Statt das zu
+    // riskieren, den Fund wie einen verwaisten behandeln.
+    if (model.getValueInRange(liveRange) !== befund.fundstelle) {
+      erledigt.add(befundId);
+      entferneTracked(befundId);
+      callbacks.onVerwaist(befundId);
+      return;
+    }
+
     editor.executeEdits("befund-apply", [{ range: liveRange, text: befund.vorschlag }]);
     erledigt.add(befundId);
     entferneTracked(befundId);

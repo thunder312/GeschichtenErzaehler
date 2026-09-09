@@ -152,6 +152,72 @@ def anredeform_pruefen(text: str) -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
+# Zeichensetzung (deterministisch erkennbare Folgen verrutschter Ersetzungen)
+# ---------------------------------------------------------------------------
+
+# Wort + Satzzeichen + sofort ein Grossbuchstabe oder oeffnendes
+# Anfuehrungszeichen, ohne Leerzeichen dazwischen ("vorwaertstastete.Die",
+# "Schatten an die Decke.Auf"). Das Wort davor muss mindestens ZWEI
+# aufeinanderfolgende Kleinbuchstaben enthalten (ein fuehrender Grossbuchstabe
+# wird mitgefangen, damit die Fundstelle "Decke.Auf" statt "ecke.Auf" lautet)
+# - das schliesst die gaengigen ein-/zweibuchstabigen Abkuerzungen (z.B., u.a.,
+# d.h., e.V., Dr., Nr.) und Ziffern davor ("am 3.Januar") aus. Drei-Punkt-
+# Auslassungen ("Wort...Der") matchen nicht (vor dem letzten Punkt steht dann
+# selbst ein Punkt, kein Buchstabe). `fundstelle`-tauglich: Gruppe 0 ist eine
+# exakt im Text vorkommende, per finde_fundstelle() auffindbare Zeichenkette.
+_FEHLENDES_LEERZEICHEN_MUSTER = re.compile(
+    r"[A-Za-zÄÖÜäöüß]*[a-zäöüß]{2}[A-Za-zÄÖÜäöüß]*[.!?](?:[A-ZÄÖÜ][A-Za-zÄÖÜäöüß]*|„)"
+)
+
+# Deutsche Gaensefuesschen: U+201E oeffnend, U+201C schliessend (NICHT U+201D -
+# das ist das englische schliessende, das der Autor hier nicht verwendet).
+_ANFUEHRUNG_AUF = "„"  # „
+_ANFUEHRUNG_ZU = "“"   # “
+
+
+def zeichensetzung_pruefen(text: str) -> list[Finding]:
+    """Rein deterministische Prüfungen auf Tippfehler-Muster, die typisch für
+    eine verrutschte Prüfer-Ersetzung sind (die vorangegangene Ersetzung hat
+    das Leerzeichen bzw. das schließende Anführungszeichen mit weggeschnitten)
+    - der LLM-Lektor übersieht genau diese Fälle regelmäßig, obwohl sie ohne
+    jeden KI-Aufruf sicher erkennbar sind (Vorfall
+    "Die-Bibliothek-der-verborgenen-Kapitel", Kapitel 2)."""
+    findings: list[Finding] = []
+
+    stellen: list[str] = []
+    for m in _FEHLENDES_LEERZEICHEN_MUSTER.finditer(text):
+        ausschnitt = text[max(0, m.start() - 12): m.end() + 12]
+        stellen.append(" ".join(ausschnitt.split()))
+    if stellen:
+        gezeigt = stellen[:5]
+        rest = len(stellen) - len(gezeigt)
+        findings.append(Finding(
+            "fehlendes_leerzeichen",
+            f"Nach einem Satzzeichen fehlt {len(stellen)}x das Leerzeichen "
+            f"(oft Folge einer verrutschten Ersetzung): "
+            + " | ".join(f"…{s}…" for s in gezeigt)
+            + (f" (und {rest} weitere)" if rest else ""),
+        ))
+
+    auf, zu = text.count(_ANFUEHRUNG_AUF), text.count(_ANFUEHRUNG_ZU)
+    if auf != zu:
+        findings.append(Finding(
+            "anfuehrungszeichen_unpaarig",
+            f"Unpaarige typografische Anführungszeichen: {auf}× {_ANFUEHRUNG_AUF} "
+            f"gegen {zu}× {_ANFUEHRUNG_ZU} - vermutlich eine wörtliche Rede "
+            f"nicht geschlossen.",
+        ))
+    gerade = text.count('"')
+    if gerade % 2 == 1:
+        findings.append(Finding(
+            "anfuehrungszeichen_unpaarig",
+            f"Ungerade Anzahl gerader Anführungszeichen (\"): {gerade}× - "
+            f"vermutlich eine wörtliche Rede nicht geschlossen.",
+        ))
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # Ausweichformulierungen / Explizitheit
 # ---------------------------------------------------------------------------
 
@@ -506,6 +572,7 @@ def alle_nachbearbeitungs_checks(text: str, geruest: str, stufe: str) -> list[Fi
     findings: list[Finding] = []
     findings += sprachdrift_pruefen(text)
     findings += sprachdrift_lokal_pruefen(text)
+    findings += zeichensetzung_pruefen(text)
     findings += erzaehlperspektive_pruefen(text, geruest)
     findings += anredeform_pruefen(text)
     findings += ausweichformulierungen_pruefen(text)

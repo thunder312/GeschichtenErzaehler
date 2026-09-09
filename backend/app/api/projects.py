@@ -9,6 +9,7 @@ import hashlib
 import shutil
 import time
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
@@ -481,15 +482,61 @@ def kapitel_lesen(ordner: str, n: int, settings: Settings = Depends(get_settings
     return pd.lies(datei)
 
 
+def _befunde_gegen_kapitel_neu_verankern(projekt: Path, n: int) -> None:
+    """Nach einem manuellen Speichern des Kapiteltexts (Tab "Prüfen &
+    Anwenden" -> "Speichern", geht ueber PUT /kapitel/{n}) die in
+    befunde_NN.json gespeicherten start/end-Offsets frisch gegen den neuen
+    Text verankern und die Datei zurueckschreiben - sonst zeigen sie
+    weiterhin auf die Stellen aus dem letzten Pruef-Lauf. befunde_lesen()
+    setzt beim naechsten Laden nur das `veraltet`-Flag (SHA-Vergleich),
+    korrigiert die Offsets aber nicht; ohne Neuverankerung kann ein Fund,
+    dessen Zitat sich durch eine fruehere Bearbeitung verschoben hat, beim
+    naechsten "Übernehmen" an der falschen Stelle gespleisst werden (realer
+    Vorfall "Die-Bibliothek-der-verborgenen-Kapitel", Kapitel 2: mehrfach
+    verrutschte Ersetzungen -> doppelte/zerhackte Saetze).
+
+    Anders als _kapitel_befunde_neu_verankern() im Automatikmodus werden hier
+    ALLE noch gelisteten Funde neu verankert (nicht nur die uebersprungenen):
+    bei einem manuellen Speichern ist nicht bekannt, welche Funde der Nutzer
+    per Editor angewendet und welche er von Hand behoben hat. Ein Fund, dessen
+    Zitat gar nicht mehr woertlich im Text steht, wird von befunde_neu_verankern()
+    auf gefunden=False gesetzt (nicht verworfen) - das Frontend zeigt ihn dann
+    weiterhin, nur ohne Editor-Markierung/Übernehmen-Option."""
+    datei = pd.befunde_datei(projekt, n)
+    if not datei.exists():
+        return
+    try:
+        antwort = BefundeAntwort.model_validate_json(pd.lies(datei))
+    except ValueError:
+        return
+    if not antwort.befunde:
+        return
+
+    # Bewusst gegen den ZURUECKGELESENEN Kapiteltext verankern, nicht gegen den
+    # rohen Request-Body: pd.schreib()/pd.lies() normalisieren (trailing "\n",
+    # strip()), und befunde_lesen() bildet seinen `veraltet`-Hash ebenfalls
+    # ueber pd.lies() - nur so stimmen die beiden SHA-Werte ueberein.
+    kapiteltext = pd.lies(pd.kapitel_datei(projekt, n))
+    aktualisiert = antwort.model_copy(update={
+        "befunde": befunde_neu_verankern(kapiteltext, antwort.befunde),
+        "quelltext_sha256": hashlib.sha256(kapiteltext.encode("utf-8")).hexdigest(),
+        "veraltet": False,
+    })
+    pd.schreib(datei, aktualisiert.model_dump_json(indent=2))
+
+
 @router.put("/{ordner:path}/kapitel/{n}")
 def kapitel_schreiben(ordner: str, n: int, anfrage: GeruestSchreibenAnfrage,
                        settings: Settings = Depends(get_settings),
                        benutzer: Benutzer = Depends(get_current_user)):
     """Speichert einen (ggf. im Merge-Editor von Hand nachbearbeiteten)
     Kapiteltext. Alte Fassung wird wie ueberall automatisch als .bak
-    gesichert (siehe app/core/projekt_dateien.py:schreib)."""
+    gesichert (siehe app/core/projekt_dateien.py:schreib). Verankert
+    anschliessend die gespeicherten Prüfer-Funde neu gegen den neuen Text
+    (siehe _befunde_gegen_kapitel_neu_verankern)."""
     pfad = projekt_pfad(settings, benutzer.username, ordner) / "projekt"
     _, gesichert_als = pd.schreib(pd.kapitel_datei(pfad, n), anfrage.inhalt)
+    _befunde_gegen_kapitel_neu_verankern(pfad, n)
     return {"gesichert_als": gesichert_als}
 
 

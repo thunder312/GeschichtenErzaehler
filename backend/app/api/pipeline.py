@@ -301,6 +301,38 @@ def _satzbau_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefun
     return ergebnis
 
 
+def _zeichensetzung_roh_befunde(kapiteltext: str) -> list[RoherBefund]:
+    """Deterministisch erkennbare "Wort.Wort"-Stellen (fehlendes Leerzeichen
+    nach Satzzeichen) als direkt uebernehmbare Lektorat-Funde - typische
+    Folge einer verrutschten Pruefer-Ersetzung, die der LLM-Lektor
+    regelmaessig uebersieht (Vorfall "Die-Bibliothek-der-verborgenen-
+    Kapitel", Kapitel 2). Anders als h.zeichensetzung_pruefen() (das beim
+    Schreiben nur einen Hinweis-Finding erzeugt) laeuft das hier IM
+    /pruefen-Weg mit, damit die Stelle im Tab "Prüfen & Anwenden" mit
+    Ein-Klick-Vorschlag ("… Die" statt "…Die") auftaucht. Kein KI-Aufruf."""
+    ergebnis: list[RoherBefund] = []
+    gesehen: set[str] = set()
+    for m in h._FEHLENDES_LEERZEICHEN_MUSTER.finditer(kapiteltext):
+        fundstelle = m.group(0)
+        if fundstelle in gesehen:
+            continue
+        gesehen.add(fundstelle)
+        # Leerzeichen genau an der Satzzeichen-Grenze einfuegen.
+        bruch = re.search(r"[.!?]", fundstelle)
+        assert bruch is not None
+        vorschlag = fundstelle[: bruch.end()] + " " + fundstelle[bruch.end():]
+        ergebnis.append(RoherBefund(
+            kategorie="lektorat",
+            fundstelle=fundstelle,
+            beschreibung="Nach dem Satzzeichen fehlt ein Leerzeichen.",
+            sicherheit="hoch",
+            vorschlag=vorschlag,
+            start=m.start(),
+            end=m.end(),
+        ))
+    return ergebnis
+
+
 def _autor_system_prompt(projekt_root: Path) -> str:
     """Haengt an die Autor-Persona optional die vom Nutzer gepflegten
     Stilproben an (siehe app/core/projekt_dateien.py:stilproben_datei) -
@@ -542,6 +574,7 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
     )
     for (satzbau_text, _) in satzbau_antworten:
         roh_befunde += _satzbau_roh_befunde(kapiteltext, satzbau_text)
+    roh_befunde += _zeichensetzung_roh_befunde(kapiteltext)
     # Zusaetzlich zur Deduplizierung INNERHALB jeder einzelnen Pruefer-
     # Antwort (siehe _ohne_eigene_duplikate) hier noch ein Durchgang UEBER
     # alle Quellen hinweg - relevant seit Satzbau in mehreren Abschnitten
@@ -1667,7 +1700,19 @@ async def befund_synthese(ordner: str, n: int, befund_id: str, ssh_ziel_id: str 
         ergebnis, _meta = await _sammle_stream(settings, base_url, "befund_synthese", g.BEFUND_SYNTHESE_SYSTEM, user)
 
     ergebnis = ergebnis.strip()
-    if not ergebnis or vorschlag_verdaechtig(ziel.fundstelle, ergebnis):
+    fehl = not ergebnis or vorschlag_verdaechtig(ziel.fundstelle, ergebnis)
+    if not fehl:
+        # Zusaetzlich pruefen, ob der zusammengefuehrte Text einen an die
+        # Fundstelle angrenzenden Satz mit-zitiert und damit beim Splicen
+        # dupliziert wuerde (fuenftes Fehlerbild, siehe
+        # app/core/befunde_merge.py:vorschlag_dupliziert_kontext) - der
+        # Synthese-Prompt liefert bewusst "genug Kontext", das ist genau die
+        # Situation, in der das passiert.
+        kapiteltext = pd.lies(pd.kapitel_datei(projekt, n), pflicht=False, ersatz="")
+        stelle = finde_fundstelle(kapiteltext, ziel.fundstelle) if kapiteltext else None
+        if stelle and vorschlag_dupliziert_kontext(kapiteltext, stelle[0], stelle[1], ergebnis):
+            fehl = True
+    if fehl:
         raise HTTPException(
             502, "Die KI hat keinen brauchbaren zusammengeführten Vorschlag geliefert - bitte manuell entscheiden.",
         )

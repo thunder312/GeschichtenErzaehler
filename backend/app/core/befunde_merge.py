@@ -250,6 +250,22 @@ def befunde_zusammenfuehren(kapiteltext: str, roh_befunde: list[RoherBefund]) ->
                 kategorien.append(b.kategorie)
 
         vorschlaege = [(b.kategorie, b.vorschlag, b.start, b.end) for b in gruppe if b.vorschlag]
+
+        # Vorschlaege, deren Anwendung einen unmittelbar an die (Cluster-)
+        # Fundstelle angrenzenden Satz duplizieren wuerde (fuenftes
+        # Fehlerbild, siehe vorschlag_dupliziert_kontext oben), hier
+        # herausfiltern. Bisher lief dieser Check ausschliesslich auf dem
+        # EINEN `vorschlag` einer Nicht-Konflikt-Quelle (app/api/pipeline.py:
+        # _*_roh_befunde), nie auf den Einzelmeinungen eines Konflikt-Funds -
+        # genau die landen aber ueber "manuell entscheiden" bzw.
+        # "Zusammenführen" ebenso woertlich im Kapiteltext (realer Vorfall
+        # "Die-Bibliothek-der-verborgenen-Kapitel": Kapitel 2 sammelte durch
+        # verrutschte Ersetzungen mehrere doppelte Satzteile an).
+        vorschlaege = [
+            v for v in vorschlaege
+            if not vorschlag_dupliziert_kontext(kapiteltext, start, end, v[1])
+        ]
+
         distinct = {_normalisiert(v) for _, v, _, _ in vorschlaege}
         konflikt = len(distinct) > 1
 

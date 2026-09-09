@@ -351,3 +351,56 @@ def test_scope_match_bei_aehnlich_grossen_ueberlappenden_funden_bleibt_anwendbar
     fund = ergebnisse[0]
     assert fund["konflikt"] is False
     assert fund["vorschlag"] == "Lord Hartwell"
+
+
+def test_konfliktvorschlag_der_nachbarkontext_dupliziert_wird_verworfen():
+    """Ein Konflikt-Einzelvorschlag, der einen unmittelbar vor der Fundstelle
+    stehenden Satz mit-zitiert, wuerde beim Splicen (bzw. beim manuellen
+    Uebernehmen) diesen Satz verdoppeln - bisher lief der Kontext-Check nur
+    auf dem EINEN `vorschlag` einer Nicht-Konflikt-Quelle. Bleibt danach nur
+    noch ein sauberer Vorschlag uebrig, ist der Fund kein Konflikt mehr."""
+    vorher = "Hermine schuettelte den Kopf und blickte langsam zu Boden hinab. "
+    fundstelle = "Ihre Worte klangen entschlossen."
+    text = vorher + fundstelle + " Die Kerze flackerte."
+    start = text.index(fundstelle)
+    ende = start + len(fundstelle)
+    dupliziert = vorher + "Ihre Worte klangen fest und entschlossen."
+    sauber = "Ihre Worte klangen sehr entschlossen."
+    roh = [
+        RoherBefund(
+            kategorie="kontinuitaet", fundstelle=fundstelle, beschreibung="Ton unklar",
+            sicherheit=None, vorschlag=dupliziert, start=start, end=ende,
+        ),
+        RoherBefund(
+            kategorie="lektorat", fundstelle=fundstelle, beschreibung="Stil",
+            sicherheit="hoch", vorschlag=sauber, start=start, end=ende,
+        ),
+    ]
+    fund = befunde_zusammenfuehren(text, roh)[0]
+    assert fund["konflikt"] is False
+    assert fund["vorschlag"] == sauber
+    assert fund["konflikt_vorschlaege"] is None
+
+
+def test_konflikt_mit_ausschliesslich_kontextduplizierenden_vorschlaegen_bietet_keinen_an():
+    vorher = "Hermine schuettelte den Kopf und blickte langsam zu Boden hinab. "
+    fundstelle = "Ihre Worte klangen entschlossen."
+    text = vorher + fundstelle + " Die Kerze flackerte."
+    start = text.index(fundstelle)
+    ende = start + len(fundstelle)
+    roh = [
+        RoherBefund(
+            kategorie="kontinuitaet", fundstelle=fundstelle, beschreibung="a",
+            sicherheit=None, vorschlag=vorher + "Ihre Worte klangen fest und entschlossen.",
+            start=start, end=ende,
+        ),
+        RoherBefund(
+            kategorie="lektorat", fundstelle=fundstelle, beschreibung="b",
+            sicherheit="hoch", vorschlag=vorher + "Ihre Worte klangen ruhig und entschlossen.",
+            start=start, end=ende,
+        ),
+    ]
+    fund = befunde_zusammenfuehren(text, roh)[0]
+    assert fund["konflikt"] is False
+    assert fund["vorschlag"] is None
+    assert fund["konflikt_vorschlaege"] is None

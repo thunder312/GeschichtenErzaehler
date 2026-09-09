@@ -666,3 +666,57 @@ def pd_kapitel_text_schreiben(projekt_root, n, text):
     from app.core import projekt_dateien as pd
 
     pd.schreib(pd.kapitel_datei(projekt_root / "projekt", n), text)
+
+
+def test_kapitel_schreiben_verankert_gespeicherte_befunde_neu(client, projekt, tmp_path):
+    """PUT /kapitel/{n} (Tab "Prüfen & Anwenden" -> "Speichern") muss die in
+    befunde_NN.json gespeicherten Offsets frisch gegen den neuen Text
+    verankern - sonst zeigen sie weiter auf die Stellen aus dem letzten
+    Pruef-Lauf und ein spaeteres "Übernehmen" spleisst an der falschen
+    Stelle (Vorfall "Die-Bibliothek-der-verborgenen-Kapitel")."""
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    alt = "Der Zauberer reiste nach London."
+    pd_kapitel_text_schreiben(projekt_root, 1, alt)
+    befund = _beispiel_befund(fundstelle="reiste nach London")
+    befund["vorschlag"] = "reiste nach Berlin"
+    befund["start"] = alt.index("reiste nach London")
+    befund["end"] = befund["start"] + len("reiste nach London")
+    _befunde_json_schreiben(projekt_root, 1, [befund])
+
+    neu = "Es war ein kühler Morgen. Der Zauberer reiste nach London."
+    r = client.put(f"/api/projects/{projekt}/kapitel/1", json={"inhalt": neu})
+    assert r.status_code == 200
+
+    gelesen = client.get(f"/api/projects/{projekt}/befunde/1").json()
+    assert gelesen["veraltet"] is False
+    b = gelesen["befunde"][0]
+    assert b["gefunden"] is True
+    assert neu[b["start"]:b["end"]] == "reiste nach London"
+
+
+def test_kapitel_schreiben_markiert_von_hand_behobenen_befund_als_nicht_gefunden(client, projekt, tmp_path):
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    alt = "Sie tastete sich vorwärts.Die Bibliothek lag hinter ihr."
+    pd_kapitel_text_schreiben(projekt_root, 1, alt)
+    befund = _beispiel_befund(fundstelle="vorwärts.Die")
+    befund["vorschlag"] = "vorwärts. Die"
+    befund["start"] = alt.index("vorwärts.Die")
+    befund["end"] = befund["start"] + len("vorwärts.Die")
+    _befunde_json_schreiben(projekt_root, 1, [befund])
+
+    behoben = "Sie tastete sich vorwärts. Die Bibliothek lag hinter ihr."
+    r = client.put(f"/api/projects/{projekt}/kapitel/1", json={"inhalt": behoben})
+    assert r.status_code == 200
+
+    gelesen = client.get(f"/api/projects/{projekt}/befunde/1").json()
+    assert gelesen["veraltet"] is False
+    b = gelesen["befunde"][0]
+    assert b["gefunden"] is False
+    assert b["start"] is None and b["end"] is None
+
+
+def test_kapitel_schreiben_ohne_befunde_datei_ist_unkritisch(client, projekt, tmp_path):
+    projekt_root = tmp_path / "projects" / "daniel" / projekt
+    pd_kapitel_text_schreiben(projekt_root, 1, "Alter Text.")
+    r = client.put(f"/api/projects/{projekt}/kapitel/1", json={"inhalt": "Neuer Text."})
+    assert r.status_code == 200
