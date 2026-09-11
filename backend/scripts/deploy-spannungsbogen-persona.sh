@@ -35,11 +35,11 @@
 # unten (wie beim Python-Skript selbst) - der funktioniert auch nicht-
 # interaktiv zuverlaessig.
 #
-# Aufruf (User fuehrt das selbst per "! ./deploy-spannungsbogen-persona.sh"
+# Aufruf (User fuehrt das selbst per "! ./backend/scripts/deploy-spannungsbogen-persona.sh"
 # aus, siehe [[deploy-classifier-blockiert-scp]] - Uploads zu diesem Server
 # blockiert der Auto-Mode-Classifier auch nach Freigabe):
-#   ./deploy-spannungsbogen-persona.sh            # Dry-Run auf dem Server
-#   ./deploy-spannungsbogen-persona.sh --apply     # tatsaechlich schreiben
+#   ./backend/scripts/deploy-spannungsbogen-persona.sh            # Dry-Run auf dem Server
+#   ./backend/scripts/deploy-spannungsbogen-persona.sh --apply     # tatsaechlich schreiben
 set -e
 cd "$(dirname "$0")"
 
@@ -60,7 +60,7 @@ ssh -i "$KEY" "$HOST" "date -u && journalctl -u geschichten.service -n 15 --no-p
 echo "============================================"
 echo "1/4: Migrationsskript hochladen..."
 echo "============================================"
-scp -i "$KEY" backend/scripts/patch_spannungsbogen_persona.py "$HOST:$REMOTE/backend/scripts/"
+scp -i "$KEY" patch_spannungsbogen_persona.py "$HOST:$REMOTE/backend/scripts/"
 
 echo "============================================"
 echo "2/4: Epochen-Bibliothek (Vorlagen fuer neue Geschichten)..."
@@ -105,7 +105,7 @@ done <<< "$WURZELN"
 echo
 if [[ "$APPLY" != "--apply" ]]; then
   echo "Nur Dry-Run. Zum tatsaechlichen Schreiben:"
-  echo "  ./deploy-spannungsbogen-persona.sh --apply"
+  echo "  ./backend/scripts/deploy-spannungsbogen-persona.sh --apply"
 else
   echo "Fertig."
 fi
