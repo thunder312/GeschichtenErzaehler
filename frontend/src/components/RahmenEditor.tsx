@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import type { FundusFigur } from "../api/types";
 import {
   abschnittBefuellt,
@@ -30,10 +30,158 @@ const RAHMEN_TEXTFELDER: { feld: keyof RahmenFelder; label: string; placeholder?
   { feld: "zeitangabe", label: "Zeitangabe (Jahr)", placeholder: "z.B. Jahr 1815" },
   { feld: "ort", label: "Ort" },
   { feld: "jahreszeit", label: "Jahreszeit (optional)" },
-  { feld: "erzaehlperspektive", label: "Erzählperspektive" },
-  { feld: "tempus", label: "Tempus" },
-  { feld: "tonlage", label: "Tonlage" },
 ];
+
+// Haeufigste Tonlage-Schlagworte als Vorschlaege. Anders als Tempus/
+// Erzaehlperspektive ist Tonlage in echten Geruesten so gut wie nie EIN
+// einzelner Wert, sondern eine Kombination (z.B. "duester, erotisch
+// aufgeladen, mit Elementen von Spannung und Gewalt") - deshalb Mehrfach-
+// auswahl statt Single-Select, nach demselben Chip-Muster wie
+// FigurenAuswahl.tsx (Vorschlaege UND freie Eingabe im selben Feld, kein
+// separater "Andere"-Umschalter noetig).
+const TONLAGE_VORSCHLAEGE = [
+  "düster", "melancholisch", "humorvoll", "romantisch", "spannungsgeladen",
+  "erotisch aufgeladen", "hoffnungsvoll", "bedrohlich", "nostalgisch", "satirisch",
+];
+
+function tagsAusWert(value: string): string[] {
+  return value.split(",").map((t) => t.trim()).filter(Boolean);
+}
+
+function TonlageAuswahl({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [eingabe, setEingabe] = useState("");
+  const [fokussiert, setFokussiert] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const ausgewaehlt = tagsAusWert(value);
+  const ausgewaehltKlein = new Set(ausgewaehlt.map((t) => t.toLowerCase()));
+  const suchtext = eingabe.trim().toLowerCase();
+  const vorschlaege = TONLAGE_VORSCHLAEGE
+    .filter((t) => !ausgewaehltKlein.has(t.toLowerCase()))
+    .filter((t) => !suchtext || t.toLowerCase().includes(suchtext));
+
+  function hinzufuegen(tag: string) {
+    const bereinigt = tag.trim();
+    if (bereinigt && !ausgewaehltKlein.has(bereinigt.toLowerCase())) {
+      onChange([...ausgewaehlt, bereinigt].join(", "));
+    }
+    setEingabe("");
+    inputRef.current?.focus();
+  }
+
+  function entfernen(tag: string) {
+    onChange(ausgewaehlt.filter((t) => t !== tag).join(", "));
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      if (eingabe.trim()) hinzufuegen(eingabe);
+    } else if (e.key === "Backspace" && !eingabe && ausgewaehlt.length > 0) {
+      entfernen(ausgewaehlt[ausgewaehlt.length - 1]);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <Label>Tonlage</Label>
+      <div
+        onClick={() => inputRef.current?.focus()}
+        className="flex min-h-[2.5rem] flex-wrap items-center gap-1.5 rounded-lg border border-border bg-bg px-2 py-1.5 focus-within:border-accent"
+      >
+        {ausgewaehlt.map((tag) => (
+          <span
+            key={tag}
+            className="flex items-center gap-1 rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent-light"
+          >
+            {tag}
+            <button
+              type="button"
+              onClick={() => entfernen(tag)}
+              className="text-accent-light/70 hover:text-accent-light"
+              aria-label={`${tag} entfernen`}
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          value={eingabe}
+          onChange={(e) => setEingabe(e.target.value)}
+          onKeyDown={onKeyDown}
+          onFocus={() => setFokussiert(true)}
+          onBlur={() => setTimeout(() => setFokussiert(false), 120)}
+          placeholder={ausgewaehlt.length === 0 ? "Schlagwort wählen oder frei eingeben..." : ""}
+          className="min-w-[8rem] flex-1 bg-transparent py-0.5 text-sm text-text outline-none placeholder:text-text-muted/70"
+        />
+      </div>
+      {fokussiert && vorschlaege.length > 0 && (
+        <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
+          {vorschlaege.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => hinzufuegen(tag)}
+              className="block w-full px-3 py-1.5 text-left text-sm text-text hover:bg-surface-hover"
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Haeufigste Werte als Presets, damit Autor/Lektor/Pruefer verlaesslich einen
+// bekannten Wortlaut lesen - "Andere" faengt die tatsaechlich vorkommende
+// Vielfalt ab (Ich-Erzaehler, wechselnde Perspektiven zwischen Figuren,
+// Fokus auf eine bestimmte Figur, ...), die anders als bei Tempus zu gross
+// ist fuer ein starres Dropdown.
+const ERZAEHLPERSPEKTIVE_PRESETS = ["Dritte Person personal", "Dritte Person auktorial", "Ich-Erzähler"];
+
+function ErzaehlperspektiveFeld({
+  wert, onChange,
+}: {
+  wert: string;
+  onChange: (wert: string) => void;
+}) {
+  const istPreset = ERZAEHLPERSPEKTIVE_PRESETS.includes(wert.trim());
+  const [andereGewaehlt, setAndereGewaehlt] = useState(!istPreset && wert.trim() !== "");
+  const auswahl = andereGewaehlt ? "andere" : istPreset ? wert.trim() : ERZAEHLPERSPEKTIVE_PRESETS[0];
+
+  return (
+    <div>
+      <Label>Erzählperspektive</Label>
+      <Select
+        value={auswahl}
+        onChange={(e) => {
+          if (e.target.value === "andere") {
+            setAndereGewaehlt(true);
+            return;
+          }
+          setAndereGewaehlt(false);
+          onChange(e.target.value);
+        }}
+      >
+        {ERZAEHLPERSPEKTIVE_PRESETS.map((p) => (
+          <option key={p} value={p}>{p}</option>
+        ))}
+        <option value="andere">Andere (frei formulieren)</option>
+      </Select>
+      {andereGewaehlt && (
+        <Input
+          className="mt-2"
+          value={wert}
+          placeholder="z.B. wechselnde Perspektive zwischen Agnes und Greta"
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
+  );
+}
 
 /** Einzelner, einklappbarer "## "-Abschnitt-Block innerhalb des RahmenEditors
  * - selbes rahmenlose "Karte in der Karte"-Muster wie KapitelplanEditor.tsx
@@ -101,6 +249,24 @@ function RahmenFelderBlock({
             />
           </div>
         ))}
+        <ErzaehlperspektiveFeld
+          wert={felder.erzaehlperspektive}
+          onChange={(wert) => feldAendern("erzaehlperspektive", wert)}
+        />
+        <TonlageAuswahl
+          value={felder.tonlage}
+          onChange={(wert) => feldAendern("tonlage", wert)}
+        />
+        <div>
+          <Label>Tempus</Label>
+          <Select
+            value={felder.tempus}
+            onChange={(e) => feldAendern("tempus", e.target.value as RahmenFelder["tempus"])}
+          >
+            <option value="vergangenheitsform">Vergangenheitsform</option>
+            <option value="praesens">Präsens</option>
+          </Select>
+        </div>
         <div>
           <Label>Jugendschutz-Stufe</Label>
           <Select

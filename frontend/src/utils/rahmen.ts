@@ -131,7 +131,7 @@ function vereinfacht(s: string): string {
 // eine freie Beschreibung, keine feste Bullet-Vorlage, die KI formuliert die
 // tatsaechlichen Labels frei). Ein Bullet, dessen Label hier NICHT auftaucht,
 // landet unveraendert in "weitereAngaben" statt verworfen zu werden.
-type RahmenTextFeld = "zeitangabe" | "ort" | "jahreszeit" | "erzaehlperspektive" | "tempus" | "tonlage";
+type RahmenTextFeld = "zeitangabe" | "ort" | "jahreszeit" | "erzaehlperspektive" | "tonlage";
 
 const RAHMEN_LABEL_ALIASE: Record<string, RahmenTextFeld | undefined> = {
   zeitangabe: "zeitangabe",
@@ -142,7 +142,6 @@ const RAHMEN_LABEL_ALIASE: Record<string, RahmenTextFeld | undefined> = {
   jahreszeit: "jahreszeit",
   erzahlperspektive: "erzaehlperspektive",
   perspektive: "erzaehlperspektive",
-  tempus: "tempus",
   tonlage: "tonlage",
   ton: "tonlage",
 };
@@ -152,7 +151,7 @@ export interface RahmenFelder {
   ort: string;
   jahreszeit: string;
   erzaehlperspektive: string;
-  tempus: string;
+  tempus: "vergangenheitsform" | "praesens";
   tonlage: string;
   jugendschutzStufe: "voll" | "angedeutet" | "jugendfrei";
   automatischeFortsetzung: "ein" | "aus";
@@ -165,7 +164,7 @@ export function leereRahmenFelder(): RahmenFelder {
     ort: "",
     jahreszeit: "",
     erzaehlperspektive: "Dritte Person",
-    tempus: "Vergangenheitsform",
+    tempus: "vergangenheitsform",
     tonlage: "",
     jugendschutzStufe: "voll",
     automatischeFortsetzung: "aus",
@@ -207,6 +206,18 @@ function fortsetzungAusRohwert(wertRoh: string): RahmenFelder["automatischeForts
   return null;
 }
 
+/** In der Praxis gibt es fuer Prosa nur diese zwei sinnvollen Werte (siehe
+ * auch die Tempus-Regel in personas/lektor.txt) - anders als bei
+ * "erzaehlperspektive" lohnt sich hier ein echtes Dropdown statt Freitext,
+ * weil das Feld sonst leicht uneindeutig formuliert wird (z.B. "Vergangenheit"
+ * vs. "Praeteritum" vs. "Vergangenheitsform"). */
+function tempusAusRohwert(wertRoh: string): RahmenFelder["tempus"] | null {
+  const w = entferneWiederholtesLabel(wertRoh, "Tempus").toLowerCase();
+  if (w.includes("praesens") || w.includes("präsens") || w.includes("gegenwart")) return "praesens";
+  if (w.includes("vergangenheit") || w.includes("praeteritum") || w.includes("präteritum")) return "vergangenheitsform";
+  return null;
+}
+
 /** Zerlegt den Body von "## Rahmen" in Einzelfelder. Nie ein Totalausfall wie
  * bei kapitelplanAusGeruestExtrahieren() - jedes Feld hat einen Default (siehe
  * leereRahmenFelder), nicht erkannte Bullets (z.B. "Autor-Modell", oder eine
@@ -229,8 +240,17 @@ export function rahmenFelderAusBody(body: string): RahmenFelder {
     return felder;
   }
 
+  let tempusGefunden = false;
   for (const bullet of bullets) {
     const ziel = RAHMEN_LABEL_ALIASE[vereinfacht(bullet.label)];
+    if (vereinfacht(bullet.label) === "tempus") {
+      const tempus = tempusAusRohwert(bullet.wert);
+      if (tempus) {
+        felder.tempus = tempus;
+        tempusGefunden = true;
+        continue;
+      }
+    }
     if (vereinfacht(bullet.label) === "jugendschutz-stufe" || vereinfacht(bullet.label).includes("jugendschutz")) {
       const stufe = jugendschutzAusRohwert(bullet.wert);
       if (stufe) {
@@ -273,6 +293,10 @@ export function rahmenFelderAusBody(body: string): RahmenFelder {
     const roh = bullets.find((b) => vereinfacht(b.label).includes("automatische fortsetzung"));
     if (roh && roh.wert) unbekannt.push(`Automatische Fortsetzung: ${roh.wert}`);
   }
+  if (!tempusGefunden) {
+    const roh = bullets.find((b) => vereinfacht(b.label) === "tempus");
+    if (roh && roh.wert) unbekannt.push(`Tempus: ${roh.wert}`);
+  }
 
   felder.weitereAngaben = unbekannt.join("\n");
   return felder;
@@ -281,6 +305,7 @@ export function rahmenFelderAusBody(body: string): RahmenFelder {
 export function rahmenBodyAusFelder(felder: RahmenFelder): string {
   const stufeText = { voll: "Voll", angedeutet: "Angedeutet", jugendfrei: "Jugendfrei" }[felder.jugendschutzStufe];
   const fortsetzungText = { ein: "Ein", aus: "Aus" }[felder.automatischeFortsetzung];
+  const tempusText = { vergangenheitsform: "Vergangenheitsform", praesens: "Präsens" }[felder.tempus];
   const zeilen = [
     `*   **Zeitangabe:** ${felder.zeitangabe.trim()}`,
     `*   **Ort:** ${felder.ort.trim()}`,
@@ -288,7 +313,7 @@ export function rahmenBodyAusFelder(felder: RahmenFelder): string {
   if (felder.jahreszeit.trim()) zeilen.push(`*   **Jahreszeit:** ${felder.jahreszeit.trim()}`);
   zeilen.push(
     `*   **Erzählperspektive:** ${felder.erzaehlperspektive.trim()}`,
-    `*   **Tempus:** ${felder.tempus.trim()}`,
+    `*   **Tempus:** ${tempusText}`,
     `*   **Tonlage:** ${felder.tonlage.trim()}`,
     `*   **Jugendschutz-Stufe:** Jugendschutz-Stufe: ${stufeText}`,
     `*   **Autor-Modell:** Autor-Modell: Mistral`,
