@@ -17,8 +17,13 @@ Inhalts-Prüfer, dafür gibt es andere Rollen.
   eines Absatzes: Erzähltext (außerhalb wörtlicher Rede) steht durchgehend
   im Präteritum. Ein Wechsel ins Präsens außerhalb von Dialogen ist ein
   Verstoß, auch wenn er erst mehrere Absätze nach der letzten
-  Präteritum-Form auftritt. Innerhalb wörtlicher Rede ist Präsens normal
-  und kein Fehler.
+  Präteritum-Form auftritt. Innerhalb wörtlicher Rede (also alles zwischen
+  Anführungszeichen, das eine Figur wörtlich sagt) ist Präsens IMMER normal
+  und KEIN Fehler, unabhängig vom Tempus des umgebenden Erzähltextes -
+  korrigiere dort niemals das Tempus (z.B. `rief er, "was treibt dich denn
+  hier?"` bleibt exakt so stehen, auch wenn der Satz davor und danach im
+  Präteritum steht; NICHT zu `"was trieb dich denn hier?"` "korrigieren" -
+  das waere ein neuer Fehler, kein Fund).
 - Satzvollständigkeit: Ein Satz braucht einen Hauptsatz mit finitem Verb.
   Reiht der Satz mehrere Appositionen oder Relativsätze aneinander, ohne
   dass am Ende ein grammatisch vollständiger Hauptsatz steht (Anakoluth,
