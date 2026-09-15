@@ -146,6 +146,32 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   const kiFertigBehandeltRef = useRef(false);
   const onGeaendertRef = useRef(onGeaendert);
   onGeaendertRef.current = onGeaendert;
+  const onOrdnerUmbenanntRef = useRef(onOrdnerUmbenannt);
+  onOrdnerUmbenanntRef.current = onOrdnerUmbenannt;
+
+  /** Ein KI-Gerüst-Entwurf ist fertig (von einmalPruefen unten ODER vom
+   * KiGeruestOverlay-Polling erkannt, je nachdem was zuerst dran ist - siehe
+   * kiPrevLaeuftRef/kiFertigBehandeltRef-Dedup). Benennt den Ordner einmalig
+   * nach dem von der KI gewählten Titel um (sonst bliebe er bis zum nächsten
+   * manuellen "Speichern" beim Platzhalternamen, siehe
+   * backend/app/api/geruest_ki.py-Moduldocstring) und lädt das Gerüst neu.
+   * `ordnerAktuell` kommt als Parameter rein statt aus der Prop `ordner` zu
+   * lesen - nach einer vorherigen Umbenennung in DERSELBEN Session wäre die
+   * Prop sonst noch der alte, inzwischen ungültige Pfad. */
+  async function kiEntwurfAbgeschlossen(ordnerAktuell: string) {
+    kiPrevLaeuftRef.current = false;
+    kiFertigBehandeltRef.current = true;
+    setKiOverlay(null);
+    setKiHinweis(true);
+    try {
+      const { neuer_ordner } = await api.kiGeruestOrdnerAnpassen(ordnerAktuell);
+      if (neuer_ordner) onOrdnerUmbenanntRef.current(neuer_ordner);
+    } catch {
+      // Best effort - der Nutzer kann die Umbenennung jederzeit ueber den
+      // naechsten "Speichern"-Klick nachholen.
+    }
+    onGeaendertRef.current();
+  }
 
   // Status des KI-Gerüst-Entwurfs pollen: einmal beim Betreten des Projekts
   // bzw. nach dem Start eines Entwurfs (kiLaufToken), danach im 8-s-Takt,
@@ -171,12 +197,11 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
           kiPrevLaeuftRef.current = true;
           kiFertigBehandeltRef.current = false;
         } else if (kiPrevLaeuftRef.current && !kiFertigBehandeltRef.current) {
-          kiPrevLaeuftRef.current = false;
-          kiFertigBehandeltRef.current = true;
           if (s.abgeschlossen && !s.fehler) {
-            setKiOverlay(null);
-            setKiHinweis(true);
-            onGeaendertRef.current();
+            kiEntwurfAbgeschlossen(ordner);
+          } else {
+            kiPrevLaeuftRef.current = false;
+            kiFertigBehandeltRef.current = true;
           }
         }
         return s.laeuft;
@@ -725,13 +750,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
         sshZielId={sshZielId}
         startphase={kiOverlay}
         onGestartet={() => setKiLaufToken((t) => t + 1)}
-        onFertig={() => {
-          kiPrevLaeuftRef.current = false;
-          kiFertigBehandeltRef.current = true;
-          setKiOverlay(null);
-          setKiHinweis(true);
-          onGeaendert();
-        }}
+        onFertig={() => kiEntwurfAbgeschlossen(ordner)}
         onAbbrechen={() => setKiOverlay(null)}
       />
     )}

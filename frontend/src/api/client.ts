@@ -216,6 +216,16 @@ export const api = {
   kiGeruestStatus: (ordner: string) =>
     anfrage<KiGeruestStatus>(`/api/projects/${ordner}/geruest-ki/status`),
 
+  /** Einmal aufgerufen, sobald GeruestPage "abgeschlossen" erkennt - benennt
+   * den Ordner nach dem von der KI gewählten Titel um (server-seitig
+   * synchron, siehe backend/app/api/geruest_ki.py:geruest_ki_ordner_anpassen).
+   * Ohne diesen Aufruf bliebe der Ordner (und damit der PDF-Dateiname) bis
+   * zum nächsten manuellen "Speichern" beim Platzhalternamen. */
+  kiGeruestOrdnerAnpassen: (ordner: string) =>
+    anfrage<{ neuer_ordner: string | null }>(`/api/projects/${ordner}/geruest-ki/ordner-anpassen`, {
+      method: "POST",
+    }),
+
   /** Die zuletzt für dieses Projekt abgeschickten Randbedingungen (oder null) -
    * das Overlay bietet sie beim Öffnen zum Übernehmen an, damit man nach einem
    * fehlgeschlagenen/abgebrochenen Lauf nicht alles neu tippen muss. */

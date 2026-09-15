@@ -2,18 +2,23 @@
 designt Gerüst aus ein paar Randbedingungen" und app/core/geruest_ki.py für
 die reine Prompt-/Zusammenbau-Logik).
 
-Zwei Endpunkte, Muster 1:1 vom Analysator (app/api/analysator.py): "starten"
-hängt die lang laufende KI-Anfrage als FastAPI-BackgroundTask an und gibt
-sofort zurück, das Frontend pollt danach "status", bis "abgeschlossen"
-gesetzt ist. Anders als beim Analysator wird KEIN Projekt angelegt - das
-Projekt existiert bereits (der Nutzer öffnet das Overlay aus dem Gerüst-Editor
-bzw. hat es beim Anlegen mit "KI entwirft das Gerüst" als vierten Weg
-gewählt). Der Hintergrund-Task schreibt das fertige geruest.md direkt über
-denselben pd.schreib()-Weg wie das Architekten-Interview; ein Ordner-Umbenennen
-nach dem Titel übernimmt der nächste normale Speichern-Klick in GeruestPage
-(app/api/projects.py:geruest_schreiben) - wie beim Analysator bewusst nicht
-hier, um keinen sich ändernden Ordnerpfad während des Laufs verfolgen zu
-müssen.
+Muster 1:1 vom Analysator (app/api/analysator.py): "starten" hängt die lang
+laufende KI-Anfrage als FastAPI-BackgroundTask an und gibt sofort zurück, das
+Frontend pollt danach "status", bis "abgeschlossen" gesetzt ist. Anders als
+beim Analysator wird KEIN Projekt angelegt - das Projekt existiert bereits
+(der Nutzer öffnet das Overlay aus dem Gerüst-Editor bzw. hat es beim Anlegen
+mit "KI entwirft das Gerüst" als vierten Weg gewählt). Der Hintergrund-Task
+schreibt das fertige geruest.md direkt über denselben pd.schreib()-Weg wie das
+Architekten-Interview - ABER benennt den Ordner bewusst NICHT selbst um (wie
+beim Analysator): der Ordnerpfad ist der Identifier, unter dem das Frontend
+"status" pollt, ein Umbenennen mitten im Polling würde das nächste GET ins
+Leere laufen lassen (Statusdatei "verschwindet" unter dem alten Pfad).
+
+Stattdessen ruft GeruestPage genau EINMAL, sobald es "abgeschlossen" erkennt,
+den dritten Endpunkt "ordner-anpassen" auf - der ist synchron (kein
+Hintergrund-Task, keine Racebedingung mit dem inzwischen beendeten Polling)
+und benennt den Ordner nach dem von der KI gewählten Titel um, exakt wie
+app/api/projects.py:geruest_schreiben es beim manuellen Speichern tut.
 """
 from __future__ import annotations
 
@@ -30,7 +35,9 @@ from app.core import geruest_ki as gk
 from app.core import projekt_dateien as pd
 from app.core.ollama_client import OllamaFehler, chat_stream
 from app.schemas import Benutzer, KiGeruestStartAnfrage, KiGeruestStartAntwort, KiGeruestStatusAntwort
-from app.services import fundus_datei, ollama_basis_url, projekt_pfad, rollen_modell_override
+from app.services import (
+    fundus_datei, ollama_basis_url, ordner_nach_umbenennung, projekt_pfad, rollen_modell_override,
+)
 
 router = APIRouter(prefix="/api/projects", tags=["geruest-ki"])
 
@@ -228,6 +235,22 @@ def geruest_ki_status(ordner: str, settings: Settings = Depends(get_settings),
                        benutzer: Benutzer = Depends(get_current_user)):
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     return KiGeruestStatusAntwort(**gk.status_lesen(projekt_root))
+
+
+@router.post("/{ordner:path}/geruest-ki/ordner-anpassen")
+def geruest_ki_ordner_anpassen(ordner: str, settings: Settings = Depends(get_settings),
+                                benutzer: Benutzer = Depends(get_current_user)):
+    """Von GeruestPage genau einmal aufgerufen, sobald es den Status
+    "abgeschlossen" erkennt (siehe Modul-Docstring oben, warum das nicht schon
+    der Hintergrund-Task selbst macht). Liest das gerade fertig geschriebene
+    geruest.md frisch von der Platte (nicht aus dem Request-Body - das
+    Frontend hat es zu diesem Zeitpunkt evtl. noch gar nicht neu geladen) und
+    benennt den Ordner danach um, exakt wie geruest_schreiben()."""
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    geruest_text = pd.lies(pd.geruest_datei(projekt_root / "projekt"), pflicht=False, ersatz="")
+    neuer_name = pd.projektordner_umbenennen(projekt_root, geruest_text)
+    neuer_ordner = ordner_nach_umbenennung(ordner, neuer_name) if neuer_name else None
+    return {"neuer_ordner": neuer_ordner}
 
 
 @router.get("/{ordner:path}/geruest-ki/eingabe", response_model=KiGeruestStartAnfrage | None)
