@@ -320,3 +320,33 @@ def test_host_status_herunterfahren_empfohlen_nur_wenn_einstellung_an(client, mo
     client.put("/api/einstellungen", json={"speicherkontrolle_aktiv": True})
     d2 = client.get(f"/api/ssh-targets/{ziel_id}/host-status").json()
     assert d2["herunterfahren_empfohlen"] is True
+
+
+def test_erreichbar_direct_ziel_ja(client, monkeypatch):
+    from app.core import ollama_client
+    aufrufe = []
+    monkeypatch.setattr(ollama_client, "tags_sync",
+                        lambda url, timeout=10.0: aufrufe.append((url, timeout)) or {"models": []})
+    ziel_id = client.post("/api/ssh-targets", json=_direct_ziel(host="http://127.0.0.1:18331")).json()["id"]
+    r = client.get(f"/api/ssh-targets/{ziel_id}/erreichbar")
+    assert r.status_code == 200
+    assert r.json()["erfolgreich"] is True
+    # kurzer Timeout, damit ein ausgeschalteter PC den Umschalter nicht lange haengen laesst
+    assert aufrufe == [("http://127.0.0.1:18331", 3.0)]
+
+
+def test_erreichbar_direct_ziel_nein(client, monkeypatch):
+    from app.core import ollama_client
+
+    def kaputt(url, timeout=10.0):
+        raise ConnectionError("Verbindung abgelehnt")
+    monkeypatch.setattr(ollama_client, "tags_sync", kaputt)
+    ziel_id = client.post("/api/ssh-targets", json=_direct_ziel(host="http://127.0.0.1:18331")).json()["id"]
+    r = client.get(f"/api/ssh-targets/{ziel_id}/erreichbar")
+    assert r.status_code == 200
+    assert r.json()["erfolgreich"] is False
+    assert "Verbindung abgelehnt" in r.json()["meldung"]
+
+
+def test_erreichbar_unbekanntes_ziel(client):
+    assert client.get("/api/ssh-targets/gibtsnicht/erreichbar").status_code == 404

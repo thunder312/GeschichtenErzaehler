@@ -497,6 +497,9 @@ export const api = {
   sshZielTesten: (id: string) =>
     anfrage<SSHTestErgebnis>(`/api/ssh-targets/${id}/test`, { method: "POST" }),
 
+  sshZielErreichbar: (id: string) =>
+    anfrage<SSHTestErgebnis>(`/api/ssh-targets/${id}/erreichbar`),
+
   sshVerbindungTestenUngespeichert: (daten: SSHZielEingabe) =>
     anfrage<SSHTestErgebnis>("/api/ssh-targets/test", {
       method: "POST",

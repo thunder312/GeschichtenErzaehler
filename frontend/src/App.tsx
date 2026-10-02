@@ -24,7 +24,11 @@ import { PruefenAnwendenPage } from "./pages/PruefenAnwendenPage";
 import { RechtschreibungPage } from "./pages/RechtschreibungPage";
 import { SchreibenPage } from "./pages/SchreibenPage";
 import { StandExportPage } from "./pages/StandExportPage";
-import { Button, Select } from "./components/ui";
+import { Button } from "./components/ui";
+import { KiZielUmschalter } from "./components/KiZielUmschalter";
+
+// localStorage-Schluessel fuer die zuletzt im Kopfbereich gewaehlte KI-Ziel-ID.
+const KI_ZIEL_SPEICHER = "ki-ziel-id";
 
 function App() {
   const { benutzer, ladend, logout } = useAuth();
@@ -89,11 +93,29 @@ function App() {
     // Nur EINMAL beim ersten Laden der KI-Ziele automatisch vorbelegen -
     // ein spaeter im laufenden Betrieb gesetzter/entfernter Favorit soll die
     // gerade aktive Auswahl nicht nachtraeglich unter dem Nutzer wegziehen.
+    // Vorrang hat die zuletzt im Umschalter gewaehlte Wahl dieses Browsers,
+    // danach der Favorit, danach das erste Ziel.
     if (favoritVorausgewaehlt.current || sshZiele.length === 0) return;
     favoritVorausgewaehlt.current = true;
-    const favorit = sshZiele.find((z) => z.favorit);
-    if (favorit) setSshZielId(favorit.id);
+    let gemerkt: string | null = null;
+    try {
+      gemerkt = window.localStorage.getItem(KI_ZIEL_SPEICHER);
+    } catch {
+      /* Speicher blockiert - dann eben Favorit */
+    }
+    const ziel =
+      sshZiele.find((z) => z.id === gemerkt) ?? sshZiele.find((z) => z.favorit) ?? sshZiele[0];
+    setSshZielId(ziel.id);
   }, [sshZiele]);
+
+  function kiZielWaehlen(id: string) {
+    setSshZielId(id);
+    try {
+      window.localStorage.setItem(KI_ZIEL_SPEICHER, id);
+    } catch {
+      /* nur Komfort - ohne Speicher gilt beim naechsten Laden der Favorit */
+    }
+  }
 
   function projektAuswaehlen(ordner: string) {
     setAktuellesProjekt(ordner);
@@ -177,19 +199,10 @@ function App() {
             // Ein einziges KI-Ziel pro Projekt-Sitzung statt einer eigenen
             // Auswahl in jedem Pipeline-Schritt - innerhalb derselben
             // Geschichte wechselt man das praktisch nie zwischen den
-            // Schritten.
-            <Select
-              value={sshZielId}
-              onChange={(e) => setSshZielId(e.target.value)}
-              className="w-full sm:w-56"
-            >
-              <option value="">Lokal / Standard-Ollama</option>
-              {sshZiele.map((z) => (
-                <option key={z.id} value={z.id}>
-                  {z.name} ({z.host})
-                </option>
-              ))}
-            </Select>
+            // Schritten. Umschalter statt Dropdown: z.B. Athene (langsam,
+            // ueber Nacht) vs. PC (schnell, muss laufen). Ohne angelegte
+            // KI-Ziele bleibt es beim lokalen Standard-Ollama.
+            <KiZielUmschalter ziele={sshZiele} value={sshZielId} onChange={kiZielWaehlen} />
           )}
           <button
             onClick={() => window.open(api.anleitungUrl(), "_blank")}

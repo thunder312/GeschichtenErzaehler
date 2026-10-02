@@ -192,6 +192,28 @@ def verbindung_testen(ziel_id: str, settings: Settings = Depends(get_settings)):
     return SSHTestAntwort(erfolgreich=erfolgreich, meldung=meldung)
 
 
+@router.get("/{ziel_id}/erreichbar", response_model=SSHTestAntwort)
+def erreichbar(ziel_id: str, settings: Settings = Depends(get_settings),
+               benutzer: Benutzer = Depends(get_current_user)):
+    """Leichtgewichtiger Erreichbarkeits-Check fuer den KI-Ziel-Umschalter im
+    Kopfbereich (frontend/src/components/KiZielUmschalter.tsx) - z.B. ob der
+    PC laeuft, bevor man darauf einen Lauf startet. Anders als /test fuer
+    jeden eingeloggten Nutzer und mit kurzem Timeout bei 'direct'-Zielen.
+    Wird nur beim Umschalten/Laden aufgerufen, NICHT gepollt (paralleler
+    SSH-Verkehr bremst laufende LLM-Aufrufe ueber denselben Tunnel)."""
+    row = db.ssh_ziel_lesen(settings.database_path, ziel_id)
+    if row is None:
+        raise HTTPException(404, "KI-Ziel nicht gefunden.")
+    if row["auth_method"] == "direct":
+        try:
+            ollama_client.tags_sync(row["host"], timeout=3.0)
+            return SSHTestAntwort(erfolgreich=True, meldung="Ollama erreichbar.")
+        except Exception as e:
+            return SSHTestAntwort(erfolgreich=False, meldung=f"Nicht erreichbar: {e}")
+    erfolgreich, meldung = ssh_manager.verbindung_testen(ssh_ziel_aus_db(settings, ziel_id))
+    return SSHTestAntwort(erfolgreich=erfolgreich, meldung=meldung)
+
+
 @router.get("/{ziel_id}/modelle", response_model=list[OllamaModellInfo], dependencies=[Depends(get_current_admin)])
 async def modelle_auflisten(ziel_id: str, settings: Settings = Depends(get_settings)):
     """Fragt die auf diesem KI-Ziel tatsaechlich verfuegbaren Ollama-Modelle

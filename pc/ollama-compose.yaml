@@ -1,0 +1,46 @@
+# Ollama auf dem Windows-PC — Text-KI für Geschichten Erzähler.
+# Gegenstück zu athene/compose/ollama-compose.yaml, aber mit NVIDIA-GPU
+# (Docker Desktop + WSL2). Ausgelegt auf die RTX 5070 Ti (16 GB VRAM),
+# läuft auch auf der 3070 Ti (8 GB), dann mit Auslagerung in den RAM.
+#
+# Deploy:  docker compose -f ollama-compose.yaml up -d
+# Modelle: docker exec ollama ollama pull mistral-small3.2
+#          docker exec ollama ollama pull gemma4
+# GPU-Check: docker exec ollama ollama ps   -> Spalte PROCESSOR "100% GPU"?
+#
+# Unterschiede zu Athene, alle wegen der geteilten GPU mit den Bild-KIs
+# (D:\KI-Server\Dienste\bild-kis*.yaml):
+#   - OLLAMA_KEEP_ALIVE 10m statt -1: das Modell gibt den VRAM nach einer
+#     Pause wieder frei, sonst startet danach keine Bild-KI mehr.
+#   - OLLAMA_MAX_LOADED_MODELS 1: Mistral (~15 GB) und gemma4 passen nicht
+#     gleichzeitig in 16 GB; beim Rollenwechsel wird umgeladen (Sekunden).
+#   - Port nur auf 127.0.0.1: Zugriff von außen ausschließlich über den
+#     Reverse-Tunnel (strato-tunnel.ps1) bzw. die lokale Dev-App.
+
+name: ge-ollama
+
+services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    environment:
+      OLLAMA_FLASH_ATTENTION: "1"
+      # Halbiert den Kontext-Speicher - damit passt Mistral Small 3.2 (q4)
+      # mit num_ctx 16384 fast/ganz in 16 GB VRAM.
+      OLLAMA_KV_CACHE_TYPE: "q8_0"
+      OLLAMA_CONTEXT_LENGTH: "8192"
+      OLLAMA_KEEP_ALIVE: "10m"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - D:/KI-Server/Modelle/ollama:/root/.ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    restart: unless-stopped
