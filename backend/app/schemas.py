@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class EpocheKurz(BaseModel):
@@ -170,6 +170,13 @@ class SSHZielAnlegenAnfrage(BaseModel):
     steuer_port: int | None = Field(default=None, ge=1, le=65535)
     steuer_token: str | None = None
 
+    # Beim Einfuegen aus der Zwischenablage rutschen leicht Leerzeichen mit
+    # rein - " http://..." wuerde sonst die http(s)://-Pruefung reissen.
+    @field_validator("host", "username", mode="before")
+    @classmethod
+    def _leerzeichen_weg(cls, v):
+        return v.strip() if isinstance(v, str) else v
+
 
 class SSHZielAntwort(BaseModel):
     id: str
@@ -235,6 +242,13 @@ class SSHTestAnfrage(BaseModel):
     private_key_pem: str | None = None
     private_key_passphrase: str | None = None
     remote_ollama_port: int = Field(default=11434, ge=1, le=65535)
+
+    # Beim Einfuegen aus der Zwischenablage rutschen leicht Leerzeichen mit
+    # rein - " http://..." wuerde sonst die http(s)://-Pruefung reissen.
+    @field_validator("host", "username", mode="before")
+    @classmethod
+    def _leerzeichen_weg(cls, v):
+        return v.strip() if isinstance(v, str) else v
 
 
 class SSHTestAntwort(BaseModel):
