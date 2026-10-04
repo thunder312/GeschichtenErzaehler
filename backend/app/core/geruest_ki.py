@@ -187,6 +187,12 @@ Dramaturgie:
   auch wenn "schluss" weiter geht; vermerke die Anpassung in "zeitlinie_kurz".
 - Alles unter "tabus" wird ausgelassen.
 
+titel_der_geschichte: ein kurzer, einprägsamer Titel, der zur "praemisse"
+passt. Er darf keine Figur anders darstellen als in "figuren"/"praemisse"
+angegeben (Stand, Beruf, Rang: keine "Königin" für eine Magd, kein "Graf"
+für einen Knecht) und keine Handlung vorwegnehmen, die dort nicht steht.
+Verwende die Namen der Hauptfiguren statt erfundener Rollenbezeichnungen.
+
 zeitlinie_kurz: ein Satz pro Kapitel - wann es spielt, wie groß der Abstand
 zum Vorkapitel ist.
 

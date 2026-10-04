@@ -9,6 +9,7 @@ import { OrdnerUmbenennenDialog } from "../components/OrdnerUmbenennenDialog";
 import { KapitelplanEditor } from "../components/KapitelplanEditor";
 import { RahmenEditor } from "../components/RahmenEditor";
 import { Badge, Button, Card, CardTitle } from "../components/ui";
+import { ordnernameAusTitel, titelAusGeruest } from "../utils/geruestVorlage";
 import {
   geruestAusKapitelplanZusammenbauen,
   kapitelPflichtfelderPruefen,
@@ -337,7 +338,16 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
         setGespeichertHinweis(`Gespeichert - Ordner umbenannt in "${antwort.neuer_ordner}".${zusatz}`);
       } else {
         onGeaendert();
-        setGespeichertHinweis(`Gespeichert.${zusatz}`);
+        // Titel im Gerüst und Ordnername laufen auseinander (Umbenennen beim
+        // Speichern klappt nur, solange noch kein Kapitel existiert) - das
+        // Kapitel-1-Titelblatt nutzt den Gerüst-Titel, der Ordner den alten.
+        const titel = titelAusGeruest(inhalt);
+        const ordnerOhneZaehler = aktuellerOrdnerName.replace(/-\d+$/, "");
+        const abweichung =
+          titel && ordnernameAusTitel(titel) !== aktuellerOrdnerName && ordnernameAusTitel(titel) !== ordnerOhneZaehler
+            ? ` Hinweis: Der Titel "${titel}" passt nicht zum Ordnernamen "${aktuellerOrdnerName}" - bei Bedarf "Ordner umbenennen".`
+            : "";
+        setGespeichertHinweis(`Gespeichert.${zusatz}${abweichung}`);
       }
     } catch (e) {
       // Ueblicherweise die 400-Antwort von geruest_schreiben() bei einem

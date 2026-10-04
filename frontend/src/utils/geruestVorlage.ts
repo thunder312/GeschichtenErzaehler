@@ -91,3 +91,23 @@ Die Jugendschutz-Stufe MUSS wörtlich "Jugendschutz-Stufe: Voll" oder "Jugendsch
 Das LETZTE Kapitel im Kapitelplan MUSS die vollständige Auflösung des Kernkonflikts (und eines evtl. Nebenstrangs) enthalten, kein offener Cliffhanger.
 `;
 }
+
+/** "## Titel"-Zeile eines Gerüsts (Spiegel von geruest.py:titel_erkennen). */
+export function titelAusGeruest(geruest: string): string | null {
+  const treffer = geruest.match(/##\s*Titel\s*\n+(.+)/);
+  if (!treffer) return null;
+  return treffer[1].trim().replace(/^[a-d]\)\s*/, "") || null;
+}
+
+/** Spiegel von geruest.py:ordnername_aus_titel. */
+export function ordnernameAusTitel(titel: string): string {
+  const ersatz: Record<string, string> = { ä: "ae", ö: "oe", ü: "ue", Ä: "Ae", Ö: "Oe", Ü: "Ue", ß: "ss" };
+  const slug = titel
+    .replace(/[äöüÄÖÜß]/g, (z) => ersatz[z])
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^A-Za-z0-9\-_.]/g, "")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "Neues-Projekt";
+}
