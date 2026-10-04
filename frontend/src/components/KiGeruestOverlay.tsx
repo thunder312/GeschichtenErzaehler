@@ -86,6 +86,8 @@ const HILFE_PRAEMISSE_VERLAUF = (
   </>
 );
 
+const SCHRITTE = ["Grundlagen", "Figuren", "Handlung"];
+
 const PHASE_LABEL: Record<string, string> = {
   entwurf: "Die KI entwirft den Kapitelplan...",
   fertig: "Fertig.",
@@ -111,7 +113,9 @@ export function KiGeruestOverlay({
   const [status, setStatus] = useState<KiGeruestStatus | null>(null);
   const [wirdGestartet, setWirdGestartet] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
-  const [mehrOffen, setMehrOffen] = useState(false);
+  // Formular in drei Schritten (Grundlagen / Figuren / Handlung) - ein einziges
+  // langes Formular war für die Figuren-Beschreibungen zu eng.
+  const [schritt, setSchritt] = useState(0);
   // Sicherheitsabfrage vor dem Schließen mit ausgefülltem Formular - das
   // Overlay schließt NICHT mehr per Klick auf den Hintergrund (zu leicht aus
   // Versehen ausgelöst, Eingaben gingen verloren), nur noch über ✕/Abbrechen,
@@ -166,10 +170,6 @@ export function KiGeruestOverlay({
         setSchluss(e.schluss ?? "");
         setTabus(e.tabus ?? "");
         setFiguren(e.figuren ?? []);
-        if ((e.verlauf ?? "") || (e.konflikt ?? "") || (e.schluss ?? "") || (e.tabus ?? "") ||
-            (e.dramatik ?? "") || (e.zeitraum ?? "")) {
-          setMehrOffen(true);
-        }
         setAusLetztemLauf(true);
       })
       .catch(() => {});
@@ -316,7 +316,7 @@ export function KiGeruestOverlay({
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
     >
-      <div className="relative my-8 w-full max-w-2xl rounded-2xl border border-border bg-surface p-6 shadow-2xl shadow-black/50">
+      <div className="relative my-4 w-full max-w-5xl rounded-2xl border border-border bg-surface p-6 shadow-2xl shadow-black/50">
         {abbruchNachfrage && (
           <div className="absolute inset-0 z-30 flex items-center justify-center rounded-2xl bg-surface/95 p-6">
             <div className="max-w-sm text-center">
@@ -364,6 +364,25 @@ export function KiGeruestOverlay({
                 </button>
               </div>
             )}
+            <div className="flex gap-2 border-b border-border pb-3">
+              {SCHRITTE.map((name, i) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setSchritt(i)}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                    i === schritt
+                      ? "border-accent bg-accent-soft text-accent-light"
+                      : "border-border text-text-muted hover:border-accent"
+                  }`}
+                >
+                  {i + 1}. {name}
+                </button>
+              ))}
+            </div>
+
+            {schritt === 0 && (
+              <div className="space-y-3">
             <div>
               <div className="flex items-center gap-1.5">
                 <Label>Prämisse (Pflicht)</Label>
@@ -372,7 +391,7 @@ export function KiGeruestOverlay({
                 </FeldHilfe>
               </div>
               <Textarea
-                rows={3}
+                rows={5}
                 value={praemisse}
                 onChange={(e) => setPraemisse(e.target.value)}
                 placeholder="Ein bis drei Sätze: Worum geht es? Wer trifft wen, was verbindet sie?"
@@ -427,6 +446,11 @@ export function KiGeruestOverlay({
               </div>
             </div>
 
+              </div>
+            )}
+
+            {schritt === 1 && (
+              <div className="space-y-3">
             <div>
               <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                 <Label>Hauptfiguren (optional)</Label>
@@ -459,38 +483,37 @@ export function KiGeruestOverlay({
               </div>
               <div className="space-y-2">
                 {figuren.map((f, i) => (
-                  <div key={i} className="grid grid-cols-1 gap-2 rounded-lg border border-border bg-bg/40 p-2 sm:grid-cols-[1.2fr_0.6fr_1fr_1.6fr_auto]">
-                    <Input value={f.name} onChange={(e) => figurAendern(i, "name", e.target.value)} placeholder="Name" />
-                    <Input value={f.alter} onChange={(e) => figurAendern(i, "alter", e.target.value)} placeholder="Alter" />
-                    <Input value={f.rolle} onChange={(e) => figurAendern(i, "rolle", e.target.value)} placeholder="Rolle" />
-                    <Input
+                  <div key={i} className="space-y-2 rounded-lg border border-border bg-bg/40 p-3">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1.4fr_0.6fr_1fr_auto]">
+                      <Input value={f.name} onChange={(e) => figurAendern(i, "name", e.target.value)} placeholder="Name" />
+                      <Input value={f.alter} onChange={(e) => figurAendern(i, "alter", e.target.value)} placeholder="Alter" />
+                      <Input value={f.rolle} onChange={(e) => figurAendern(i, "rolle", e.target.value)} placeholder="Rolle" />
+                      <button
+                        type="button"
+                        onClick={() => setFiguren((b) => b.filter((_, j) => j !== i))}
+                        className="text-red-400/70 hover:text-red-400"
+                        aria-label="Figur entfernen"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <Textarea
+                      rows={5}
                       value={f.kurzbeschreibung}
                       onChange={(e) => figurAendern(i, "kurzbeschreibung", e.target.value)}
-                      placeholder="Kurzbeschreibung"
+                      placeholder="Beschreibung: Eigenschaften, Aussehen, Ziele, Ängste, Geheimnisse ..."
                     />
-                    <button
-                      type="button"
-                      onClick={() => setFiguren((b) => b.filter((_, j) => j !== i))}
-                      className="text-red-400/70 hover:text-red-400"
-                      aria-label="Figur entfernen"
-                    >
-                      ✕
-                    </button>
                   </div>
                 ))}
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setMehrOffen((o) => !o)}
-              className="text-xs text-accent-light hover:underline"
-            >
-              {mehrOffen ? "Weitere Vorgaben ausblenden" : "Weitere Vorgaben (Verlauf, Konflikt, Schluss, Tabus ...)"}
-            </button>
+              </div>
+            )}
 
-            {mehrOffen && (
-              <div className="space-y-3 rounded-lg border border-border bg-bg/40 p-3">
+            {schritt === 2 && (
+              <div className="space-y-3">
+
                 <div>
                   <div className="flex items-center gap-1.5">
                     <Label>Grober Verlauf</Label>
@@ -499,7 +522,7 @@ export function KiGeruestOverlay({
                     </FeldHilfe>
                   </div>
                   <Textarea
-                    rows={2}
+                    rows={4}
                     value={verlauf}
                     onChange={(e) => setVerlauf(e.target.value)}
                     placeholder='z.B. "Kapitel 1 Kennenlernen, Kapitel 2-7 Annäherung, Kapitel 8 Happy End"'
@@ -541,13 +564,24 @@ export function KiGeruestOverlay({
 
             {fehler && <p className="text-sm text-red-400">{fehler}</p>}
 
-            <div className="flex justify-end gap-2 border-t border-border pt-3">
+            <div className="flex justify-between gap-2 border-t border-border pt-3">
               <Button variant="secondary" onClick={schliessenAnfragen} disabled={wirdGestartet}>
                 Abbrechen
               </Button>
-              <Button onClick={starten} disabled={wirdGestartet || !praemisse.trim() || kapitelanzahl < 1}>
-                {wirdGestartet ? "Startet..." : "✨ Gerüst entwerfen lassen"}
-              </Button>
+              <div className="flex gap-2">
+                {schritt > 0 && (
+                  <Button variant="secondary" onClick={() => setSchritt(schritt - 1)} disabled={wirdGestartet}>
+                    ← Zurück
+                  </Button>
+                )}
+                {schritt < SCHRITTE.length - 1 ? (
+                  <Button onClick={() => setSchritt(schritt + 1)}>Weiter →</Button>
+                ) : (
+                  <Button onClick={starten} disabled={wirdGestartet || !praemisse.trim() || kapitelanzahl < 1}>
+                    {wirdGestartet ? "Startet..." : "✨ Gerüst entwerfen lassen"}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         ) : (
