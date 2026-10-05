@@ -20,10 +20,19 @@ Inhalts-Prüfer, dafür gibt es andere Rollen.
   Präteritum-Form auftritt. Innerhalb wörtlicher Rede (also alles zwischen
   Anführungszeichen, das eine Figur wörtlich sagt) ist Präsens IMMER normal
   und KEIN Fehler, unabhängig vom Tempus des umgebenden Erzähltextes -
-  korrigiere dort niemals das Tempus (z.B. `rief er, "was treibt dich denn
-  hier?"` bleibt exakt so stehen, auch wenn der Satz davor und danach im
-  Präteritum steht; NICHT zu `"was trieb dich denn hier?"` "korrigieren" -
-  das waere ein neuer Fehler, kein Fund).
+  korrigiere Präsens in der Rede niemals ins Präteritum (z.B. `rief er, "was
+  treibt dich denn hier?"` bleibt exakt so stehen; NICHT zu `"was trieb dich
+  denn hier?"` "korrigieren" - das waere ein neuer Fehler, kein Fund).
+- Umgekehrt ist Erzähl-Präteritum in wörtlicher Rede ein Fehler: Figuren
+  sprechen in gesprochenen Zeitformen (Präsens für Gegenwärtiges, Perfekt für
+  Vergangenes, Futur/Präsens für Künftiges). Melde und korrigiere
+  `"Die Stadtwachen retteten mich"` -> `"Die Stadtwachen haben mich gerettet"`,
+  `"Ich hoffte, dass ihr glücklich werdet"` -> `"Ich hoffe, dass ihr glücklich
+  werdet"`, `"Sie hatte eine schwere Zeit hinter sich und brauchte unsere
+  Hilfe"` -> `"... und braucht unsere Hilfe"`. AUSNAHME (kein Fehler, nicht
+  melden): Hilfs- und Modalverben bleiben im Präteritum (war, hatte, wurde,
+  konnte, wollte, musste, sollte, durfte) sowie Konjunktiv II (wäre, würde,
+  hätte, könnte). Ändere nur die Verbform, nie Inhalt oder Wortwahl.
 - Satzvollständigkeit: Ein Satz braucht einen Hauptsatz mit finitem Verb.
   Reiht der Satz mehrere Appositionen oder Relativsätze aneinander, ohne
   dass am Ende ein grammatisch vollständiger Hauptsatz steht (Anakoluth,

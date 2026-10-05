@@ -346,15 +346,39 @@ def _zeichensetzung_roh_befunde(kapiteltext: str) -> list[RoherBefund]:
     return ergebnis
 
 
+# Epochenuebergreifende Regeln, die fuer JEDEN Autor gelten - bewusst hier und
+# nicht in den einzelnen epochen/*/autor.txt (die nur neuen Projekten
+# zugutekaemen und sonst in jeder Epoche einzeln gepflegt werden muessten).
+AUTOR_ALLGEMEINE_REGELN = """## Wörtliche Rede: gesprochene Zeitformen (gilt immer)
+Der Erzähltext steht im Präteritum. Wörtliche Rede steht dagegen IMMER in
+gesprochenen Zeitformen: Präsens für Gegenwärtiges, Perfekt für Vergangenes,
+Präsens oder Futur für Künftiges. Das Erzähl-Präteritum gehört NICHT zwischen
+die Anführungszeichen. Nur Hilfs- und Modalverben (war, hatte, konnte, wollte,
+musste, sollte) bleiben auch in der Rede im Präteritum.
+FALSCH:  „Die Stadtwachen retteten mich.“  „Ich hoffte, dass ihr glücklich werdet.“
+RICHTIG: „Die Stadtwachen haben mich gerettet.“  „Ich hoffe, dass ihr glücklich werdet.“
+FALSCH:  „Sie hatte eine schwere Zeit hinter sich und brauchte unsere Hilfe.“
+RICHTIG: „Sie hat eine schwere Zeit hinter sich und braucht unsere Hilfe.“
+
+## Namen und Nebenfiguren (gilt immer)
+Verwende ausschließlich die Namen aus Geruest und Stand, exakt in dieser
+Schreibweise. Eine Figur heißt im ganzen Kapitel gleich; vertausche oder
+erfinde keine Namen für Hauptfiguren. Erfinde keine neue Nebenfigur, wenn eine
+bereits vorhandene Figur die Rolle erfüllen kann (Vertrauensperson, Bote,
+Wache, Retter, Begleiter). Eine neue Nebenfigur nur, wenn die Handlung sie
+zwingend braucht; sie bleibt dann im ganzen Kapitel unter demselben Namen."""
+
+
 def _autor_system_prompt(projekt_root: Path) -> str:
-    """Haengt an die Autor-Persona optional die vom Nutzer gepflegten
-    Stilproben an (siehe app/core/projekt_dateien.py:stilproben_datei) -
+    """Autor-Persona des Projekts plus die epochenuebergreifenden Regeln
+    (AUTOR_ALLGEMEINE_REGELN) und optional die vom Nutzer gepflegten
+    Stilproben (siehe app/core/projekt_dateien.py:stilproben_datei) -
     kurze Vorbild-Ausschnitte aus Geschichten, deren Sprache/Rhythmus/Ton
     gefallen haben, damit sich der Autor (Mistral, siehe rollen.py) beim
     Formulieren daran orientieren kann, ohne dass dafuer ein echtes
     Fine-Tuning noetig waere. Leeres oder fehlendes stilproben.md aendert
     nichts am Prompt."""
-    persona = pd.persona_lesen(projekt_root, "autor")
+    persona = f"{pd.persona_lesen(projekt_root, 'autor')}\n\n{AUTOR_ALLGEMEINE_REGELN}"
     stilproben = pd.lies(pd.stilproben_datei(projekt_root / "projekt"), pflicht=False, ersatz="")
     if not stilproben.strip():
         return persona
@@ -828,7 +852,7 @@ async def _kapitel_schreiben_kern(
                 f"Umfang weicht deutlich ab: {ist} statt {ziel} Wörter ({abw:+.0f} %).",
             ))
 
-    findings += h.alle_nachbearbeitungs_checks(text, geruest_text, stufe)
+    findings += h.alle_nachbearbeitungs_checks(text, geruest_text, stufe, stand=vorher)
 
     unbekannt = h.hunspell_unbekannte_woerter(
         text, exec_fn=_hunspell_exec_fn(settings, ssh_ziel_id),

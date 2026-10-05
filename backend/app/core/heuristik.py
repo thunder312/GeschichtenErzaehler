@@ -152,6 +152,171 @@ def anredeform_pruefen(text: str) -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
+# Tempus in wörtlicher Rede (gesprochene Zeitformen statt Erzähl-Präteritum)
+# ---------------------------------------------------------------------------
+
+def _dialogtexte(text: str) -> list[str]:
+    dialogzeilen = re.findall(r'„([^"“]*)["“]', text)
+    dialogzeilen += re.findall(r'"([^"]*)"', text)
+    return dialogzeilen
+
+
+# Hilfs-/Modalverben bleiben auch im gesprochenen Deutsch im Präteritum
+# ("ich war müde", "er hatte Hunger", "sie wollte gehen") - alles andere
+# gehoert in Praesens oder Perfekt.
+_PRAETERITUM_ERLAUBT = frozenset({
+    "war", "waren", "warst", "wart", "hatte", "hatten", "hattest", "hattet",
+    "wurde", "wurden", "wurdest", "konnte", "konnten", "konntest", "wollte",
+    "wollten", "wolltest", "musste", "mussten", "musstest", "sollte", "sollten",
+    "solltest", "durfte", "durften", "durftest", "mochte", "mochten",
+    "wusste", "wussten", "wusstest",
+    # Konjunktiv II ("ich möchte", "es wäre") ist normales Gesprochenes
+    "könnte", "könnten", "könntest", "möchte", "möchten", "möchtest", "hätte",
+    "hätten", "hättest", "würde", "würden", "würdest", "müsste", "müssten",
+    "müsstest", "dürfte", "dürften", "wäre", "wären", "wärst", "bräuchte",
+    "täte", "gäbe",
+    # Praesens-Formen auf -te (t-Staemme: "ich warte", "ich bitte")
+    "warte", "antworte", "halte", "achte", "bitte", "arbeite", "rette", "bete",
+    "fürchte", "richte", "flüchte", "gelte", "trete", "biete", "rate", "leite",
+    "reite", "bereite", "erwarte", "bestatte", "schalte", "walte", "entscheide",
+    "erbitte", "verbitte", "gebiete",
+})
+_STARKE_PRAETERITA = (
+    "ging|gingen|kam|kamen|sah|sahen|gab|gaben|fand|fanden|nahm|nahmen|ließ|ließen|"
+    "stand|standen|trug|trugen|rief|riefen|lief|liefen|schlief|schliefen|fiel|fielen|"
+    "hielt|hielten|zog|zogen|sprach|sprachen|schrieb|schrieben|blieb|blieben|trat|"
+    "traten|half|halfen|traf|trafen|warf|warfen|las|lasen|saß|saßen|lag|lagen|fuhr|"
+    "fuhren|brach|brachen|trank|tranken|begann|begannen|gewann|gewannen|verlor|"
+    "verloren|schien|schienen|ritt|ritten|schnitt|schnitten|bat|baten|brachte|"
+    "brachten|dachte|dachten|kannte|kannten|nannte|nannten|rannte|rannten|sandte|"
+    "sandten|wandte|wandten|rettete|retteten"
+)
+# Schwache Praeterita nur in der Singular-Form (-te/-test): Plural auf -ten
+# ("wir warten", "sie arbeiten") ist von Praesens nicht zu unterscheiden.
+_PRAETERITUM_NACH_PRONOMEN = re.compile(
+    rf"\b(?i:ich|du|er|sie|es|wir|ihr|man)[ \t]+("
+    rf"(?:{_STARKE_PRAETERITA})|[a-zäöüß]{{3,}}(?:te|test))\b"
+)
+
+
+def tempus_in_rede_pruefen(text: str, max_beispiele: int = 5) -> list[Finding]:
+    """Wörtliche Rede steht im Gesprochenen im Präsens/Perfekt/Futur, nicht
+    im Erzähl-Präteritum ("Die Stadtwachen retteten mich" statt "haben mich
+    gerettet", "Ich hoffte, dass ihr glücklich werdet" statt "Ich hoffe").
+    Erkannt wird 'Pronomen + Präteritum-Form' innerhalb von Anführungszeichen;
+    Hilfs- und Modalverben (war, hatte, konnte, wollte ...) sind erlaubt.
+    Reine Hinweis-Heuristik - ein Treffer ist ein Verdacht, kein Beweis."""
+    beispiele: list[str] = []
+    for rede in _dialogtexte(text):
+        for m in _PRAETERITUM_NACH_PRONOMEN.finditer(rede):
+            if m.group(1).lower() in _PRAETERITUM_ERLAUBT:
+                continue
+            if m.group(0) not in beispiele:
+                beispiele.append(m.group(0))
+    if not beispiele:
+        return []
+    gezeigt = ", ".join(f"„{b}“" for b in beispiele[:max_beispiele])
+    rest = f" (+{len(beispiele) - max_beispiele} weitere)" if len(beispiele) > max_beispiele else ""
+    return [Finding(
+        "tempus_rede",
+        f"Wörtliche Rede im Präteritum statt in gesprochenen Zeitformen "
+        f"(Präsens/Perfekt/Futur): {gezeigt}{rest}.",
+    )]
+
+
+# ---------------------------------------------------------------------------
+# Unbekannte Eigennamen (Namensverwechslung, ungeplante Nebenfiguren)
+# ---------------------------------------------------------------------------
+
+_NAME = r"[A-ZÄÖÜ][a-zäöüß]{2,}"
+_SPRECH_VERBEN = (
+    r"(?:sagte|fragte|antwortete|flüsterte|rief|erwiderte|murmelte|erklärte|meinte|"
+    r"nickte|lächelte|seufzte|schüttelte|zuckte|blickte|sprach|fügte|stammelte|"
+    r"knickste|verbeugte|begrüßte|bat)"
+)
+# Nur Leerzeichen/Tab zwischen Verb/Titel und Name: mit \s+ wuerde das erste Wort
+# des NAECHSTEN Absatzes ("...bat.\n\nNachdem") als Name gelten.
+_NAME_NACH_VERB = re.compile(rf"\b{_SPRECH_VERBEN}[ \t]+({_NAME})\b")
+_NAME_NACH_TITEL = re.compile(
+    rf"\b(?:Herzog|Herzogin|König|Königin|Graf|Gräfin|Ritter|Frau|Herr|Meister|Pater|"
+    rf"Bruder|Schwester|Fräulein|Vogt|Hauptmann)[ \t]+({_NAME})\b"
+)
+# Anrede nur am Ende einer Rede ("..., Martha“"): ein Wort am Redeanfang
+# ("Danke,", "Nein,") ist meist eine Interjektion, kein Name.
+_NAME_ANREDE = re.compile(rf",[ \t]*({_NAME})[!?.]?“")
+# Name als Satz-/Teilsatzanfang direkt vor einer Verbform ("Agnes konnte kaum
+# glauben", "Heinrich trat näher") - nur mit Zusatzbedingungen gewertet, weil
+# jedes Satzanfangswort grossgeschrieben ist.
+_NAME_ALS_SUBJEKT = re.compile(
+    rf"(?:^|[.!?„“,]\s+|\n)({_NAME})\s+(?:[a-zäöüß]+(?:te|ten)|{_STARKE_PRAETERITA}|konnte|wollte|musste)\b"
+)
+_ARTIKEL_VOR_WORT = re.compile(
+    rf"\b(?:der|die|das|ein|eine|einen|einem|einer|dem|den|des|und|zu|von|mit|in|im|an|auf|"
+    rf"sein|seine|seinen|seinem|ihre|ihren|ihrem|ihr|mein|meine|dein|deine)\s+({_NAME})\b",
+    re.IGNORECASE,
+)
+_KEIN_NAME = frozenset({
+    "Gott", "Herrgott", "Himmel", "Vater", "Mutter", "Tod", "Teufel", "Burg", "Reich",
+    "Kind", "Herr", "Frau", "Majestät", "Hoheit", "Gnaden", "Euer", "Meister",
+    # Kosenamen in der Anrede ("Sei gegrüßt, Kleine")
+    "Kleine", "Kleiner", "Liebe", "Lieber", "Liebste", "Liebster", "Mädchen", "Junge",
+})
+
+
+def unbekannte_namen_pruefen(text: str, geruest: str, stand: str = "", max_namen: int = 6) -> list[Finding]:
+    """Meldet Eigennamen im Kapitel, die weder im Geruest noch im Stand des
+    vorigen Kapitels vorkommen - typisch bei Namensverwechslung (Heinrich
+    statt Daniel, Agnes statt Nina) oder einer ungeplant eingefuehrten
+    Nebenfigur. Name = Grossgeschriebenes Wort nach Titel ('Herzog X'), in
+    Anrede ('„X,“'), nach Sprechverb ('sagte X') oder als Satzsubjekt vor
+    Verb - Letzteres nur, wenn das Wort mind. zweimal vorkommt, nie klein-
+    geschrieben und nie nach Artikel/Possessivum auftaucht (sonst Adverb
+    bzw. Nomen). Ohne Geruest/Stand zum Abgleich keine Pruefung."""
+    if not geruest.strip() and not stand.strip():
+        return []
+    bekannt = set(re.findall(_NAME, f"{geruest}\n{stand}"))
+    kleingeschrieben = {w for w in re.findall(r"\b[a-zäöüß]{3,}\b", text)}
+    mit_artikel = {m.group(1) for m in _ARTIKEL_VOR_WORT.finditer(text)}
+
+    starke: dict[str, int] = {}
+    for muster in (_NAME_NACH_VERB, _NAME_NACH_TITEL):
+        for m in muster.finditer(text):
+            starke[m.group(1)] = starke.get(m.group(1), 0) + 1
+    for m in _NAME_ANREDE.finditer(text):
+        starke[m.group(1)] = starke.get(m.group(1), 0) + 1
+
+    subjekt: dict[str, int] = {}
+    for m in _NAME_ALS_SUBJEKT.finditer(text):
+        subjekt[m.group(1)] = subjekt.get(m.group(1), 0) + 1
+
+    # Ein Satzanfangs-Adverb ("Vielleicht", "Plötzlich") steht nur am Satzanfang;
+    # ein Name kommt auch mitten im Satz vor ("an Agnes", "dass Heinrich").
+    mitten_im_satz = {m.group(1) for m in re.finditer(rf"[a-zäöüß][ \t]+({_NAME})\b", text)}
+
+    kandidaten = dict(starke)
+    for name, anzahl in subjekt.items():
+        if (anzahl >= 2 and name in mitten_im_satz
+                and name.lower() not in kleingeschrieben and name not in mit_artikel):
+            kandidaten[name] = max(kandidaten.get(name, 0), anzahl)
+
+    unbekannt = {
+        n: z for n, z in kandidaten.items()
+        if n not in bekannt and n not in _KEIN_NAME and n.lower() not in kleingeschrieben
+        and (n not in mit_artikel or n in starke)
+    }
+    if not unbekannt:
+        return []
+    namen = sorted(unbekannt, key=lambda n: (-unbekannt[n], n))[:max_namen]
+    return [Finding(
+        "unbekannter_name",
+        f"Namen im Text, die weder im Geruest noch im Stand des vorigen Kapitels "
+        f"stehen: {', '.join(namen)}. Namensverwechslung (falscher Name für eine "
+        f"Hauptfigur) oder ungeplante neue Nebenfigur? Gegebenenfalls korrigieren "
+        f"oder neu schreiben lassen.",
+    )]
+
+
+# ---------------------------------------------------------------------------
 # Zeichensetzung (deterministisch erkennbare Folgen verrutschter Ersetzungen)
 # ---------------------------------------------------------------------------
 
@@ -566,15 +731,19 @@ def wiederholten_absatzblock_ausschneiden(text: str, min_fenster: int = 2, max_f
     return text, []
 
 
-def alle_nachbearbeitungs_checks(text: str, geruest: str, stufe: str) -> list[Finding]:
+def alle_nachbearbeitungs_checks(text: str, geruest: str, stufe: str, stand: str = "") -> list[Finding]:
     """Buendelt alle rein lesenden Pruefungen (keine Textveraenderung), wie
-    sie novelle.py am Ende von cmd_schreiben/cmd_lektorieren aufruft."""
+    sie novelle.py am Ende von cmd_schreiben/cmd_lektorieren aufruft.
+    `stand` ist der Stand nach dem vorigen Kapitel (Referenz fuer die
+    Namenspruefung)."""
     findings: list[Finding] = []
     findings += sprachdrift_pruefen(text)
     findings += sprachdrift_lokal_pruefen(text)
     findings += zeichensetzung_pruefen(text)
     findings += erzaehlperspektive_pruefen(text, geruest)
     findings += anredeform_pruefen(text)
+    findings += tempus_in_rede_pruefen(text)
+    findings += unbekannte_namen_pruefen(text, geruest, stand)
     findings += ausweichformulierungen_pruefen(text)
     findings += explizitheit_pruefen(text, stufe)
     return findings
