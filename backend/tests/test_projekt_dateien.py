@@ -187,6 +187,62 @@ def test_projekt_fuer_neuschreiben_duplizieren_setzt_quelle_marker(tmp_path):
     assert pd.neuschreiben_quelle(ziel) == "Mittelalter/Der-Markt-von-Rothenfeld"
 
 
+def _bibliothek(tmp_path: Path) -> tuple[Path, Path]:
+    epochen = tmp_path / "bibliothek" / "epochen"
+    (epochen / "Mittelalter").mkdir(parents=True)
+    (epochen / "Mittelalter" / "architekt.txt").write_text("NEUER Architekt", encoding="utf-8")
+    (epochen / "Mittelalter" / "autor.txt").write_text("NEUER Autor", encoding="utf-8")
+    (epochen / "Mittelalter" / "verbotsliste.md").write_text("NEUE Verbotsliste", encoding="utf-8")
+    gemeinsam = tmp_path / "bibliothek" / "personas"
+    gemeinsam.mkdir(parents=True)
+    (gemeinsam / "chronist.txt").write_text("NEUER Chronist", encoding="utf-8")
+    return epochen, gemeinsam
+
+
+def test_ki_dateien_aktualisieren_ersetzt_prompts_und_behaelt_geruest(tmp_path):
+    quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
+    (quelle / "projekt" / "einleitungssatz.txt").write_text("Eigener Satz", encoding="utf-8")
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle, "Mittelalter/Der-Markt-von-Rothenfeld")
+    epochen, gemeinsam = _bibliothek(tmp_path)
+
+    assert pd.ki_dateien_aktualisieren(ziel, epochen, gemeinsam) is True
+
+    assert (ziel / "personas" / "architekt.txt").read_text(encoding="utf-8") == "NEUER Architekt"
+    assert (ziel / "personas" / "autor.txt").read_text(encoding="utf-8") == "NEUER Autor"
+    assert (ziel / "personas" / "chronist.txt").read_text(encoding="utf-8") == "NEUER Chronist"
+    assert (ziel / "projekt" / "verbotsliste.md").read_text(encoding="utf-8") == "NEUE Verbotsliste"
+    # Projektdaten bleiben 1:1 vom Original
+    assert (ziel / "projekt" / "geruest.md").read_text(encoding="utf-8") == \
+        (quelle / "projekt" / "geruest.md").read_text(encoding="utf-8")
+    assert (ziel / "projekt" / "stand_00.md").read_text(encoding="utf-8") == "Ausgangslage"
+    assert (ziel / "projekt" / "einleitungssatz.txt").read_text(encoding="utf-8") == "Eigener Satz"
+    assert (ziel / ".epoche").read_text(encoding="utf-8") == "Mittelalter"
+    # Original bleibt unberuehrt
+    assert (quelle / "personas" / "architekt.txt").read_text(encoding="utf-8") == "Persona-Text"
+
+
+def test_ki_dateien_aktualisieren_laesst_alte_kopien_wenn_epoche_fehlt(tmp_path):
+    quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle, "Mittelalter/Der-Markt-von-Rothenfeld")
+    leere_bibliothek = tmp_path / "leer"
+    leere_bibliothek.mkdir()
+
+    assert pd.ki_dateien_aktualisieren(ziel, leere_bibliothek, leere_bibliothek) is False
+
+    assert (ziel / "personas" / "architekt.txt").read_text(encoding="utf-8") == "Persona-Text"
+    assert (ziel / "projekt" / "verbotsliste.md").read_text(encoding="utf-8") == "keine"
+
+
+def test_ki_dateien_aktualisieren_ohne_epoche_marker_aendert_nichts(tmp_path):
+    quelle = _quellprojekt_mit_schreibartefakten(tmp_path)
+    (quelle / ".epoche").unlink()
+    ziel = pd.projekt_fuer_neuschreiben_duplizieren(quelle, "Mittelalter/Der-Markt-von-Rothenfeld")
+    epochen, gemeinsam = _bibliothek(tmp_path)
+
+    assert pd.ki_dateien_aktualisieren(ziel, epochen, gemeinsam) is False
+    assert (ziel / "personas" / "architekt.txt").read_text(encoding="utf-8") == "Persona-Text"
+
+
 def test_neuschreiben_quelle_liefert_none_ohne_marker(tmp_path):
     kein_duplikat = _quellprojekt_mit_schreibartefakten(tmp_path)
 

@@ -156,8 +156,34 @@ def projekt_anlegen(ziel: Path, epoche_ordner: Path, gemeinsame_personas_ordner:
     unveraendert in der zentralen Bibliothek, nur die frisch kopierten
     Projekt-Dateien werden angereichert."""
     ziel.mkdir(parents=True, exist_ok=True)
+    (ziel / "projekt").mkdir(exist_ok=True)
+
+    ki_dateien_aus_bibliothek_kopieren(ziel, epoche_ordner, gemeinsame_personas_ordner, epoche_name,
+                                        zweite_epoche_ordner, zweite_epoche_name)
+
+    einleitungssatz_quelle = epoche_ordner / "einleitungssatz.txt"
+    if einleitungssatz_quelle.exists():
+        shutil.copy(einleitungssatz_quelle, einleitungssatz_datei(ziel / "projekt"))
+
+    (ziel / ".epoche").write_text(epoche_name, encoding="utf-8")
+    if zweite_epoche_ordner is not None and zweite_epoche_name is not None:
+        (ziel / ".epoche_zweite").write_text(zweite_epoche_name, encoding="utf-8")
+
+
+def ki_dateien_aus_bibliothek_kopieren(ziel: Path, epoche_ordner: Path, gemeinsame_personas_ordner: Path,
+                                        epoche_name: str, zweite_epoche_ordner: Path | None = None,
+                                        zweite_epoche_name: str | None = None) -> None:
+    """Kopiert die KI-relevanten Dateien (personas/*.txt und
+    projekt/verbotsliste.md) aus der zentralen Bibliothek in den Projektordner
+    `ziel` und ueberschreibt dabei vorhandene Fassungen. Gemeinsame Basis von
+    projekt_anlegen() und dem 'Neu schreiben'-Duplikat (siehe
+    projekt_fuer_neuschreiben_duplizieren), damit beide denselben Stand
+    erhalten. Mit zweiter Epoche (Zeitsprung) wird wie beim Anlegen die
+    Referenz auf diese angehaengt - deterministisch, kein Ollama-Aufruf.
+    Nicht angefasst werden geruest.md, stand_00.md, einleitungssatz.txt und
+    die Marker - das sind Projektdaten, keine Prompts."""
     personas_ziel = ziel / "personas"
-    personas_ziel.mkdir(exist_ok=True)
+    personas_ziel.mkdir(parents=True, exist_ok=True)
     (ziel / "projekt").mkdir(exist_ok=True)
 
     for datei in EPOCHE_PERSONA_DATEIEN:
@@ -173,10 +199,6 @@ def projekt_anlegen(ziel: Path, epoche_ordner: Path, gemeinsame_personas_ordner:
     verbotsliste_quelle = epoche_ordner / "verbotsliste.md"
     if verbotsliste_quelle.exists():
         shutil.copy(verbotsliste_quelle, verbotsliste_ziel)
-
-    einleitungssatz_quelle = epoche_ordner / "einleitungssatz.txt"
-    if einleitungssatz_quelle.exists():
-        shutil.copy(einleitungssatz_quelle, einleitungssatz_datei(ziel / "projekt"))
 
     if zweite_epoche_ordner is not None and zweite_epoche_name is not None:
         primaer_dateien = {datei: lies(personas_ziel / datei, pflicht=False, ersatz="")
@@ -194,10 +216,6 @@ def projekt_anlegen(ziel: Path, epoche_ordner: Path, gemeinsame_personas_ordner:
                 (personas_ziel / datei).write_text(zusammengefuehrt[datei].strip() + "\n", encoding="utf-8")
         if zusammengefuehrt.get("verbotsliste.md"):
             verbotsliste_ziel.write_text(zusammengefuehrt["verbotsliste.md"].strip() + "\n", encoding="utf-8")
-
-        (ziel / ".epoche_zweite").write_text(zweite_epoche_name, encoding="utf-8")
-
-    (ziel / ".epoche").write_text(epoche_name, encoding="utf-8")
 
 
 def epoche_von_projekt(ziel: Path) -> str | None:
@@ -345,6 +363,34 @@ def projekt_fuer_neuschreiben_duplizieren(quelle: Path, quelle_ordner: str) -> P
     (ziel / _NEUSCHREIBEN_MARKER).write_text(quelle_ordner, encoding="utf-8")
 
     return ziel
+
+
+def ki_dateien_aktualisieren(projekt: Path, epochen_ordner: Path, gemeinsame_personas_ordner: Path) -> bool:
+    """Ersetzt die KI-Dateien eines Projekts (personas/, verbotsliste.md)
+    durch den aktuellen Stand der Bibliothek, anhand der .epoche-/
+    .epoche_zweite-Marker. Gedacht fuer das 'Neu schreiben'-Duplikat: ein
+    frisches Duplikat soll mit den aktuellen Prompts schreiben, waehrend
+    geruest.md/stand_00.md/einleitungssatz.txt 1:1 vom Original bleiben.
+
+    Gibt False zurueck (und aendert nichts), wenn das Projekt keine Epoche
+    hat oder die Epoche - bzw. die zweite eines Zeitsprung-Projekts - nicht
+    mehr in der Bibliothek existiert: dann bleiben die Kopien des Originals
+    erhalten, statt das Duplikat halb zu aktualisieren."""
+    epoche_name = epoche_von_projekt(projekt)
+    if not epoche_name:
+        return False
+    epoche_ordner = epochen_ordner / epoche_name
+    if not epoche_ordner.is_dir():
+        return False
+    zweite_name = zweite_epoche_von_projekt(projekt)
+    zweite_ordner = None
+    if zweite_name:
+        zweite_ordner = epochen_ordner / zweite_name
+        if not zweite_ordner.is_dir():
+            return False
+    ki_dateien_aus_bibliothek_kopieren(projekt, epoche_ordner, gemeinsame_personas_ordner, epoche_name,
+                                        zweite_ordner, zweite_name)
+    return True
 
 
 def projekt_zuruecksetzen(projekt_root: Path) -> dict[str, int]:

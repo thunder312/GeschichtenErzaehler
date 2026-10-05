@@ -262,11 +262,18 @@ def projekt_neu_schreiben(ordner: str, settings: Settings = Depends(get_settings
     Automatikmodus wird NICHT automatisch gestartet - das macht der Nutzer
     bewusst selbst ueber den bestehenden POST .../automatik/start-Endpoint
     (app/api/pipeline.py), falls und wann er will. Hier ist bewusst nur die
-    Dateikopie noetig, kein Ollama-Aufruf."""
+    Dateikopie noetig, kein Ollama-Aufruf.
+
+    Personas und Verbotsliste des Duplikats kommen NICHT vom Original,
+    sondern frisch aus der Epochen-/Personas-Bibliothek (siehe
+    pd.ki_dateien_aktualisieren) - so schreibt die Kopie mit den aktuellen
+    Prompts. Gerüst, Ausgangslage und Einleitungssatz bleiben 1:1 vom
+    Original. Existiert die Epoche nicht mehr, bleiben die alten Kopien."""
     pfad = projekt_pfad(settings, benutzer.username, ordner)
     if automatik.status_lesen(pfad)["laeuft"]:
         raise HTTPException(409, "Automatikmodus läuft für dieses Projekt gerade - bitte zuerst stoppen.")
     ziel = pd.projekt_fuer_neuschreiben_duplizieren(pfad, ordner)
+    pd.ki_dateien_aktualisieren(ziel, settings.epochen_dir, settings.shared_personas_dir)
     return _projekt_kurz(ziel, projekte_wurzel(settings, benutzer.username), settings)
 
 
