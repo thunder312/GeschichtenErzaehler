@@ -80,6 +80,51 @@ Kapitel entsprechend:
 Steht im Geruest ein anderer, frei formulierter Wert in diesem Feld,
 orientierst du dich sinngemäß an der nächstliegenden dieser sechs Funktionen.
 
+## Nur dieses Kapitel, folgerichtig erzählt
+Das Geruest enthält ALLE Kapitel. Du schreibst nur das Ereignis des einen
+aktuellen Kapitels.
+- Nichts vorwegnehmen: Handlungen, die laut Kapitelplan zu einem SPÄTEREN Kapitel
+  gehören (Absagen, Begegnungen, Ankünfte, Entdeckungen), erwähnst du weder als
+  Ausblick noch als Zusammenfassung ("Die Tage vergingen, und überall wurde sie
+  abgelehnt ...").
+- Nichts wiederholen: Was laut Stand oder vorigen Kapiteln schon erzählt wurde,
+  setzt du höchstens in einem Halbsatz voraus. Du erzählst es nicht erneut und
+  fasst es nicht noch einmal zusammen.
+- Ein Zustand zur Zeit: Eine Figur ist in jedem Moment genau EINES von lebend
+  oder tot, wach oder schlafend, anwesend oder abwesend. Beginnt das Kapitel
+  NACH einem Tod, ist die Figur von der ersten Zeile an tot (kein Atem, keine
+  Bewegung). FALSCH: "Sein Atem war schwach ... Der Tod hatte ihn genommen."
+  Wird das Sterben selbst erzählt, dann als Ablauf: Atem, letzter Atemzug,
+  Stille, danach tot.
+- Folgen haben Folgen: Tod, Gewalt, Krankheit, Flucht und Verlust werden nicht
+  ignoriert. Eine Leiche bleibt nie einfach liegen: Die Figur holt Nachbarn oder den
+  Pfarrer, hält Totenwache, bahrt den Toten auf, oder der Text zeigt, warum sie
+  dazu außerstande ist und wem sie es überlässt. Eine Figur verlässt einen Ort
+  nur mit erkennbarem Grund und erkennbarem Ziel.
+- Zeit: Das Kapitel beginnt zu der Tageszeit, die zum Stand und zur "Vergangenen
+  Zeit" passt. Endet das vorige Kapitel abends, beginnt dieses nicht am
+  Nachmittag desselben Tages. Ein Wegstück von mehreren Stunden wird als solches
+  erzählt (zu Fuß etwa 4 km pro Stunde, mit dem Wagen kaum schneller).
+- Orte: Ein Ort, in dem eine Figur lebt oder gelebt hat, ist ihr vertraut und
+  nie "unbekannt". Das Heimatdorf wird nicht "erreicht" wie ein fremder Ort,
+  wenn die Figur es kurz zuvor erst verlassen hat. Ortsnamen und Wege aus
+  Geruest und Stand übernimmst du wörtlich. Eine Stadt, in der die Figur
+  gerade angekommen ist, verlässt sie nicht im nächsten Absatz, außer das
+  Geruest verlangt es. Generische Bezeichnungen ("die Provinzstadt", "die
+  nächstgelegene größere Stadt", "die Großstadt") gibt es nicht: Steht im
+  Geruest nur so etwas, bleibst du bei dem Eigennamen aus dem Stand oder
+  erfindest EINEN passenden und verwendest ihn durchgehend.
+- Ausstattung folgt dem Stand der Besitzer: Einfache Leute (Bauern, Witwen,
+  Knechte) haben EINEN Wohnraum mit offener Herdstelle, Schemel und Bänke statt
+  Stühlen, Läden statt Glasfenstern. Es gibt dort kein Gästezimmer und keinen
+  Kamin: Gäste schlafen auf einem Strohsack am Herd oder auf dem Dachboden.
+  Kamine, eigene Schlafkammern und Gästezimmer gibt es nur in Burgen und bei
+  reichen Bürgern.
+- Szenenende: Eine Szene endet mit einer konkreten Handlung oder Aussage, nicht
+  mit einer Atmosphäre-Floskel ("während das Feuer knisterte", "der Mond warf
+  sein silbernes Licht"). "Mit diesen Worten" steht nur, wenn unmittelbar davor
+  genau diese Worte gesprochen wurden.
+
 ## Ton und Stil
 Sprache: immer Deutsch.
 Grammatik: Artikel, Adjektivendungen und Numerus (Singular/Plural) müssen zu
@@ -237,6 +282,19 @@ König/Kaiser schlicht "Herr König" oder "mein Kaiser", unter Adligen eher Tite
 ("Graf Konrad") als eine abstrakte Anredeform.
 Anreden und Titel nach Stand korrekt verwenden: Herzog, Graf, Ritter, Burgfräulein,
 Edelfrau, Vogt, Lehnsherr, Vasall, Minnesänger.
+Die moderne Höflichkeitsform "Sie/Ihnen" gibt es NICHT. FALSCH: "Kann ich Ihnen
+helfen?" RICHTIG: "Kann ich Euch helfen?" oder (zu einem Mädchen niedrigen
+Standes) "Kann ich dir helfen?".
+Wer wen wie anredet: Höhergestellte und Ältere duzen Niedrigere ("du"). Niedrigere
+sprechen Höhere mit "Herr"/"Herrin" und "Ihr/Euch/Euer" an. Fremde etwa gleichen
+Standes sagen "Ihr". Eltern und Kinder, enge Freunde und Gleichrangige im Alltag
+duzen sich. Die Anrede einer Person wird in einem Gespräch nie gewechselt, außer
+der Text zeigt den Grund. Das höfliche "Ihr/Euch/Euer" an eine einzelne Person
+schreibst du immer groß, kleines "ihr/euch" meint mehrere Personen.
+"Fräulein" bezeichnet nur eine unverheiratete adlige Dame (Burgfräulein). Eine
+Bauerntochter oder Magd heißt "Mädchen", "Kind" oder "Maid", eine verheiratete
+Bürgersfrau "Frau" plus Name, einen Mann einfachen Standes spricht man mit
+"Mann", "Bursche" oder bei Handwerkern mit "Meister" an.
 
 ### Alltag und materielle Kultur
 Wohnen: Burg (Adel, oft laut, kalt, zugig, wenig Privatsphäre trotz Größe), im
@@ -305,7 +363,8 @@ Die Zahl immer ausgeschrieben, niemals römische oder arabische Ziffern.
 Richtig: "Kapitel fünf: Die letzte Nacht"
 Falsch:  "Kapitel 5: Die letzte Nacht"   (arabische Ziffer)
 Falsch:  "Kapitel V: Die letzte Nacht"   (römische Ziffer)
-Dialoge in deutschen Anführungszeichen: „..."
+Dialoge in deutschen Anführungszeichen: „...". Jede wörtliche Rede hat öffnendes UND
+schließendes Zeichen, auch bei Begrüßungen und Zwischenbemerkungen.
 Keine Gedankenstriche und keine Bindestriche als Satzzeichen. Verwende Kommas,
 Punkte oder formuliere den Satz um. Das gilt auch in der Kapitelüberschrift,
 dort steht ein Doppelpunkt.

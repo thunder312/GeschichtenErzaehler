@@ -126,6 +126,13 @@ RICHTIG (alles in EINEM Punkt, durch Semikolons getrennt):
     werden; verbirgt eine alte Schuld gegenüber ihrem toten Mentor; lernt
     im Verlauf, wieder jemandem zu vertrauen."
 
+## Anrede-Konventionen
+Je Figurenpaar mit wiederkehrendem Kontakt: "Ihr" oder "du" (die Höflichkeitsform
+"Sie" gibt es im Hochmittelalter nicht). Höhergestellte duzen Niedrigere,
+Niedrigere sagen "Herr/Herrin" und "Ihr", Eltern und Kinder duzen sich.
+Ist ein Wechsel geplant, nenne Kapitel und Grund. Ohne geplanten Wechsel gilt
+die Anrede für die gesamte Geschichte.
+
 ## Konflikt
 Ein Satz.
 
@@ -221,4 +228,28 @@ Weibliche Adelsfiguren sind Burgfräulein, Edelfrau, Gräfin und ähnliches, nie
 Ritterinnen. Aktiv, klug und kämpferisch im Charakter ist möglich, ritterlicher
 Status nicht.
 Die Ausgangslage vor Kapitel eins MUSS konkret ausgefüllt werden, keine Platzhalter wie 'noch offen' oder 'unbekannt'. Sie wird automatisch zum Startzustand vor Kapitel eins und beeinflusst direkt, wie der Autor die Geschichte beginnt.
+Die Anrede-Konventionen MÜSSEN für jedes Figurenpaar mit wiederkehrendem Kontakt
+konkret benannt werden (Ihr oder du), keine Leerstelle.
+Jeder Schauplatz im Kapitelplan hat einen EIGENNAMEN (Dorf, Stadt, Burg, Gasthaus).
+Generische Orte wie "die Provinzstadt" oder "die Großstadt" sind verboten. Ein
+Ort, in dem das vorige Kapitel endet, ist der Anfangsort des nächsten. Ein
+Dorf, das die Figur gerade verlassen hat, heißt im Folgekapitel nicht
+"unbekannte Landschaft".
+"Zustand am Kapitelende" (Ort, Tageszeit, Verfassung) ist die Ausgangslage des
+nächsten Kapitels. "Vergangene Zeit" ist ab Kapitel zwei IMMER ausgefüllt und
+passt dazu (endet ein Kapitel abends, beginnt das nächste nicht am selben
+Nachmittag).
+Jedes Ereignis kommt genau EINMAL vor. Mehrere Kapitel dürfen nicht dieselbe
+Handlung wiederholen (z.B. dreimal Arbeitssuche mit Absagen): Jedes Kapitel
+steigert oder bringt etwas Neues.
+Die Spannungsstufen laufen genau einmal durch: ein Höhepunkt, "Auflösung/Lösung"
+nur im letzten Kapitel. Löst sich der Kernkonflikt früher, ist das ein Planfehler:
+verschiebe die Auflösung oder erweitere den Kernkonflikt, bevor du weiterplanst.
+Eine tote Figur ist nie "anwesend". Beginnt ein Kapitel nach einem Tod, steht im
+Ereignis, was mit dem Toten geschieht (Totenwache, Pfarrer, Begräbnis).
+Jede Figur im Kapitelplan hat unter ## Figuren genau EINEN Namen, auch Nebenfiguren
+(Köchin, Händler, Bischof, Wirt). Derselbe Mensch trägt im ganzen Geruest denselben
+Namen.
+Wohn- und Besitzverhältnisse müssen zum Stand passen: einfache Leute haben keine
+Gästezimmer, Kamine oder Bediensteten.
 Antworte auf Deutsch.

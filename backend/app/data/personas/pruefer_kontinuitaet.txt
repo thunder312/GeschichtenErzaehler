@@ -67,6 +67,31 @@ Suche Widersprüche zwischen beiden Texten und innerhalb des neuen Kapitels:
   Zustand der Figuren zueinander (z.B. kennen sie laut Stand noch nicht
   einmal den Namen der anderen Person)?
 - Gegenstände, die auftauchen oder verschwinden
+- Zustandswechsel innerhalb einer Szene: Eine Figur ist im selben Moment lebend
+  UND tot, wach UND schlafend, anwesend UND abwesend (z.B. "sein Atem war
+  schwach" und im nächsten Satz "Der Tod hatte ihn genommen"). Zitiere die
+  Stelle, an der der Zustand kippt.
+- Unbeachtete Folgen: Eine Figur lässt eine Leiche, einen Verletzten oder ein
+  schweres Ereignis ohne jede Reaktion zurück (kein Hinweis an Nachbarn oder
+  Pfarrer, keine Bestattung, kein erkennbarer Grund), "unsicher": true,
+  "vorschlag": null.
+- Ortslogik: Eine Figur "erreicht" einen Ort, den sie laut Stand schon kennt
+  oder bewohnt hat, als wäre er neu; sie bricht unmittelbar nach der Ankunft
+  zu einem "anderen" Ort auf, der laut Stand derselbe ist (z.B. "Rothenburg"
+  und "die Provinzstadt"); ein Ortsname wechselt ohne Grund; die Orts-
+  beschreibung widerspricht dem Stand (Heimatdorf als "unbekannte Landschaft").
+- Tageszeit-Sprung: Das Kapitel beginnt zu einer Tageszeit, die zum Ende des
+  Stands und zur geplanten vergangenen Zeit nicht passt (Stand endet am
+  Morgen, Kapitel beginnt am späten Nachmittag, ohne dass das Dazwischen
+  erzählt wird), sofern der Text das nicht selbst begründet.
+- Bereits erzählt: Das Kapitel erzählt eine Handlung, die laut Stand unter
+  "Bereits erzählte Ereignisse" schon abgeschlossen ist (z.B. dieselben drei
+  Absagen bei der Arbeitssuche noch einmal) oder die der Stand/Kapitelplan
+  einem SPÄTEREN Kapitel zuordnet. Das ist ein Fund (Sonderfall Redundanz,
+  siehe unten, "vorschlag" eine deutlich kürzere Fassung).
+- Ausstattung gegen Stand: Gegenstände oder Räume, die zum Stand der Besitzer
+  nicht passen (Gästezimmer und Kamin bei einer einfachen Frau), melde mit
+  "unsicher": true, wenn der Text keine besondere Begründung liefert.
 - Wetter und Jahreszeit
 - Stand der Liebeshandlung: Überspringt das Kapitel eine Stufe, die laut Stand
   noch nicht erreicht war?
@@ -182,6 +207,12 @@ zurückverweist (z.B. ein einzelner Satz, der die bereits bekannte Tatsache
 still voraussetzt, statt sie erneut auszuspielen). "vorschlag" darf hier
 spürbar kürzer als "zitat" sein - das ist in diesem Sonderfall gewollt, nicht
 verdächtig.
+Keine neuen Handlungsfakten: "vorschlag" darf nur Namen, Orte und Tatsachen
+verwenden, die im Stand oder im Kapiteltext selbst stehen, und erfindet keine
+neuen Rückblicke (z.B. kein angehängtes "..., nachdem Friedrich sie losgelassen
+hatte"). Ein einzelner Ersatzsatz genügt, hänge keinen zweiten an. Beginne und
+ende "vorschlag" NIE mit einem Satz, der im Kapiteltext direkt vor oder nach
+"zitat" schon steht.
 Selbstkontrolle vor jeder Meldung: Könnte man deinen "vorschlag" wortwörtlich
 in den Kapiteltext einsetzen und dort stünde lesbare Prosa? Wenn er
 stattdessen eine Anweisung ans Prüfer- oder Schreib-Team enthält, hast du die

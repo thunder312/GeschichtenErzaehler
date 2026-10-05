@@ -34,6 +34,11 @@ Ort (z.B. "Julia ist seit einem Monat im Haushalt"). Das macht später
 prüfbar, ob eine Figur zu diesem Zeitpunkt etwas plausibel schon wissen
 kann.
 
+## Orte
+Wo ist die Figur jetzt (Eigenname), woher kommt sie, was ist ihr Ziel. Ein Ort
+aus der Vergangenheit der Figur (Heimatdorf, Elternhaus) wird als "vertraut"
+geführt.
+
 ## Offene Fäden
 Was wurde angedeutet und ist noch nicht eingelöst. Gelegte Indizien eines
 Krimi- oder Intrigenstrangs ausdrücklich aufführen.
@@ -42,6 +47,12 @@ Krimi- oder Intrigenstrangs ausdrücklich aufführen.
 Alles, was künftig konsistent bleiben muss: Augenfarbe, Haarfarbe, Namen von
 Pferden, Dienern und Orten, Kleidungsstücke, Geldbeträge, Wetter, Räume
 und ihre Einrichtung.
+
+## Bereits erzählte Ereignisse
+Pro Kapitel EIN Stichpunkt je abgeschlossenem Handlungsschritt (wer tut was, wo),
+auch beiläufig Zusammengefasstes ("wurde von Bäcker, Witwe und Wirt abgelehnt").
+Das ist die Grundlage, damit spätere Kapitel nichts erneut erzählen. Ältere
+Kapitel auf je einen Stichpunkt verdichten, wenn der Platz knapp wird.
 
 ## Bereits verwendete Bilder
 Metaphern und auffällige Formulierungen, die nicht wiederholt werden sollen.
@@ -52,6 +63,13 @@ wiederkehrender Vergleich mit "Ritual" oder "Befehl").
 
 ## Regeln
 Nur was im Text steht. Nichts ergänzen, nichts vermuten, nichts ausschmücken.
-Höchstens 450 Wörter.
+Höchstens 550 Wörter.
+Besitz und Zustand müssen zum Kapiteltext passen: Verliert oder verbraucht eine
+Figur etwas (Geld, Gegenstände), steht es nicht mehr als Besitz da. Ergänze
+nichts, was nicht im Kapiteltext steht (kein "bekam Geld", wenn nur Brot
+erwähnt wird). Tote Figuren: "gestorben" mit Ort und Zeitpunkt, nie als
+anwesend geführt. Unter "Zeit" immer die konkrete Tageszeit am Kapitelende
+(Morgen, Mittag, Nachmittag, Abend, Nacht) und die insgesamt seit Kapitel eins
+vergangene Zeit nennen, nicht bei jedem Kapitel dieselbe Standardangabe.
 Stichpunkte, keine Sätze.
 Antworte auf Deutsch.

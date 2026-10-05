@@ -130,6 +130,43 @@ def _normalisiert_locker(text: str) -> str:
     return " ".join(text.split()).strip()
 
 
+# SECHSTES Fehlerbild (2026-10-04, "Ninas-Odyssee"-Story, Kapitel 4, zweimal):
+# der Vorschlag beginnt (bzw. endet) mit dem GANZEN Nachbarsatz, ist aber
+# selbst deutlich laenger (Nachbarsatz + neuer Satz bzw. erweiterter Satz).
+# Der Fenster-Vergleich in vorschlag_dupliziert_kontext() setzt den gesamten
+# Vorschlagsanfang gegen den Text davor und bleibt bei so einem Teilueberlapp
+# unter der Aehnlichkeitsschwelle ("Gerda laechelte. Nun, Nina, ..." gegen
+# "... Gerda laechelte."). Deshalb zusaetzlich ein satzgenauer Praefix-/
+# Suffix-Abgleich: gleicht der Vorschlag am Anfang den letzten 1 bis 3 Saetzen
+# vor der Fundstelle bzw. am Ende den ersten 1 bis 3 Saetzen danach (fast)
+# wortgleich, ist das eine Dopplung.
+_SATZ_MIN_LAENGE = 12
+_SATZ_AEHNLICHKEIT_SCHWELLE = 0.85
+_SATZ_ENDE = re.compile(r"(?<=[.!?…])\s+")
+
+
+def _vorschlag_wiederholt_nachbarsaetze(text: str, start: int, end: int,
+                                         vorschlag_norm: str) -> bool:
+    davor_saetze = _SATZ_ENDE.split(_normalisiert_locker(text[max(0, start - _KONTEXT_FENSTER):start]))
+    danach_saetze = _SATZ_ENDE.split(_normalisiert_locker(text[end:end + _KONTEXT_FENSTER]))
+    for k in (1, 2, 3):
+        # Ein angeschnittener Satzrest am Fensterrand ist unkritisch: er
+        # gleicht dem Vorschlagsanfang nicht und loest daher nicht aus.
+        if len(davor_saetze) >= k:
+            nachbar = " ".join(davor_saetze[-k:])
+            if len(nachbar) >= _SATZ_MIN_LAENGE and _aehnlich(vorschlag_norm[:len(nachbar)], nachbar):
+                return True
+        if len(danach_saetze) >= k:
+            nachbar = " ".join(danach_saetze[:k])
+            if len(nachbar) >= _SATZ_MIN_LAENGE and _aehnlich(vorschlag_norm[-len(nachbar):], nachbar):
+                return True
+    return False
+
+
+def _aehnlich(a: str, b: str) -> bool:
+    return bool(a) and difflib.SequenceMatcher(None, a, b).ratio() >= _SATZ_AEHNLICHKEIT_SCHWELLE
+
+
 def vorschlag_dupliziert_kontext(text: str, start: int, end: int, vorschlag: str) -> bool:
     """True, wenn `vorschlag` an Anfang oder Ende einen Textabschnitt
     enthaelt, der dem Text UNMITTELBAR vor `start` bzw. nach `end` im
@@ -140,6 +177,8 @@ def vorschlag_dupliziert_kontext(text: str, start: int, end: int, vorschlag: str
     Wortueberlapp, weil leichte Umformulierungen (vertauschtes Subjekt: "Er
     kuesste sie" -> "Sie kuesste ihn") trotzdem erkannt werden sollen."""
     vorschlag_norm = _normalisiert_locker(vorschlag)
+    if _vorschlag_wiederholt_nachbarsaetze(text, start, end, vorschlag_norm):
+        return True
     if len(vorschlag_norm) < _KONTEXT_MIN_LAENGE:
         return False
 
@@ -244,6 +283,14 @@ def befunde_zusammenfuehren(kapiteltext: str, roh_befunde: list[RoherBefund]) ->
         zaehler += 1
         start = min(b.start for b in gruppe)
         end = max(b.end for b in gruppe)
+        # Umgebende Leerzeichen/Zeilenumbrueche gehoeren nicht zur Fundstelle:
+        # ein Prueferzitat wie " Sie verliess ..." (fuehrendes Leerzeichen)
+        # wuerde beim Splicen das Leerzeichen zum Vorsatz mit ersetzen und
+        # "fort.Nachdem" erzeugen (Ninas-Odyssee, Kapitel 4).
+        while start < end and kapiteltext[start].isspace():
+            start += 1
+        while end > start and kapiteltext[end - 1].isspace():
+            end -= 1
         kategorien: list[str] = []
         for b in gruppe:
             if b.kategorie not in kategorien:

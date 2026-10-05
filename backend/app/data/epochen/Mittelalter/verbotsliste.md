@@ -63,6 +63,20 @@ desto besser die Trefferquote. Beim Schreiben laufend ergänzen.
 - Metrische Maße: Meter, Kilometer, Gramm, Kilogramm, Grad Celsius, Minuten
 - Prozentangaben
 
+## Anrede, Räume und Orte einfacher Leute
+- "Sie/Ihnen/Ihr" als Höflichkeitsform an eine Einzelperson. Es heißt "Ihr/Euch/Euer"
+  oder "du"
+- "Fräulein" für Bauerntöchter, Mägde, Bürgerstöchter. Nur unverheiratete adlige Damen
+- Gästezimmer, Gästebett in einfachen Häusern (Bauern, Witwen, Handwerker). Gäste
+  schlafen auf Strohsack am Herd oder auf dem Dachboden
+- Kamin in Bauernhaus, Kate oder Bürgerhaus. Es gibt Herdstelle oder Rauchloch.
+  Kamine nur in Burgen
+- Tresen, Laden, Kaufhaus, Geschäft, Supermarkt. Es gibt Marktstand, Werkstatt, Bude
+- Stuhl im Bauernhaus (Schemel, Bank, Truhe), Glasfenster (Holzladen)
+- Tee, Aufguss, Kräutertee als Alltagsgetränk (Kräutersud als Heilmittel möglich)
+- "Provinz", "Provinzstadt", "Großstadt", "Metropole", "Hauptstadt" im modernen Sinn.
+  Das Hochmittelalter kennt Reichsstadt, Bischofsstadt, Marktflecken, Herzogtum
+
 ## Namen und Orte
 - Englische, französische oder italienische Vornamen ohne Begründung
 - Moderne Vornamen. Epochentypisch sind Konrad, Heinrich, Otto, Dietrich, Gottfried,

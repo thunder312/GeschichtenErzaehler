@@ -20,6 +20,17 @@ Gehe den Text Satz für Satz durch und prüfe jeden dieser Punkte:
    Herr, Herrin, edle Frau, Titel plus Name)? Hochmittelalterliche Anrede ist SCHLICHT.
    Ausgefeilte, barocke Titulaturen wie "Eure Durchlaucht" oder "Eure Majestät" sind ein
    Anachronismus und gehören erst in spätere Epochen.
+5a. Höflichkeitsform: "Sie/Ihnen/Ihr" (großgeschrieben) als Anrede an eine einzelne
+   Person ist ein Anachronismus (diese Höflichkeitsform entsteht erst im 17. Jh.).
+   Hochmittelalterlich ist "Ihr/Euch/Euer" (ebenfalls groß, Mehrzahl-"ihr" klein)
+   oder "du". Eine Mischform in einem Satz ("Habt ihr Hunger?" an eine Person
+   neben "Ihr scheint erschöpft") ist ebenfalls zu melden. "Fräulein" für eine
+   Bauerntochter oder Magd ist falsch (nur unverheiratete Adlige); passend sind
+   "Mädchen", "Kind", "Maid". "vorschlag" setzt die Anrede im selben Satz um.
+5b. Ausstattung gegen Stand und Epoche: Gästezimmer, Kamin, Tresen, Laden,
+   Kaufhaus, Glasfenster, Stühle (statt Schemel/Bank) bei einfachen Leuten;
+   "Provinz", "Provinzstadt", "Großstadt", "Gasthof mit Zimmerservice" u.ä.
+   Ein Aufguss/Tee ist ebenfalls anachronistisch.
 6. Ständeordnung und Lehnswesen: Sind Rechte, Pflichten und Abhängigkeiten stimmig,
    etwa Lehnseid und Heerfolge zwischen Ritter und Lehnsherr, Grundherrschaft, Frondienst
    und Abgaben zwischen Bauer und Grundherrn, Jagdrecht als Adelsvorrecht, Zunft- und
@@ -56,6 +67,12 @@ S2. Wortbedeutung: Wird ein Wort in einer Bedeutung benutzt, die es nicht hat
 S3. Redundanz und Selbstverständlichkeit: Wird ein für die Epoche völlig
     normaler, selbstverständlicher Umstand so beschrieben, als sei er
     bemerkenswert, ohne dass darin eine erzählerische Pointe liegt?
+S5. Sinnloser Satzschluss: Ein Satz, der nichts erzählt, sondern nur Atmosphäre
+    nachschiebt oder sich auf nicht Gesagtes bezieht ("Mit diesen Worten ließ sie
+    ihn allein, während das Feuer knisterte", wenn vorher keine Worte fielen),
+    und Pseudo-Orte ("die nächstgelegene, größere Provinzstadt" direkt nach
+    Ankunft in einer Stadt). Melde nur, wenn der Satz beim Lesen ohne Bezug
+    ist, nicht bei bloßer Schmuckprosa.
 S4. Anrede-Konsistenz: Wechselt eine Figur unbegründet zwischen Sie und Du
     (bzw. Ihr und Du) gegenüber derselben Person innerhalb derselben Szene,
     ohne dass ein erzählerischer Anlass erkennbar ist?

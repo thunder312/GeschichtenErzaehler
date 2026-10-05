@@ -404,3 +404,44 @@ def test_konflikt_mit_ausschliesslich_kontextduplizierenden_vorschlaegen_bietet_
     assert fund["konflikt"] is False
     assert fund["vorschlag"] is None
     assert fund["konflikt_vorschlaege"] is None
+
+
+def test_vorschlag_dupliziert_kontext_erkennt_ganzen_nachbarsatz_vor_laengerem_vorschlag():
+    """Ninas-Odyssee, Kapitel 4: Zitat beginnt NACH "Gerda laechelte.", der
+    Vorschlag wiederholt diesen Satz und haengt den neuen Satz an. Der
+    Fenster-Vergleich allein bleibt hier unter der Schwelle."""
+    text = (
+        "„Nina“, flüsterte sie.\n\nGerda lächelte. „Nun, Nina, ich kenne jeden "
+        "hier in Rothenburg. Vielleicht kann ich dir helfen.“"
+    )
+    start = text.index("„Nun")
+    end = text.index("Rothenburg.") + len("Rothenburg.")
+    vorschlag = "Gerda lächelte. „Nun, Nina, ich kenne jeden hier in dieser Stadt.“"
+    assert vorschlag_dupliziert_kontext(text, start, end, vorschlag) is True
+
+
+def test_vorschlag_dupliziert_kontext_erkennt_vorigen_satz_mit_fuehrendem_leerzeichen():
+    text = (
+        "Nachdem sie sich von dem Händler verabschiedet hatte, setzte Nina "
+        "ihren Weg fort. Sie verließ die belebten Gassen Rothenburgs und "
+        "machte sich auf die Reise."
+    )
+    start = text.index(" Sie verließ")
+    end = len(text)
+    vorschlag = (
+        "Nachdem sie sich von dem Händler verabschiedet hatte, setzte Nina "
+        "ihren Weg fort, nachdem Friedrich sie losgelassen hatte. Sie "
+        "verließ die belebten Gassen Rothenburgs."
+    )
+    assert vorschlag_dupliziert_kontext(text, start, end, vorschlag) is True
+
+
+def test_zusammenfuehren_trimmt_fuehrende_leerzeichen_der_fundstelle():
+    text = "Er ging fort. Sie blieb stehen und weinte."
+    start = text.index(" Sie blieb")
+    end = len(text)
+    ergebnis = befunde_zusammenfuehren(text, [
+        RoherBefund("kontinuitaet", text[start:end], "x", None, "Sie blieb.", start, end),
+    ])
+    assert text[ergebnis[0]["start"]:ergebnis[0]["end"]] == "Sie blieb stehen und weinte."
+    assert ergebnis[0]["fundstelle"] == "Sie blieb stehen und weinte."

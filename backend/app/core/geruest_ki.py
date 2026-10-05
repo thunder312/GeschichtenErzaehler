@@ -173,6 +173,35 @@ Pro Kapitel:
   "entfällt" bei Geschichten ohne Liebeshandlung
 - zustand_am_kapitelende: 1-2 Sätze mit dem Haken ins nächste Kapitel
 
+Folgerichtigkeit (jeder Punkt wird vor der Ausgabe gegengeprüft):
+- Jeder Schauplatz hat einen EIGENNAMEN (Dorf, Stadt, Burg, Gasthaus). Generische
+  Bezeichnungen wie "die Provinzstadt", "die Großstadt", "die nächste größere
+  Stadt" sind verboten. Fehlt im JSON ein Name, erfinde einen passenden und
+  nutze ihn in ALLEN Kapiteln unverändert. Ein Ort, in dem das Kapitel davor
+  endet, ist der Anfangsort des nächsten (oder der Weg dorthin wird begründet).
+- Der "zustand_am_kapitelende" von Kapitel n (Ort, Tageszeit, Verfassung) ist
+  die Ausgangslage von Kapitel n+1. "vergangene_zeit" muss dazu passen. Ein
+  Kapitel, das abends endet, beginnt nicht am Vormittag desselben Tages.
+- Jedes Ereignis kommt GENAU EINMAL vor. Ein späteres Kapitel wiederholt keine
+  Handlung eines früheren (z.B. nicht zweimal "wird bei der Arbeitssuche
+  abgelehnt"), sondern steigert sie oder bringt etwas Neues.
+- Die Spannungsstufen laufen einmal durch: genau EIN Höhepunkt, "Auflösung/
+  Lösung" nur im LETZTEN Kapitel. Löst sich der Kernkonflikt, beginnt danach
+  kein neuer Handlungsbogen.
+- Eine tote Figur ist nie "anwesend". Ist der Tod Voraussetzung des Kapitels
+  (z.B. "nach dem Tod des Vaters"), steht im Ereignis, ob die Szene vor oder
+  nach dem Tod beginnt, und was mit dem Leichnam geschieht (Totenwache,
+  Pfarrer, Nachbarn, Begräbnis) - eine Figur lässt eine Leiche nie einfach
+  liegen.
+- Jede Figur in "anwesende_figuren" ist namentlich festgelegt (aus "figuren"
+  oder neu erfunden, dann mit Stand und Rolle im Ereignis genannt) und trägt
+  überall denselben Namen.
+- Wohn-, Besitz- und Standesverhältnisse sind plausibel: einfache Leute haben
+  keine Gästezimmer oder Kamine, Bauern keine Bediensteten.
+- Beim Setting "Mittelalter" (und ähnlichen realen Epochen): keine Begriffe
+  und Institutionen, die es dort nicht gab ("Provinz", "Großstadt",
+  "Kaufhaus", "Polizei"); Städte sind Reichs-, Bischofs- oder Marktstädte.
+
 Dramaturgie:
 - Spannungsbogen-Stufen in natürlicher Reihenfolge; Höhepunkt bei ca. 75 %
   der Kapitel; "Steigende Handlung" trägt den Mittelteil und darf mehrfach
@@ -245,8 +274,12 @@ _KAPITEL_ITEM_SCHEMA = {
         "stand_der_liebeshandlung": {"type": "string"},
         "zustand_am_kapitelende": {"type": "string"},
     },
+    # "vergangene_zeit" ist Pflichtfeld im Schema (bei Kapitel 1 darf der Wert
+    # ""  sein): als optionales Feld liess das Modell es bei Kapitel 2 bis 8
+    # komplett weg (Ninas-Odyssee, 2026-10) und der Autor wählte dann selbst
+    # irgendeinen Zeitsprung.
     "required": [
-        "nummer", "titel", "ort", "anwesende_figuren", "ereignis",
+        "nummer", "titel", "ort", "anwesende_figuren", "vergangene_zeit", "ereignis",
         "funktion_im_spannungsbogen", "stand_der_liebeshandlung", "zustand_am_kapitelende",
     ],
 }
