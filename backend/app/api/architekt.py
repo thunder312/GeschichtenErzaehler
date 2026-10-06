@@ -196,6 +196,11 @@ _MAX_GERUEST_VERSUCHE = 2
 _STREAM_ENTSCHEIDUNGS_LAENGE = 24
 
 
+def _erfundener_sprecherwechsel(text: str) -> bool:
+    return arch.sprecherwechsel_abschneiden(text) != text.strip() and bool(
+        arch._SPRECHERWECHSEL_MUSTER.search(text))
+
+
 async def _einen_zug_generieren(base_url: str, settings: Settings, persona_text: str,
                                  verlauf: list[str], websocket: WebSocket,
                                  ueberschreibe: dict | None, *, rolle: str = "architekt",
@@ -224,6 +229,8 @@ async def _einen_zug_generieren(base_url: str, settings: Settings, persona_text:
             if not streamen:
                 continue
             if stream_freigegeben:
+                if _erfundener_sprecherwechsel("".join(teile)):
+                    break  # Rest ist erfundener Dialog - nicht mehr senden
                 await websocket.send_json({"phase": "frage", "typ": "teil", "text": event.text})
                 continue
             bisher = "".join(teile).strip()
@@ -232,11 +239,15 @@ async def _einen_zug_generieren(base_url: str, settings: Settings, persona_text:
             if arch.ist_geruest_antwort(bisher):
                 streamen = False  # Finale - nicht als Chat-Blase streamen
                 continue
+            if _erfundener_sprecherwechsel(bisher):
+                streamen = False  # Modell spielt das Gespraech selbst weiter
+                break
             # Erster Schwung: das bisher Angesammelte am Stueck nachreichen,
             # danach die einzelnen Stuecke.
             await websocket.send_json({"phase": "frage", "typ": "teil", "text": bisher})
             stream_freigegeben = True
-    return "".join(teile).strip()
+    text = "".join(teile).strip()
+    return text if arch.ist_geruest_antwort(text) else arch.sprecherwechsel_abschneiden(text)
 
 
 async def _zug(websocket: WebSocket, settings: Settings, base_url: str, persona_text: str,

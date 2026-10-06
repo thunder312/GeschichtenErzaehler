@@ -14,6 +14,22 @@ import time
 
 _ERSTE_FRAGE_MUSTER = re.compile(r"^\s*\d+\.\s+", re.MULTILINE)
 
+# Der Verlauf geht als EIN Transkript ("Ich: ..." / "Du: ...") an das Modell.
+# Manche Modelle setzen das Transkript fort und spielen beide Seiten - oder
+# schluepfen in eine Figur aus dem Fundus (Vorfall: Interview-Antwort als
+# Parvati Patil im Harry-Potter-Setting). Alles ab der ersten solchen
+# Sprecherzeile ist erfunden und wird abgeschnitten.
+_SPRECHERWECHSEL_MUSTER = re.compile(r"(?:^|\n)[ \t]*\**(?:Ich|Du|Daniel)\**[ \t]*:", re.IGNORECASE)
+_SPRECHERPRAEFIX_MUSTER = re.compile(r"^\s*\**Du\**[ \t]*:\s*", re.IGNORECASE)
+
+
+def sprecherwechsel_abschneiden(antwort: str) -> str:
+    """Entfernt ein vorangestelltes "Du:" und schneidet ab einer erfundenen
+    "Ich:"/"Du:"-Zeile alles ab. Nicht auf das fertige Geruest anwenden."""
+    antwort = _SPRECHERPRAEFIX_MUSTER.sub("", antwort, count=1)
+    treffer = _SPRECHERWECHSEL_MUSTER.search(antwort)
+    return antwort[:treffer.start()].rstrip() if treffer else antwort
+
 # Extrahiert die STORY-GERUEST-Struktur (inkl. Abschnitts-Platzhaltertexte
 # wie "Jahr (vierstellig), Ort, ...") aus einer Architekt-Persona, OHNE den
 # "## Regeln"-Abschnitt danach - Grundlage fuer vorlage_erzeugen(). Alle
@@ -40,6 +56,7 @@ def nur_erste_frage(antwort: str) -> str:
     Frage angezeigt wird. Wird NICHT auf das fertige Story-Geruest angewandt
     (das hat selbst nummerierte Listen, z.B. den Kapitelplan, die nicht
     faelschlich abgeschnitten werden duerfen)."""
+    antwort = sprecherwechsel_abschneiden(antwort)
     treffer = list(_ERSTE_FRAGE_MUSTER.finditer(antwort))
     if len(treffer) < 2:
         return antwort
