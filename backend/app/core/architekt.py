@@ -72,8 +72,29 @@ def ist_geruest_antwort(antwort: str) -> bool:
     return bool(re.match(r"\s*#\s*STORY-GERUEST", antwort, re.IGNORECASE))
 
 
+_LETZTE_FRAGE_MUSTER = re.compile(r"^\s*(?:[#>*_]+\s*)*Frage\s+(\d+)\s+von\s+(\d+)", re.IGNORECASE)
+
+_ZUSAMMENFASSUNGS_HINWEIS = (
+    "(Hinweis an dich, nicht an den Nutzer: Die Antwort oben beantwortet die "
+    "LETZTE Frage des Katalogs. Stelle jetzt KEINE Frage mehr und wiederhole "
+    "keine frühere Frage. Fasse stattdessen in höchstens zehn Zeilen zusammen, "
+    "was du verstanden hast (inklusive des gewählten Titels), und frage einmal "
+    "nach, ob das passt.)"
+)
+
+
 def verlauf_zu_text(verlauf: list[str]) -> str:
-    return "\n\n".join(verlauf)
+    """Verlauf als ein Transkript. War die zuletzt gestellte Frage die letzte
+    des Katalogs ("Frage N von N"), wird direkt nach der Nutzerantwort ein
+    Hinweis fuer das Modell angehaengt - ohne Nachdenken wiederholte es sonst
+    die letzte Frage endlos, weil die Zusammenfassungs-Anweisung weit vorn in
+    der langen Persona steht. Der Hinweis steht NICHT im gespeicherten Verlauf."""
+    text = "\n\n".join(verlauf)
+    if len(verlauf) >= 2 and verlauf[-1].startswith("Ich:") and verlauf[-2].startswith("Du:"):
+        treffer = _LETZTE_FRAGE_MUSTER.match(verlauf[-2].removeprefix("Du:"))
+        if treffer and treffer.group(1) == treffer.group(2):
+            text += "\n\n" + _ZUSAMMENFASSUNGS_HINWEIS
+    return text
 
 
 def _grundgeruest(persona_text: str) -> str:

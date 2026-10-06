@@ -190,3 +190,14 @@ def test_nur_erste_frage_kuerzt_mehrere_frage_n_von_m_bloecke():
 def test_sprecherwechsel_abschneiden_entfernt_erfundene_ich_zeilen():
     text = "Frage 3 von 14: Ort?\na) x\n\nIch: a\n\nDu: Frage 4 von 14: Zeit?"
     assert arch.sprecherwechsel_abschneiden(text) == "Frage 3 von 14: Ort?\na) x"
+
+
+def test_verlauf_zu_text_haengt_zusammenfassungs_hinweis_nach_letzter_frage_an():
+    verlauf = ["Ich: los", "Du: Frage 14 von 14: Titel?\na) x", "Ich: a) x"]
+    assert "KEINE Frage mehr" in arch.verlauf_zu_text(verlauf)
+
+
+def test_verlauf_zu_text_ohne_hinweis_bei_normaler_frage():
+    verlauf = ["Ich: los", "Du: Frage 13 von 14: Ton?\na) x", "Ich: a) x"]
+    assert "Hinweis an dich" not in arch.verlauf_zu_text(verlauf)
+    assert "Hinweis an dich" not in arch.verlauf_zu_text(["Ich: los"])
