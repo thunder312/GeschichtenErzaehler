@@ -24,6 +24,10 @@ _SPRECHERWECHSEL_MUSTER = re.compile(r"(?:^|\n)[ \t]*\**(?:Ich|Du|Daniel)\**[ \t
 _SPRECHERPRAEFIX_MUSTER = re.compile(r"^\s*\**Du\**[ \t]*:\s*", re.IGNORECASE)
 
 
+def sprecherpraefix_entfernen(antwort: str) -> str:
+    return _SPRECHERPRAEFIX_MUSTER.sub("", antwort, count=1)
+
+
 def sprecherwechsel_abschneiden(antwort: str) -> str:
     """Entfernt ein vorangestelltes "Du:" und schneidet ab einer erfundenen
     "Ich:"/"Du:"-Zeile alles ab. Nicht auf das fertige Geruest anwenden."""

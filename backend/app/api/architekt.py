@@ -217,10 +217,12 @@ _STREAM_ENTSCHEIDUNGS_LAENGE = 24
 def _erfundener_sprecherwechsel(text: str) -> bool:
     """Auch eine zweite Frage im selben Zug (mehrere Fragen vorweggenommen)
     zaehlt hier - alles ab ihr wird weder gestreamt noch gespeichert."""
-    if not arch.ist_geruest_antwort(text) and arch.nur_erste_frage(text) != text.strip():
-        return True
-    return arch.sprecherwechsel_abschneiden(text) != text.strip() and bool(
-        arch._SPRECHERWECHSEL_MUSTER.search(text))
+    # Ein vorangestelltes "Du:" und umgebende Leerzeichen/Umbrueche gehoeren
+    # nicht zum Befund - sonst bricht der Stream nach der ersten Zeile ab.
+    text = arch.sprecherpraefix_entfernen(text).strip()
+    if arch.ist_geruest_antwort(text):
+        return False
+    return arch.nur_erste_frage(text) != text
 
 
 async def _einen_zug_generieren(base_url: str, settings: Settings, persona_text: str,

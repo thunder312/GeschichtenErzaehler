@@ -139,3 +139,11 @@ def test_zug_volle_rolle_stellt_doch_eine_frage(settings, monkeypatch):
     assert fertig is False
     assert "Wie soll die Geschichte heissen?" in antwort
     assert [r for r, _ in aufrufe] == ["architekt_frage", "architekt"]
+
+
+def test_stream_pruefung_bricht_bei_normaler_frage_mit_zeilenumbruch_nicht_ab():
+    from app.api import architekt as api
+    assert not api._erfundener_sprecherwechsel("Frage 1 von 14: Wie lang?\n")
+    assert not api._erfundener_sprecherwechsel("Du: Frage 1 von 14: Wie lang?\na) Kurz\n")
+    assert api._erfundener_sprecherwechsel("Frage 1 von 14: Wie lang?\na) Kurz\n\nFrage 2 von 14: Ort?")
+    assert api._erfundener_sprecherwechsel("Frage 1 von 14: Wie lang?\na) Kurz\n\nIch: a")
