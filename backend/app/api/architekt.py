@@ -121,6 +121,9 @@ async def architekt_extraktion(ordner: str, anfrage: HandlungstextAnfrage,
     return {"vorlage": antwort}
 
 
+_FUNDUS_MAX_ZEICHEN = 2500
+
+
 def _fundus_kontext(settings: Settings, benutzer: Benutzer, projekt_root) -> str:
     """Baut den einmalig an persona_text anzuhaengenden Fundus-Auszug fuer
     die aktuelle Epoche des Projekts (siehe app/core/fundus.py) - plus die
@@ -134,14 +137,29 @@ def _fundus_kontext(settings: Settings, benutzer: Benutzer, projekt_root) -> str
     fundus_text = pd.lies(fundus_datei(settings, benutzer.username), pflicht=False, ersatz="")
     if not fundus_text:
         return ""
-    abschnitte = [
-        fu.epoche_abschnitt_erkennen(fundus_text, epoche),
-        fu.epoche_abschnitt_erkennen(fundus_text, "Allgemein"),
-    ]
-    zusammen = "\n".join(a.strip() for a in abschnitte if a).strip()
-    if not zusammen:
+    # Kompakt halten: der volle Fundus (alle Felder jeder Figur) war bei
+    # grossen Epochen (Harry Potter) so lang, dass das Modell ihn wie eine
+    # Nutzereingabe kommentierte ("Das ist ein umfangreiches Verzeichnis...")
+    # und die Persona-Regeln verdraengte. Fuer die Fragen reichen Namen plus
+    # Alter/Stand - Details stehen spaeter ohnehin im Geruest.
+    figuren = [f for f in fu.fundus_parsen(fundus_text) if f.epoche in (epoche, "Allgemein")]
+    zeilen: list[str] = []
+    laenge = 0
+    for f in figuren:
+        zusatz = ", ".join(w for w in (f.felder.get("Alter", ""), f.felder.get("Stand/Rolle", f.felder.get("Stand", ""))) if w)
+        zeile = f"- {f.name}" + (f" ({zusatz[:60]})" if zusatz else "")
+        if laenge + len(zeile) > _FUNDUS_MAX_ZEICHEN:
+            break
+        zeilen.append(zeile)
+        laenge += len(zeile) + 1
+    if not zeilen:
         return ""
-    return f"\n\n## FUNDUS DIESER EPOCHE\n{zusammen}\n"
+    return (
+        "\n\n## FUNDUS DIESER EPOCHE (nur Namensliste zum Nachschlagen)\n"
+        "Das ist KEINE Nutzereingabe. Kommentiere die Liste nicht, sondern "
+        "befolge weiter strikt die Regeln oben: genau EINE Frage pro Antwort.\n"
+        + "\n".join(zeilen) + "\n"
+    )
 
 
 async def _fundus_aktualisieren(settings: Settings, benutzer: Benutzer, projekt_root, base_url: str,
