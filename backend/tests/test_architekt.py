@@ -179,3 +179,14 @@ def test_transkript_erzeugen_beschriftet_nutzer_und_architekt():
     assert "**Nutzer:** Lass uns anfangen." in transkript
     assert "**Architekt:** 1. In welcher Epoche" in transkript
     assert "**Nutzer:** Regency, 1815" in transkript
+
+
+def test_nur_erste_frage_kuerzt_mehrere_frage_n_von_m_bloecke():
+    text = ("Frage 11 von 14: Nebenstrang?\na) x\n\n"
+            "Frage 12 von 14: Ablauf?\na) y\n\nFrage 13 von 14: Ton?")
+    assert arch.nur_erste_frage(text) == "Frage 11 von 14: Nebenstrang?\na) x"
+
+
+def test_sprecherwechsel_abschneiden_entfernt_erfundene_ich_zeilen():
+    text = "Frage 3 von 14: Ort?\na) x\n\nIch: a\n\nDu: Frage 4 von 14: Zeit?"
+    assert arch.sprecherwechsel_abschneiden(text) == "Frage 3 von 14: Ort?\na) x"

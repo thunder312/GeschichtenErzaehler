@@ -215,6 +215,10 @@ _STREAM_ENTSCHEIDUNGS_LAENGE = 24
 
 
 def _erfundener_sprecherwechsel(text: str) -> bool:
+    """Auch eine zweite Frage im selben Zug (mehrere Fragen vorweggenommen)
+    zaehlt hier - alles ab ihr wird weder gestreamt noch gespeichert."""
+    if not arch.ist_geruest_antwort(text) and arch.nur_erste_frage(text) != text.strip():
+        return True
     return arch.sprecherwechsel_abschneiden(text) != text.strip() and bool(
         arch._SPRECHERWECHSEL_MUSTER.search(text))
 

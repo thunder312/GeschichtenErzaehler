@@ -12,7 +12,8 @@ from __future__ import annotations
 import re
 import time
 
-_ERSTE_FRAGE_MUSTER = re.compile(r"^\s*(?:[#>*_]+\s*)*\d+\.\s+", re.MULTILINE)
+_ERSTE_FRAGE_MUSTER = re.compile(
+    r"^\s*(?:[#>*_]+\s*)*(?:\d+\.\s+|Frage\s+\d+\s+von\s+\d+)", re.MULTILINE | re.IGNORECASE)
 
 # Der Verlauf geht als EIN Transkript ("Ich: ..." / "Du: ...") an das Modell.
 # Manche Modelle setzen das Transkript fort und spielen beide Seiten - oder
@@ -57,7 +58,7 @@ def nur_erste_frage(antwort: str) -> str:
     (das hat selbst nummerierte Listen, z.B. den Kapitelplan, die nicht
     faelschlich abgeschnitten werden duerfen)."""
     antwort = sprecherwechsel_abschneiden(antwort)
-    treffer = list(_ERSTE_FRAGE_MUSTER.finditer(antwort))
+    treffer = sorted(_ERSTE_FRAGE_MUSTER.finditer(antwort), key=lambda m: m.start())
     if len(treffer) < 2:
         return antwort
     grenze = treffer[1].start()
