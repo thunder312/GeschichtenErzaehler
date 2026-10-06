@@ -55,7 +55,11 @@ ROLLEN: dict[str, dict] = {
         "keep_alive": KEEP_ALIVE_INTERVIEW,
         "optionen": {
             **_ARCHITEKT_SAMPLING,
-            "num_ctx": 8192,
+            # 16384 statt 8192 (2026-10-06): lange Epoche-Personas (Harry-Potter-
+            # Universum ~11.600 Zeichen) plus Fundus plus Verlauf sprengten 8192 -
+            # Ollama schneidet dann den ANFANG ab, also die Persona-Regeln, und das
+            # Modell stellte ab Frage 2 mehrere Fragen auf einmal.
+            "num_ctx": 16384,
             "num_predict": 1024,
         },
     },

@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 import time
 
-_ERSTE_FRAGE_MUSTER = re.compile(r"^\s*\d+\.\s+", re.MULTILINE)
+_ERSTE_FRAGE_MUSTER = re.compile(r"^\s*(?:[#>*_]+\s*)*\d+\.\s+", re.MULTILINE)
 
 # Der Verlauf geht als EIN Transkript ("Ich: ..." / "Du: ...") an das Modell.
 # Manche Modelle setzen das Transkript fort und spielen beide Seiten - oder
