@@ -42,7 +42,9 @@ from app.core import cover_log as cl
 from app.core import fundus as fundus_core
 from app.core import geruest as g
 from app.core import heuristik as h
+from app.core import languagetool as lt
 from app.core import projekt_dateien as pd
+from app.core import sprachregeln
 from app.core import ssh_manager
 from app.core.befunde_merge import (
     RoherBefund,
@@ -498,6 +500,7 @@ async def _bei_bedarf_fortsetzen(
 # sollen die Trefferquote erhoehen, auf Kosten mehrerer statt eines
 # Ollama-Aufrufs fuer diese eine Rolle.
 SATZBAU_ABSCHNITT_ZEICHEN = 1500
+LEKTOR_ABSCHNITT_ZEICHEN = 2000
 
 
 def _text_in_abschnitte_teilen(text: str, ziel_zeichen: int = SATZBAU_ABSCHNITT_ZEICHEN) -> list[str]:
@@ -526,7 +529,11 @@ def _text_in_abschnitte_teilen(text: str, ziel_zeichen: int = SATZBAU_ABSCHNITT_
 
 
 async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: int, kapiteltext: str,
-                           zusatzhinweis: str = "") -> BefundeAntwort:
+                           zusatzhinweis: str = "", nur_lektorat: bool = False) -> BefundeAntwort:
+    """`nur_lektorat`: Abschluss-Nachlauf des Automatikmodus - nur Lektor,
+    LanguageTool und Zeichensetzung, ohne die inhaltlichen Pruefer. Das
+    Ergebnis wird NICHT als befunde_NN.json gespeichert (sonst gingen die dort
+    noch offenen Funde der vollen Pruefung verloren)."""
     geruest_text = pd.lies(pd.geruest_datei(projekt))
     verbote = pd.lies(pd.verbotsliste_datei(projekt), pflicht=False, ersatz="")
     vorher = pd.lies(pd.stand_datei(projekt, n - 1), pflicht=False,
@@ -575,43 +582,79 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
     satzbau_persona = pd.persona_lesen(projekt.parent, "pruefer_satzbau")
     satzbau_abschnitte = _text_in_abschnitte_teilen(kapiteltext)
 
-    ergebnisse = await asyncio.gather(
-        _sammle_stream(
-            settings, base_url, "anachronismus", pd.persona_lesen(projekt.parent, "pruefer_anachronismus"),
-            f"JAHR: {jahr}\n\n=== VERBOTSLISTE ===\n{verbote}\n\n=== KAPITELTEXT ===\n{kapiteltext}",
-            format="json",
-        ),
-        _sammle_stream(
-            settings, base_url, "kontinuitaet", pd.persona_lesen(projekt.parent, "pruefer_kontinuitaet"),
-            f"=== STAND NACH DEM VORIGEN KAPITEL ===\n{vorher}{nebenstrang_block}{figuren_block}{vergangene_zeit_block}\n\n"
-            f"=== NEUES KAPITEL {n} ===\n{kapiteltext}{zusatzhinweis_block}{letztes_kapitel_block}",
-            format="json",
-        ),
-        _sammle_stream(
-            settings, base_url, "lektor", pd.persona_lesen(projekt.parent, "lektor"),
-            f"=== STORY-GERUEST ===\n{geruest_text}\n\n=== KAPITELTEXT ===\n{kapiteltext}",
-            format="json",
-        ),
-        *[
+    # Lektor wie Satzbau in Abschnitten (siehe SATZBAU_ABSCHNITT_ZEICHEN): ein
+    # Aufruf ueber das ganze Kapitel uebersah auf einem echten Projekt
+    # Numerusfehler ("kehrte Daniel und Larissa"), "als ob"+Indikativ und
+    # Altschreibung. Statt des ganzen Geruests nur die Figurenreferenz - sie
+    # reicht fuer Namen/Stand und haelt jeden Abschnitts-Aufruf kurz.
+    lektor_persona = pd.persona_lesen(projekt.parent, "lektor")
+    lektor_kontext = figuren or geruest_text[:3000]
+    lektor_abschnitte = _text_in_abschnitte_teilen(kapiteltext, LEKTOR_ABSCHNITT_ZEICHEN)
+
+    def _lektor_aufrufe():
+        return [
             _sammle_stream(
-                settings, base_url, "satzbau", satzbau_persona,
-                f"=== KAPITELTEXT ===\n{abschnitt}",
+                settings, base_url, "lektor", lektor_persona,
+                f"=== FIGUREN / GERUEST (nur Referenz) ===\n{lektor_kontext}\n\n=== KAPITELTEXT (Abschnitt) ===\n{abschnitt}",
                 format="json",
             )
-            for abschnitt in satzbau_abschnitte
-        ],
+            for abschnitt in lektor_abschnitte
+        ]
+    # Deterministische Regeln fuer Fehler, die der LLM-Lektor nachweislich
+    # uebersieht (siehe app/core/sprachregeln.py) - ohne KI-Aufruf.
+    regel_funde = (
+        sprachregeln.numerus_roh_befunde(kapiteltext, set(re.findall(r"[A-ZÄÖÜ][a-zäöüß]{2,}", figuren or "")))
+        + sprachregeln.altschreibung_roh_befunde(kapiteltext)
     )
-    (anachronismen_text, _), (kontinuitaet_text, _), (lektor_text, _) = ergebnisse[:3]
-    satzbau_antworten = ergebnisse[3:]
+    if nur_lektorat:
+        *lektor_antworten, languagetool_funde = await asyncio.gather(
+            *_lektor_aufrufe(), lt.grammatik_befunde(kapiteltext, settings.languagetool_url),
+        )
+        roh_befunde = []
+        for (lektor_text, _) in lektor_antworten:
+            roh_befunde += _lektor_roh_befunde(kapiteltext, lektor_text)
+        roh_befunde += languagetool_funde + regel_funde
+        roh_befunde += _zeichensetzung_roh_befunde(kapiteltext)
+    else:
+        ergebnisse = await asyncio.gather(
+            _sammle_stream(
+                settings, base_url, "anachronismus", pd.persona_lesen(projekt.parent, "pruefer_anachronismus"),
+                f"JAHR: {jahr}\n\n=== VERBOTSLISTE ===\n{verbote}\n\n=== KAPITELTEXT ===\n{kapiteltext}",
+                format="json",
+            ),
+            _sammle_stream(
+                settings, base_url, "kontinuitaet", pd.persona_lesen(projekt.parent, "pruefer_kontinuitaet"),
+                f"=== STAND NACH DEM VORIGEN KAPITEL ===\n{vorher}{nebenstrang_block}{figuren_block}{vergangene_zeit_block}\n\n"
+                f"=== NEUES KAPITEL {n} ===\n{kapiteltext}{zusatzhinweis_block}{letztes_kapitel_block}",
+                format="json",
+            ),
+            lt.grammatik_befunde(kapiteltext, settings.languagetool_url),
+            *_lektor_aufrufe(),
+            *[
+                _sammle_stream(
+                    settings, base_url, "satzbau", satzbau_persona,
+                    f"=== KAPITELTEXT ===\n{abschnitt}",
+                    format="json",
+                )
+                for abschnitt in satzbau_abschnitte
+            ],
+        )
+        (anachronismen_text, _), (kontinuitaet_text, _) = ergebnisse[:2]
+        languagetool_funde = ergebnisse[2]
+        lektor_antworten = ergebnisse[3:3 + len(lektor_abschnitte)]
+        satzbau_antworten = ergebnisse[3 + len(lektor_abschnitte):]
 
-    roh_befunde = (
-        _anachronismus_roh_befunde(kapiteltext, anachronismen_text)
-        + _kontinuitaet_roh_befunde(kapiteltext, kontinuitaet_text)
-        + _lektor_roh_befunde(kapiteltext, lektor_text)
-    )
-    for (satzbau_text, _) in satzbau_antworten:
-        roh_befunde += _satzbau_roh_befunde(kapiteltext, satzbau_text)
-    roh_befunde += _zeichensetzung_roh_befunde(kapiteltext)
+        roh_befunde = (
+            _anachronismus_roh_befunde(kapiteltext, anachronismen_text)
+            + _kontinuitaet_roh_befunde(kapiteltext, kontinuitaet_text)
+            + languagetool_funde
+            + regel_funde
+        )
+        for (lektor_text, _) in lektor_antworten:
+            roh_befunde += _lektor_roh_befunde(kapiteltext, lektor_text)
+        for (satzbau_text, _) in satzbau_antworten:
+            roh_befunde += _satzbau_roh_befunde(kapiteltext, satzbau_text)
+        roh_befunde += _zeichensetzung_roh_befunde(kapiteltext)
     # Zusaetzlich zur Deduplizierung INNERHALB jeder einzelnen Pruefer-
     # Antwort (siehe _ohne_eigene_duplikate) hier noch ein Durchgang UEBER
     # alle Quellen hinweg - relevant seit Satzbau in mehreren Abschnitten
@@ -631,7 +674,8 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
         kapitel=n, erzeugt_am=time.strftime("%Y-%m-%d %H:%M"), jahr=jahr, befunde=befunde,
         quelltext_sha256=hashlib.sha256(kapiteltext.encode("utf-8")).hexdigest(),
     )
-    pd.schreib(pd.befunde_datei(projekt, n), antwort.model_dump_json(indent=2))
+    if not nur_lektorat:
+        pd.schreib(pd.befunde_datei(projekt, n), antwort.model_dump_json(indent=2))
     return antwort
 
 
@@ -1496,6 +1540,43 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
 
                     if angewendet == 0 or durchlauf >= max_durchlaeufe:
                         break
+
+                # Ging die Schleife wegen max_durchlaeufe zu Ende, obwohl der
+                # letzte Durchlauf noch Korrekturen angewendet hat, hat KEIN
+                # Pruefer den dadurch entstandenen Text gesehen - und gerade
+                # Vorschlaege der inhaltlichen Pruefer bringen gelegentlich
+                # eigene Grammatikfehler mit ("kehrte Daniel und Larissa").
+                # Deshalb ein letzter, reiner Lektorat-Durchlauf (Lektor +
+                # LanguageTool + Zeichensetzung) auf dem Endtext.
+                if angewendet > 0:
+                    status["log"].append(f"Kapitel {n}: abschließender Lektorat-Durchlauf auf dem Endtext...")
+                    status["fehler_schritt"] = {"kapitel": n, "phase": "lektorat_nachlauf", "durchlauf": None}
+                    _automatik_status_schreiben(status, projekt_root)
+                    kapiteltext = pd.lies(pd.kapitel_datei(projekt, n))
+                    nachlauf = await _automatik_mit_retry(
+                        lambda n=n, kapiteltext=kapiteltext: _pruefe_kapitel(
+                            settings, projekt, base_url, n, kapiteltext, nur_lektorat=True),
+                        status, projekt_root, f"Lektorat-Nachlauf Kapitel {n}",
+                    )
+                    status["fehler_schritt"] = None
+                    korrigiert, nachlauf_protokoll = automatik.befunde_anwenden(
+                        kapiteltext, [b.model_dump() for b in nachlauf.befunde],
+                    )
+                    for eintrag in nachlauf_protokoll:
+                        eintrag["kapitel"] = n
+                        eintrag["durchlauf"] = durchlauf + 1
+                    status["protokoll"] += nachlauf_protokoll
+                    # Zaehlt als eigener (letzter) Durchlauf, damit
+                    # automatik._aktuell_uebersprungene() die hier noch offenen
+                    # Funde als aktuell erkennt und aeltere als ueberholt.
+                    status["kapitel_letzter_durchlauf"][str(n)] = durchlauf + 1
+                    nachlauf_angewendet = sum(1 for e in nachlauf_protokoll if e["art"] == "angewendet")
+                    status["log"].append(
+                        f"Kapitel {n}, Lektorat-Nachlauf: {nachlauf_angewendet} Korrektur(en) "
+                        f"angewendet, {len(nachlauf_protokoll) - nachlauf_angewendet} übersprungen."
+                    )
+                    if korrigiert != kapiteltext:
+                        pd.schreib(pd.kapitel_datei(projekt, n), korrigiert)
 
                 status["aktueller_durchlauf"] = None
                 finaler_text = pd.lies(pd.kapitel_datei(projekt, n))

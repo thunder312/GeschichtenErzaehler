@@ -288,7 +288,11 @@ ROLLEN: dict[str, dict] = {
     },
     "lektor": {
         "modell": "gemma4",
-        "think": False,
+        # think=True seit der Umstellung auf Abschnitts-Aufrufe (siehe
+        # pipeline._pruefe_kapitel): bei ~2000 Zeichen pro Aufruf bleibt die
+        # Denkzeit vertretbar, und Numerus-/Konjunktivfehler werden damit
+        # deutlich zuverlaessiger gefunden.
+        "think": True,
         "optionen": {
             "temperature": 0.15,
             "top_p": 0.8,

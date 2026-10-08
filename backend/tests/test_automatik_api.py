@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -6,6 +8,8 @@ from app.core.ollama_client import ChatEvent
 from app.db import init_db
 from app.main import app
 import app.api.pipeline as pipeline
+from app.core import projekt_dateien as pd
+from app.services import projekt_pfad
 
 
 @pytest.fixture
@@ -866,3 +870,29 @@ def test_automatik_ohne_angabe_hat_leere_gestoppt_liste(client, projekt_mit_kapi
     assert r.status_code == 200
     status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
     assert status["speicherkontrolle_gestoppt"] == []
+
+
+def test_lektor_laeuft_pro_abschnitt_und_nachlauf_ohne_inhaltspruefer(client, projekt_mit_kapitelplan, monkeypatch):
+    """Der Lektor bekommt wie der Satzbau-Pruefer mehrere Abschnitts-Aufrufe
+    statt eines Aufrufs fuer das ganze Kapitel; im Nachlauf (nur_lektorat)
+    laufen nur Lektor-Aufrufe und es wird keine befunde_NN.json geschrieben."""
+    settings = app.dependency_overrides[get_settings]()
+    projekt = projekt_pfad(settings, "daniel", projekt_mit_kapitelplan) / "projekt"
+    aufrufe: list[str] = []
+
+    async def _spy(settings_, base_url, rolle, system, user, format=None):
+        aufrufe.append(rolle)
+        return '{"befunde": []}', {}
+
+    monkeypatch.setattr(pipeline, "_sammle_stream", _spy)
+    absatz = "Ein ganz normaler Absatz mit genug Text. " * 20
+    text = "\n\n".join([absatz] * 6)
+
+    asyncio.run(pipeline._pruefe_kapitel(settings, projekt, "http://x", 1, text, nur_lektorat=True))
+    assert aufrufe and set(aufrufe) == {"lektor"} and len(aufrufe) > 1
+    assert not pd.befunde_datei(projekt, 1).exists()
+
+    aufrufe.clear()
+    asyncio.run(pipeline._pruefe_kapitel(settings, projekt, "http://x", 1, text))
+    assert aufrufe.count("lektor") > 1
+    assert "anachronismus" in aufrufe and "kontinuitaet" in aufrufe

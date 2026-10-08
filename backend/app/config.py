@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     # Dev-Betrieb wuerde der Browser ein "Secure"-Cookie sonst verwerfen.
     cookie_secure: bool = False
 
+    # Optionaler LanguageTool-HTTP-Server (siehe app/core/languagetool.py) fuer
+    # deterministische Grammatikfunde (Artikel-/Adjektiv-Kongruenz, Altschreibung).
+    # Leer = aus. Beispiel: NOVELLE_LANGUAGETOOL_URL=http://127.0.0.1:8081
+    languagetool_url: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

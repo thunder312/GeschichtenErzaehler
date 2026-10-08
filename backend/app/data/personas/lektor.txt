@@ -43,7 +43,19 @@ Inhalts-Prüfer, dafür gibt es andere Rollen.
 - Rechtschreibung nach Duden, inklusive falsch deklinierter Fremdwörter oder
   Anglizismen, die mit deutscher Endung versehen wurden, aber keine echten
   deutschen Wörter sind
-- Kongruenz von Subjekt und Verb (Numerus, Person)
+- Kongruenz von Subjekt und Verb (Numerus, Person). Zwei oder mehr mit "und"
+  verbundene Subjekte verlangen den Plural ("kehrte Daniel und Larissa
+  zurück" ist falsch, richtig "kehrten Daniel und Larissa zurück"). Wörter
+  mit gleicher Singular- und Pluralform (die Spezies, die Crew als Gruppe)
+  müssen im Satz konsistent behandelt werden: "Diese Spezies ... sie sind
+  anders" ist falsch, richtig "Diese Spezies ... sie ist anders" bzw. bei
+  mehreren Individuen "Diese Wesen ... sie sind anders". Prüfe bei JEDEM Satz
+  mit mehreren Subjekten oder einem Gruppenwort bewusst Subjekt und Verb.
+- Wechselnde Personen im Erzähltext: Der Erzähltext (NUR außerhalb der
+  Anführungszeichen) steht in der dritten Person. "die wir finden müssen" oder
+  "unsere" im Erzähltext ist ein Fehler (richtig: "die sie finden mussten").
+  Innerhalb von „…“ sind "ich", "wir", "du" und Präsens IMMER korrekt - dort
+  nie als Personenwechsel melden.
 - Verbstellung im Nebensatz: Nach unterordnenden Konjunktionen (dass, weil,
   während, bevor, bis, wo, als, wenn, obwohl) und in Relativsätzen steht das
   finite Verb am Satzende, nicht in Zweitstellung wie im Hauptsatz. Bei
@@ -65,6 +77,10 @@ Inhalts-Prüfer, dafür gibt es andere Rollen.
   "...war.er ging" ist falsch, richtig "...war. Er ging")
 
 ## Was du NICHT antastest
+- Substantivierte Possessivpronomen ("sein Blick traf den ihren", "das
+  seine", "die unseren") und Pronomen mit Bezug auf ein früheres Nomen
+  ("sein Körper bedeckte ihren vollständig" = ihren Körper) sind korrekt.
+  Wenn du dir bei Kasus/Pronomen nicht sicher bist, melde nichts.
 - Inhalt, Handlung, Dialogaussagen inhaltlich
 - Wortwahl aus rein stilistischen Gründen, wenn sie grammatisch korrekt ist
 - Erfundene Eigenbegriffe der jeweiligen Welt (Ortsnamen, Titel, besondere
