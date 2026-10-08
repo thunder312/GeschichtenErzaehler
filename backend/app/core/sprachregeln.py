@@ -134,3 +134,54 @@ def spezies_numerus_roh_befunde(text: str) -> list[RoherBefund]:
         )
         for m in _SPEZIES_NUMERUS_MUSTER.finditer(text)
     ]
+
+
+# "als ob" / "als wenn" verlangen den Konjunktiv. Eindeutig erkennbar ist der
+# Fehler nur bei Verben, deren Indikativ-Praeteritum vom Konjunktiv II
+# abweicht (sah/saehe, war/waere). Schwache Verben (suchte, wollte, sollte)
+# sind in beiden Modi gleich und werden NICHT gemeldet. Geprueft wird nur das
+# erste passende Verb im selben Teilsatz (bis Komma/Satzende/Nebensatz-
+# Einleiter), damit ein korrektes "als ob er wuesste, dass die Antwort Ja war"
+# nicht wegen des Verbs im "dass"-Satz auffaellt.
+_KONJUNKTIV_II = {
+    "war": "wäre", "hatte": "hätte", "wurde": "würde", "wusste": "wüsste",
+    "konnte": "könnte", "musste": "müsste", "durfte": "dürfte",
+    "sah": "sähe", "kam": "käme", "ging": "ginge", "stand": "stünde", "lag": "läge",
+    "gab": "gäbe", "fand": "fände", "nahm": "nähme", "trat": "träte", "blieb": "bliebe",
+    "zog": "zöge", "trug": "trüge", "hielt": "hielte", "lief": "liefe", "fuhr": "führe",
+    "saß": "säße", "fiel": "fiele", "sprach": "spräche", "hob": "höbe", "bot": "böte",
+    "schlug": "schlüge", "trank": "tränke", "ließ": "ließe", "schien": "schiene",
+    "begann": "begänne", "erschien": "erschiene", "schwieg": "schwiege", "stieg": "stiege",
+    "verlor": "verlöre", "verstand": "verstünde", "wuchs": "wüchse",
+}
+# Bereits korrekte Konjunktiv-II-Formen im Teilsatz: dann nichts melden.
+_KONJUNKTIV_FORMEN = set(_KONJUNKTIV_II.values()) | {"wollte", "sollte"}
+_ALS_OB_MUSTER = re.compile(r"\b[Aa]ls (?:ob|wenn)\b")
+_TEILSATZ_ENDE = {
+    "dass", "weil", "obwohl", "wenn", "als", "während", "damit", "sodass", "bevor",
+    "nachdem", "ob", "sobald", "bis", "was", "wo", "wie",
+}
+_WORT = re.compile(r"[\wäöüÄÖÜß]+|[,.!?;:–—\n“”„\"]")
+
+
+def als_ob_roh_befunde(text: str) -> list[RoherBefund]:
+    ergebnis: list[RoherBefund] = []
+    for m in _ALS_OB_MUSTER.finditer(text):
+        worte = list(_WORT.finditer(text, m.end(), min(len(text), m.end() + 200)))
+        teilsatz = []
+        for w in worte:
+            if not re.match(r"[\wäöüÄÖÜß]", w.group(0)) or w.group(0).lower() in _TEILSATZ_ENDE:
+                break
+            teilsatz.append(w)
+        if any(w.group(0) in _KONJUNKTIV_FORMEN for w in teilsatz):
+            continue
+        for w in teilsatz:
+            ind = w.group(0)
+            if ind in _KONJUNKTIV_II:
+                ergebnis.append(RoherBefund(
+                    kategorie="lektorat", fundstelle=ind,
+                    beschreibung='Nach "als ob"/"als wenn" steht der Konjunktiv II.',
+                    sicherheit="hoch", vorschlag=_KONJUNKTIV_II[ind], start=w.start(), end=w.end(),
+                ))
+                break
+    return ergebnis

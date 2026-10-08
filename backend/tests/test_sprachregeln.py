@@ -52,3 +52,27 @@ def test_spezies_numerus_laesst_stimmige_saetze_in_ruhe():
         "Die Spezies im Tal beobachtete sie. Sie sind weg.",
     ):
         assert sr.spezies_numerus_roh_befunde(text) == [], text
+
+
+def test_als_ob_indikativ_wird_zu_konjunktiv():
+    text = "Sie wurde klein, als ob sie in seiner Gegenwart nichts weiter war als ein Schatten."
+    (b,) = sr.als_ob_roh_befunde(text)
+    assert (b.fundstelle, b.vorschlag) == ("war", "wäre")
+    assert text[b.start:b.end] == "war"
+
+
+def test_als_ob_mehrere_verben_und_wenn():
+    funde = {b.fundstelle: b.vorschlag for b in sr.als_ob_roh_befunde(
+        "Er nickte, als ob er das wusste. Es klang, als wenn jede Bewegung eine Sprache sprach.")}
+    assert funde == {"wusste": "wüsste", "sprach": "spräche"}
+
+
+def test_als_ob_laesst_korrekte_und_mehrdeutige_saetze_in_ruhe():
+    for text in (
+        "Er suchte, als ob er nach Gefahren suchte.",             # schwach: Indikativ = Konjunktiv II
+        "Er sah aus, als ob er müde wäre.",                       # bereits Konjunktiv
+        "Als ob er nicht schon wüsste, dass die Antwort Ja war.",  # Verb im dass-Satz
+        "Sie lachte, als ob nichts geschehen wäre, und ging.",     # "ging" erst nach dem Komma
+        "Das war ein Tag, an dem sie ging.",                      # kein "als ob"
+    ):
+        assert sr.als_ob_roh_befunde(text) == [], text

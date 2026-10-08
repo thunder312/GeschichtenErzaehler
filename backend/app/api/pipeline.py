@@ -606,6 +606,7 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
         sprachregeln.numerus_roh_befunde(kapiteltext, set(re.findall(r"[A-ZÄÖÜ][a-zäöüß]{2,}", figuren or "")))
         + sprachregeln.altschreibung_roh_befunde(kapiteltext)
         + sprachregeln.spezies_numerus_roh_befunde(kapiteltext)
+        + sprachregeln.als_ob_roh_befunde(kapiteltext)
     )
     if nur_lektorat:
         *lektor_antworten, languagetool_funde = await asyncio.gather(
