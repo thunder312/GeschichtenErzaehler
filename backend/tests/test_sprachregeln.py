@@ -34,3 +34,21 @@ def test_altschreibung():
     funde = {b.fundstelle: b.vorschlag for b in sr.altschreibung_roh_befunde(text)}
     assert funde == {"bewußt": "bewusst", "daß": "dass", "wußte": "wusste", "zerissen": "zerrissen"}
     assert sr.altschreibung_roh_befunde("Der Fluss floss. Die Maße stimmten.") == []
+
+
+def test_spezies_numerus_hinweis_ohne_vorschlag():
+    text = "„Wir müssen vorsichtig sein. Diese Spezies... sie sind anders.“"
+    (b,) = sr.spezies_numerus_roh_befunde(text)
+    assert b.fundstelle == "Diese Spezies... sie sind"
+    assert b.vorschlag is None
+    assert text[b.start:b.end] == b.fundstelle
+
+
+def test_spezies_numerus_laesst_stimmige_saetze_in_ruhe():
+    for text in (
+        "Diese Spezies ist anders, sie ist friedlich.",
+        "Unsere Spezies sind so unterschiedlich.",
+        "Es scheint, als ob die beobachtenden Spezies näher kommen.",
+        "Die Spezies im Tal beobachtete sie. Sie sind weg.",
+    ):
+        assert sr.spezies_numerus_roh_befunde(text) == [], text

@@ -105,3 +105,32 @@ def altschreibung_roh_befunde(text: str) -> list[RoherBefund]:
             sicherheit="hoch", vorschlag=_ALTSCHREIBUNG[falsch], start=m.start(), end=m.end(),
         ))
     return ergebnis
+
+
+# "Spezies" hat im Singular und Plural dieselbe Form, deshalb ist der Numerus
+# aus dem Wort selbst nicht erkennbar. Eindeutig unstimmig wirkt aber das
+# Muster "Diese Spezies ... sie sind": Der Satz beginnt wie ein Singular und
+# faellt mit "sie" + Plural-Verb in den Plural. Ob Singular oder Plural gemeint
+# ist, kann nur der Nutzer entscheiden - deshalb ein Fund OHNE Vorschlag.
+_PLURAL_VERBEN = (
+    "sind|waren|haben|hatten|können|konnten|müssen|mussten|werden|wurden|wollen|wollten|"
+    "sollen|sollten|scheinen|schienen|wirken|wirkten"
+)
+_SPEZIES_NUMERUS_MUSTER = re.compile(
+    rf"(?:\b(?:Diese|Jene|Die|Eine|Jede)\s+)?\bSpezies(?:\s*(?:\.\.\.|…|[,;:–—-])\s*|\s+)(?:sie|Sie)\s+(?:{_PLURAL_VERBEN})\b"
+)
+
+
+def spezies_numerus_roh_befunde(text: str) -> list[RoherBefund]:
+    return [
+        RoherBefund(
+            kategorie="lektorat", fundstelle=m.group(0),
+            beschreibung=(
+                '"Spezies" steht erst im Singular, dann folgt "sie" + Plural-Verb. '
+                'Entweder durchgehend Singular ("sie ist …") oder Plural mit eindeutigem '
+                'Bezugswort ("Diese Wesen … sie sind …") verwenden.'
+            ),
+            sicherheit="mittel", vorschlag=None, start=m.start(), end=m.end(),
+        )
+        for m in _SPEZIES_NUMERUS_MUSTER.finditer(text)
+    ]
