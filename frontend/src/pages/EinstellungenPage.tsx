@@ -903,25 +903,35 @@ function PersonaModellZuordnung({ sshZiele }: PersonaModellZuordnungProps) {
   const zielVorbelegt = useRef(false);
 
   useEffect(() => {
-    api.personaModelle().then(setPersonaModelle).catch(() => {});
-  }, []);
-
-  useEffect(() => {
     if (zielVorbelegt.current || sshZiele.length === 0) return;
     zielVorbelegt.current = true;
     const favorit = sshZiele.find((z) => z.favorit) ?? sshZiele[0];
     setModelleZielId(favorit.id);
   }, [sshZiele]);
 
+  // Zuordnung UND verfuegbare Modelle gehoeren zum gewaehlten KI-Ziel: jedes
+  // Ziel (Athene, PC, Tunnel) hat andere Modelle installiert, also bietet
+  // das Dropdown nur an, was dort wirklich vorhanden ist.
   useEffect(() => {
     if (!modelleZielId) return;
+    let aktuell = true;
     setLadenModelle(true);
     setFehlerModelle(null);
+    setPersonaModelle([]);
+    setVerfuegbareModelle([]);
+    setAuswahl({});
+    api
+      .personaModelle(modelleZielId)
+      .then((p) => aktuell && setPersonaModelle(p))
+      .catch((e) => aktuell && setFehlerModelle(e instanceof Error ? e.message : String(e)));
     api
       .sshZielModelle(modelleZielId)
-      .then(setVerfuegbareModelle)
-      .catch((e) => setFehlerModelle(e instanceof Error ? e.message : String(e)))
-      .finally(() => setLadenModelle(false));
+      .then((m) => aktuell && setVerfuegbareModelle(m))
+      .catch((e) => aktuell && setFehlerModelle(e instanceof Error ? e.message : String(e)))
+      .finally(() => aktuell && setLadenModelle(false));
+    return () => {
+      aktuell = false;
+    };
   }, [modelleZielId]);
 
   // Ollama akzeptiert einen Modellnamen ohne Tag (z.B. "gemma4") als Alias
@@ -935,7 +945,7 @@ function PersonaModellZuordnung({ sshZiele }: PersonaModellZuordnungProps) {
   async function speichern(persona: string, modell: string | null) {
     setSpeichertPersona(persona);
     try {
-      const aktualisiert = await api.personaModellSetzen(persona, modell);
+      const aktualisiert = await api.personaModellSetzen(modelleZielId, persona, modell);
       setPersonaModelle((bisher) => bisher.map((p) => (p.persona === persona ? aktualisiert : p)));
       setAuswahl((bisher) => {
         const kopie = { ...bisher };
@@ -950,12 +960,13 @@ function PersonaModellZuordnung({ sshZiele }: PersonaModellZuordnungProps) {
   return (
     <>
       <p className="mb-3 text-xs text-text-muted">
-        Legt fest, welches Ollama-Modell hinter jeder Persona steckt - global für alle Benutzer und Projekte.
+        Legt fest, welches Ollama-Modell hinter jeder Persona steckt - je KI-Ziel, für alle Benutzer und
+        Projekte. Zur Auswahl stehen nur die Modelle, die auf dem gewählten Ziel installiert sind.
         Überschreibt nur das Modell, alle sonstigen Parameter bleiben wie im Code hinterlegt.
       </p>
 
       <div className="mb-3 max-w-sm">
-        <Label>Modell-Liste abfragen von KI-Ziel</Label>
+        <Label>KI-Ziel</Label>
         <Select value={modelleZielId} onChange={(e) => setModelleZielId(e.target.value)}>
           {sshZiele.length === 0 && <option value="">Kein KI-Ziel angelegt</option>}
           {sshZiele.map((z) => (

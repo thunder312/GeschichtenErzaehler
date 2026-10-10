@@ -141,7 +141,7 @@ export interface OllamaModellInfo {
   size_bytes: number | null;
 }
 
-// /api/persona-modelle - globale Admin-Zuordnung Persona -> Ollama-Modell
+// /api/persona-modelle - Admin-Zuordnung Persona -> Ollama-Modell je KI-Ziel
 // (Tab "KI-Ziele" -> Persona-Modell-Zuordnung).
 export interface PersonaModell {
   persona: string;

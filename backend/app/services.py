@@ -7,6 +7,7 @@ from __future__ import annotations
 import dataclasses
 import shutil
 from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -171,6 +172,16 @@ def ssh_ziel_aus_db(settings: Settings, ziel_id: str) -> ssh_manager.SSHZiel:
     )
 
 
+# KI-Ziel, gegen das gerade per ollama_basis_url() gearbeitet wird. Die
+# Modell-Zuordnung (Persona -> Modell) ist je KI-Ziel hinterlegt;
+# rollen_modell_override() loest sie darueber auf, ohne dass jeder Aufrufer
+# die Ziel-ID bis in die Ollama-Aufrufe durchreichen muss. ContextVars
+# laufen durch await/asyncio.to_thread mit; ausserhalb eines
+# ollama_basis_url()-Blocks (oder ohne Ziel) bleibt es bei None, dann gilt
+# schlicht der Default aus app/core/rollen.py.
+_aktuelles_ki_ziel: ContextVar[str | None] = ContextVar("aktuelles_ki_ziel", default=None)
+
+
 @contextmanager
 def ollama_basis_url(settings: Settings, ssh_ziel_id: str | None):
     """Liefert eine base_url fuer app/core/ollama_client.py. Ohne ssh_ziel_id
@@ -178,7 +189,8 @@ def ollama_basis_url(settings: Settings, ssh_ziel_id: str | None):
     gespeichertes Ziel vom Typ 'direct' (kein SSH noetig, z.B. Ollama
     direkt im LAN oder auf einer anderen Windows-Maschine erreichbar), wird
     dessen hinterlegte Basis-URL direkt verwendet. Sonst ein frisch
-    aufgebauter SSH-Tunnel zum hinterlegten Ziel."""
+    aufgebauter SSH-Tunnel zum hinterlegten Ziel. Merkt sich waehrenddessen
+    das Ziel fuer rollen_modell_override()."""
     if not ssh_ziel_id:
         yield settings.ollama_url
         return
@@ -187,16 +199,25 @@ def ollama_basis_url(settings: Settings, ssh_ziel_id: str | None):
     if row is None:
         raise HTTPException(404, "KI-Ziel nicht gefunden.")
 
-    if row["auth_method"] == "direct":
-        yield row["host"]
-        return
-
-    ziel = ssh_ziel_aus_db(settings, ssh_ziel_id)
+    token = _aktuelles_ki_ziel.set(ssh_ziel_id)
     try:
-        with ssh_manager.tunnel(ziel) as t:
-            yield t.base_url
-    except ssh_manager.SSHVerbindungsFehler as e:
-        raise HTTPException(502, f"SSH-Verbindung fehlgeschlagen: {e}") from e
+        if row["auth_method"] == "direct":
+            yield row["host"]
+            return
+
+        ziel = ssh_ziel_aus_db(settings, ssh_ziel_id)
+        try:
+            with ssh_manager.tunnel(ziel) as t:
+                yield t.base_url
+        except ssh_manager.SSHVerbindungsFehler as e:
+            raise HTTPException(502, f"SSH-Verbindung fehlgeschlagen: {e}") from e
+    finally:
+        try:
+            _aktuelles_ki_ziel.reset(token)
+        except ValueError:
+            # Anderer Context (z.B. Generator in anderem Task beendet): dann
+            # ist der Wert dort ohnehin nicht mehr sichtbar.
+            pass
 
 
 @contextmanager
@@ -293,10 +314,13 @@ def athene_container_setzen(settings: Settings, ziel_id: str, name: str, aktion:
 
 
 def rollen_modell_override(settings: Settings, persona: str) -> str | None:
-    """Globaler Admin-Override fuer das Modell einer ROLLEN-Persona (siehe
-    app/core/rollen.py), gepflegt im Tab "KI-Ziele" -> Persona-Modell-
-    Zuordnung. None bedeutet: kein Override gesetzt, es bleibt beim
-    Default aus rollen.py. Bewusst hier statt in app/core/ollama_client.py,
-    damit core/ ohne DB-Zugriff bleibt (siehe dortiger Kommentar zu
-    sammle_antwort())."""
-    return db.persona_modell_lesen(settings.database_path, persona)
+    """Admin-Override fuer das Modell einer ROLLEN-Persona (siehe
+    app/core/rollen.py) auf dem aktuellen KI-Ziel (siehe _aktuelles_ki_ziel),
+    gepflegt im Tab "KI-Ziele" -> Persona-Modell-Zuordnung. None bedeutet:
+    kein Override gesetzt (oder kein Ziel aktiv), es bleibt beim Default aus
+    rollen.py. Bewusst hier statt in app/core/ollama_client.py, damit core/
+    ohne DB-Zugriff bleibt (siehe dortiger Kommentar zu sammle_antwort())."""
+    ziel_id = _aktuelles_ki_ziel.get()
+    if not ziel_id:
+        return None
+    return db.persona_modell_lesen(settings.database_path, ziel_id, persona)

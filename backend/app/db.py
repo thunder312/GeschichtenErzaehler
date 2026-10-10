@@ -65,10 +65,25 @@ CREATE TABLE IF NOT EXISTS einstellungen (
     speicherkontrolle_container TEXT NOT NULL DEFAULT '["sd-server","sd-server-pony"]'
 );
 
+-- ALT (global, ein Modell je Persona fuer ALLE KI-Ziele): wird nur noch von
+-- der einmaligen Migration in init_db() gelesen und danach geleert. Gelten
+-- tut persona_modelle_ziel.
 CREATE TABLE IF NOT EXISTS persona_modelle (
     persona TEXT PRIMARY KEY,
     modell TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+
+-- Modell-Zuordnung je KI-Ziel: verschiedene Ziele haben verschiedene Modelle
+-- installiert (z.B. Athene q4, PC die kleinere IQ4_XS), eine globale
+-- Zuordnung wuerde auf dem jeweils anderen Ziel mit "Modell nicht
+-- verfuegbar" scheitern.
+CREATE TABLE IF NOT EXISTS persona_modelle_ziel (
+    ziel_id TEXT NOT NULL,
+    persona TEXT NOT NULL,
+    modell TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (ziel_id, persona)
 );
 
 CREATE TABLE IF NOT EXISTS unnuetzes_wissen (
@@ -176,6 +191,20 @@ def init_db(db_path: Path) -> None:
                 "TEXT NOT NULL DEFAULT '[\"sd-server\",\"sd-server-pony\"]'"
             )
 
+        # Einmalige Migration der frueheren GLOBALEN Persona-Modell-Zuordnung:
+        # sie galt bisher fuer jedes KI-Ziel, also wird sie auf alle jetzt
+        # vorhandenen Ziele kopiert (Verhalten bleibt unveraendert) und die
+        # Alt-Tabelle geleert, damit das nicht erneut laeuft.
+        alt = conn.execute("SELECT persona, modell, updated_at FROM persona_modelle").fetchall()
+        if alt:
+            for ziel in conn.execute("SELECT id FROM ssh_targets").fetchall():
+                conn.executemany(
+                    "INSERT OR IGNORE INTO persona_modelle_ziel (ziel_id, persona, modell, updated_at) "
+                    "VALUES (?, ?, ?, ?)",
+                    [(ziel["id"], z["persona"], z["modell"], z["updated_at"]) for z in alt],
+                )
+            conn.execute("DELETE FROM persona_modelle")
+
 
 def _jetzt() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -237,6 +266,7 @@ def ssh_ziel_aktualisieren(db_path: Path, secret_key_path: Path, ziel_id: str, *
 def ssh_ziel_loeschen(db_path: Path, ziel_id: str) -> None:
     with _verbindung(db_path) as conn:
         conn.execute("DELETE FROM ssh_targets WHERE id=?", (ziel_id,))
+        conn.execute("DELETE FROM persona_modelle_ziel WHERE ziel_id=?", (ziel_id,))
 
 
 def ssh_ziele_auflisten(db_path: Path) -> list[sqlite3.Row]:
@@ -397,33 +427,38 @@ def einstellung_speicherkontrolle_schreiben(db_path: Path, *, aktiv: bool,
         )
 
 
-def persona_modell_lesen(db_path: Path, persona: str) -> str | None:
-    """None bedeutet: kein Override gesetzt, es gilt der Default aus
-    app/core/rollen.py (ROLLEN[persona]["modell"])."""
+def persona_modell_lesen(db_path: Path, ziel_id: str, persona: str) -> str | None:
+    """None bedeutet: auf diesem KI-Ziel ist kein Override gesetzt, es gilt
+    der Default aus app/core/rollen.py (ROLLEN[persona]["modell"])."""
     with _verbindung(db_path) as conn:
         zeile = conn.execute(
-            "SELECT modell FROM persona_modelle WHERE persona=?", (persona,)
+            "SELECT modell FROM persona_modelle_ziel WHERE ziel_id=? AND persona=?",
+            (ziel_id, persona),
         ).fetchone()
     return zeile["modell"] if zeile else None
 
 
-def persona_modell_schreiben(db_path: Path, persona: str, modell: str) -> None:
+def persona_modell_schreiben(db_path: Path, ziel_id: str, persona: str, modell: str) -> None:
     with _verbindung(db_path) as conn:
         conn.execute(
-            "INSERT INTO persona_modelle (persona, modell, updated_at) VALUES (?, ?, ?) "
-            "ON CONFLICT(persona) DO UPDATE SET modell=excluded.modell, updated_at=excluded.updated_at",
-            (persona, modell, _jetzt()),
+            "INSERT INTO persona_modelle_ziel (ziel_id, persona, modell, updated_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(ziel_id, persona) DO UPDATE SET modell=excluded.modell, updated_at=excluded.updated_at",
+            (ziel_id, persona, modell, _jetzt()),
         )
 
 
-def persona_modell_loeschen(db_path: Path, persona: str) -> None:
+def persona_modell_loeschen(db_path: Path, ziel_id: str, persona: str) -> None:
     with _verbindung(db_path) as conn:
-        conn.execute("DELETE FROM persona_modelle WHERE persona=?", (persona,))
+        conn.execute(
+            "DELETE FROM persona_modelle_ziel WHERE ziel_id=? AND persona=?", (ziel_id, persona)
+        )
 
 
-def persona_modelle_alle_lesen(db_path: Path) -> dict[str, str]:
+def persona_modelle_alle_lesen(db_path: Path, ziel_id: str) -> dict[str, str]:
     with _verbindung(db_path) as conn:
-        zeilen = conn.execute("SELECT persona, modell FROM persona_modelle").fetchall()
+        zeilen = conn.execute(
+            "SELECT persona, modell FROM persona_modelle_ziel WHERE ziel_id=?", (ziel_id,)
+        ).fetchall()
     return {z["persona"]: z["modell"] for z in zeilen}
 
 

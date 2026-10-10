@@ -508,10 +508,11 @@ export const api = {
 
   sshZielModelle: (id: string) => anfrage<OllamaModellInfo[]>(`/api/ssh-targets/${id}/modelle`),
 
-  personaModelle: () => anfrage<PersonaModell[]>("/api/persona-modelle"),
+  personaModelle: (zielId: string) =>
+    anfrage<PersonaModell[]>(`/api/persona-modelle?ziel_id=${encodeURIComponent(zielId)}`),
 
-  personaModellSetzen: (persona: string, modell: string | null) =>
-    anfrage<PersonaModell>(`/api/persona-modelle/${encodeURIComponent(persona)}`, {
+  personaModellSetzen: (zielId: string, persona: string, modell: string | null) =>
+    anfrage<PersonaModell>(`/api/persona-modelle/${encodeURIComponent(persona)}?ziel_id=${encodeURIComponent(zielId)}`, {
       method: "PUT",
       body: JSON.stringify({ modell }),
     }),
