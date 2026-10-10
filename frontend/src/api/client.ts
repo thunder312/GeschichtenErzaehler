@@ -22,6 +22,7 @@ import type {
   FundusProjektAntwort,
   HostContainerInfo,
   HostStatus,
+  KiStartStatus,
   KiGeruestRandbedingungen,
   KiGeruestStatus,
   LoginEingabe,
@@ -505,6 +506,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(daten),
     }),
+
+  kiStarten: (zielId: string) =>
+    anfrage<KiStartStatus>(`/api/ssh-targets/${zielId}/ki-starten`, { method: "POST" }),
+
+  kiStartenStatus: (zielId: string) => anfrage<KiStartStatus>(`/api/ssh-targets/${zielId}/ki-starten`),
 
   sshZielModelle: (id: string) => anfrage<OllamaModellInfo[]>(`/api/ssh-targets/${id}/modelle`),
 

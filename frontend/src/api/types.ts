@@ -141,6 +141,18 @@ export interface OllamaModellInfo {
   size_bytes: number | null;
 }
 
+// "KI starten & Modelle scannen" (backend/app/core/ki_start.py): laeuft im
+// Hintergrund, das Frontend fragt den Fortschritt ab.
+export interface KiStartStatus {
+  laeuft: boolean;
+  fertig: boolean;
+  erfolgreich: boolean | null;
+  schritte: string[];
+  fehler: string | null;
+  modelle: OllamaModellInfo[];
+  fehlende_modelle: string[];
+}
+
 // /api/persona-modelle - Admin-Zuordnung Persona -> Ollama-Modell je KI-Ziel
 // (Tab "KI-Ziele" -> Persona-Modell-Zuordnung).
 export interface PersonaModell {

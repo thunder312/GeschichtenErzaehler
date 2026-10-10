@@ -26,6 +26,7 @@ from app.core.ssh_manager import SSHZiel
 
 HTTP_TIMEOUT = 20.0
 CONTAINER_TIMEOUT = 130.0
+DOCKER_START_TIMEOUT = 170.0
 
 # Welcher Container auf dem KI-Host welches Bildmodell bedient - entspricht den
 # Compose-Dateien in athene/compose/. Wird gebraucht, um beim "Bild trotz
@@ -63,6 +64,8 @@ def _status_aus_dienst(rohdaten: dict, container_namen: list[str]) -> dict:
         "swap": rohdaten.get("swap", {"total_mb": 0, "used_mb": 0}),
         "containers": [{"name": n, "running": laufend.get(n, False)} for n in container_namen],
         "ollama": rohdaten.get("ollama", []),
+        # Ältere Steuer-Dienste kennen das Feld nicht -> None = unbekannt.
+        "docker": rohdaten.get("docker"),
     }
 
 
@@ -103,6 +106,20 @@ def container_ueber_http(steuer_url: str, token: str, name: str, aktion: str) ->
         raise SteuerFehler(f"Steuer-Dienst nicht erreichbar: {e}") from e
     if antwort.status_code >= 400:
         raise SteuerFehler(f"{aktion} {name} fehlgeschlagen: {_fehlertext(antwort)}")
+    return antwort.json()
+
+
+def docker_starten_ueber_http(steuer_url: str, token: str) -> dict:
+    """Docker (Desktop) auf dem KI-Host hochfahren lassen und warten, bis der
+    Daemon antwortet - nur für Hosts, deren Steuer-Dienst DOCKER_DESKTOP_EXE
+    kennt (Windows-PC). Dauert bis zu ~2,5 Minuten."""
+    try:
+        with httpx.Client(timeout=DOCKER_START_TIMEOUT) as client:
+            antwort = client.post(f"{steuer_url.rstrip('/')}/docker/start", headers=_http_kopf(token))
+    except httpx.HTTPError as e:
+        raise SteuerFehler(f"Steuer-Dienst nicht erreichbar: {e}") from e
+    if antwort.status_code >= 400:
+        raise SteuerFehler(f"Docker starten fehlgeschlagen: {_fehlertext(antwort)}")
     return antwort.json()
 
 
@@ -198,7 +215,7 @@ def herunterfahren_empfohlen(status: dict) -> bool:
 
 __all__ = [
     "SteuerFehler",
-    "status_ueber_http", "container_ueber_http",
+    "status_ueber_http", "container_ueber_http", "docker_starten_ueber_http",
     "status_ueber_ssh", "container_ueber_ssh",
     "herunterfahren_empfohlen",
 ]

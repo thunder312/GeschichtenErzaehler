@@ -9,7 +9,7 @@ import type {
   SSHZiel,
   SSHZielEingabe,
 } from "../api/types";
-import type { HostStatus } from "../api/types";
+import type { HostStatus, KiStartStatus } from "../api/types";
 import { HostStatusPanel } from "../components/SpeicherkontrolleDialog";
 import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 
@@ -547,6 +547,9 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
                   Löschen
                 </button>
               </div>
+              <div className="basis-full pl-6">
+                <KiStartenKnopf zielId={z.id} />
+              </div>
             </li>
           ))}
         </ul>
@@ -790,6 +793,93 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
 
 /** Live-Panel im Tab „KI-Ziele" (Feature „KI- und Speicherkontrolle"):
  * RAM/Swap des KI-Hosts + Bild-Container einzeln starten/stoppen. */
+// Knopf "KI starten & Modelle scannen": sorgt auf dem KI-Ziel dafuer, dass Docker
+// und der Ollama-Container laufen, und liest dann die installierten Modelle aus
+// (backend/app/core/ki_start.py). Laeuft im Backend im Hintergrund; hier wird nur
+// der Fortschritt abgefragt - und nur solange der Ablauf laeuft.
+function KiStartenKnopf({ zielId, onFertig }: { zielId: string; onFertig?: (s: KiStartStatus) => void }) {
+  const [status, setStatus] = useState<KiStartStatus | null>(null);
+  const [fehler, setFehler] = useState<string | null>(null);
+  const [startet, setStartet] = useState(false);
+  const fertigGemeldet = useRef(false);
+  const laeuft = startet || (status?.laeuft ?? false);
+
+  // Anderes Ziel gewaehlt: alte Anzeige verwerfen.
+  useEffect(() => {
+    setStatus(null);
+    setFehler(null);
+    fertigGemeldet.current = false;
+  }, [zielId]);
+
+  useEffect(() => {
+    if (!status?.laeuft) return;
+    let aktuell = true;
+    const id = window.setInterval(() => {
+      api
+        .kiStartenStatus(zielId)
+        .then((s) => {
+          if (!aktuell) return;
+          setStatus(s);
+          if (s.fertig && !fertigGemeldet.current) {
+            fertigGemeldet.current = true;
+            onFertig?.(s);
+          }
+        })
+        .catch((e) => aktuell && setFehler(e instanceof Error ? e.message : String(e)));
+    }, 2000);
+    return () => {
+      aktuell = false;
+      window.clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status?.laeuft, zielId]);
+
+  async function starten() {
+    setStartet(true);
+    setFehler(null);
+    fertigGemeldet.current = false;
+    try {
+      setStatus(await api.kiStarten(zielId));
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStartet(false);
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Button variant="secondary" disabled={!zielId || laeuft} onClick={starten}>
+        {laeuft ? "⏳ Läuft …" : "🚀 KI starten & Modelle scannen"}
+      </Button>
+      {fehler && <p className="text-xs text-red-400">{fehler}</p>}
+      {status && status.schritte.length > 0 && (
+        <div className="rounded border border-border bg-black/20 p-2 text-xs">
+          <ul className="space-y-0.5 text-text-muted">
+            {status.schritte.map((t, i) => (
+              <li key={i}>{t}</li>
+            ))}
+          </ul>
+          {status.fertig && status.erfolgreich && (
+            <div className="mt-1.5 text-green-400">
+              ✓ {status.modelle.length} Modell(e): {status.modelle.map((m) => m.name).join(", ") || "-"}
+            </div>
+          )}
+          {status.fertig && status.erfolgreich === false && (
+            <div className="mt-1.5 text-red-400">✗ {status.fehler}</div>
+          )}
+          {status.fertig && status.fehlende_modelle.length > 0 && (
+            <div className="mt-1 text-amber-300">
+              ⚠️ Von den Personas auf diesem Ziel gebraucht, aber nicht installiert:{" "}
+              {status.fehlende_modelle.join(", ")}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HostSteuerungStatus({ sshZiele }: { sshZiele: SSHZiel[] }) {
   const [offen, setOffen] = useState(false);
   const [zielId, setZielId] = useState(sshZiele[0]?.id ?? "");
@@ -900,6 +990,7 @@ function PersonaModellZuordnung({ sshZiele }: PersonaModellZuordnungProps) {
   const [ladenModelle, setLadenModelle] = useState(false);
   const [fehlerModelle, setFehlerModelle] = useState<string | null>(null);
   const [speichertPersona, setSpeichertPersona] = useState<string | null>(null);
+  const [ladeZaehler, setLadeZaehler] = useState(0);
   const zielVorbelegt = useRef(false);
 
   useEffect(() => {
@@ -932,7 +1023,7 @@ function PersonaModellZuordnung({ sshZiele }: PersonaModellZuordnungProps) {
     return () => {
       aktuell = false;
     };
-  }, [modelleZielId]);
+  }, [modelleZielId, ladeZaehler]);
 
   // Ollama akzeptiert einen Modellnamen ohne Tag (z.B. "gemma4") als Alias
   // fuer "gemma4:latest" - ohne diese Normalisierung wuerde die
@@ -976,6 +1067,9 @@ function PersonaModellZuordnung({ sshZiele }: PersonaModellZuordnungProps) {
           ))}
         </Select>
         {ladenModelle && <p className="mt-1 text-xs text-text-muted">Fragt verfügbare Modelle ab...</p>}
+        <div className="mt-2">
+          <KiStartenKnopf zielId={modelleZielId} onFertig={() => setLadeZaehler((n) => n + 1)} />
+        </div>
         {fehlerModelle && <p className="mt-1 text-xs text-red-400">{fehlerModelle}</p>}
       </div>
 

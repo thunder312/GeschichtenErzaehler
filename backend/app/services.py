@@ -313,6 +313,24 @@ def athene_container_setzen(settings: Settings, ziel_id: str, name: str, aktion:
     return ath.container_ueber_ssh(ssh_ziel_aus_db(settings, ziel_id), name, aktion)
 
 
+def athene_docker_starten(settings: Settings, ziel_id: str) -> dict:
+    """Docker (Desktop) auf dem KI-Host hochfahren - nur ueber den Steuer-
+    Dienst eines 'direct'-Ziels moeglich (Windows-PC); bei SSH-Zielen laeuft
+    docker als Dienst und wird hier nicht gestartet."""
+    row = db.ssh_ziel_lesen(settings.database_path, ziel_id)
+    if row is None:
+        raise HTTPException(404, "KI-Ziel nicht gefunden.")
+    if row["auth_method"] != "direct":
+        raise ath.SteuerFehler("Docker lässt sich bei SSH-Zielen nicht von hier starten.")
+    geheim = db.ssh_ziel_geheimnis(row, settings.secret_key_path)
+    token = geheim.get("steuer_token")
+    if not row["steuer_port"] or not token:
+        raise ath.SteuerFehler("Kein Steuer-Dienst für dieses KI-Ziel konfiguriert.")
+    return ath.docker_starten_ueber_http(
+        _steuer_url_aus_direct_host(row["host"], row["steuer_port"]), token,
+    )
+
+
 def rollen_modell_override(settings: Settings, persona: str) -> str | None:
     """Admin-Override fuer das Modell einer ROLLEN-Persona (siehe
     app/core/rollen.py) auf dem aktuellen KI-Ziel (siehe _aktuelles_ki_ziel),

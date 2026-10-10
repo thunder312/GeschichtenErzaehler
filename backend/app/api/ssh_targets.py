@@ -15,17 +15,21 @@ in den Pipeline-Schritten ueber denselben ssh_ziel_id-Parameter ausgewaehlt
 (siehe app/services.py:ollama_basis_url)."""
 from __future__ import annotations
 
+import threading
+
 from fastapi import APIRouter, Depends, HTTPException, Path
 
 from app import db
 from app.auth import get_current_admin, get_current_user
 from app.config import Settings, get_settings
 from app.core import athene_steuerung as ath
-from app.core import ollama_client, ssh_manager
+from app.core import ki_start, ollama_client, ssh_manager
+from app.core.rollen import ROLLEN
 from app.schemas import (
     Benutzer,
     HostContainerAktionAntwort,
     HostStatusAntwort,
+    KiStartStatus,
     OllamaModellInfo,
     SSHTestAnfrage,
     SSHTestAntwort,
@@ -35,7 +39,9 @@ from app.schemas import (
 )
 from app.services import (
     athene_container_setzen,
+    athene_docker_starten,
     athene_status,
+    athene_steuerung_verfuegbar,
     ollama_basis_url,
     ssh_ziel_aus_db,
 )
@@ -273,6 +279,84 @@ def host_container(ziel_id: str, name: str,
         return HostContainerAktionAntwort(**athene_container_setzen(settings, ziel_id, name, aktion))
     except ath.SteuerFehler as e:
         raise HTTPException(502, str(e)) from e
+
+
+# ---------------------------------------------------------------------------
+# "KI starten & Modelle scannen" - Hintergrund-Job je KI-Ziel
+# ---------------------------------------------------------------------------
+# Der Docker-Start kann laenger dauern als ein Proxy-Timeout; deshalb laeuft der
+# Ablauf im Hintergrund, das Frontend fragt den Fortschritt ab. Nur im Speicher:
+# nach einem Backend-Neustart ist ein laufender Job weg, der Knopf startet neu.
+_ki_start_jobs: dict[str, KiStartStatus] = {}
+_ki_start_sperre = threading.Lock()
+
+
+def _modelle_aus_tags(daten: dict) -> list[dict]:
+    return [
+        {"name": m["name"], "parameter_size": m.get("details", {}).get("parameter_size"),
+         "size_bytes": m.get("size")}
+        for m in daten.get("models", [])
+    ]
+
+
+def _erwartete_modelle(settings: Settings, ziel_id: str) -> list[str]:
+    """Modelle, die die Personas auf diesem Ziel brauchen (Override oder Default)."""
+    overrides = db.persona_modelle_alle_lesen(settings.database_path, ziel_id)
+    return sorted({overrides.get(p) or cfg["modell"] for p, cfg in ROLLEN.items()})
+
+
+def _ki_start_lauf(settings: Settings, ziel_id: str) -> None:
+    status = _ki_start_jobs[ziel_id]
+
+    def schritt(text: str) -> None:
+        status.schritte.append(text)
+
+    try:
+        with ollama_basis_url(settings, ziel_id) as base_url:
+            steuerbar = athene_steuerung_verfuegbar(settings, ziel_id)
+            hilfen = ki_start.KiStartHilfen(
+                modelle_lesen=lambda: _modelle_aus_tags(ollama_client.tags_sync(base_url, timeout=4.0)),
+                steuer_status=(lambda: athene_status(settings, ziel_id, [ki_start.OLLAMA_CONTAINER]))
+                if steuerbar else None,
+                docker_starten=lambda: athene_docker_starten(settings, ziel_id),
+                container_starten=(lambda name: athene_container_setzen(settings, ziel_id, name, "start"))
+                if steuerbar else None,
+                erwartete_modelle=lambda: _erwartete_modelle(settings, ziel_id),
+            )
+            erg = ki_start.ki_starten(hilfen, schritt)
+        status.erfolgreich = erg.erfolgreich
+        status.fehler = erg.fehler
+        status.modelle = [OllamaModellInfo(**m) for m in erg.modelle]
+        status.fehlende_modelle = erg.fehlende_modelle
+    except HTTPException as e:
+        status.erfolgreich, status.fehler = False, str(e.detail)
+        status.schritte.append(str(e.detail))
+    except Exception as e:  # noqa: BLE001 - Job darf nie ohne Abschluss enden
+        status.erfolgreich, status.fehler = False, f"Unerwarteter Fehler: {e}"
+        status.schritte.append(status.fehler)
+    finally:
+        status.laeuft, status.fertig = False, True
+
+
+@router.post("/{ziel_id}/ki-starten", response_model=KiStartStatus)
+def ki_starten(ziel_id: str, settings: Settings = Depends(get_settings),
+               benutzer: Benutzer = Depends(get_current_user)):
+    """Startet "KI starten & Modelle scannen" fuer dieses Ziel im Hintergrund
+    (laeuft schon einer, wird dessen Stand zurueckgegeben)."""
+    if db.ssh_ziel_lesen(settings.database_path, ziel_id) is None:
+        raise HTTPException(404, "KI-Ziel nicht gefunden.")
+    with _ki_start_sperre:
+        bisher = _ki_start_jobs.get(ziel_id)
+        if bisher is not None and bisher.laeuft:
+            return bisher
+        _ki_start_jobs[ziel_id] = KiStartStatus(laeuft=True)
+        threading.Thread(target=_ki_start_lauf, args=(settings, ziel_id), daemon=True).start()
+        return _ki_start_jobs[ziel_id]
+
+
+@router.get("/{ziel_id}/ki-starten", response_model=KiStartStatus)
+def ki_starten_status(ziel_id: str, benutzer: Benutzer = Depends(get_current_user)):
+    return _ki_start_jobs.get(ziel_id, KiStartStatus())
 
 
 @router.post("/test", response_model=SSHTestAntwort, dependencies=[Depends(get_current_admin)])

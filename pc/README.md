@@ -29,7 +29,9 @@ Der PC muss laufen, solange mit dem Ziel `PC (Tunnel)` geschrieben wird.
 | Datei | Zweck |
 |---|---|
 | `ollama-compose.yaml` | Ollama-Container mit NVIDIA-GPU (Docker Desktop) |
-| `strato-tunnel.ps1` | Reverse-Tunnel-Schleife, gestartet per Aufgabenplanung |
+| `strato-tunnel.ps1` | Reverse-Tunnel-Schleife (Ollama :18331, Steuer-Dienst :18332), gestartet per Aufgabenplanung |
+| `steuerung-dienst.ps1` / `steuerung-einrichten.ps1` | Steuer-Dienst für den Knopf „KI starten & Modelle scannen“ |
+| `tunnel-aufgaben-einrichten.ps1` | Tunnel-Aufgabe + Wächter (alle 5 Min. Neustart, falls der Tunnel tot ist) |
 
 ## Einrichten (nach dem Kartentausch)
 
@@ -97,6 +99,42 @@ Entfernen: `Unregister-ScheduledTask -TaskName "Strato-Tunnel PC"`.
 **e) Prod:** im Tab „KI-Ziele" neues Ziel `PC (Tunnel)`, Auth-Methode
 `direct`, Host `http://127.0.0.1:18331`, testen. Beim Schreiben dieses Ziel
 statt `Athene (Tunnel)` wählen.
+
+## Knopf „KI starten & Modelle scannen“ (Steuer-Dienst)
+
+In den Einstellungen gibt es pro KI-Ziel (Tab „KI-Ziele“ und bei der
+„Persona-Modell-Zuordnung“) den Knopf **🚀 KI starten & Modelle scannen**. Er
+prüft, ob Ollama antwortet; wenn nicht, startet er (über den Steuer-Dienst auf
+dem Zielrechner) Docker Desktop und den Container `ollama`, wartet auf die API
+und liest die installierten Modelle aus. Fehlen Modelle, die die Personas auf
+diesem Ziel brauchen, steht das darunter. Ohne Docker selbst anzufassen.
+
+**Grenze:** Die App erreicht den PC nur über den Reverse-Tunnel. Ist der PC aus
+oder der Tunnel nicht aktiv, hilft der Knopf nicht (roter Punkt im Kopfbereich).
+Er deckt „Tunnel steht, aber Docker/Ollama sind aus“ ab.
+
+Einrichten (einmalig, in dieser Reihenfolge):
+
+1. **Strato:** in `/etc/ssh/sshd_config` im `Match User tunnel`-Block
+   `localhost:18332` zur `PermitOpen`-Zeile ergänzen (18331 und 18321–18324
+   stehen lassen), dann `sudo sshd -t && sudo systemctl reload ssh`.
+2. **PC:** `! ./pc/steuerung-einrichten.sh` — legt Token + Aufgabe „Steuerung PC“
+   an, startet den Dienst (`127.0.0.1:7862`) und gibt den Token aus.
+3. **Tunnel neu starten**, damit er :18332 mitnimmt:
+   `Stop-ScheduledTask "Strato-Tunnel PC"; Start-ScheduledTask "Strato-Tunnel PC"`
+   (Log `%LOCALAPPDATA%\strato-tunnel-pc.log`; steht dort „ohne Steuer-Dienst“,
+   fehlt Schritt 1).
+4. **App (Prod):** Tab „KI-Ziele“ → `PC (Tunnel)` bearbeiten → Steuer-Port
+   `18332`, Steuer-Token aus Schritt 2 → Aktualisieren.
+
+Der Dienst ist `athene/steuerung/app.py` (dasselbe Programm wie auf Athene);
+Log: `%LOCALAPPDATA%\ge-steuerung\steuerung.log`. Er darf nur den Container
+`ollama` steuern (Whitelist in `steuerung-dienst.ps1`).
+
+**Athene:** der Knopf funktioniert dort schon für „Ollama scannen“. Damit er
+auch den Container `ollama` starten darf, `ollama` in
+`STEUERBARE_CONTAINER` der `athene-steuerung.service` aufnehmen (steht jetzt in
+`athene/systemd/athene-steuerung.service`) und den Dienst neu starten.
 
 ## Troubleshooting
 

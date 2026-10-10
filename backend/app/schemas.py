@@ -227,6 +227,18 @@ class HostStatusAntwort(BaseModel):
     herunterfahren_empfohlen: bool = False
 
 
+class KiStartStatus(BaseModel):
+    """Fortschritt des Ablaufs "KI starten & Modelle scannen" (siehe
+    app/core/ki_start.py)."""
+    laeuft: bool = False
+    fertig: bool = False
+    erfolgreich: bool | None = None
+    schritte: list[str] = []
+    fehler: str | None = None
+    modelle: list[OllamaModellInfo] = []
+    fehlende_modelle: list[str] = []
+
+
 class HostContainerAktionAntwort(BaseModel):
     name: str
     aktion: str
