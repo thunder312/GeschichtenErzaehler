@@ -33,6 +33,21 @@ interface ProjektePageProps {
   onKiEntwurfGestartet: (ordner: string) => void;
 }
 
+
+// Per "Neu schreiben" duplizierte Projekte behalten den Gerüst-Titel des
+// Originals (Titel/Gerüst werden 1:1 kopiert), nur der Ordnername bekommt
+// "_v2" (bei Kollision "_v3", bei einer Kopie der Kopie "_v2_v2"). Damit
+// Original und Kopie in der Liste unterscheidbar sind, hängt der Anzeigename
+// dieses Suffix ohne Unterstrich an: "Titel v2".
+function projektAnzeigename(p: ProjektKurz): string {
+  const ordnername = p.ordner.split("/").pop() ?? p.ordner;
+  const suffix = p.neu_geschrieben_aus ? /((?:_v\d+)+)$/.exec(ordnername)?.[1] : undefined;
+  // Ohne Gerüst-Titel dient der Ordnername als Name - dann das Suffix dort abziehen,
+  // damit es nicht doppelt erscheint.
+  const name = p.titel ?? (suffix ? ordnername.slice(0, -suffix.length) : ordnername);
+  return suffix ? `${name} ${suffix.slice(1)}` : name;
+}
+
 export function ProjektePage({
   projekte,
   epochen,
@@ -482,7 +497,7 @@ export function ProjektePage({
                 style={{ backgroundColor: epocheFarbe.get(p.epoche) }}
               />
             )}
-            <div className="font-medium text-text">{p.titel ?? p.ordner}</div>
+            <div className="font-medium text-text">{projektAnzeigename(p)}</div>
             {p.neu_geschrieben_aus && (
               <span title={`Neu geschrieben - Kopie von "${p.neu_geschrieben_aus}"`} className="cursor-help text-sm">
                 🔄
