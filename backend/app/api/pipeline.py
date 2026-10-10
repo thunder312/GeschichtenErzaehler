@@ -22,6 +22,7 @@ import hashlib
 import logging
 import re
 import time
+from collections import Counter
 from pathlib import Path
 from typing import Any, Awaitable, Callable, TypeVar
 
@@ -178,6 +179,22 @@ def _ist_echte_korrektur(fundstelle: str, vorschlag: str | None) -> bool:
     return " ".join(vorschlag.split()) != " ".join(fundstelle.split())
 
 
+def _nur_umgestellt(fundstelle: str, vorschlag: str) -> bool:
+    """True, wenn "vorschlag" aus denselben Buchstaben besteht wie "fundstelle"
+    (ohne Satzzeichen, Leerraum und Gross-/Kleinschreibung), also hoechstens
+    Woerter umstellt oder zusammenzieht. Eine reine Verb-Letzt-Korrektur darf
+    nichts anderes tun - auch das Zusammenziehen eines getrennten Verbs ("drang
+    ... ein" -> "eindrang") laesst die Buchstaben gleich. Realer Fund: der
+    Satzbau-Pruefer wollte "als fuerchte sie" in "als sie fuerchtete" aendern
+    und damit nicht nur die Stellung, sondern auch Modus und Zeit (aus
+    "als ob sie fuerchte" wurde ein zeitliches "als") - die Persona verbietet
+    das ausdruecklich, ein Prompt-Hinweis allein haelt das Modell aber nicht
+    zuverlaessig davon ab."""
+    def buchstaben(text: str) -> Counter:
+        return Counter(c for c in text.casefold() if c.isalpha())
+    return buchstaben(fundstelle) == buchstaben(vorschlag)
+
+
 def _anachronismus_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefund]:
     try:
         antwort = AnachronismusAntwortLLM.model_validate_json(antwort_text)
@@ -299,6 +316,13 @@ def _satzbau_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefun
         vorschlag = eintrag.vorschlag
         if vorschlag and vorschlag_verdaechtig(eintrag.fundstelle, vorschlag):
             vorschlag = None
+        beschreibung = eintrag.problem
+        # Reine Verb-Letzt-Korrekturen stellen nur um. Aendert der Vorschlag
+        # Buchstaben (andere Verbform/Zeit/Wortwahl), ist er nicht mehr nur die
+        # eine Regel dieses Pruefers - der Fund bleibt, aber ohne Ein-Klick-Ersatz.
+        if vorschlag and not _nur_umgestellt(eintrag.fundstelle, vorschlag):
+            vorschlag = None
+            beschreibung += " (kein Vorschlag: die Korrektur hätte Wortformen verändert)"
         if not _ist_echte_korrektur(eintrag.fundstelle, vorschlag):
             continue
         bereich = finde_fundstelle(kapiteltext, eintrag.fundstelle)
@@ -307,7 +331,7 @@ def _satzbau_roh_befunde(kapiteltext: str, antwort_text: str) -> list[RoherBefun
         ergebnis.append(RoherBefund(
             kategorie="lektorat",
             fundstelle=eintrag.fundstelle,
-            beschreibung=eintrag.problem,
+            beschreibung=beschreibung,
             sicherheit="hoch",
             vorschlag=vorschlag,
             start=bereich[0] if bereich else None,

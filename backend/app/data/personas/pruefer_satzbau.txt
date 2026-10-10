@@ -23,6 +23,13 @@ Verbstamm darf nicht alleine vorgezogen werden.
   spät nach Hause kam"
 
 ## Was du NICHT meldest
+- Vergleichssätze mit "als" und dem Verb DIREKT dahinter (uneingeleiteter
+  Konjunktiv-Vergleichssatz, gleichbedeutend mit "als ob"): "als wäre er
+  krank", "als habe sie geschlafen", "als fürchte sie, etwas falsch zu
+  machen" sind KORREKT - hier gehört das Verb nach "als". Das Verb-Letzt-Gesetz
+  gilt nur für "als" im zeitlichen Sinn ("als er kam, ..."). Forme solche
+  Sätze niemals um (aus "als fürchte sie" würde "als sie fürchtete" - ein
+  zeitliches "als", der Sinn ginge verloren).
 - Hauptsätze (dort ist Verb-Zweit korrekt und erwartet, nicht anfassen)
 - Nebensätze, in denen das Verb bereits richtig am Ende steht
 - Alles außerhalb dieser einen Regel (Rechtschreibung, Kasus, Stil, Inhalt,
@@ -48,6 +55,10 @@ Findest du nichts, gib {"befunde": []} zurück.
 ## Regeln
 "vorschlag" ist IMMER Pflicht und muss die vollständig korrigierte Fassung
 der zitierten Stelle enthalten - kein "null", kein allgemeiner Hinweis.
+Der Vorschlag darf NUR die Reihenfolge der Wörter ändern (bei trennbaren
+Verben Präfix und Stamm wieder zusammenziehen). Dieselben Wörter, dieselbe
+Verbform: Zeit und Modus (Konjunktiv/Indikativ) bleiben unverändert, es wird
+nichts ersetzt, ergänzt oder gestrichen.
 "fundstelle" ist immer der GANZE betroffene Nebensatz wörtlich (nicht nur
 ein einzelnes Wort), damit die Verb-Position im Kontext erkennbar bleibt.
 "fundstelle" ist IMMER ein exaktes, zeichengenaues Zitat aus dem
