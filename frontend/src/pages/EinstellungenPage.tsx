@@ -430,6 +430,10 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
     !formular.private_key_pem &&
     formular.auth_method === bearbeiteUrsprungAuthMethod;
 
+  // Ob für das bearbeitete Ziel schon ein Steuer-Token hinterlegt ist (der Wert
+  // selbst kommt nie ans Frontend, nur dieses Flag).
+  const tokenGesetzt = !!sshZiele.find((z) => z.id === bearbeiteId)?.steuer_token_gesetzt;
+
   const formularGueltig =
     formular.name.trim() !== "" &&
     (istDirekt
@@ -749,14 +753,33 @@ function KiZieleCard({ sshZiele, onGeaendert }: KiZieleCardProps) {
                 />
               </div>
               <div>
-                <Label>Steuer-Token</Label>
+                <div className="flex items-center gap-2">
+                  <Label>Steuer-Token</Label>
+                  {bearbeiteId && (
+                    <Badge tone={tokenGesetzt ? "green" : "amber"}>
+                      {tokenGesetzt ? "✓ Token gesetzt" : "kein Token gesetzt"}
+                    </Badge>
+                  )}
+                </div>
                 <Input
                   type="password"
                   autoComplete="off"
                   value={formular.steuer_token ?? ""}
-                  placeholder={bearbeiteId ? "unverändert lassen = leer" : "Token des athene-steuerung-Dienstes"}
+                  placeholder={
+                    !bearbeiteId
+                      ? "Token des athene-steuerung-Dienstes"
+                      : tokenGesetzt
+                        ? "●●●●●●●● hinterlegt – leer lassen = behalten"
+                        : "Token eintragen"
+                  }
                   onChange={(e) => feld("steuer_token", e.target.value)}
                 />
+                {bearbeiteId && tokenGesetzt && (
+                  <p className="mt-1 text-xs text-text-muted">
+                    Der Token wird aus Sicherheitsgründen nie wieder angezeigt. Nur wenn du hier etwas
+                    einträgst, wird er überschrieben.
+                  </p>
+                )}
               </div>
               <p className="text-xs text-text-muted sm:col-span-2">
                 Für das Feature „KI- und Speicherkontrolle": erlaubt der App, RAM/Container auf
