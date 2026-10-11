@@ -472,3 +472,10 @@ def test_figurennamen_schuetzen_entfernt_umbenennung_aber_nicht_andere_funde():
         "kontinuitaet", "führte Adelheid durch", "falscher Name", None, "führte Nina durch", 10, 30)
     ergebnis = figurennamen_schuetzen([umbenennung, anderes, kontinuitaet], ["Prinz Stefan", "Nina"])
     assert ergebnis == [anderes, kontinuitaet]
+
+
+def test_anrede_abschnitt_erkennen():
+    from app.core import geruest as g
+    text = "## Figuren\n- **Nina**\n\n## Anrede-Konventionen\n* Nina zu Stefan: \"Ihr\"\n\n## Konflikt\nx"
+    assert g.anrede_abschnitt_erkennen(text) == '* Nina zu Stefan: "Ihr"'
+    assert g.anrede_abschnitt_erkennen("## Figuren\nx") is None

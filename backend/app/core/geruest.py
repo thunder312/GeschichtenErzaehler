@@ -210,6 +210,22 @@ def figuren_abschnitt_erkennen(geruest: str) -> str | None:
     return inhalt or None
 
 
+_ANREDE_ABSCHNITT_MUSTER = re.compile(
+    r"##\s*Anrede-Konventionen\s*\n(.*?)(?=\n##\s|\Z)", re.IGNORECASE | re.DOTALL,
+)
+
+
+def anrede_abschnitt_erkennen(geruest: str) -> str | None:
+    """Extrahiert '## Anrede-Konventionen' (wer wen mit du/Sie/Ihr anspricht)
+    fuer den eigenen Anrede-Pruefer in pipeline._pruefe_kapitel. None, wenn
+    der Abschnitt fehlt oder leer ist."""
+    treffer = _ANREDE_ABSCHNITT_MUSTER.search(geruest)
+    if not treffer:
+        return None
+    inhalt = treffer.group(1).strip()
+    return inhalt or None
+
+
 # Namenszeile im '## Figuren'-Abschnitt: "*   **Hermine (junge Erwachsene):**
 # ..." (Architekt-Interview) bzw. "*   **Hermine Granger:** ..." (KI-Geruest,
 # siehe geruest_ki._figuren_block). Faengt den reinen Namen bis zur ersten

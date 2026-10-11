@@ -553,6 +553,37 @@ def _text_in_abschnitte_teilen(text: str, ziel_zeichen: int = SATZBAU_ABSCHNITT_
     return abschnitte
 
 
+# Eigener, fokussierter Anrede-Pruefer: der grosse Kontinuitaets-Pruefer
+# uebersah in Kapitel 5 von Eine-unerwartete-Begegnung_v2 Ninas Wechsel
+# zwischen "Ihr" und "du" (und Stefans "Herrin") trotz Regel in seiner
+# Persona. Ein Aufruf nur zu dieser einen Frage ist zuverlaessiger. Die Persona
+# steht bewusst im Code (nicht in app/data/personas), damit sie auch in
+# bestehende Projekte mit Persona-Kopien wirkt. Antwortformat = Kontinuitaet.
+ANREDE_PRUEFER_PERSONA = """Du prüfst ausschließlich die ANREDE zwischen Figuren in einem Kapitel.
+
+Eingabe: die festgelegten Anrede-Konventionen der Geschichte und der Kapiteltext.
+Jede Zeile der Konventionen sagt, wie Figur A zu Figur B spricht (z.B. "Ihr/Euch/Herr"
+oder "du"). Das gilt unveränderlich für die gesamte Geschichte.
+
+Gehe jede wörtliche Rede durch. Bestimme pro Äußerung, WER zu WEM spricht, und
+vergleiche mit der Konvention für genau diese Richtung (A zu B ist NICHT B zu A).
+Melde jede Äußerung, die davon abweicht:
+- falsche Form (z.B. "dich", "du", "dein" statt "Euch", "Ihr", "Euer", oder umgekehrt),
+- falsche Anredewörter (z.B. "Herrin", wenn die Konvention "du" verlangt),
+- Mischformen im selben Satz oder Absatz.
+Rede über eine dritte Person oder bloße Erzählung ist KEINE Anrede. Melde nichts,
+was der Konvention entspricht, und erfinde keine Regeln, die nicht dort stehen.
+
+Antwort ausschließlich als JSON:
+{"befunde": [{"zitat": "<wörtlich aus dem Kapitel, der kürzeste Satzteil mit dem Fehler, nach Möglichkeit ganze Äußerung>",
+"widerspruch": "<wer spricht zu wem; verlangt wird X, steht dort Y>",
+"beleg": "<die passende Konventionszeile>",
+"unsicher": false,
+"vorschlag": "<das zitat, nur mit korrigierter Anrede, sonst unverändert>"}]}
+Der "vorschlag" muss das Zitat in derselben Länge mit richtig gebeugter Anrede
+wiedergeben (Ihr/Euch/Euer bzw. du/dich/dein). Ist nichts falsch: {"befunde": []}."""
+
+
 async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: int, kapiteltext: str,
                            zusatzhinweis: str = "", nur_lektorat: bool = False) -> BefundeAntwort:
     """`nur_lektorat`: Abschluss-Nachlauf des Automatikmodus - nur Lektor,
@@ -610,6 +641,19 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
     # Kapitel zu verkuerzen. "format=json" erzwingt eine strukturierte
     # Antwort, die deterministisch geparst werden kann statt
     # freiformuliertes Markdown/Fliesstext zu interpretieren.
+    anrede = g.anrede_abschnitt_erkennen(geruest_text)
+
+    def _anrede_aufrufe():
+        # Erst beim Aufruf erzeugt, damit im nur_lektorat-Zweig keine nie
+        # erwartete Coroutine entsteht.
+        if not anrede:
+            return []
+        return [_sammle_stream(
+            settings, base_url, "kontinuitaet", ANREDE_PRUEFER_PERSONA,
+            f"=== ANREDE-KONVENTIONEN ===\n{anrede}\n\n=== KAPITELTEXT ===\n{kapiteltext}",
+            format="json",
+        )]
+
     satzbau_persona = pd.persona_lesen(projekt.parent, "pruefer_satzbau")
     satzbau_abschnitte = _text_in_abschnitte_teilen(kapiteltext)
 
@@ -671,15 +715,19 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
                 )
                 for abschnitt in satzbau_abschnitte
             ],
+            *_anrede_aufrufe(),
         )
         (anachronismen_text, _), (kontinuitaet_text, _) = ergebnisse[:2]
         languagetool_funde = ergebnisse[2]
         lektor_antworten = ergebnisse[3:3 + len(lektor_abschnitte)]
-        satzbau_antworten = ergebnisse[3 + len(lektor_abschnitte):]
+        rest = ergebnisse[3 + len(lektor_abschnitte):]
+        satzbau_antworten = rest[:len(satzbau_abschnitte)]
+        anrede_antworten = rest[len(satzbau_abschnitte):]
 
         roh_befunde = (
             _anachronismus_roh_befunde(kapiteltext, anachronismen_text)
             + _kontinuitaet_roh_befunde(kapiteltext, kontinuitaet_text)
+            + [b for (text, _) in anrede_antworten for b in _kontinuitaet_roh_befunde(kapiteltext, text)]
             + languagetool_funde
             + regel_funde
         )
