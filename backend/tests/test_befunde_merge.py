@@ -445,3 +445,30 @@ def test_zusammenfuehren_trimmt_fuehrende_leerzeichen_der_fundstelle():
     ])
     assert text[ergebnis[0]["start"]:ergebnis[0]["end"]] == "Sie blieb stehen und weinte."
     assert ergebnis[0]["fundstelle"] == "Sie blieb stehen und weinte."
+
+
+# --- Namensschutz (Vorfall Nina -> Adelheid, 2026-10-10) ---------------------
+
+def test_figurennamen_erkennen_ohne_bullet_und_ohne_titel():
+    from app.core.geruest import figurennamen_erkennen
+    geruest = (
+        "## Figuren\n"
+        "**Prinz Stefan:** 25 Jahre\n"
+        "*   **Nina:** 16 Jahre\n"
+        "**Berta:** Köchin\n\n"
+        "## Konflikt\nx\n"
+    )
+    assert figurennamen_erkennen(geruest) == ["Prinz Stefan", "Stefan", "Nina", "Berta"]
+
+
+def test_figurennamen_schuetzen_entfernt_umbenennung_aber_nicht_andere_funde():
+    from app.core.befunde_merge import RoherBefund, figurennamen_schuetzen
+    umbenennung = RoherBefund(
+        "anachronismus", "Prinz Stefan führte Nina durch die Gänge", "moderner Name",
+        "hoch", "Prinz Stefan führte Adelheid durch die Gänge", 0, 40)
+    anderes = RoherBefund(
+        "anachronismus", "Nina aß eine Kartoffel", "Kartoffel", "hoch", "Nina aß einen Brei", 50, 70)
+    kontinuitaet = RoherBefund(
+        "kontinuitaet", "führte Adelheid durch", "falscher Name", None, "führte Nina durch", 10, 30)
+    ergebnis = figurennamen_schuetzen([umbenennung, anderes, kontinuitaet], ["Prinz Stefan", "Nina"])
+    assert ergebnis == [anderes, kontinuitaet]

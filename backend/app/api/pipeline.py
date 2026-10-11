@@ -50,6 +50,7 @@ from app.core import ssh_manager
 from app.core.befunde_merge import (
     RoherBefund,
     befunde_zusammenfuehren,
+    figurennamen_schuetzen,
     vorschlag_dupliziert_kontext,
     vorschlag_verdaechtig,
 )
@@ -573,6 +574,12 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
         f"\n\n=== FIGUREN-REFERENZ (Namen und Titel laut Geruest) ===\n{figuren}"
         if figuren else ""
     )
+    figurennamen = g.figurennamen_erkennen(geruest_text)
+    namen_block = (
+        "\n\n=== FIGURENNAMEN (vom Autor festgelegt - NIE als anachronistisch "
+        "beanstanden, NIE umbenennen) ===\n" + ", ".join(figurennamen)
+        if figurennamen else ""
+    )
     vergangene_zeit = g.vergangene_zeit_fuer_kapitel_erkennen(geruest_text, n)
     vergangene_zeit_block = (
         f"\n\n=== GEPLANTE VERGANGENE ZEIT SEIT DEM VORIGEN KAPITEL ===\n{vergangene_zeit}"
@@ -645,7 +652,7 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
         ergebnisse = await asyncio.gather(
             _sammle_stream(
                 settings, base_url, "anachronismus", pd.persona_lesen(projekt.parent, "pruefer_anachronismus"),
-                f"JAHR: {jahr}\n\n=== VERBOTSLISTE ===\n{verbote}\n\n=== KAPITELTEXT ===\n{kapiteltext}",
+                f"JAHR: {jahr}\n\n=== VERBOTSLISTE ===\n{verbote}{namen_block}\n\n=== KAPITELTEXT ===\n{kapiteltext}",
                 format="json",
             ),
             _sammle_stream(
@@ -694,6 +701,9 @@ async def _pruefe_kapitel(settings: Settings, projekt: Path, base_url: str, n: i
     # erneuten Pruefung nicht wieder auftauchen - siehe
     # app/core/befunde_ablehnung.py.
     roh_befunde = befunde_ablehnung.herausfiltern(projekt, roh_befunde)
+    # Namen der Figuren sind Vorgabe des Geruests: kein Pruefer darf sie
+    # umbenennen (Vorfall Nina -> Adelheid, siehe figurennamen_schuetzen).
+    roh_befunde = figurennamen_schuetzen(roh_befunde, figurennamen)
     befunde = [Befund(**b) for b in befunde_zusammenfuehren(kapiteltext, roh_befunde)]
 
     antwort = BefundeAntwort(
@@ -833,7 +843,15 @@ async def _kapitel_schreiben_kern(
         f"\n\n=== NUR DIESES KAPITEL SCHREIBEN (Kapitel {n}) ===\n{kapitel_block}\n\n"
         f"Bleibe ausschließlich in der oben für DIESES Kapitel beschriebenen "
         f"Stufe der Liebeshandlung. Verwende KEINE Ereignisse, keine Explizitheit "
-        f"und keinen Beziehungsstand aus einem ANDEREN Kapitel des Gesamtplans."
+        f"und keinen Beziehungsstand aus einem ANDEREN Kapitel des Gesamtplans.\n"
+        f"Der \"Stand der Liebeshandlung\" ist eine OBERGRENZE, auch bei hoher "
+        f"Jugendschutz-Stufe: Die Jugendschutz-Stufe bestimmt nur, WIE explizit "
+        f"die Stufe erzählt wird, niemals, wie WEIT die Beziehung in diesem "
+        f"Kapitel geht. Steht dort Kuss oder Verlangen, endet die Szene beim "
+        f"Kuss bzw. bei Berührungen über der Kleidung (Unterbrechung, Innehalten, "
+        f"Abschied) - KEIN Geschlechtsverkehr, KEIN Oralverkehr, kein Entkleiden "
+        f"bis zur Nacktheit. Dieser Schritt bleibt dem Kapitel vorbehalten, "
+        f"dessen Stand ihn ausdrücklich nennt."
         if kapitel_block else ""
     )
     zusatz_block = (

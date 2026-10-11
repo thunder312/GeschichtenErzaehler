@@ -310,49 +310,41 @@ export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, or
             </div>
             <div>
               <Label>Funktion im Spannungsbogen</Label>
-              {istEigeneAngabe(index, k.funktionImSpannungsbogen) ? (
-                <div className="space-y-1">
-                  <Input
-                    value={k.funktionImSpannungsbogen}
-                    onChange={(e) => feldAendern(index, "funktionImSpannungsbogen", e.target.value)}
-                    placeholder="Eigene Angabe"
-                    className={klasse(index, "funktionImSpannungsbogen")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEigeneAngabeIndizes((bisher) => {
-                        const neu = new Set(bisher);
-                        neu.delete(index);
-                        return neu;
-                      });
-                      feldAendern(index, "funktionImSpannungsbogen", "");
-                    }}
-                    className="text-xs text-accent-light hover:underline"
-                  >
-                    Kategorie stattdessen auswählen
-                  </button>
-                </div>
-              ) : (
-                <Select
+              {/* Das Dropdown bleibt IMMER sichtbar - auch bei frei formuliertem
+                  Altbestand-Text (z.B. "Einführung der Figuren und des Konflikts"),
+                  damit sich jederzeit eine der sechs Kategorien wählen lässt. Das
+                  Freitext-Feld erscheint zusätzlich nur im Modus "Eigene Angabe". */}
+              <Select
+                value={istEigeneAngabe(index, k.funktionImSpannungsbogen) ? EIGENE_ANGABE : k.funktionImSpannungsbogen}
+                onChange={(e) => {
+                  if (e.target.value === EIGENE_ANGABE) {
+                    setEigeneAngabeIndizes((bisher) => new Set(bisher).add(index));
+                    return;
+                  }
+                  setEigeneAngabeIndizes((bisher) => {
+                    const neu = new Set(bisher);
+                    neu.delete(index);
+                    return neu;
+                  });
+                  feldAendern(index, "funktionImSpannungsbogen", e.target.value);
+                }}
+                className={klasse(index, "funktionImSpannungsbogen")}
+              >
+                <option value="">– auswählen –</option>
+                {FUNKTION_IM_SPANNUNGSBOGEN_OPTIONEN.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+                <option value={EIGENE_ANGABE}>Eigene Angabe...</option>
+              </Select>
+              {istEigeneAngabe(index, k.funktionImSpannungsbogen) && (
+                <Input
                   value={k.funktionImSpannungsbogen}
-                  onChange={(e) => {
-                    if (e.target.value === EIGENE_ANGABE) {
-                      setEigeneAngabeIndizes((bisher) => new Set(bisher).add(index));
-                      return;
-                    }
-                    feldAendern(index, "funktionImSpannungsbogen", e.target.value);
-                  }}
-                  className={klasse(index, "funktionImSpannungsbogen")}
-                >
-                  <option value="">– auswählen –</option>
-                  {FUNKTION_IM_SPANNUNGSBOGEN_OPTIONEN.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                  <option value={EIGENE_ANGABE}>Eigene Angabe...</option>
-                </Select>
+                  onChange={(e) => feldAendern(index, "funktionImSpannungsbogen", e.target.value)}
+                  placeholder="Eigene Angabe"
+                  className={`mt-1 ${klasse(index, "funktionImSpannungsbogen")}`}
+                />
               )}
             </div>
             <div>

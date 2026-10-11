@@ -228,6 +228,29 @@ class RoherBefund:
     end: int | None
 
 
+def figurennamen_schuetzen(roh_befunde: list[RoherBefund], figurennamen: list[str]) -> list[RoherBefund]:
+    """Entfernt Anachronismus-Funde, deren Vorschlag einen im Geruest festgelegten
+    Figurennamen aus der Fundstelle streicht (= Umbenennung). Realer Vorfall
+    (2026-10-10, "Eine-unerwartete-Begegnung_v2", Mittelalter): der Anachronismus-
+    Pruefer hielt "Nina" fuer einen modernen Namen und schlug "Adelheid" (aus der
+    Beispielliste der Verbotsliste) vor - uebernommen, hiess die Hauptfigur in
+    Kapitel 6 ploetzlich anders. Namen der Figuren sind Vorgabe des Autors, kein
+    Pruef-Gegenstand; Kontinuitaets-Funde bleiben unberuehrt."""
+    if not figurennamen:
+        return roh_befunde
+
+    def verliert_namen(b: RoherBefund) -> bool:
+        if b.kategorie != "anachronismus" or not b.vorschlag:
+            return False
+        for name in figurennamen:
+            muster = re.compile(rf"(?<!\w){re.escape(name)}(?!\w)")
+            if muster.search(b.fundstelle) and not muster.search(b.vorschlag):
+                return True
+        return False
+
+    return [b for b in roh_befunde if not verliert_namen(b)]
+
+
 _SICHERHEIT_RANG = {"hoch": 2, "mittel": 1, "gering": 0}
 
 # Realer Vorfall (2026-08-21, Kapitel 7 derselben "Blut-und-Ahornlaub..."-

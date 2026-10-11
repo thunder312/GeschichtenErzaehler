@@ -241,6 +241,45 @@ def hauptfiguren_namen(geruest: str, max_anzahl: int = 2) -> list[str]:
     return namen
 
 
+# Namenszeile im '## Figuren'-Abschnitt MIT oder OHNE Bullet-Marker
+# ("*   **Nina:** ..." oder "**Nina:** ..."): beide Formen kommen in echten
+# Geruesten vor (das Interview-Geruest von "Eine-unerwartete-Begegnung_v2"
+# hatte keinen Marker, _HAUPTFIGUR_NAME_MUSTER wuerde dort nichts finden).
+_FIGUR_NAME_LOCKER_MUSTER = re.compile(r"^\s*(?:[*+-]\s+)?\*\*\s*([^*(:]+?)\s*(?:\(|:|\*\*)")
+
+# Titel/Rangbezeichnungen, die als Namensbestandteil nichts ueber die Figur
+# aussagen - ein Pruefer-Vorschlag, der "Prinz" aendert, ist keine Umbenennung.
+_NAMENS_TITEL = {
+    "prinz", "prinzessin", "graf", "gräfin", "graefin", "herzog", "herzogin",
+    "könig", "koenig", "königin", "koenigin", "kaiser", "kaiserin", "ritter",
+    "herr", "frau", "fräulein", "fraeulein", "lady", "lord", "sir", "dr",
+    "meister", "pater", "bruder", "schwester", "vogt", "baron", "freiherr",
+}
+
+
+def figurennamen_erkennen(geruest: str) -> list[str]:
+    """ALLE im '## Figuren'-Abschnitt gelisteten Namen samt ihren Einzel-
+    Bestandteilen (ohne Titel wie 'Prinz'): ['Prinz Stefan', 'Stefan', 'Nina',
+    'Berta']. Grundlage fuer den Namensschutz in der Anachronismus-Pruefung
+    (api/pipeline.py): vom Autor im Geruest festgelegte Namen sind gesetzt und
+    duerfen von keinem Pruefer umbenannt werden."""
+    block = figuren_abschnitt_erkennen(geruest)
+    if not block:
+        return []
+    namen: list[str] = []
+    for zeile in block.splitlines():
+        m = _FIGUR_NAME_LOCKER_MUSTER.match(zeile)
+        if not m:
+            continue
+        voll = m.group(1).strip()
+        teile = [voll] + [t for t in re.split(r"\s+", voll)
+                          if len(t) >= 3 and t.lower().strip(".") not in _NAMENS_TITEL]
+        for t in teile:
+            if t and t not in namen:
+                namen.append(t)
+    return namen
+
+
 def jahr_erkennen(geruest: str) -> str:
     """Fallback-Kette: explizite 'Jahr: 1815'-Angabe (laut Architekt-Vorgabe
     MUSS die Zeitangabe im Geruest mit dem Wort "Jahr" davor stehen) -> erste
