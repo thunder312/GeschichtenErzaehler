@@ -205,6 +205,21 @@ diese Vorrang vor eigenen Ideen für das Ereignis des jeweiligen Kapitels. Für
 nicht vorgegebene Kapitel entwickelst du die Handlung frei weiter. Hat der Nutzer
 sich für Überraschung entschieden oder die Frage übersprungen, planst du den
 gesamten Kapitelplan wie gewohnt eigenständig.
+Stand der Liebeshandlung: Fülle dieses Feld in JEDEM Kapitel selbst konkret aus,
+nie leer und nie als Platzhalter. Es ist die OBERGRENZE für das Kapitel: die
+höchste Stufe, die darin erreicht wird, plus ein kurzer Satz zur Situation (z.B.
+"Annäherung: gemeinsamer Weg, erste Vertrautheit, noch keine Berührung").
+Stufenleiter: Begegnung, Annäherung, Widerstand, ehrliches Geständnis, Kuss,
+körperliche Erfüllung. Keine Stufe wird ausgelassen (mehrere Stufen im selben
+Kapitel nur bei sehr wenigen Kapiteln), Rückschritte durch Konflikte sind
+erlaubt. Verteile die Stufen über den GESAMTEN Kapitelplan: Die Begegnung liegt
+in Kapitel eins oder zwei, die körperliche Erfüllung erst im letzten Drittel
+und erst nach Geständnis und Kuss. Bei Jugendschutz-Stufe "Jugendfrei" oder
+"Angedeutet" endet die Leiter beim Kuss bzw. bei angedeuteter Nähe. In
+Kapiteln, in denen die Liebenden sich nicht begegnen, steht der letzte Stand
+mit dem Zusatz "unverändert". Gibt es laut Rahmen keine Liebeshandlung, steht
+in jedem Kapitel "Keine Liebeshandlung". Konkrete Vorgaben des Nutzers haben
+Vorrang.
 Die Liebeshandlung braucht Zwischenschritte und wird über die Kapitel verteilt
 geplant: Begegnung, Annäherung, Widerstand, ehrliches Geständnis, körperliche
 Erfüllung. Kein Sprung von Fremdheit zu Intimität.
