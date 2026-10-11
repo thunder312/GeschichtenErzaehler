@@ -31,6 +31,7 @@ Der PC muss laufen, solange mit dem Ziel `PC (Tunnel)` geschrieben wird.
 | `ollama-compose.yaml` | Ollama-Container mit NVIDIA-GPU (Docker Desktop) |
 | `strato-tunnel.ps1` | Reverse-Tunnel-Schleife (Ollama :18331, Steuer-Dienst :18332), gestartet per Aufgabenplanung |
 | `steuerung-dienst.ps1` / `steuerung-einrichten.ps1` | Steuer-Dienst für den Knopf „KI starten & Modelle scannen“ |
+| `modelle-in-volume.sh` | Modellspeicher von D:\ in ein Docker-Volume verschieben (schnelleres Laden) |
 | `tunnel-aufgaben-einrichten.ps1` | Tunnel-Aufgabe + Wächter (alle 5 Min. Neustart, falls der Tunnel tot ist) |
 
 ## Einrichten (nach dem Kartentausch)
@@ -135,6 +136,29 @@ Log: `%LOCALAPPDATA%\ge-steuerung\steuerung.log`. Er darf nur den Container
 auch den Container `ollama` starten darf, `ollama` in
 `STEUERBARE_CONTAINER` der `athene-steuerung.service` aufnehmen (steht jetzt in
 `athene/systemd/athene-steuerung.service`) und den Dienst neu starten.
+
+## Modellspeicher in ein Docker-Volume verschieben (schnelleres Laden)
+
+Pro Kapitel lädt Ollama zweimal ein Modell um (Autor Mistral ↔ Prüfer gemma4,
+beide zusammen passen nicht in 16 GB). Liegen die Modelle im Windows-Ordner
+`D:\KI-Server\Modelle\ollama`, werden sie über 9p/drvfs (`msize=65536`)
+gelesen, das Laden dauert dann 70–100 s. In einem Docker-Volume (ext4 in der
+Docker-VM, liegt in `D:\KI-Server\Docker\Daten\disk\docker_data.vhdx`) sollte
+es deutlich schneller gehen. Das Skript `modelle-in-volume.sh` macht den Umzug
+in Schritten und lässt den D:-Ordner als Sicherung stehen:
+
+```
+! ./pc/modelle-in-volume.sh messen hf.co/bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF:IQ4_XS   # VORHER
+! ./pc/modelle-in-volume.sh kopieren     # ~33 GB, einige Minuten, prüft die Kopie
+! ./pc/modelle-in-volume.sh umstellen    # Compose auf das Volume, Ollama neu starten
+! ./pc/modelle-in-volume.sh messen hf.co/bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF:IQ4_XS   # NACHHER
+! ./pc/modelle-in-volume.sh zurueck      # Notausgang
+```
+
+Nur starten, wenn **kein** Schreiblauf auf dem PC läuft (das Skript bricht ab,
+wenn ein Modell geladen ist oder die GPU rechnet; `FORCE=1` überspringt das).
+Platzbedarf: das Volume wächst die `docker_data.vhdx` um ~33 GB; der D:-Ordner
+bleibt bestehen, bis du ihn selbst löschst. Die vhdx schrumpft nicht von allein.
 
 ## Troubleshooting
 

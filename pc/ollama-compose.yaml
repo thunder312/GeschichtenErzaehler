@@ -40,7 +40,11 @@ services:
               count: all
               capabilities: [gpu]
     volumes:
-      - D:/KI-Server/Modelle/ollama:/root/.ollama
+      - ge-ollama-modelle:/root/.ollama
     ports:
       - "127.0.0.1:11434:11434"
     restart: unless-stopped
+
+volumes:
+  ge-ollama-modelle:
+    external: true
