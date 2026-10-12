@@ -134,8 +134,15 @@ Einrichten (einmalig, in dieser Reihenfolge):
    `18332`, Steuer-Token aus Schritt 2 → Aktualisieren.
 
 Der Dienst ist `athene/steuerung/app.py` (dasselbe Programm wie auf Athene);
-Log: `%LOCALAPPDATA%\ge-steuerung\steuerung.log`. Er darf nur den Container
-`ollama` steuern (Whitelist in `steuerung-dienst.ps1`).
+Log: `%LOCALAPPDATA%\ge-steuerung\steuerung.log`. Er darf nur `ollama` und die Bild-KI-Container von BildKI
+(`sd-server`, `sd-server-pony`, `sd-server-dev`, `sd-server-kontext`) steuern (Whitelist in `steuerung-dienst.ps1`).
+Damit sieht die „KI- und Speicherkontrolle“ beim Ziel `PC (Tunnel)` laufende Bild-KIs: in den Einstellungen die
+Container-Liste der Speicherkontrolle um die Namen erweitern, die auf dem PC laufen können (z. B.
+`sd-server, sd-server-pony, sd-server-dev, sd-server-kontext`), dann fragt die App vor dem Schreiben, ob eine
+laufende Bild-KI gestoppt werden soll (Mistral und eine FLUX-Bild-KI passen nicht zusammen in 16 GB; ein laufendes
+Bild ginge verloren). Nach einer Änderung der Whitelist die Aufgabe „Steuerung PC“ neu starten: alte
+`python.exe`/`powershell.exe` mit `steuerung` beenden, dann `Start-ScheduledTask "Steuerung PC"` (sonst bleibt der
+alte Prozess auf dem Port). Für das Ziel `PC (lokal)` (Dev, ohne Steuer-Port) wird die Kontrolle übersprungen.
 
 **Athene:** der Knopf funktioniert dort schon für „Ollama scannen“. Damit er
 auch den Container `ollama` starten darf, `ollama` in

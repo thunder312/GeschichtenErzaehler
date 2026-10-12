@@ -16,7 +16,10 @@ $k = Get-Content $konfig -Raw | ConvertFrom-Json
 
 $env:STEUERUNG_PORT = "7862"
 $env:STEUERUNG_TOKEN_FILE = Join-Path $ordner "token"
-$env:STEUERBARE_CONTAINER = "ollama"
+# Ollama plus die Bild-KIs von BildKI (D:\KI-Server\Dienste\bild-kis*.yaml): Ollama und Bild-KIs teilen sich die
+# 16 GB VRAM der RTX 5070 Ti. Mit den sd-server-Namen kann die Speicherkontrolle der App (Einstellungen: Container)
+# laufende Bild-KIs sehen und vor dem Schreiben stoppen.
+$env:STEUERBARE_CONTAINER = "ollama,sd-server,sd-server-pony,sd-server-dev,sd-server-kontext"
 $env:DOCKER_DESKTOP_EXE = $k.dockerDesktop
 $env:PYTHONIOENCODING = "utf-8"
 
