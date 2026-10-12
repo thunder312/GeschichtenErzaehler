@@ -60,6 +60,19 @@ laufen). Umgekehrt entlädt der Queue-Dienst (ab 1.7.0) beim Start einer Bild-KI
 wenn der VRAM sonst nicht reicht – eine Bild-KI, die schon läuft, wird beim Start von Mistral aber nicht
 gestoppt (Ollama rechnet dann teilweise auf der CPU).
 
+**LAN-Freigabe für BildKI (Stand 2026-10-12 vorbereitet, noch nicht aktiv):** `ollama-compose.yaml` veröffentlicht
+Port 11434 jetzt im Heimnetz (vorher nur `127.0.0.1`), damit BildKI Prompts auf dem PC übersetzen kann. Ollama hat
+keine Anmeldung, deshalb nur mit Firewall-Regel für das Profil „Privat“ (PowerShell als Admin):
+
+```powershell
+New-NetFirewallRule -DisplayName "Ollama PC (11434)" -Direction Inbound -Protocol TCP -LocalPort 11434 `
+    -Profile Private -Action Allow
+```
+
+Aktiv wird es erst, wenn der Container neu angelegt wird – das stoppt Ollama kurz und gehört **nicht** in einen
+laufenden Schreiblauf: `docker compose -f ollama-compose.yaml up -d --force-recreate` (die Modelle liegen im Volume
+und bleiben). Danach in BildKI „KIs suchen“: der PC meldet dann auch Ollama.
+
 ### 2. Lokales KI-Ziel (Dev)
 
 Im Tab „KI-Ziele": neues Ziel `PC (lokal)`, Auth-Methode `direct`, Host

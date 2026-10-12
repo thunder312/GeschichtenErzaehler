@@ -14,8 +14,8 @@
 #     Pause wieder frei, sonst startet danach keine Bild-KI mehr.
 #   - OLLAMA_MAX_LOADED_MODELS 1: Mistral (~15 GB) und gemma4 passen nicht
 #     gleichzeitig in 16 GB; beim Rollenwechsel wird umgeladen (Sekunden).
-#   - Port nur auf 127.0.0.1: Zugriff von außen ausschließlich über den
-#     Reverse-Tunnel (strato-tunnel.ps1) bzw. die lokale Dev-App.
+#   - Port 11434 im Heimnetz freigegeben (vorher nur 127.0.0.1); Prod erreicht den PC weiter nur über den
+#     Reverse-Tunnel (strato-tunnel.ps1), die lokale Dev-App über 127.0.0.1.
 
 name: ge-ollama
 
@@ -42,7 +42,10 @@ services:
     volumes:
       - ge-ollama-modelle:/root/.ollama
     ports:
-      - "127.0.0.1:11434:11434"
+      # LAN-Freigabe (Entscheidung 2026-10-12), damit BildKI auf dem PC übersetzen kann. Ollama hat keine Anmeldung:
+      # nur mit Windows-Firewall-Regel für das Profil „Privat“ (siehe README). Wirkt erst nach
+      # `docker compose -f ollama-compose.yaml up -d --force-recreate` - NICHT während eines Schreiblaufs.
+      - "11434:11434"
     restart: unless-stopped
 
 volumes:
