@@ -1,7 +1,7 @@
 #!/bin/bash
 # Verschiebt den Ollama-Modellspeicher vom Windows-Ordner (D:\KI-Server\Modelle\
 # ollama, per 9p/drvfs eingehängt, msize 64 KB -> langsam) in ein Docker-Volume
-# (ext4 innerhalb der Docker-VM, liegt in D:\KI-Server\Docker\Daten\disk\
+# (ext4 innerhalb der Docker-VM, liegt in C:\DockerData\DockerDesktopWSL\disk\
 # docker_data.vhdx). Grund: pro Kapitel lädt Ollama zweimal ein Modell um
 # (Mistral <-> gemma4), und das Laden dauert über 9p 70-100 s.
 #
