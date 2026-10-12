@@ -5,8 +5,9 @@ rechnen. Mit der **RTX 5070 Ti (16 GB VRAM)** passt der Autor
 (`mistral-small3.2`, 24B q4) fast oder ganz auf die GPU und ist damit grob
 10–15× schneller als auf Athene. Die Prüfer (`gemma4`) passen bequem.
 
-**Stand:** vorbereitet, aber noch nicht eingerichtet (die Karte ist noch nicht
-eingebaut). Nichts hiervon ist auf Strato oder Prod aktiv.
+**Stand (2026-10-12):** Karte eingebaut, Ollama läuft auf dem PC (Modelle im Docker-Volume
+`ge-ollama-modelle`). Ob der Reverse-Tunnel/Steuer-Dienst für Prod eingerichtet ist, steht unten bei den
+jeweiligen Schritten; auf Strato/Prod ist nichts davon ohne diese Schritte aktiv.
 
 | Umgebung | wie der PC erreicht wird |
 |---|---|
@@ -53,7 +54,11 @@ ollama ps`. Die Spalte `PROCESSOR` sollte `100% GPU` zeigen (bei Mistral mit
 Ollama passen nicht gleichzeitig in 16 GB. `OLLAMA_KEEP_ALIVE=10m` gibt den
 VRAM nach 10 Minuten Pause frei; sofort geht es mit
 `docker exec ollama ollama stop mistral-small3.2:latest`. Vor dem Schreiben
-laufende Bild-KIs stoppen (`docker stop sd-server-dev` usw.).
+laufende Bild-KIs stoppen (`docker stop sd-server-dev` usw., besser über den BildKI-Queue-Dienst:
+`curl -X POST http://localhost:7870/kis/sd-server-dev/stoppen`; `GET http://localhost:7870/kis` zeigt, welche
+laufen). Umgekehrt entlädt der Queue-Dienst (ab 1.7.0) beim Start einer Bild-KI ein geladenes Ollama-Modell,
+wenn der VRAM sonst nicht reicht – eine Bild-KI, die schon läuft, wird beim Start von Mistral aber nicht
+gestoppt (Ollama rechnet dann teilweise auf der CPU).
 
 ### 2. Lokales KI-Ziel (Dev)
 
@@ -143,7 +148,7 @@ Pro Kapitel lädt Ollama zweimal ein Modell um (Autor Mistral ↔ Prüfer gemma4
 beide zusammen passen nicht in 16 GB). Liegen die Modelle im Windows-Ordner
 `D:\KI-Server\Modelle\ollama`, werden sie über 9p/drvfs (`msize=65536`)
 gelesen, das Laden dauert dann 70–100 s. In einem Docker-Volume (ext4 in der
-Docker-VM, liegt in `D:\KI-Server\Docker\Daten\disk\docker_data.vhdx`) sollte
+Docker-VM, liegt in `C:\DockerData\DockerDesktopWSL\disk\docker_data.vhdx` auf der NVMe) sollte
 es deutlich schneller gehen. Das Skript `modelle-in-volume.sh` macht den Umzug
 in Schritten und lässt den D:-Ordner als Sicherung stehen:
 
