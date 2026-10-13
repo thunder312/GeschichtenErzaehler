@@ -23,6 +23,7 @@ from app.config import get_settings
 from app.core import analysator as an
 from app.core import automatik
 from app.core import geruest_ki as gk
+from app.core import uebersetzer as uebs
 from app.core.ollama_client import OllamaFehler
 from app.core.projekt_dateien import DateiFehlt
 from app.core.ssh_manager import SSHVerbindungsFehler
@@ -58,6 +59,9 @@ if _verwaiste_analysen:
         "lebenden Hintergrund-Task, vermutlich durch einen vorherigen Neustart).",
         _verwaiste_analysen,
     )
+
+# Dasselbe fuer verwaiste Uebersetzungen im Analysator (siehe app/core/uebersetzer.py).
+uebs.verwaiste_laeufe_zuruecksetzen(projekte_wurzel_unskopiert(settings))
 
 # Dasselbe fuer verwaiste KI-Geruest-Entwuerfe (siehe app/core/geruest_ki.py:
 # verwaiste_laeufe_zuruecksetzen) - gleicher Grund, gleiches Muster.

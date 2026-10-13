@@ -4,6 +4,7 @@ import type { AnalyseEintrag, AnalysatorStatus, EpocheKurz } from "../api/types"
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { EpocheFormular, epocheFormularGueltig, type EpocheFormularWerte } from "../components/EpocheFormular";
 import { Button, Card, CardTitle, Input, Label, Select, Textarea } from "../components/ui";
+import { UebersetzenPanel } from "../components/UebersetzenPanel";
 import { useAktivitaet } from "../context/AktivitaetContext";
 
 interface AnalysatorPageProps {
@@ -47,6 +48,8 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
   // PDF-Import: der Text wird serverseitig gelesen (backend/app/core/pdf_text.py)
   // und landet wie eine geladene .txt-Datei im Textfeld.
   const [pdfWirdGelesen, setPdfWirdGelesen] = useState(false);
+  // Name des geladenen Dokuments - bestimmt Namen und Format der _de-Übersetzung.
+  const [geladeneDatei, setGeladeneDatei] = useState<string | null>(null);
   const [dateiHinweis, setDateiHinweis] = useState<string | null>(null);
 
   // Alternative zur bestehenden Epoche (siehe ToDo.md "erweitere den
@@ -184,6 +187,7 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
     if (!datei) return;
     setDateiHinweis(null);
     setFehler(null);
+    setGeladeneDatei(datei.name);
     const istPdf = datei.type === "application/pdf" || datei.name.toLowerCase().endsWith(".pdf");
     if (!istPdf) {
       setText(await datei.text());
@@ -464,6 +468,12 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Text hier einfügen oder eine Datei laden..."
                 className="font-mono text-sm"
+              />
+              <UebersetzenPanel
+                text={text}
+                dateiname={geladeneDatei ?? `${titel.trim() || "Geschichte"}.txt`}
+                sshZielId={sshZielId}
+                onUebernehmen={setText}
               />
               {woerterAnzahl > 3000 && (
                 <p className="mt-1 text-xs text-text-muted">

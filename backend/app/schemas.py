@@ -543,6 +543,43 @@ class AnalysatorPdfTextAntwort(BaseModel):
     woerter: int
 
 
+class FuelltextVorschauAnfrage(BaseModel):
+    text: str = Field(min_length=1)
+
+
+class FuelltextVorschauAntwort(BaseModel):
+    sprache: str  # "de" | "en" | "unbekannt"
+    woerter: int
+    fuelltext_absaetze: int
+    beispiele: list[str]
+    abschnitte: int  # Anzahl Uebersetzungs-Abschnitte (nach Fuelltext-Entfernung)
+    geschaetzte_minuten: int
+
+
+class UebersetzenStartAnfrage(BaseModel):
+    text: str = Field(min_length=1)
+    dateiname: str = "Geschichte.txt"  # Name des geoeffneten Dokuments (bestimmt Format und Namen der _de-Datei)
+    fuelltext_entfernen: bool = False
+
+
+class UebersetzenStartAntwort(BaseModel):
+    dateiname: str  # Name der Ausgabedatei, z.B. "Geschichte_de.pdf"
+
+
+class UebersetzenStatusAntwort(BaseModel):
+    laeuft: bool
+    abgeschlossen: bool
+    gestoppt: bool
+    stop_angefordert: bool
+    aktuell: int
+    gesamt: int
+    log: list[str]
+    fehler: str | None
+    dateiname: str | None
+    ergebnis_woerter: int
+    fuelltext_entfernt: int
+
+
 class AnalysatorStartAnfrage(BaseModel):
     titel: str = ""
     epoche: str

@@ -1,4 +1,6 @@
 import type {
+  FuelltextVorschau,
+  UebersetzenStatus,
   AnalyseEintrag,
   AnalysatorStatus,
   AutomatikFortsetzenVorschau,
@@ -145,6 +147,40 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ titel, epoche, zweite_epoche: zweiteEpoche || null, text }),
     }),
+
+  fuelltextVorschau: (text: string) =>
+    anfrage<FuelltextVorschau>("/api/analysator/fuelltext-vorschau", {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+
+  uebersetzenStarten: (text: string, dateiname: string, fuelltextEntfernen: boolean, sshZielId?: string | null) =>
+    anfrage<{ dateiname: string }>(`/api/analysator/uebersetzen${sshQuery(sshZielId)}`, {
+      method: "POST",
+      body: JSON.stringify({ text, dateiname, fuelltext_entfernen: fuelltextEntfernen }),
+    }),
+
+  uebersetzenStatus: () => anfrage<UebersetzenStatus>("/api/analysator/uebersetzen/status"),
+
+  uebersetzenStoppen: () =>
+    anfrage<{ stop_angefordert: boolean }>("/api/analysator/uebersetzen/stop", { method: "POST" }),
+
+  uebersetzenErgebnis: () => anfrage<string>("/api/analysator/uebersetzen/ergebnis"),
+
+  /** PDF der Übersetzung als Blob (kein JSON, deshalb ohne anfrage()). */
+  uebersetzenPdf: async (): Promise<Blob> => {
+    const antwort = await fetch("/api/analysator/uebersetzen/pdf", { credentials: "same-origin" });
+    if (!antwort.ok) {
+      let meldung = antwort.statusText;
+      try {
+        meldung = (await antwort.json()).detail ?? meldung;
+      } catch {
+        // Statustext reicht
+      }
+      throw new ApiError(String(meldung), antwort.status, meldung);
+    }
+    return antwort.blob();
+  },
 
   /** Liest den Text einer PDF-Datei serverseitig (kein Speichern), siehe
    * backend/app/core/pdf_text.py. Kein JSON-Content-Type: der Browser setzt

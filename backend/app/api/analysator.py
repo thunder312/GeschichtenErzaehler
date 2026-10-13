@@ -16,10 +16,11 @@ der naechste normale Speichervorgang in GeruestPage (app/api/projects.py:
 geruest_schreiben) benennt bei Bedarf ohnehin automatisch um."""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
 from pydantic import ValidationError
 
 from app.auth import get_current_user
@@ -27,6 +28,7 @@ from app.config import Settings, get_settings
 from app.core import analysator as an
 from app.core import architekt as arch
 from app.core import pdf_text
+from app.core import uebersetzer as uebs
 from app.core import projekt_dateien as pd
 from app.core.epoche_vorschlag_schema import EpocheVorschlagAntwortLLM
 from app.core.import_bereinigung import fuelltexte_entfernen, sprache_erkennen
@@ -43,6 +45,11 @@ from app.schemas import (
     AnalysatorStartAntwort,
     AnalysatorStatusAntwort,
     Benutzer,
+    FuelltextVorschauAnfrage,
+    FuelltextVorschauAntwort,
+    UebersetzenStartAnfrage,
+    UebersetzenStartAntwort,
+    UebersetzenStatusAntwort,
 )
 from app.services import (
     epoche_vollstaendig_pruefen, neuer_projekt_pfad, ollama_basis_url, projekt_pfad, projekte_wurzel, rollen_modell_override,
@@ -289,6 +296,162 @@ def analysator_pdf_text(datei: UploadFile = File(...), benutzer: Benutzer = Depe
     return AnalysatorPdfTextAntwort(
         text=ergebnis.text, seiten=ergebnis.seiten, woerter=woerter(ergebnis.text),
     )
+
+
+# --- Uebersetzen ins Deutsche (siehe app/core/uebersetzer.py) -----------------
+
+@router.post("/analysator/fuelltext-vorschau", response_model=FuelltextVorschauAntwort)
+def fuelltext_vorschau(anfrage: FuelltextVorschauAnfrage, benutzer: Benutzer = Depends(get_current_user)):
+    """Vorab-Info fuer die Rueckfrage 'Fuelltext vorher entfernen?': Sprache,
+    Zahl und Beispiele der gefundenen Fuelltext-Absaetze (Disclaimer, A/N, ...) und
+    die voraussichtliche Zahl der Uebersetzungs-Abschnitte. Kein KI-Aufruf."""
+    bereinigt, entfernt = fuelltexte_entfernen(anfrage.text, an.KAPITEL_STICHWORT_MUSTER)
+    abschnitte = len(uebs.abschnitte_bilden(bereinigt or anfrage.text))
+    return FuelltextVorschauAntwort(
+        sprache=sprache_erkennen(anfrage.text),
+        woerter=woerter(anfrage.text),
+        fuelltext_absaetze=len(entfernt),
+        beispiele=[e[:90].replace("\n", " ") for e in entfernt[:6]],
+        abschnitte=abschnitte,
+        geschaetzte_minuten=abschnitte * uebs.MINUTEN_JE_ABSCHNITT,
+    )
+
+
+async def _chunk_uebersetzen(settings: Settings, base_url: str, absaetze: list[str]) -> list[str]:
+    """Uebersetzt EINEN Abschnitt (bis zu 3 Versuche je Aufruf). Stimmt die
+    Absatzzahl der Antwort nicht, wird der Abschnitt absatzweise wiederholt."""
+    async def aufruf(teile: list[str]) -> str:
+        for versuch in range(1, 4):
+            try:
+                antwort, _meta = await sammle_antwort(
+                    base_url, "analysator", uebs.SYSTEM, uebs.user_text(teile),
+                    modell_override=rollen_modell_override(settings, "analysator"),
+                )
+                return uebs.antwort_bereinigen(antwort)
+            except OllamaFehler:
+                if versuch == 3:
+                    raise
+                await asyncio.sleep(10)
+        return ""
+
+    ergebnis = uebs.absaetze_der_antwort(await aufruf(absaetze))
+    if len(ergebnis) == len(absaetze):
+        return ergebnis
+    einzeln: list[str] = []
+    for absatz in absaetze:
+        antwort = await aufruf([absatz])
+        einzeln.append("\n".join(uebs.absaetze_der_antwort(antwort)) or absatz)
+    return einzeln
+
+
+async def _uebersetzen_lauf(settings: Settings, wurzel, ssh_ziel_id: str | None, text: str,
+                             ziel_name: str, fuelltext_entfernen: bool) -> None:
+    text_datei = ziel_name[:-4] + ".txt" if ziel_name.endswith(".pdf") else ziel_name
+    status = {**uebs.LEERER_STATUS, "log": [], "laeuft": True, "dateiname": ziel_name}
+
+    def schreiben(**felder) -> None:
+        status.update(felder)
+        status["log"] = status["log"][-200:]
+        uebs.status_schreiben(wurzel, status)
+
+    try:
+        if fuelltext_entfernen:
+            text, entfernt = fuelltexte_entfernen(text, an.KAPITEL_STICHWORT_MUSTER)
+            status["fuelltext_entfernt"] = len(entfernt)
+            status["log"].append(f"{len(entfernt)} Fülltext-Absatz/Absätze (Disclaimer, A/N, ...) entfernt.")
+        abschnitte = uebs.abschnitte_bilden(text)
+        if not abschnitte:
+            raise ValueError("Es gibt keinen Text zum Übersetzen.")
+        trenner = uebs.trenner_fuer(text)
+        schreiben(gesamt=len(abschnitte))
+        ausgabe = uebs.ergebnis_pfad(wurzel, text_datei)
+        ausgabe.write_text("", encoding="utf-8")
+
+        uebersetzt: list[str] = []
+        with ollama_basis_url(settings, ssh_ziel_id) as base_url:
+            for i, abschnitt in enumerate(abschnitte, start=1):
+                if uebs.status_lesen(wurzel)["stop_angefordert"]:
+                    status["log"].append("Gestoppt - die bisherige Übersetzung bleibt erhalten.")
+                    schreiben(gestoppt=True)
+                    break
+                status["log"].append(f"Übersetze Abschnitt {i} von {len(abschnitte)}...")
+                schreiben(aktuell=i)
+                uebersetzt.extend(await _chunk_uebersetzen(settings, base_url, abschnitt))
+                ergebnis = trenner.join(uebersetzt)
+                ausgabe.write_text(ergebnis + "\n", encoding="utf-8")
+                schreiben(ergebnis_woerter=woerter(ergebnis))
+            else:
+                status["log"].append("Übersetzung abgeschlossen.")
+                schreiben(abgeschlossen=True)
+    except OllamaFehler as e:
+        status["log"].append(f"Fehler: {e}")
+        schreiben(fehler=str(e))
+    except Exception as e:  # Sicherheitsnetz, analog _analysieren_lauf
+        status["log"].append(f"Unerwarteter Fehler: {e}")
+        schreiben(fehler=str(e))
+    finally:
+        schreiben(laeuft=False)
+
+
+@router.post("/analysator/uebersetzen", response_model=UebersetzenStartAntwort, status_code=202)
+def uebersetzen_starten(anfrage: UebersetzenStartAnfrage, background_tasks: BackgroundTasks,
+                         ssh_ziel_id: str | None = Query(None),
+                         settings: Settings = Depends(get_settings),
+                         benutzer: Benutzer = Depends(get_current_user)):
+    wurzel = projekte_wurzel(settings, benutzer.username)
+    if uebs.status_lesen(wurzel)["laeuft"]:
+        raise HTTPException(409, "Es läuft bereits eine Übersetzung.")
+    ziel_name = uebs.dateiname_de(anfrage.dateiname)
+    # Sofort als "laeuft" markieren (nicht erst im Hintergrund-Task), damit ein
+    # zweiter Start in derselben Sekunde ebenfalls abgewiesen wird.
+    uebs.status_schreiben(
+        wurzel, {**uebs.LEERER_STATUS, "log": ["Startet..."], "laeuft": True, "dateiname": ziel_name},
+        behalte_stop=False,
+    )
+    background_tasks.add_task(
+        _uebersetzen_lauf, settings, wurzel, ssh_ziel_id, anfrage.text, ziel_name, anfrage.fuelltext_entfernen,
+    )
+    return UebersetzenStartAntwort(dateiname=ziel_name)
+
+
+@router.get("/analysator/uebersetzen/status", response_model=UebersetzenStatusAntwort)
+def uebersetzen_status(settings: Settings = Depends(get_settings), benutzer: Benutzer = Depends(get_current_user)):
+    return UebersetzenStatusAntwort(**uebs.status_lesen(projekte_wurzel(settings, benutzer.username)))
+
+
+@router.post("/analysator/uebersetzen/stop")
+def uebersetzen_stop(settings: Settings = Depends(get_settings), benutzer: Benutzer = Depends(get_current_user)):
+    wurzel = projekte_wurzel(settings, benutzer.username)
+    status = uebs.status_lesen(wurzel)
+    if status["laeuft"]:
+        status["stop_angefordert"] = True
+        uebs.status_schreiben(wurzel, status)
+    return {"stop_angefordert": True}
+
+
+def _ergebnis_text(settings: Settings, benutzer: Benutzer) -> tuple[str, str]:
+    wurzel = projekte_wurzel(settings, benutzer.username)
+    name = uebs.status_lesen(wurzel)["dateiname"]
+    if not name:
+        raise HTTPException(404, "Es gibt noch keine Übersetzung.")
+    text_datei = name[:-4] + ".txt" if name.endswith(".pdf") else name
+    pfad = uebs.ergebnis_pfad(wurzel, text_datei)
+    if not pfad.is_file():
+        raise HTTPException(404, "Das Ergebnis der Übersetzung wurde nicht gefunden.")
+    return name, pfad.read_text(encoding="utf-8")
+
+
+@router.get("/analysator/uebersetzen/ergebnis", response_class=PlainTextResponse)
+def uebersetzen_ergebnis(settings: Settings = Depends(get_settings), benutzer: Benutzer = Depends(get_current_user)):
+    return _ergebnis_text(settings, benutzer)[1]
+
+
+@router.get("/analysator/uebersetzen/pdf")
+def uebersetzen_pdf(settings: Settings = Depends(get_settings), benutzer: Benutzer = Depends(get_current_user)):
+    name, text = _ergebnis_text(settings, benutzer)
+    pdf = uebs.text_pdf_erzeugen(name.rsplit(".", 1)[0].replace("_", " "), text)
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @router.post("/analysator/epoche-vorschlagen", response_model=EpocheVorschlagAntwortLLM)

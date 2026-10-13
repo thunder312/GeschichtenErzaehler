@@ -257,6 +257,30 @@ export interface EpocheErstellenAntwort {
   dateien: Record<string, string>;
 }
 
+// Analysator "Ins Deutsche übersetzen" (backend/app/core/uebersetzer.py)
+export interface FuelltextVorschau {
+  sprache: "de" | "en" | "unbekannt";
+  woerter: number;
+  fuelltext_absaetze: number;
+  beispiele: string[];
+  abschnitte: number;
+  geschaetzte_minuten: number;
+}
+
+export interface UebersetzenStatus {
+  laeuft: boolean;
+  abgeschlossen: boolean;
+  gestoppt: boolean;
+  stop_angefordert: boolean;
+  aktuell: number;
+  gesamt: number;
+  log: string[];
+  fehler: string | null;
+  dateiname: string | null;
+  ergebnis_woerter: number;
+  fuelltext_entfernt: number;
+}
+
 export interface AnalysatorStatus {
   laeuft: boolean;
   phase: string | null;
