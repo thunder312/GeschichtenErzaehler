@@ -377,20 +377,28 @@ sich für Überraschung entschieden oder die Frage übersprungen, planst du den
 gesamten Kapitelplan wie gewohnt eigenständig.
 
 Stand der Liebeshandlung: Fülle dieses Feld in JEDEM Kapitel selbst konkret aus,
-nie leer und nie als Platzhalter. Es ist die OBERGRENZE für das Kapitel: die
-höchste Stufe, die darin erreicht wird, plus ein kurzer Satz zur Situation (z.B.
-"Annäherung: gemeinsamer Weg, erste Vertrautheit, noch keine Berührung").
-Stufenleiter: Begegnung, Annäherung, Widerstand, ehrliches Geständnis, Kuss,
-körperliche Erfüllung. Keine Stufe wird ausgelassen (mehrere Stufen im selben
-Kapitel nur bei sehr wenigen Kapiteln), Rückschritte durch Konflikte sind
-erlaubt. Verteile die Stufen über den GESAMTEN Kapitelplan: Die Begegnung liegt
-in Kapitel eins oder zwei, die körperliche Erfüllung erst im letzten Drittel
-und erst nach Geständnis und Kuss. Bei Jugendschutz-Stufe "Jugendfrei" oder
-"Angedeutet" endet die Leiter beim Kuss bzw. bei angedeuteter Nähe. In
-Kapiteln, in denen die Liebenden sich nicht begegnen, steht der letzte Stand
-mit dem Zusatz "unverändert". Gibt es laut Rahmen keine Liebeshandlung, steht
-in jedem Kapitel "Keine Liebeshandlung". Konkrete Vorgaben des Nutzers haben
-Vorrang.
+nie leer und nie als Platzhalter. Es ist die OBERGRENZE für das Kapitel: genau
+EINE Stufe aus der festen Zuordnung unten, gefolgt von einem kurzen Satz zur
+Situation in Klammern, z.B. "Annäherung (gemeinsamer Weg, erste Vertrautheit,
+noch keine Berührung)". Keine Pfeile, kein LaTeX, keine zwei Stufen in einem
+Kapitel, kein Zurückfallen auf eine frühere Stufe.
+Feste Zuordnung nach Kapitelzahl (die Stufe der Zeile gilt für das Kapitel
+mit dieser Nummer):
+  2 Kapitel: 1 Begegnung | 2 Ehrliches Geständnis
+  3 Kapitel: 1 Begegnung | 2 Widerstand | 3 Ehrliches Geständnis
+  4 Kapitel: 1 Begegnung | 2 Widerstand | 3 Ehrliches Geständnis | 4 Kuss
+  5 Kapitel: 1 Begegnung | 2 Annäherung | 3 Widerstand | 4 Ehrliches Geständnis | 5 Kuss
+  6 Kapitel: 1 Begegnung | 2 Annäherung | 3 Widerstand | 4 Ehrliches Geständnis | 5 Kuss | 6 Körperliche Erfüllung
+Bei mehr als 6 Kapiteln: die Reihenfolge Begegnung, Annäherung, Widerstand,
+ehrliches Geständnis, Kuss, körperliche Erfüllung bleibt, Stufen dürfen sich
+über mehrere aufeinanderfolgende Kapitel wiederholen; körperliche Erfüllung
+frühestens im vorletzten Kapitel. Körperliche Erfüllung (ab 5 Kapiteln) steht
+nur bei Jugendschutz-Stufe "Voll"; bei "Angedeutet" ist sie "angedeutete
+Nähe", bei "Jugendfrei" bleibt die letzte Stufe "Kuss". Kapitel eins trägt IMMER
+mindestens die Stufe "Begegnung", auch wenn die Figuren sich nur flüchtig
+sehen. Nur wenn laut Rahmen
+gar keine Liebeshandlung vorgesehen ist, steht in jedem Kapitel "Keine Liebeshandlung".
+Konkrete Vorgaben des Nutzers haben Vorrang.
 Die Liebeshandlung braucht Zwischenschritte und wird über die Kapitel verteilt
 
 geplant: Begegnung, Annäherung, Widerstand, ehrliches Geständnis, körperliche
