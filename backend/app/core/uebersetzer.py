@@ -92,6 +92,20 @@ def antwort_bereinigen(antwort: str) -> str:
     return _VORSPANN.sub("", text).strip()
 
 
+def ueberschrift_normalisieren(text: str) -> str:
+    """Glaettet eine uebersetzte Kapitelueberschrift ohne KI: entfernt Markdown-Zusaetze,
+    die das Modell von sich aus ergaenzt ('# Kapitel eins', '**Kapitel drei**'), schreibt
+    das Zahlwort klein ('Kapitel Acht' -> 'Kapitel acht') und entfernt PDF-Artefakte aus
+    der Quelle ('(2 von 3 ¾?)' -> '(2 von 3)')."""
+    zeile = text.strip().lstrip("#*_ \t").rstrip("*_ \t").replace("�", "")
+    zeile = re.sub(r"\s*¾?\?+\s*\)", ")", zeile)
+    return re.sub(
+        r"^(Kapitel|Teil)\s+([A-Za-zÄÖÜäöüß]+)",
+        lambda m: f"{m.group(1).capitalize()} {m.group(2).lower()}",
+        zeile, count=1, flags=re.IGNORECASE,
+    )
+
+
 def absaetze_der_antwort(antwort: str) -> list[str]:
     return [a.strip() for a in re.split(r"\n\s*\n", antwort) if a.strip()]
 

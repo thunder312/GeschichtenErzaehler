@@ -411,7 +411,12 @@ async def _uebersetzen_lauf(settings: Settings, wurzel, ssh_ziel_id: str | None,
                     f"Schritt {i} von {len(plan)}..."
                 )
                 schreiben(aktuell=i)
-                uebersetzt.extend(await _chunk_uebersetzen(settings, base_url, schritt.absaetze))
+                teile = await _chunk_uebersetzen(settings, base_url, schritt.absaetze)
+                # Kapitelueberschriften (Original-Zeilen wie "Chapter Three") deterministisch glaetten
+                for j, original in enumerate(schritt.absaetze):
+                    if "\n" not in original and an.KAPITEL_STICHWORT_MUSTER.fullmatch(original):
+                        teile[j] = uebs.ueberschrift_normalisieren(teile[j])
+                uebersetzt.extend(teile)
                 ausgabe.write_text(trenner.join(uebersetzt) + "\n", encoding="utf-8")
                 status["woerter_fertig"] += sum(woerter(a) for a in schritt.absaetze)
                 if schritt.kapitel_ende:

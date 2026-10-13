@@ -428,3 +428,30 @@ def test_backend_neustart_setzt_auch_den_job_eintrag_zurueck_und_der_lauf_ist_fo
     assert uebs.verwaiste_laeufe_zuruecksetzen(wurzel.parent) == 1
     assert uebs.status_lesen(wurzel)["gestoppt"] is True
     assert client.post("/api/analysator/uebersetzen/fortsetzbar", json={"text": DREI_KAPITEL}).json()["fortsetzbar"] is True
+
+
+def test_ueberschrift_normalisieren():
+    assert uebs.ueberschrift_normalisieren("# Kapitel eins") == "Kapitel eins"
+    assert uebs.ueberschrift_normalisieren("**Kapitel siebzehn: Das letzte Kapitel (3 von >3)**") == "Kapitel siebzehn: Das letzte Kapitel (3 von >3)"
+    assert uebs.ueberschrift_normalisieren("Kapitel Acht") == "Kapitel acht"
+    assert uebs.ueberschrift_normalisieren("# Kapitel Achtzehn: Das letzte Kapitel (4 von 4)") == "Kapitel achtzehn: Das letzte Kapitel (4 von 4)"
+    assert uebs.ueberschrift_normalisieren("Kapitel sechzehn: Das letzte Kapitel (2 von 3 ¾?)") == "Kapitel sechzehn: Das letzte Kapitel (2 von 3)"
+    assert uebs.ueberschrift_normalisieren("Kapitel 12: Der Sturm") == "Kapitel 12: Der Sturm"  # Ziffern bleiben
+    assert uebs.ueberschrift_normalisieren("Der Schweiß eines Gladiators") == "Der Schweiß eines Gladiators"  # kein Kapitel
+
+
+def test_lauf_glaettet_uebersetzte_kapitelueberschriften_aber_keinen_fliesstext(client, monkeypatch):
+    def antwort(absaetze):
+        ergebnis = []
+        for a in absaetze:
+            if a.startswith("Chapter"):
+                ergebnis.append("# Kapitel Eins")  # Markdown-Zusatz und grosses Zahlwort wie vom Modell geliefert
+            else:
+                ergebnis.append("# DE: " + a)  # Fliesstext mit '#' darf NICHT veraendert werden
+        return "\n\n".join(ergebnis)
+
+    fake, _ = _fake(antwort)
+    monkeypatch.setattr(analysator_api, "sammle_antwort", fake)
+    client.post("/api/analysator/uebersetzen", json={"text": "Chapter One\n\nEr ging heim.\n\nChapter Two\n\nEs regnete.", "dateiname": "x.txt"})
+    absaetze = client.get("/api/analysator/uebersetzen/ergebnis").text.strip().split("\n\n")
+    assert absaetze == ["Kapitel eins", "# DE: Er ging heim.", "Kapitel eins", "# DE: Es regnete."]
