@@ -7,9 +7,12 @@ app/core/architekt.py/automatik.py - die eigentliche Orchestrierung
 app/api/analysator.py.
 
 Ablauf:
-1. text_in_kapitel_teilen(): der importierte Text wird OHNE KI in
-   kapitelgrosse Abschnitte zerlegt (Kapitelueberschriften erkennen, sonst
-   Absatzweise nach Zielwortzahl gruppieren).
+1. vorbereiten(): der importierte Text wird OHNE KI bereinigt (Sprache
+   erkennen, Fuelltext wie Disclaimer/A/N/Danksagungen entfernen, siehe
+   app/core/import_bereinigung.py) und in kapitelgrosse Abschnitte zerlegt
+   (Kapitelueberschriften wie "Chapter 3"/"Kapitel drei" erkennen - ihre
+   Anzahl bestimmt die Kapitelzahl -, sonst Absatzweise nach Zielwortzahl
+   gruppieren).
 2. Je Abschnitt EIN Ollama-Aufruf (Rolle "analysator", AUFGABE:
    KAPITEL-ANALYSE) liefert Ort/Figuren/Ereignis/... - kapitel_analyse_
    parsen() liest die Antwort, kapitel_block_bauen() setzt daraus EINEN
@@ -37,6 +40,9 @@ from pathlib import Path
 
 from app.core import architekt as arch
 from app.core.geruest import ordnername_aus_titel
+from app.core.import_bereinigung import (
+    abschnitt_saeubern, fuelltexte_entfernen, ist_fuelltext_ueberschrift, sprache_erkennen,
+)
 from app.core.textutil import woerter
 
 ANALYSATOR_STATUS_DATEINAME = "analysator_status.json"
@@ -48,6 +54,12 @@ ANALYSATOR_STATUS_DATEINAME = "analysator_status.json"
 # irgendwo zwischen 5 und 20 Minuten (abhaengig vom KI-Ziel) - ein
 # vertretbarer, wenn auch spuerbarer Hintergrund-Lauf.
 MAX_KAPITEL = 30
+
+# Obergrenze, wenn die Kapitel ausdruecklich im Text stehen ("Chapter 12"):
+# dann soll die Kapiteleinteilung der Vorlage folgen und nicht auf
+# MAX_KAPITEL zusammengestutzt werden. Nur ein Sicherheitsnetz gegen
+# Fehlerkennungen (z.B. Gedichtzeilen, die wie Ueberschriften aussehen).
+MAX_KAPITEL_EXPLIZIT = 100
 
 # Ziel-/Mindestwortzahl je Abschnitt fuer die Absatz-Fallback-Aufteilung
 # (kein erkennbares Kapitelmuster im importierten Text) - orientiert an der
@@ -71,29 +83,41 @@ def zahlwort(n: int) -> str:
     return str(n)
 
 
-# Erkennt gaengige Kapitelueberschriften in importiertem Fremdtext: Markdown-
-# Ueberschriften jeder Ebene ("# ", "## ", ...) ODER "Kapitel"/"Chapter"/
-# "Teil"/"Part" gefolgt von einer Ziffer oder roemischen Zahl, am
-# Zeilenanfang. Bewusst NICHT auf die einheitliche eigene Kapitelplan-Syntax
-# beschraenkt (siehe app/core/geruest.py:_KAPITEL_MUSTER) - importierter
-# Fremdtext (Fanfiction, exportierte Word-Dokumente, ...) folgt keiner
-# einheitlichen Konvention.
-_KAPITEL_HEADER_MUSTER = re.compile(
-    r"^[ \t]*(?:"
-    r"#{1,3}[ \t]*\S.*"
-    r"|(?:Kapitel|Chapter|Teil|Part)[ \t]+[\dIVXLCDM]+\b.*"
-    r")[ \t]*$",
+# Erkennt Kapitelueberschriften in importiertem Fremdtext. Bewusst NICHT auf
+# die einheitliche eigene Kapitelplan-Syntax beschraenkt (siehe
+# app/core/geruest.py:_KAPITEL_MUSTER) - importierter Fremdtext (Fanfiction,
+# exportierte Word-Dokumente, ...) folgt keiner einheitlichen Konvention.
+_ZAHLWOERTER = (
+    r"(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|"
+    r"seventeen|eighteen|nineteen|twenty(?:[- ]\w+)?|thirty(?:[- ]\w+)?|forty|fifty|"
+    r"eins|ein|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn|elf|zwölf|dreizehn|vierzehn|fünfzehn|sechzehn|"
+    r"siebzehn|achtzehn|neunzehn|zwanzig\w*|dreißig\w*|vierzig|fünfzig)"
+)
+
+# Stufe 1: ausdrueckliche Kapitelangaben - "Kapitel 3", "Chapter III",
+# "Chapter Three", "Kapitel drei: Titel", "Teil/Part 2", "Prolog/Epilogue",
+# optional als Markdown-Ueberschrift oder fett/kursiv. Roemische Zahlen nur
+# in GROSSBUCHSTABEN (sonst passte "Chapter did ...").
+_KAPITEL_KEYWORD_MUSTER = re.compile(
+    r"^[ \t]*(?:#{1,6}[ \t]*)?[*_]*[ \t]*(?:"
+    r"(?:Kapitel|Chapter|Chap\.|Ch\.|Teil|Part)[ \t]+(?:\d+|(?-i:[IVXLCDM]+)|" + _ZAHLWOERTER + r")\b"
+    r"|(?:Prolog|Prologue|Epilog|Epilogue)\b"
+    r")[^\n]{0,100}$",
     re.MULTILINE | re.IGNORECASE,
 )
 
+# Stufe 2: beliebige Markdown-Ueberschriften (Ebene 1-3) - der urspruengliche
+# Fallback fuer Fremdtext ohne "Kapitel"/"Chapter"-Wort.
+_KAPITEL_MARKDOWN_MUSTER = re.compile(r"^[ \t]*#{1,3}[ \t]*\S.*$", re.MULTILINE)
 
-def _kapitel_zusammenfuehren_bis_maximum(abschnitte: list[str]) -> list[str]:
-    """Fasst benachbarte Abschnitte zusammen, bis hoechstens MAX_KAPITEL
+
+def _kapitel_zusammenfuehren_bis_maximum(abschnitte: list[str], maximum: int = MAX_KAPITEL) -> list[str]:
+    """Fasst benachbarte Abschnitte zusammen, bis hoechstens `maximum`
     uebrig sind - verschmilzt dabei bevorzugt den JEWEILS kuerzesten
     Abschnitt mit seinem kuerzeren Nachbarn, damit kein einzelner ohnehin
     schon langer Abschnitt zusaetzlich aufgeblaeht wird."""
     abschnitte = list(abschnitte)
-    while len(abschnitte) > MAX_KAPITEL:
+    while len(abschnitte) > maximum:
         laengen = [woerter(a) for a in abschnitte]
         kuerzester = min(range(len(abschnitte)), key=lambda i: laengen[i])
         ziel = kuerzester + 1 if kuerzester + 1 < len(abschnitte) else kuerzester - 1
@@ -132,48 +156,111 @@ def _nach_absaetzen_aufteilen(text: str) -> list[str]:
     return abschnitte
 
 
-def text_in_kapitel_teilen(text: str) -> list[str]:
-    """Zerlegt importierten Rohtext in kapitelgrosse Abschnitte - erkennbare
-    Kapitelueberschriften im Text (siehe _KAPITEL_HEADER_MUSTER) haben
-    Vorrang, sonst Absatzweise Gruppierung nach Zielwortzahl (siehe
-    _nach_absaetzen_aufteilen). Liefert nie mehr als MAX_KAPITEL Abschnitte
-    (siehe _kapitel_zusammenfuehren_bis_maximum)."""
+@dataclass
+class Vorbereitung:
+    """Ergebnis von vorbereiten(): was der Analysator tatsaechlich auswertet."""
+    abschnitte: list[str]
+    sprache: str  # "de" | "en" | "unbekannt"
+    entfernt: list[str]  # entfernte Fuelltext-Absaetze (Disclaimer, A/N, ...)
+    kapitel_quelle: str  # "stichwort" (Chapter/Kapitel) | "markdown" | "absaetze"
+    verworfene_abschnitte: int  # reine Fuelltext-Kapitel ("Author's Note"), komplett verworfen
+    bereinigter_text: str
+
+
+def _nach_ueberschriften_teilen(text: str, treffer: list[re.Match[str]]) -> tuple[list[str], int]:
+    """Zerlegt `text` an den Ueberschriften-Treffern. Abschnitte, deren
+    Ueberschrift selbst Fuelltext ist ("## Author's Note") oder die nach der
+    Bereinigung leer sind, werden verworfen (zweiter Rueckgabewert = Anzahl)."""
+    abschnitte: list[str] = []
+    verworfen = 0
+    for i, m in enumerate(treffer):
+        ende = treffer[i + 1].start() if i + 1 < len(treffer) else len(text)
+        ueberschrift = m.group(0).strip().lstrip("#*_ \t").rstrip("*_ \t")
+        koerper = abschnitt_saeubern(text[m.end():ende])
+        if not koerper or ist_fuelltext_ueberschrift(ueberschrift):
+            verworfen += 1
+            continue
+        abschnitte.append(koerper)
+    # Text VOR der ersten erkannten Ueberschrift (z.B. ein Vorwort) wird dem
+    # ersten echten Kapitel vorangestellt statt verworfen, sofern er nicht
+    # nur ein paar Zeilen Titel/Widmung ist.
+    vor_erster = abschnitt_saeubern(text[:treffer[0].start()])
+    if vor_erster and woerter(vor_erster) >= MIN_WOERTER_PRO_ABSCHNITT and abschnitte:
+        abschnitte[0] = vor_erster + "\n\n" + abschnitte[0]
+    return abschnitte, verworfen
+
+
+def vorbereiten(text: str) -> Vorbereitung:
+    """Bereitet importierten Rohtext fuer die Analyse vor, ohne KI:
+    1. Sprache erkennen (Hinweis fuer die Prompts, siehe kapitel_analyse_user).
+    2. Fuelltext entfernen (siehe app/core/import_bereinigung.py).
+    3. Kapitel erkennen: zuerst ausdrueckliche Angaben ("Chapter 3",
+       "Kapitel drei", Prolog/Epilog) - bei mindestens zwei Treffern bestimmt
+       DEREN Anzahl die Kapitelzahl (bis MAX_KAPITEL_EXPLIZIT, nicht auf
+       MAX_KAPITEL zusammengestutzt); sonst beliebige Markdown-Ueberschriften;
+       sonst Absatz-Gruppierung nach Zielwortzahl (hoechstens MAX_KAPITEL).
+    Ein einzelner Ueberschriften-Treffer gilt nicht als Muster (z.B. nur ein
+    Titelblatt) und bleibt Teil des Fliesstexts."""
     text = text.replace("\r\n", "\n").strip()
     if not text:
-        return []
+        return Vorbereitung([], "unbekannt", [], "absaetze", 0, "")
 
-    treffer = list(_KAPITEL_HEADER_MUSTER.finditer(text))
-    # Mindestens 2 Treffer noetig, um von einem echten Kapitelmuster
-    # auszugehen - ein einzelner Treffer waere z.B. nur eine einleitende
-    # Titelzeile am Textanfang, kein wiederkehrendes Muster.
-    if len(treffer) >= 2:
-        abschnitte = []
-        for i, m in enumerate(treffer):
-            start = m.end()
-            ende = treffer[i + 1].start() if i + 1 < len(treffer) else len(text)
-            koerper = text[start:ende].strip()
-            if koerper:
-                abschnitte.append(koerper)
-        # Text VOR der ersten erkannten Ueberschrift (z.B. ein Vorwort) wird
-        # dem ersten echten Kapitel vorangestellt statt verworfen, sofern er
-        # nicht nur ein paar Zeilen Titel/Widmung ist.
-        vor_erster = text[:treffer[0].start()].strip()
-        if vor_erster and woerter(vor_erster) >= MIN_WOERTER_PRO_ABSCHNITT and abschnitte:
-            abschnitte[0] = vor_erster + "\n\n" + abschnitte[0]
+    sprache = sprache_erkennen(text)
+    treffer = list(_KAPITEL_KEYWORD_MUSTER.finditer(text))
+    ueberschriften_muster = _KAPITEL_KEYWORD_MUSTER if len(treffer) >= 2 else _KAPITEL_MARKDOWN_MUSTER
+    bereinigt, entfernt = fuelltexte_entfernen(text, ueberschriften_muster)
+
+    verworfen = 0
+    kapitel_quelle = "absaetze"
+    abschnitte: list[str] = []
+    for quelle, muster in (("stichwort", _KAPITEL_KEYWORD_MUSTER), ("markdown", _KAPITEL_MARKDOWN_MUSTER)):
+        # Mindestens 2 Treffer noetig, um von einem echten Kapitelmuster
+        # auszugehen - ein einzelner Treffer waere z.B. nur eine einleitende
+        # Titelzeile am Textanfang, kein wiederkehrendes Muster.
+        treffer = list(muster.finditer(bereinigt))
+        if len(treffer) >= 2:
+            abschnitte, verworfen = _nach_ueberschriften_teilen(bereinigt, treffer)
+            if abschnitte:
+                kapitel_quelle = quelle
+                break
+    if kapitel_quelle == "absaetze":
+        abschnitte = _nach_absaetzen_aufteilen(bereinigt)
+        abschnitte = _kapitel_zusammenfuehren_bis_maximum(abschnitte, MAX_KAPITEL)
     else:
-        abschnitte = _nach_absaetzen_aufteilen(text)
+        abschnitte = _kapitel_zusammenfuehren_bis_maximum(abschnitte, MAX_KAPITEL_EXPLIZIT)
+    return Vorbereitung(abschnitte, sprache, entfernt, kapitel_quelle, verworfen, bereinigt)
 
-    return _kapitel_zusammenfuehren_bis_maximum(abschnitte)
+
+def text_in_kapitel_teilen(text: str) -> list[str]:
+    """Nur die Abschnitte von vorbereiten() - Kurzform fuer Aufrufer/Tests, die
+    keine Sprache und keine Fuelltext-Liste brauchen."""
+    return vorbereiten(text).abschnitte
 
 
 def kapitel_analyse_system(persona_text: str) -> str:
     return persona_text
 
 
-def kapitel_analyse_user(abschnitt: str) -> str:
+# Zusatz fuer die Prompts, wenn der importierte Text englisch ist: der Text
+# wird nicht vorab uebersetzt (zu teuer und fehleranfaellig bei langen
+# Geschichten), sondern das Modell liest das Original und liefert alle
+# Angaben direkt auf Deutsch - das Gerüst und damit die spaeter neu
+# geschriebene Geschichte sind deutsch.
+ENGLISCH_HINWEIS = (
+    "HINWEIS: Der folgende Text ist auf Englisch. Lies ihn im Original, aber liefere ALLE Angaben auf "
+    "Deutsch (sinngemäß übersetzt). Eigennamen von Figuren und Orten, Titel und Anreden wie Lord, Lady, "
+    "Sir, Mr. bleiben unverändert; englische Redewendungen gibst du sinngemäß deutsch wieder.\n\n"
+)
+
+
+def _sprachhinweis(sprache: str) -> str:
+    return ENGLISCH_HINWEIS if sprache == "en" else ""
+
+
+def kapitel_analyse_user(abschnitt: str, sprache: str = "de") -> str:
     return (
-        "AUFGABE: KAPITEL-ANALYSE\n\n"
-        "Analysiere den folgenden Abschnitt einer Geschichte:\n\n" + abschnitt
+        "AUFGABE: KAPITEL-ANALYSE\n\n" + _sprachhinweis(sprache)
+        + "Analysiere den folgenden Abschnitt einer Geschichte:\n\n" + abschnitt
     )
 
 
@@ -331,14 +418,14 @@ def epoche_vorschlag_system(persona_text: str) -> str:
     return persona_text
 
 
-def epoche_vorschlag_user(textauszug: str) -> str:
-    return "AUFGABE: EPOCHE-VORSCHLAG\n\nAuszug aus der Geschichte:\n\n" + textauszug
+def epoche_vorschlag_user(textauszug: str, sprache: str = "de") -> str:
+    return "AUFGABE: EPOCHE-VORSCHLAG\n\n" + _sprachhinweis(sprache) + "Auszug aus der Geschichte:\n\n" + textauszug
 
 
-def synthese_user(kapitel_analysen_text: str, textauszug: str) -> str:
+def synthese_user(kapitel_analysen_text: str, textauszug: str, sprache: str = "de") -> str:
     return (
-        "AUFGABE: SYNTHESE\n\n"
-        "## Kapitel-Zusammenfassungen der kompletten Geschichte\n\n"
+        "AUFGABE: SYNTHESE\n\n" + _sprachhinweis(sprache).replace("Der folgende Text ist", "Das Original ist")
+        + "## Kapitel-Zusammenfassungen der kompletten Geschichte\n\n"
         + kapitel_analysen_text
         + "\n\n## Auszug aus dem Originaltext (für Ton und Sprache, NICHT wörtlich übernehmen)\n\n"
         + textauszug

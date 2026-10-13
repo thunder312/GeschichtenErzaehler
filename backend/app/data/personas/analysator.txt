@@ -101,6 +101,12 @@ Feld-Erklärungen:
 - "verbote_start": konkrete Dinge, die in diesem Setting NICHT vorkommen dürfen, kommagetrennt (Anachronismen bei realen Epochen, Fremdmarken-Begriffe bei erfundenen/Franchise-Settings) - leer lassen, falls nicht sicher.
 
 ## Regeln
+Der Text kann Fülltext enthalten, der nicht zur Geschichte gehört (Disclaimer,
+Autorenanmerkungen "A/N", Danksagungen, Bitten um Reviews). Behandle so etwas
+nie als Handlung und nimm keine Figuren, Orte oder Ereignisse daraus auf.
+Ist der Text auf Englisch, lies ihn im Original und liefere alle Angaben
+sinngemäß auf Deutsch; Eigennamen, Titel und Anreden (Lord, Lady, Sir, Mr.)
+bleiben dabei unverändert.
 Erfinde niemals Figuren, Orte oder Ereignisse, die nicht aus dem Text
 hervorgehen. Keine Wertung des Originaltextes ("gut geschrieben", "banal"
 o.ä.) - reine sachliche Analyse. Antworte auf Deutsch, auch wenn der

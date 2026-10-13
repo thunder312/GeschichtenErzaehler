@@ -28,6 +28,7 @@ from app.core import analysator as an
 from app.core import architekt as arch
 from app.core import projekt_dateien as pd
 from app.core.epoche_vorschlag_schema import EpocheVorschlagAntwortLLM
+from app.core.import_bereinigung import fuelltexte_entfernen, sprache_erkennen
 from app.core.ollama_client import OllamaFehler, sammle_antwort
 from app.core.textutil import woerter
 from app.schemas import (
@@ -66,11 +67,33 @@ async def _analysieren_lauf(settings: Settings, projekt_root, ssh_ziel_id: str |
         log=["Text wird in Kapitel aufgeteilt..."], abgeschlossen=False, fehler=None,
     )
     try:
-        abschnitte = an.text_in_kapitel_teilen(text)
+        vorb = an.vorbereiten(text)
+        abschnitte = vorb.abschnitte
         if not abschnitte:
             raise ValueError("Im importierten Text konnte kein auswertbarer Inhalt gefunden werden.")
         gesamt = len(abschnitte)
-        _log_anhaengen(projekt_root, f"{gesamt} Abschnitt(e) erkannt.", gesamt_kapitel=gesamt)
+        sprache = vorb.sprache
+        if sprache == "en":
+            _log_anhaengen(projekt_root, "Sprache: Englisch erkannt - die Analyse liefert alles auf Deutsch.")
+        if vorb.entfernt:
+            pd.schreib(
+                projekt_root / "projekt" / "analysator_entfernt.md",
+                "# Beim Import entfernter Fülltext\n\n" + "\n\n---\n\n".join(vorb.entfernt),
+                force=True,
+            )
+            _log_anhaengen(
+                projekt_root,
+                f"{len(vorb.entfernt)} Fülltext-Absatz/Absätze (Disclaimer, A/N, Danksagung o.ä.) entfernt "
+                f"- nachzulesen in projekt/analysator_entfernt.md.",
+            )
+        if vorb.verworfene_abschnitte:
+            _log_anhaengen(projekt_root, f"{vorb.verworfene_abschnitte} reine Anmerkungs-Kapitel verworfen.")
+        quelle = {
+            "stichwort": "anhand der Kapitelüberschriften (Kapitel/Chapter)",
+            "markdown": "anhand von Überschriften",
+            "absaetze": "nach Absätzen (keine Kapitelüberschriften gefunden)",
+        }[vorb.kapitel_quelle]
+        _log_anhaengen(projekt_root, f"{gesamt} Kapitel erkannt, {quelle}.", gesamt_kapitel=gesamt)
 
         analysator_persona = pd.lies(settings.shared_personas_dir / "analysator.txt")
         eintraege: list[tuple[an.KapitelAnalyse, int]] = []
@@ -84,7 +107,7 @@ async def _analysieren_lauf(settings: Settings, projekt_root, ssh_ziel_id: str |
                 antwort, _meta = await sammle_antwort(
                     base_url, "analysator",
                     an.kapitel_analyse_system(analysator_persona),
-                    an.kapitel_analyse_user(abschnitt),
+                    an.kapitel_analyse_user(abschnitt, sprache),
                     modell_override=rollen_modell_override(settings, "analysator"),
                 )
                 eintraege.append((an.kapitel_analyse_parsen(antwort), woerter(abschnitt)))
@@ -96,7 +119,9 @@ async def _analysieren_lauf(settings: Settings, projekt_root, ssh_ziel_id: str |
             synth_antwort, _meta = await sammle_antwort(
                 base_url, "analysator",
                 an.synthese_system(analysator_persona, epoche_architekt_persona),
-                an.synthese_user(an.kapitel_analysen_text_bauen(eintraege), an.textauszug_bauen(text)),
+                an.synthese_user(
+                    an.kapitel_analysen_text_bauen(eintraege), an.textauszug_bauen(vorb.bereinigter_text), sprache,
+                ),
                 modell_override=rollen_modell_override(settings, "analysator"),
             )
 
@@ -233,7 +258,10 @@ async def analysator_epoche_vorschlagen(anfrage: AnalysatorEpocheVorschlagAnfrag
     Ergebnis ohnehin von Hand nach)."""
     persona = pd.lies(settings.shared_personas_dir / "analysator.txt")
     system = an.epoche_vorschlag_system(persona)
-    user = an.epoche_vorschlag_user(an.textauszug_bauen(anfrage.text, woerter_anfang=700, woerter_ende=400))
+    bereinigt, _entfernt = fuelltexte_entfernen(anfrage.text)
+    user = an.epoche_vorschlag_user(
+        an.textauszug_bauen(bereinigt, woerter_anfang=700, woerter_ende=400), sprache_erkennen(bereinigt),
+    )
     with ollama_basis_url(settings, ssh_ziel_id) as base_url:
         try:
             antwort_text, _meta = await sammle_antwort(

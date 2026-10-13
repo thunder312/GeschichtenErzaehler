@@ -49,13 +49,19 @@ def test_text_in_kapitel_teilen_leerer_text():
     assert an.text_in_kapitel_teilen("   \n\n  ") == []
 
 
-def test_text_in_kapitel_teilen_deckelt_auf_maximum():
-    # 40 klar erkennbare Kapitel-Ueberschriften -> muss auf MAX_KAPITEL
-    # zusammengefuehrt werden.
+def test_ausdrueckliche_kapitel_werden_nicht_auf_30_gestutzt():
+    """Stehen die Kapitel ausdruecklich im Text (Chapter/Kapitel), bestimmt
+    deren Anzahl die Kapitelzahl - nur absatzweise gebildete Abschnitte
+    werden auf MAX_KAPITEL zusammengefuehrt."""
     teile = [f"Kapitel {i}: Titel {i}\n\nInhalt von Kapitel {i}. " * 5 for i in range(1, 41)]
-    text = "\n\n".join(teile)
-    abschnitte = an.text_in_kapitel_teilen(text)
-    assert len(abschnitte) <= an.MAX_KAPITEL
+    abschnitte = an.text_in_kapitel_teilen("\n\n".join(teile))
+    assert len(abschnitte) == 40
+
+
+def test_absatz_fallback_deckelt_auf_maximum():
+    absatz = "Dies ist ein Beispielabsatz mit einigen Woertern darin. " * 30
+    text = "\n\n".join([absatz] * 200)
+    assert len(an.text_in_kapitel_teilen(text)) <= an.MAX_KAPITEL
 
 
 def test_kapitel_analyse_parsen_vollstaendige_antwort():
@@ -269,3 +275,117 @@ def test_analyse_speichern_haengt_bei_kollision_zaehler_an(tmp_path):
     assert zweiter == "Titel-2.md"
     assert (tmp_path / "Analyse" / "Titel.md").read_text(encoding="utf-8") == "Erster Text"
     assert (tmp_path / "Analyse" / "Titel-2.md").read_text(encoding="utf-8") == "Zweiter Text"
+
+
+# --- Import-Vorbereitung: Sprache, Fuelltext, Kapitelerkennung --------------
+
+ENGLISCH = (
+    "She had not said a word to him since the morning, and he knew that she was angry with his decision. "
+    "They walked through the garden with their heads down, but the silence was heavy and he could not "
+    "bear it any longer. "
+) * 6
+
+
+def test_sprache_erkennen():
+    from app.core.import_bereinigung import sprache_erkennen
+    assert sprache_erkennen(ENGLISCH) == "en"
+    deutsch = ("Sie hatte ihm seit dem Morgen kein Wort gesagt, und er wusste, dass sie mit seiner Entscheidung "
+               "nicht einverstanden war. Sie gingen mit gesenkten Köpfen durch den Garten, aber das Schweigen "
+               "war schwer und er konnte es nicht mehr ertragen. ") * 6
+    assert sprache_erkennen(deutsch) == "de"
+    assert sprache_erkennen("Hallo Welt") == "unbekannt"
+
+
+def test_vorbereiten_erkennt_englisch_und_englische_kapitelwoerter():
+    text = "\n\n".join(f"Chapter {w}\n\n{ENGLISCH}" for w in ("One", "Two", "Three"))
+    v = an.vorbereiten(text)
+    assert v.sprache == "en"
+    assert v.kapitel_quelle == "stichwort"
+    assert len(v.abschnitte) == 3
+
+
+def test_vorbereiten_entfernt_fuelltexte_aber_keine_handlung():
+    text = (
+        "Title: Der Garten\nRating: T\nSummary: Eine Geschichte.\n\n"
+        "Disclaimer: Alle Figuren gehören mir nicht.\n\n"
+        "Kapitel 1\n\nEr ging in den Garten.\n\n"
+        "A/N: Danke fürs Lesen! Bitte reviewt.\n\n"
+        "\"Thanks for coming,\" sagte sie.\n\n"
+        "Kapitel 2\n\nSie blieb stehen.\n\n***\n\nAuthor's Note: Nächstes Mal mehr.\n\n"
+        "Thanks for reading and for all the reviews!"
+    )
+    v = an.vorbereiten(text)
+    gesamt = "\n".join(v.abschnitte)
+    assert "Rating" not in gesamt and "Disclaimer" not in gesamt and "A/N" not in gesamt
+    assert "Author's Note" not in gesamt and "Thanks for reading" not in gesamt
+    assert "Er ging in den Garten." in gesamt and "Sie blieb stehen." in gesamt
+    assert "Thanks for coming" in gesamt  # woertliche Rede bleibt
+    # Kopfblock: im Zeilenmodus je Zeile ein Eintrag (Title/Rating/Summary), dazu 4 Absaetze
+    assert len(v.entfernt) == 7
+    assert not v.abschnitte[1].rstrip().endswith("***")  # Trenner am Kapitelende entfernt
+    assert len(v.abschnitte) == 2
+
+
+def test_vorbereiten_verwirft_reine_fuelltext_kapitel_bei_markdown():
+    text = (
+        "# Erstes Kapitel\n\nEs begann im Regen.\n\n"
+        "# Zweites Kapitel\n\nEs endete im Regen.\n\n"
+        "## Author's Note\n\nIch danke allen Lesern."
+    )
+    v = an.vorbereiten(text)
+    assert v.kapitel_quelle == "markdown"
+    assert len(v.abschnitte) == 2
+    assert v.verworfene_abschnitte == 1
+
+
+def test_stichwort_kapitel_haben_vorrang_vor_beliebigen_markdown_ueberschriften():
+    text = (
+        "# Ein Titel\n\nKapitel 1\n\nText eins.\n\n## Zwischentitel\n\nKapitel 2\n\nText zwei.\n\n"
+        "Kapitel 3\n\nText drei."
+    )
+    v = an.vorbereiten(text)
+    assert v.kapitel_quelle == "stichwort"
+    assert len(v.abschnitte) == 3
+
+
+def test_prolog_und_zahlwort_kapitel_werden_erkannt():
+    text = "Prolog\n\nVorher.\n\nKapitel eins\n\nErstes.\n\nKapitel zwei: Das Ende\n\nLetztes."
+    v = an.vorbereiten(text)
+    assert v.kapitel_quelle == "stichwort"
+    assert len(v.abschnitte) == 3
+
+
+def test_satz_der_mit_chapter_beginnt_ist_keine_ueberschrift():
+    text = ("Chapter three of the old book was long and boring and full of words that nobody read. " * 3
+            + "\n\n") * 3
+    assert an.vorbereiten(text).kapitel_quelle == "absaetze"
+
+
+def test_sprachhinweis_nur_bei_englisch():
+    assert "Englisch" in an.kapitel_analyse_user("Text", sprache="en")
+    assert "Englisch" not in an.kapitel_analyse_user("Text", sprache="de")
+    assert "Englisch" in an.synthese_user("Analysen", "Auszug", sprache="en")
+    assert "Englisch" in an.epoche_vorschlag_user("Auszug", sprache="en")
+
+
+def test_vorbereiten_zeilenmodus_pdf_text_ein_absatz_pro_zeile():
+    """Aus PDF kopierte Geschichten haben kaum Leerzeilen: jede Zeile ist ein
+    Absatz (Regression 'The Sweat of a Gladiator', 18 Kapitel)."""
+    text = (
+        "The Sweat of a Gladiator\n"
+        "A/N: Plot bunny, bitte nett sein.\n"
+        "Disclaimer: Nicht meine Figuren.\n"
+        "Chapter One\n"
+        "Harry rannte durch den Gang.\n"
+        "\u201cThanks, Harry,\u201d sagte sie.\n"
+        "Er nickte langsam.\n"
+        "Chapter Two\n"
+        "Authors Postscript: Ein alter Brauch in Japan.\n"
+        "Sie lachte laut.\n"
+        "Es war vorbei.\n"
+    )
+    v = an.vorbereiten(text)
+    assert len(v.abschnitte) == 2
+    assert [e.split(":")[0] for e in v.entfernt] == ["A/N", "Disclaimer", "Authors Postscript"]
+    assert "Thanks, Harry" in v.abschnitte[0]
+    assert v.abschnitte[0].count("\n\n") == 2  # drei Absaetze, mit Leerzeilen getrennt
