@@ -923,7 +923,27 @@ def analysen_ordner(projekte_wurzel: Path) -> Path:
     return ordner
 
 
-def analyse_speichern(projekte_wurzel: Path, titel: str, text: str) -> str:
+def _meta_datei(ordner: Path, name: str) -> Path:
+    return ordner / (Path(name).stem + ".meta.json")
+
+
+def analyse_quelldatei(projekte_wurzel: Path, name: str) -> str | None:
+    """Name der Datei, aus der der gespeicherte Rohtext stammt (z.B. 'Buch.pdf') - damit
+    eine Uebersetzung im selben Format gespeichert werden kann, auch wenn der Text spaeter
+    aus der Liste der gespeicherten Rohtexte geoeffnet wird. None bei aelteren Eintraegen."""
+    pfad = _meta_datei(analysen_ordner(projekte_wurzel), name)
+    try:
+        wert = json.loads(pfad.read_text(encoding="utf-8")).get("quelldatei")
+    except (OSError, ValueError):
+        return None
+    return wert if isinstance(wert, str) and wert else None
+
+
+def analyse_meta_loeschen(projekte_wurzel: Path, name: str) -> None:
+    _meta_datei(analysen_ordner(projekte_wurzel), name).unlink(missing_ok=True)
+
+
+def analyse_speichern(projekte_wurzel: Path, titel: str, text: str, quelldatei: str | None = None) -> str:
     """Speichert einen importierten Rohtext dauerhaft ab - gibt den
     (kollisionsfrei gewaehlten) Dateinamen zurueck. Ueberschreibt bewusst NIE
     eine bestehende Datei (siehe Zaehler-Suffix unten), auch nicht bei
@@ -939,4 +959,8 @@ def analyse_speichern(projekte_wurzel: Path, titel: str, text: str) -> str:
         ziel = ordner / name
         zaehler += 1
     ziel.write_text(text, encoding="utf-8")
+    if quelldatei and quelldatei.strip():
+        _meta_datei(ordner, name).write_text(
+            json.dumps({"quelldatei": Path(quelldatei.strip()).name[:200]}, ensure_ascii=False), encoding="utf-8",
+        )
     return name

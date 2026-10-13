@@ -143,10 +143,13 @@ export const api = {
 
   analysatorStarten: (
     titel: string, epoche: string, text: string, zweiteEpoche?: string | null, sshZielId?: string | null,
+    quelldatei?: string | null,
   ) =>
     anfrage<{ ordner: string }>(`/api/analysator/starten${sshQuery(sshZielId)}`, {
       method: "POST",
-      body: JSON.stringify({ titel, epoche, zweite_epoche: zweiteEpoche || null, text }),
+      body: JSON.stringify({
+        titel, epoche, zweite_epoche: zweiteEpoche || null, text, quelldatei: quelldatei || null,
+      }),
     }),
 
   fuelltextVorschau: (text: string) =>

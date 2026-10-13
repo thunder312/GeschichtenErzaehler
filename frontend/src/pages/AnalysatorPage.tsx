@@ -95,6 +95,8 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
     try {
       const geladenerText = await api.analyseLesen(eintrag.dateiname);
       setText(geladenerText);
+      // Format der Quelle merken (z.B. PDF), damit die Übersetzung wieder als PDF gespeichert wird
+      setGeladeneDatei(eintrag.quelldatei ?? null);
       if (!titel.trim()) setTitel(eintrag.titel);
     } catch (e) {
       setAnalysenFehler(e instanceof Error ? e.message : String(e));
@@ -270,7 +272,7 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
           onEpochenGeaendert();
         }
       }
-      const antwort = await api.analysatorStarten(titel.trim(), zielEpoche, text, zweiteEpoche, sshZielId);
+      const antwort = await api.analysatorStarten(titel.trim(), zielEpoche, text, zweiteEpoche, sshZielId, geladeneDatei);
       setOrdner(antwort.ordner);
       setStatus(null);
       // "starten" sichert den Rohtext serverseitig immer neu (siehe

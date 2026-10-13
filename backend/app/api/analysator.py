@@ -220,7 +220,7 @@ def analysator_starten(anfrage: AnalysatorStartAnfrage, background_tasks: Backgr
     # analyse_speichern. Erst dadurch laesst sich ein Import spaeter erneut
     # anschauen oder nochmal versuchen, ohne den Text erneut einfuegen zu
     # muessen.
-    an.analyse_speichern(wurzel, basis_titel, anfrage.text)
+    an.analyse_speichern(wurzel, basis_titel, anfrage.text, anfrage.quelldatei)
 
     ordner = ziel.relative_to(wurzel).as_posix()
     background_tasks.add_task(_analysieren_lauf, settings, ziel, ssh_ziel_id, anfrage.text)
@@ -258,6 +258,7 @@ def analysen_auflisten(settings: Settings = Depends(get_settings),
             titel=datei.stem.replace("-", " "),
             erstellt_am=datetime.fromtimestamp(datei.stat().st_ctime).strftime("%Y-%m-%d %H:%M"),
             woerter=woerter(text),
+            quelldatei=an.analyse_quelldatei(projekte_wurzel(settings, benutzer.username), datei.name),
         ))
     return ergebnis
 
@@ -274,6 +275,7 @@ def analyse_loeschen(dateiname: str, settings: Settings = Depends(get_settings),
                       benutzer: Benutzer = Depends(get_current_user)):
     pfad = _analyse_pfad(settings, benutzer.username, dateiname)
     pfad.unlink()
+    an.analyse_meta_loeschen(projekte_wurzel(settings, benutzer.username), dateiname)
 
 
 @router.get("/projects/{ordner:path}/analysator-status", response_model=AnalysatorStatusAntwort)

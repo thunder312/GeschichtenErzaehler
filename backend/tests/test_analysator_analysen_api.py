@@ -94,3 +94,54 @@ def test_analyse_loeschen_entfernt_datei(client, tmp_path):
 def test_analyse_loeschen_unbekannte_datei_gibt_404(client):
     r = client.delete("/api/analysator/analysen/nicht-vorhanden.md")
     assert r.status_code == 404
+
+
+# --- Quelldatei des Rohtexts (Format der Uebersetzung, z.B. PDF) ---------------------
+
+def test_quelldatei_wird_gespeichert_und_aufgelistet(client, tmp_path):
+    wurzel = tmp_path / "projects" / "daniel"
+    an.analyse_speichern(wurzel, "Mit Quelle", "Ein Text.", quelldatei="Buch_Original.pdf")
+    an.analyse_speichern(wurzel, "Ohne Quelle", "Anderer Text.")
+
+    liste = {e["titel"]: e for e in client.get("/api/analysator/analysen").json()}
+    assert liste["Mit Quelle"]["quelldatei"] == "Buch_Original.pdf"
+    assert liste["Ohne Quelle"]["quelldatei"] is None  # aeltere Eintraege ohne Vermerk
+    # Die Meta-Datei taucht NICHT als eigener Rohtext in der Liste auf
+    assert len(liste) == 2
+
+
+def test_quelldatei_nimmt_nur_den_dateinamen_ohne_pfad(client, tmp_path):
+    wurzel = tmp_path / "projects" / "daniel"
+    an.analyse_speichern(wurzel, "Pfad", "x", quelldatei="C:\\Users\\jemand\\Buecher\\Roman.pdf")
+    an.analyse_speichern(wurzel, "Pfad2", "x", quelldatei="../../etc/passwd")
+    liste = {e["titel"]: e["quelldatei"] for e in client.get("/api/analysator/analysen").json()}
+    assert liste["Pfad"] in ("Roman.pdf", "C:\\Users\\jemand\\Buecher\\Roman.pdf".replace("\\", "/").split("/")[-1])
+    assert "/" not in liste["Pfad2"] and ".." not in liste["Pfad2"]
+
+
+def test_analyse_loeschen_entfernt_auch_die_meta_datei(client, tmp_path):
+    wurzel = tmp_path / "projects" / "daniel"
+    an.analyse_speichern(wurzel, "Titel", "Text", quelldatei="X.pdf")
+    meta = wurzel / "Analyse" / "Titel.meta.json"
+    assert meta.exists()
+    assert client.delete("/api/analysator/analysen/Titel.md").status_code == 204
+    assert not meta.exists()
+
+
+def test_start_speichert_die_quelldatei_beim_rohtext(client, tmp_path, monkeypatch):
+    import app.api.analysator as analysator_api
+
+    async def nichts(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(analysator_api, "_analysieren_lauf", nichts)
+    settings = app.dependency_overrides[get_settings]()
+    (settings.epochen_dir / "Regency").mkdir(parents=True, exist_ok=True)
+    for datei in ("architekt.txt", "autor.txt", "pruefer_anachronismus.txt"):
+        (settings.epochen_dir / "Regency" / datei).write_text("x", encoding="utf-8")
+    r = client.post("/api/analysator/starten", json={
+        "titel": "Mein Import", "epoche": "Regency", "text": "Ein importierter Text.", "quelldatei": "Quelle.pdf",
+    })
+    assert r.status_code == 201
+    liste = client.get("/api/analysator/analysen").json()
+    assert [e["quelldatei"] for e in liste] == ["Quelle.pdf"]

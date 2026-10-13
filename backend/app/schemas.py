@@ -608,6 +608,9 @@ class AnalysatorStartAnfrage(BaseModel):
     epoche: str
     zweite_epoche: str | None = None
     text: str = Field(min_length=1)
+    # Name der geladenen Datei (z.B. "Buch.pdf"): wird beim Rohtext vermerkt, damit eine
+    # Uebersetzung spaeter im Format der Quelle gespeichert werden kann.
+    quelldatei: str | None = None
 
 
 class AnalysatorStartAntwort(BaseModel):
@@ -631,6 +634,7 @@ class AnalyseEintrag(BaseModel):
     titel: str
     erstellt_am: str
     woerter: int
+    quelldatei: str | None = None  # Datei, aus der der Text stammt (None bei aelteren Eintraegen)
 
 
 class KiGeruestFigur(BaseModel):

@@ -31,6 +31,8 @@ export function UebersetzenPanel({ text, dateiname, sshZielId, onUebernehmen }: 
   const [vorschau, setVorschau] = useState<FuelltextVorschau | null>(null);
   const [vorschauLaedt, setVorschauLaedt] = useState(false);
   const [entfernen, setEntfernen] = useState(true);
+  // Ausgabeformat der _de-Datei: Voreinstellung = Format der Quelle (PDF -> PDF), änderbar im Dialog
+  const [format, setFormat] = useState<Format>(formatVon(dateiname));
   const [wirdGestartet, setWirdGestartet] = useState(false);
   const [wirdGespeichert, setWirdGespeichert] = useState(false);
   const [lesetext, setLesetext] = useState<string | null>(null);
@@ -93,6 +95,7 @@ export function UebersetzenPanel({ text, dateiname, sshZielId, onUebernehmen }: 
     try {
       const v = await api.fuelltextVorschau(text);
       setEntfernen(v.fuelltext_absaetze > 0);
+      setFormat(formatVon(dateiname));
       setVorschau(v);
     } catch (e) {
       setFehler(e instanceof Error ? e.message : String(e));
@@ -106,7 +109,7 @@ export function UebersetzenPanel({ text, dateiname, sshZielId, onUebernehmen }: 
     setFehler(null);
     try {
       await api.uebersetzenStarten(
-        text, dateiname, entfernen && (vorschau?.fuelltext_absaetze ?? 0) > 0, sshZielId, fortsetzen,
+        text, mitFormat(dateiname, format), entfernen && (vorschau?.fuelltext_absaetze ?? 0) > 0, sshZielId, fortsetzen,
       );
       setVorschau(null);
       laeuftRef.current = true;
@@ -314,9 +317,21 @@ export function UebersetzenPanel({ text, dateiname, sshZielId, onUebernehmen }: 
               </p>
               <p>
                 Dauer grob {vorschau.geschaetzte_minuten} Minuten, je nach KI-Ziel (Kapitel für Kapitel, mit
-                Fortschrittsanzeige, Zwischenständen und „Stoppen“/„Fortsetzen“). Gespeichert wird als „
-                {dateiNameVorschau(dateiname)}“.
+                Fortschrittsanzeige, Zwischenständen und „Stoppen“/„Fortsetzen“).
               </p>
+              <label className="flex items-center gap-2 pt-1 text-text">
+                Speichern als
+                <select
+                  value={format}
+                  onChange={(e) => setFormat(e.target.value as Format)}
+                  className="rounded-lg border border-border bg-bg px-2 py-1 text-sm text-text"
+                >
+                  <option value=".pdf">PDF (.pdf)</option>
+                  <option value=".txt">Text (.txt)</option>
+                  <option value=".md">Markdown (.md)</option>
+                </select>
+                <span className="text-text-muted">→ „{dateiNameVorschau(mitFormat(dateiname, format))}“</span>
+              </label>
               {kandidat && (
                 <p className="text-amber-300">
                   Achtung: Für diesen Text gibt es eine unterbrochene Übersetzung. Ein Neustart sichert sie als
@@ -372,6 +387,18 @@ export function UebersetzenPanel({ text, dateiname, sshZielId, onUebernehmen }: 
       )}
     </div>
   );
+}
+
+type Format = ".pdf" | ".txt" | ".md";
+
+/** Format der Quelle (PDF -> PDF), sonst .txt. */
+function formatVon(dateiname: string): Format {
+  const m = dateiname.toLowerCase().match(/\.(pdf|txt|md)$/);
+  return m ? (`.${m[1]}` as Format) : ".txt";
+}
+
+function mitFormat(dateiname: string, format: Format): string {
+  return dateiname.replace(/\.(pdf|txt|md)$/i, "") + format;
 }
 
 /** Spiegel von backend/app/core/uebersetzer.py:dateiname_de (nur zur Anzeige und zum Abgleich). */

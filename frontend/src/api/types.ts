@@ -348,6 +348,8 @@ export interface KiGeruestStatus {
 // /api/analysator/analysen - dauerhaft gespeicherte Rohtexte importierter
 // Geschichten (siehe backend/app/core/analysator.py:analyse_speichern).
 export interface AnalyseEintrag {
+  /** Datei, aus der der Text stammt (z.B. "Buch.pdf") - null bei älteren Einträgen. */
+  quelldatei?: string | null;
   dateiname: string;
   titel: string;
   erstellt_am: string;
