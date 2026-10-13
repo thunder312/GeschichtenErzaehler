@@ -14,11 +14,13 @@ import { BefundListe } from "../components/BefundListe";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { FindingsList } from "../components/FindingsList";
 import { SpeicherkontrolleDialog, SpeicherkontrolleWiederhochBanner } from "../components/SpeicherkontrolleDialog";
-import { Button, Card, CardTitle, Input, Label } from "../components/ui";
+import { Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { automatikAktionsText, hatReste, resteZusammenfassen } from "../utils/automatik";
 import { alsDateiHerunterladen } from "../utils/download";
-import { fertigSoundAbspielen, soundFreischalten } from "../utils/fertigSound";
+import {
+  fertigSoundAbspielen, gewaehlterSound, SOUND_LISTE, soundFreischalten, soundWaehlen,
+} from "../utils/fertigSound";
 
 interface SchreibenPageProps {
   ordner: string;
@@ -107,6 +109,13 @@ export function SchreibenPage({
     }
   });
   const [fertigHerunterfahren, setFertigHerunterfahren] = useState(false);
+  const [soundId, setSoundIdState] = useState(gewaehlterSound);
+  function setSoundId(id: string) {
+    setSoundIdState(id);
+    soundWaehlen(id);
+    soundFreischalten();
+    fertigSoundAbspielen(id); // direkt vorhoeren
+  }
   const [herunterfahrenFehler, setHerunterfahrenFehler] = useState<string | null>(null);
   const [jetztMs, setJetztMs] = useState(() => Date.now());
   function setFertigSound(an: boolean) {
@@ -755,6 +764,32 @@ export function SchreibenPage({
               <input type="checkbox" checked={fertigSound} onChange={(e) => setFertigSound(e.target.checked)} />
               🔔 Signalton abspielen
             </label>
+            {fertigSound && (
+              <div className="ml-6 flex flex-wrap items-center gap-2">
+                <div className="w-56">
+                  <Select value={soundId} onChange={(e) => setSoundId(e.target.value)}>
+                    {(["Allgemein", "Themen"] as const).map((gruppe) => (
+                      <optgroup key={gruppe} label={gruppe}>
+                        {SOUND_LISTE.filter((s) => s.gruppe === gruppe).map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </Select>
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    soundFreischalten();
+                    fertigSoundAbspielen(soundId);
+                  }}
+                >
+                  ▶ Vorhören
+                </Button>
+              </div>
+            )}
             {automatikStatus?.herunterfahren_moeglich && (
               <label className="flex items-center gap-2 text-sm text-text">
                 <input
