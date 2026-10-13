@@ -1,4 +1,5 @@
 import type {
+  UebersetzenFortsetzbar,
   FuelltextVorschau,
   UebersetzenStatus,
   AnalyseEintrag,
@@ -160,6 +161,13 @@ export const api = {
     anfrage<{ dateiname: string }>(`/api/analysator/uebersetzen${sshQuery(sshZielId)}`, {
       method: "POST",
       body: JSON.stringify({ text, dateiname, fuelltext_entfernen: fuelltextEntfernen, fortsetzen }),
+    }),
+
+  /** Gibt es eine unterbrochene Übersetzung GENAU dieses Textes (Zuordnung über den Inhalt)? */
+  uebersetzenFortsetzbar: (text: string) =>
+    anfrage<UebersetzenFortsetzbar>("/api/analysator/uebersetzen/fortsetzbar", {
+      method: "POST",
+      body: JSON.stringify({ text }),
     }),
 
   uebersetzenStatus: () => anfrage<UebersetzenStatus>("/api/analysator/uebersetzen/status"),

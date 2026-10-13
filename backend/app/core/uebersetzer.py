@@ -16,11 +16,13 @@ import hashlib
 import io
 import json
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from app.core.analysator import KAPITEL_STICHWORT_MUSTER, analysen_ordner
+from app.core.import_bereinigung import fuelltexte_entfernen
 from app.core.textutil import woerter
 
 CHUNK_WOERTER = 900
@@ -277,6 +279,7 @@ def status_schreiben(projekte_wurzel: Path, status: dict[str, Any], behalte_stop
         except (OSError, ValueError):
             pass
     pfad.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
+    job_speichern(projekte_wurzel, status)
 
 
 def ergebnis_pfad(projekte_wurzel: Path, dateiname: str) -> Path:
@@ -298,7 +301,97 @@ def verwaiste_laeufe_zuruecksetzen(projects_root: Path) -> int:
             status["log"] = list(status.get("log", [])) + ["Durch einen Backend-Neustart unterbrochen."]
             pfad.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
             zurueck += 1
+    # Auch die Job-Eintraege (jobs/<fingerabdruck>.json): sonst bliebe ein verwaister Lauf dort
+    # fuer immer "laeuft" und ließe sich nie fortsetzen.
+    for pfad in projects_root.rglob(f"{ERGEBNIS_ORDNERNAME}/{JOBS_ORDNERNAME}/*.json"):
+        try:
+            job = json.loads(pfad.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if job.get("laeuft"):
+            job["laeuft"] = False
+            job["gestoppt"] = True
+            job["log"] = list(job.get("log", [])) + ["Durch einen Backend-Neustart unterbrochen."]
+            pfad.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
     return zurueck
+
+
+# --- Jobs nach Textinhalt (Fortsetzen unabhaengig vom Dateinamen) -------------------
+
+JOBS_ORDNERNAME = "jobs"
+
+
+def _job_datei(projekte_wurzel: Path, quell_hash_wert: str) -> Path:
+    jobs = ordner(projekte_wurzel) / JOBS_ORDNERNAME
+    jobs.mkdir(parents=True, exist_ok=True)
+    return jobs / f"{quell_hash_wert[:16]}.json"
+
+
+def job_speichern(projekte_wurzel: Path, status: dict[str, Any]) -> None:
+    """Haelt den Stand jeder Uebersetzung zusaetzlich unter dem Fingerabdruck des
+    ORIGINALTEXTES fest (status.json beschreibt nur die zuletzt gestartete). So laesst
+    sich eine unterbrochene Uebersetzung wiederfinden, egal unter welchem Namen oder
+    aus welcher Quelle (Datei, gespeicherter Rohtext, eingefuegt) der Text geoeffnet wird."""
+    if status.get("quell_hash"):
+        _job_datei(projekte_wurzel, status["quell_hash"]).write_text(
+            json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8",
+        )
+
+
+def job_lesen(projekte_wurzel: Path, quell_hash_wert: str) -> dict[str, Any] | None:
+    pfad = _job_datei(projekte_wurzel, quell_hash_wert)
+    if not pfad.is_file():
+        return None
+    try:
+        return {**LEERER_STATUS, **json.loads(pfad.read_text(encoding="utf-8"))}
+    except (OSError, ValueError):
+        return None
+
+
+def fortsetzbaren_job_finden(projekte_wurzel: Path, text: str) -> dict[str, Any] | None:
+    """Unterbrochene (nicht fertige, nicht laufende) Uebersetzung GENAU dieses Textes -
+    mit und ohne Fuelltext-Entfernung geprueft, passend zur Einstellung des Jobs."""
+    for entfernen in (True, False):
+        pruef = fuelltexte_entfernen(text, KAPITEL_STICHWORT_MUSTER)[0] if entfernen else text
+        einheiten, _trenner = einheiten_bilden(pruef)
+        if not einheiten:
+            continue
+        job = job_lesen(projekte_wurzel, quell_hash(einheiten))
+        if (job and not job["abgeschlossen"] and not job["laeuft"] and job["ergebnis_woerter"] > 0
+                and bool(job.get("fuelltext_entfernen")) == entfernen and job.get("dateiname")):
+            name = job["dateiname"]
+            if ergebnis_pfad(projekte_wurzel, name[:-4] + ".txt" if name.endswith(".pdf") else name).is_file():
+                return job
+    return None
+
+
+def alten_job_registrieren(projekte_wurzel: Path, text: str, fuelltext_entfernen: bool) -> bool:
+    """Einmalige Uebernahme eines Standes der ERSTEN Version (kein quell_hash): ordnet die
+    zuletzt gestartete, nicht fertige Uebersetzung dem uebergebenen Text zu, damit sie sich
+    ueber den Inhalt fortsetzen laesst. Der Aufrufer muss sicher sein, dass der Text zu dieser
+    Uebersetzung gehoert (die Ergebnisdatei wird nur gezaehlt, nicht verglichen)."""
+    status = status_lesen(projekte_wurzel)
+    if status["abgeschlossen"] or status["laeuft"] or status.get("quell_hash") or not status.get("dateiname"):
+        return False
+    pruef = fuelltexte_entfernen(text, KAPITEL_STICHWORT_MUSTER)[0] if fuelltext_entfernen else text
+    einheiten, trenner = einheiten_bilden(pruef)
+    if not einheiten:
+        return False
+    status.update(quell_hash=quell_hash(einheiten), fuelltext_entfernen=fuelltext_entfernen, trenner=trenner,
+                  gestoppt=True, stop_angefordert=False)
+    status_schreiben(projekte_wurzel, status, behalte_stop=False)
+    return True
+
+
+def ergebnis_sichern(projekte_wurzel: Path, text_datei: str) -> str | None:
+    """Beginnt eine Uebersetzung neu, obwohl die Ergebnisdatei schon Inhalt hat: die alte
+    Datei wird NICHT ueberschrieben, sondern als '<name>.vorher-<zeit>' beiseite gelegt."""
+    pfad = ergebnis_pfad(projekte_wurzel, text_datei)
+    if not pfad.is_file() or pfad.stat().st_size == 0:
+        return None
+    ziel = pfad.with_name(f"{pfad.stem}.vorher-{time.strftime('%Y%m%d-%H%M%S')}{pfad.suffix}")
+    pfad.rename(ziel)
+    return ziel.name
 
 
 # --- PDF ------------------------------------------------------------------

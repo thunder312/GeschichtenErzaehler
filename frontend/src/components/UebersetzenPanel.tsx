@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { FuelltextVorschau, UebersetzenStatus } from "../api/types";
+import type { FuelltextVorschau, UebersetzenFortsetzbar, UebersetzenStatus } from "../api/types";
 import { blobHerunterladen } from "../utils/download";
 import { Button, Textarea } from "./ui";
 
@@ -34,6 +34,8 @@ export function UebersetzenPanel({ text, dateiname, sshZielId, onUebernehmen }: 
   const [wirdGestartet, setWirdGestartet] = useState(false);
   const [wirdGespeichert, setWirdGespeichert] = useState(false);
   const [lesetext, setLesetext] = useState<string | null>(null);
+  // Unterbrochene Übersetzung GENAU dieses Textes (Zuordnung über den Inhalt, nicht den Dateinamen)
+  const [kandidat, setKandidat] = useState<UebersetzenFortsetzbar | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const laeuftRef = useRef(false);
 
@@ -60,6 +62,30 @@ export function UebersetzenPanel({ text, dateiname, sshZielId, onUebernehmen }: 
       clearInterval(intervall);
     };
   }, []);
+
+  // Beim Öffnen/Ändern des Textes (und nach jedem Lauf-Ende) nachfragen, ob dafür eine
+  // unterbrochene Übersetzung existiert - verzögert, damit nicht jeder Tastendruck den
+  // (langen) Text an den Server schickt.
+  const laeuftJetzt = status?.laeuft ?? false;
+  useEffect(() => {
+    if (laeuftJetzt || !text.trim()) {
+      setKandidat(null);
+      return;
+    }
+    let abgebrochen = false;
+    const t = setTimeout(() => {
+      api
+        .uebersetzenFortsetzbar(text)
+        .then((k) => {
+          if (!abgebrochen) setKandidat(k.fortsetzbar ? k : null);
+        })
+        .catch(() => {});
+    }, 800);
+    return () => {
+      abgebrochen = true;
+      clearTimeout(t);
+    };
+  }, [text, laeuftJetzt]);
 
   async function dialogOeffnen() {
     setFehler(null);
@@ -139,10 +165,6 @@ export function UebersetzenPanel({ text, dateiname, sshZielId, onUebernehmen }: 
   const prozent =
     status && status.woerter_gesamt > 0 ? Math.min(100, Math.round((status.woerter_fertig / status.woerter_gesamt) * 100)) : 0;
   const zielName = status?.dateiname ?? "";
-  // Fortsetzen nur für dieselbe, unterbrochene Übersetzung dieses Dokuments
-  const kannFortsetzen =
-    !!status && !status.laeuft && !status.abgeschlossen && status.ergebnis_woerter > 0 &&
-    status.dateiname === dateiNameVorschau(dateiname);
   const hatFertigeKapitel = (status?.kapitel_fertig ?? 0) > 0;
 
   const zwischenstandKnoepfe = hatFertigeKapitel && status && (
@@ -171,6 +193,27 @@ export function UebersetzenPanel({ text, dateiname, sshZielId, onUebernehmen }: 
           <span className="text-xs text-text-muted">Speichert danach als „{dateiNameVorschau(dateiname)}“.</span>
         )}
       </div>
+
+      {kandidat && !laeuft && (
+        <div className="space-y-2 rounded-lg border border-accent/60 bg-accent/10 p-3">
+          <p className="text-sm text-text">
+            Für diesen Text gibt es eine <strong>unterbrochene Übersetzung</strong>
+            {kandidat.dateiname ? ` („${kandidat.dateiname}“)` : ""}: {kandidat.kapitel_fertig} von{" "}
+            {kandidat.kapitel_gesamt} Kapiteln fertig
+            {kandidat.woerter_gesamt > 0
+              ? ` (${Math.round((kandidat.woerter_fertig / kandidat.woerter_gesamt) * 100)} %)`
+              : ""}
+            .
+          </p>
+          <Button onClick={() => starten(true)} disabled={wirdGestartet}>
+            {wirdGestartet ? "Startet…" : "▶ Fortsetzen"}
+          </Button>
+          <p className="text-xs text-text-muted">
+            „Fortsetzen“ übersetzt nur den Rest, die fertigen Kapitel bleiben unverändert. Mit „🇩🇪 Ins Deutsche
+            übersetzen“ beginnst du dagegen neu - die bisherige Übersetzung wird dann als „.vorher-…“-Datei gesichert.
+          </p>
+        </div>
+      )}
 
       {laeuft && status && (
         <div className="space-y-2 rounded-lg border border-border bg-bg p-3">
@@ -214,12 +257,7 @@ export function UebersetzenPanel({ text, dateiname, sshZielId, onUebernehmen }: 
           </p>
           {status.fehler && <p className="text-sm text-red-400">Fehler: {status.fehler}</p>}
           <div className="flex flex-wrap gap-2">
-            {kannFortsetzen && (
-              <Button onClick={() => starten(true)} disabled={wirdGestartet}>
-                {wirdGestartet ? "Startet…" : "▶ Fortsetzen"}
-              </Button>
-            )}
-            <Button onClick={() => speichern(false)} disabled={wirdGespeichert} variant={kannFortsetzen ? "secondary" : "primary"}>
+            <Button onClick={() => speichern(false)} disabled={wirdGespeichert} variant={kandidat ? "secondary" : "primary"}>
               {wirdGespeichert ? "Speichere…" : `💾 Als ${zielName} speichern${status.abgeschlossen ? "" : " (bisher)"}`}
             </Button>
             {status.abgeschlossen && (
@@ -229,12 +267,6 @@ export function UebersetzenPanel({ text, dateiname, sshZielId, onUebernehmen }: 
             )}
             {!status.abgeschlossen && zwischenstandKnoepfe}
           </div>
-          {kannFortsetzen && (
-            <p className="text-xs text-text-muted">
-              „Fortsetzen“ übersetzt nur den Rest, die fertigen Kapitel bleiben unverändert. Das Dokument im Textfeld
-              muss dasselbe sein.
-            </p>
-          )}
         </div>
       )}
 
@@ -285,6 +317,12 @@ export function UebersetzenPanel({ text, dateiname, sshZielId, onUebernehmen }: 
                 Fortschrittsanzeige, Zwischenständen und „Stoppen“/„Fortsetzen“). Gespeichert wird als „
                 {dateiNameVorschau(dateiname)}“.
               </p>
+              {kandidat && (
+                <p className="text-amber-300">
+                  Achtung: Für diesen Text gibt es eine unterbrochene Übersetzung. Ein Neustart sichert sie als
+                  „.vorher-…“-Datei und beginnt von vorn - zum Weitermachen stattdessen „▶ Fortsetzen“ wählen.
+                </p>
+              )}
               {vorschau.sprache === "de" && (
                 <p className="text-amber-300">
                   Hinweis: Der Text wirkt bereits deutsch - eine Übersetzung ist vermutlich nicht nötig.

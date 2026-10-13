@@ -267,6 +267,16 @@ export interface FuelltextVorschau {
   geschaetzte_minuten: number;
 }
 
+export interface UebersetzenFortsetzbar {
+  fortsetzbar: boolean;
+  dateiname: string | null;
+  kapitel_fertig: number;
+  kapitel_gesamt: number;
+  woerter_fertig: number;
+  woerter_gesamt: number;
+  ergebnis_woerter: number;
+}
+
 export interface UebersetzenStatus {
   laeuft: boolean;
   abgeschlossen: boolean;

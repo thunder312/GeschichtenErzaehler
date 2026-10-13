@@ -564,6 +564,22 @@ class UebersetzenStartAnfrage(BaseModel):
     fortsetzen: bool = False
 
 
+class FortsetzbarAnfrage(BaseModel):
+    text: str = Field(min_length=1)
+
+
+class FortsetzbarAntwort(BaseModel):
+    """Gibt es eine unterbrochene Uebersetzung GENAU dieses Textes (Zuordnung ueber den
+    Textinhalt, nicht ueber den Dateinamen)?"""
+    fortsetzbar: bool
+    dateiname: str | None = None
+    kapitel_fertig: int = 0
+    kapitel_gesamt: int = 0
+    woerter_fertig: int = 0
+    woerter_gesamt: int = 0
+    ergebnis_woerter: int = 0
+
+
 class UebersetzenStartAntwort(BaseModel):
     dateiname: str  # Name der Ausgabedatei, z.B. "Geschichte_de.pdf"
 

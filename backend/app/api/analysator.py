@@ -45,6 +45,8 @@ from app.schemas import (
     AnalysatorStartAntwort,
     AnalysatorStatusAntwort,
     Benutzer,
+    FortsetzbarAnfrage,
+    FortsetzbarAntwort,
     FuelltextVorschauAnfrage,
     FuelltextVorschauAntwort,
     UebersetzenStartAnfrage,
@@ -347,9 +349,10 @@ async def _chunk_uebersetzen(settings: Settings, base_url: str, absaetze: list[s
 
 
 async def _uebersetzen_lauf(settings: Settings, wurzel, ssh_ziel_id: str | None, text: str,
-                             ziel_name: str, fuelltext_entfernen: bool, fortsetzen: bool = False) -> None:
+                             ziel_name: str, fuelltext_entfernen: bool, fortsetzen: bool = False,
+                             vorher: dict | None = None) -> None:
     text_datei = ziel_name[:-4] + ".txt" if ziel_name.endswith(".pdf") else ziel_name
-    vorher = uebs.status_lesen(wurzel) if fortsetzen else {}
+    vorher = vorher or {}
     status = {**uebs.LEERER_STATUS, "log": list(vorher.get("log", []))[-50:], "laeuft": True, "dateiname": ziel_name,
               "fuelltext_entfernen": fuelltext_entfernen, "fortgesetzt": fortsetzen,
               "fuelltext_entfernt": vorher.get("fuelltext_entfernt", 0)}
@@ -444,18 +447,26 @@ def uebersetzen_starten(anfrage: UebersetzenStartAnfrage, background_tasks: Back
         raise HTTPException(409, "Es läuft bereits eine Übersetzung.")
     ziel_name = uebs.dateiname_de(anfrage.dateiname)
     fuelltext_entfernen = anfrage.fuelltext_entfernen
+    job = None
     if anfrage.fortsetzen:
-        text_datei = ziel_name[:-4] + ".txt" if ziel_name.endswith(".pdf") else ziel_name
-        if vorher["abgeschlossen"] or vorher["dateiname"] != ziel_name or not uebs.ergebnis_pfad(wurzel, text_datei).is_file():
-            raise HTTPException(409, "Es gibt keine unterbrochene Übersetzung dieses Dokuments zum Fortsetzen.")
+        # Zuordnung ueber den TEXTINHALT, nicht ueber den Dateinamen: egal ob der Text aus
+        # der PDF, einem gespeicherten Rohtext oder dem Einfuegen stammt.
+        job = uebs.fortsetzbaren_job_finden(wurzel, anfrage.text)
+        if job is None:
+            raise HTTPException(409, "Es gibt keine unterbrochene Übersetzung dieses Textes zum Fortsetzen.")
+        ziel_name = job["dateiname"]
         # Dieselbe Fülltext-Einstellung wie im unterbrochenen Lauf (sonst passen die Absätze nicht)
-        fuelltext_entfernen = vorher.get("fuelltext_entfernen") or vorher.get("fuelltext_entfernt", 0) > 0
+        fuelltext_entfernen = bool(job.get("fuelltext_entfernen"))
         # Sofort als "laeuft" markieren, Fortschritt und Log bleiben erhalten
         uebs.status_schreiben(
-            wurzel, {**vorher, "laeuft": True, "stop_angefordert": False, "gestoppt": False, "fehler": None},
+            wurzel, {**job, "laeuft": True, "stop_angefordert": False, "gestoppt": False, "fehler": None},
             behalte_stop=False,
         )
     else:
+        # Beginnt eine Uebersetzung neu, obwohl unter diesem Namen schon ein Ergebnis liegt,
+        # wird es als "<name>.vorher-<zeit>" gesichert statt ueberschrieben.
+        text_datei = ziel_name[:-4] + ".txt" if ziel_name.endswith(".pdf") else ziel_name
+        uebs.ergebnis_sichern(wurzel, text_datei)
         # Sofort als "laeuft" markieren (nicht erst im Hintergrund-Task), damit ein
         # zweiter Start in derselben Sekunde ebenfalls abgewiesen wird.
         uebs.status_schreiben(
@@ -464,9 +475,24 @@ def uebersetzen_starten(anfrage: UebersetzenStartAnfrage, background_tasks: Back
         )
     background_tasks.add_task(
         _uebersetzen_lauf, settings, wurzel, ssh_ziel_id, anfrage.text, ziel_name, fuelltext_entfernen,
-        anfrage.fortsetzen,
+        anfrage.fortsetzen, job,
     )
     return UebersetzenStartAntwort(dateiname=ziel_name)
+
+
+@router.post("/analysator/uebersetzen/fortsetzbar", response_model=FortsetzbarAntwort)
+def uebersetzen_fortsetzbar(anfrage: FortsetzbarAnfrage, settings: Settings = Depends(get_settings),
+                             benutzer: Benutzer = Depends(get_current_user)):
+    """Ist fuer GENAU diesen Text eine unterbrochene Uebersetzung vorhanden? Die Seite fragt
+    das beim Oeffnen/Aendern des Textes und bietet dann 'Fortsetzen' an."""
+    job = uebs.fortsetzbaren_job_finden(projekte_wurzel(settings, benutzer.username), anfrage.text)
+    if job is None:
+        return FortsetzbarAntwort(fortsetzbar=False)
+    return FortsetzbarAntwort(
+        fortsetzbar=True, dateiname=job["dateiname"], kapitel_fertig=job["kapitel_fertig"],
+        kapitel_gesamt=job["kapitel_gesamt"], woerter_fertig=job["woerter_fertig"],
+        woerter_gesamt=job["woerter_gesamt"], ergebnis_woerter=job["ergebnis_woerter"],
+    )
 
 
 @router.get("/analysator/uebersetzen/status", response_model=UebersetzenStatusAntwort)

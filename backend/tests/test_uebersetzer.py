@@ -301,18 +301,71 @@ def test_fortsetzen_uebersetzt_nur_den_rest(client, monkeypatch):
 
 
 def test_fortsetzen_mit_geaendertem_text_wird_abgelehnt(client, monkeypatch):
+    """Zuordnung ueber den Textinhalt: ein anderer Text findet keine unterbrochene Uebersetzung."""
     wurzel = _wurzel()
     monkeypatch.setattr(analysator_api, "sammle_antwort", _stop_nach_erstem_aufruf(wurzel, []))
     client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "Buch.txt"})
     fake, aufrufe = _fake()
     monkeypatch.setattr(analysator_api, "sammle_antwort", fake)
-    client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL + "\n\nNeuer Absatz.", "dateiname": "Buch.txt", "fortsetzen": True})
+    r = client.post("/api/analysator/uebersetzen",
+                    json={"text": DREI_KAPITEL + "\n\nNeuer Absatz.", "dateiname": "Buch.txt", "fortsetzen": True})
+    assert r.status_code == 409 and aufrufe == []
+
+
+def test_fortsetzen_findet_den_job_ueber_den_inhalt_egal_unter_welchem_namen(client, monkeypatch):
+    """Vorfall 2026-10-13: derselbe Text, aber aus dem gespeicherten Rohtext geoeffnet (anderer Dateiname
+    und andere Endung) startete eine NEUE Uebersetzung statt fortzusetzen."""
+    wurzel = _wurzel()
+    monkeypatch.setattr(analysator_api, "sammle_antwort", _stop_nach_erstem_aufruf(wurzel, []))
+    client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "Original.pdf"})
+    assert uebs.status_lesen(wurzel)["dateiname"] == "Original_de.pdf"
+
+    fortsetzbar = client.post("/api/analysator/uebersetzen/fortsetzbar", json={"text": DREI_KAPITEL}).json()
+    assert fortsetzbar["fortsetzbar"] is True and fortsetzbar["dateiname"] == "Original_de.pdf"
+    assert fortsetzbar["kapitel_fertig"] == 1 and fortsetzbar["kapitel_gesamt"] == 3
+    assert client.post("/api/analysator/uebersetzen/fortsetzbar", json={"text": "Ganz anderer Text."}).json() == {
+        "fortsetzbar": False, "dateiname": None, "kapitel_fertig": 0, "kapitel_gesamt": 0,
+        "woerter_fertig": 0, "woerter_gesamt": 0, "ergebnis_woerter": 0,
+    }
+
+    fake, aufrufe = _fake()
+    monkeypatch.setattr(analysator_api, "sammle_antwort", fake)
+    r = client.post("/api/analysator/uebersetzen",
+                    json={"text": DREI_KAPITEL, "dateiname": "Rohtext aus der Liste.txt", "fortsetzen": True})
+    assert r.status_code == 202 and r.json()["dateiname"] == "Original_de.pdf"  # der urspruengliche Name bleibt
     status = client.get("/api/analysator/uebersetzen/status").json()
-    assert "unterscheidet sich" in status["fehler"] and aufrufe == []
-    assert status["laeuft"] is False
+    assert status["abgeschlossen"] is True and status["fortgesetzt"] is True and len(aufrufe) == 2
 
 
-def test_fortsetzen_nur_bei_unterbrochener_uebersetzung_desselben_dokuments(client, monkeypatch):
+def test_job_ueberlebt_eine_zweite_uebersetzung_eines_anderen_textes(client, monkeypatch):
+    """status.json beschreibt nur die zuletzt gestartete Uebersetzung - der Job des ersten Textes
+    bleibt ueber seinen Fingerabdruck auffindbar."""
+    wurzel = _wurzel()
+    monkeypatch.setattr(analysator_api, "sammle_antwort", _stop_nach_erstem_aufruf(wurzel, []))
+    client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "A.txt"})
+    fake, _ = _fake()
+    monkeypatch.setattr(analysator_api, "sammle_antwort", fake)
+    client.post("/api/analysator/uebersetzen", json={"text": "Ein anderer Text.\n\nMit zwei Absaetzen.", "dateiname": "B.txt"})
+    assert uebs.status_lesen(wurzel)["dateiname"] == "B_de.txt"
+    assert client.post("/api/analysator/uebersetzen/fortsetzbar", json={"text": DREI_KAPITEL}).json()["fortsetzbar"] is True
+
+
+def test_neustart_sichert_vorhandene_teiluebersetzung_statt_sie_zu_ueberschreiben(client, monkeypatch):
+    wurzel = _wurzel()
+    monkeypatch.setattr(analysator_api, "sammle_antwort", _stop_nach_erstem_aufruf(wurzel, []))
+    client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "Buch.txt"})
+    vorher = uebs.ergebnis_pfad(wurzel, "Buch_de.txt").read_text(encoding="utf-8")
+    assert "DE: Chapter One" in vorher
+
+    fake, _ = _fake()
+    monkeypatch.setattr(analysator_api, "sammle_antwort", fake)
+    client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "Buch.txt"})  # bewusst NEU
+    gesichert = [p for p in uebs.ordner(wurzel).glob("Buch_de.vorher-*.txt")]
+    assert len(gesichert) == 1 and gesichert[0].read_text(encoding="utf-8") == vorher
+    assert uebs.status_lesen(wurzel)["abgeschlossen"] is True
+
+
+def test_fortsetzen_ohne_unterbrochene_uebersetzung_ist_409(client, monkeypatch):
     fake, _ = _fake()
     monkeypatch.setattr(analysator_api, "sammle_antwort", fake)
     r = client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "A.txt", "fortsetzen": True})
@@ -320,27 +373,29 @@ def test_fortsetzen_nur_bei_unterbrochener_uebersetzung_desselben_dokuments(clie
     client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "A.txt"})  # laeuft komplett durch
     r = client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "A.txt", "fortsetzen": True})
     assert r.status_code == 409  # bereits abgeschlossen
-    wurzel = _wurzel()
-    status = uebs.status_lesen(wurzel)
-    status["abgeschlossen"] = False
-    uebs.status_schreiben(wurzel, status)
-    r = client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "B.txt", "fortsetzen": True})
-    assert r.status_code == 409  # anderes Dokument
+    assert client.post("/api/analysator/uebersetzen/fortsetzbar", json={"text": DREI_KAPITEL}).json()["fortsetzbar"] is False
 
 
-def test_fortsetzen_eines_laufs_der_alten_version_ohne_neue_statusfelder(client, monkeypatch):
-    """Stand wie von der ersten Version geschrieben (kein quell_hash, keine Kapitelfelder):
-    die Zahl der schon uebersetzten Absaetze ergibt sich aus der Ergebnisdatei."""
+def test_alter_stand_ohne_fingerabdruck_wird_registriert_und_ist_dann_fortsetzbar(client, monkeypatch):
+    """Stand wie von der ersten Version geschrieben (kein quell_hash, keine Kapitelfelder): nach der
+    Registrierung (einmalig, siehe uebersetzer.alten_job_registrieren) laeuft das Fortsetzen ab dem
+    letzten uebersetzten Absatz - die Zahl ergibt sich aus der Ergebnisdatei."""
     wurzel = _wurzel()
     alt = {k: v for k, v in uebs.LEERER_STATUS.items() if k in (
         "laeuft", "abgeschlossen", "gestoppt", "stop_angefordert", "aktuell", "gesamt", "log", "fehler",
         "dateiname", "ergebnis_woerter", "fuelltext_entfernt")}
-    alt.update(dateiname="Buch_de.txt", gestoppt=True, stop_angefordert=True, aktuell=1, gesamt=3, log=["alt"])
+    alt.update(dateiname="Buch_de.txt", gestoppt=True, stop_angefordert=True, aktuell=1, gesamt=3, log=["alt"],
+               ergebnis_woerter=7)
     uebs.status_schreiben(wurzel, alt, behalte_stop=False)
-    uebs.ergebnis_pfad(wurzel, "Buch_de.txt").write_text("DE: Chapter One\n\nDE: Er ging heim.\n\nDE: Sie wartete.\n", encoding="utf-8")
+    uebs.ergebnis_pfad(wurzel, "Buch_de.txt").write_text(
+        "DE: Chapter One\n\nDE: Er ging heim.\n\nDE: Sie wartete.\n", encoding="utf-8")
+    assert client.post("/api/analysator/uebersetzen/fortsetzbar", json={"text": DREI_KAPITEL}).json()["fortsetzbar"] is False
+
+    assert uebs.alten_job_registrieren(wurzel, DREI_KAPITEL, fuelltext_entfernen=False) is True
+    assert client.post("/api/analysator/uebersetzen/fortsetzbar", json={"text": DREI_KAPITEL}).json()["fortsetzbar"] is True
     fake, aufrufe = _fake()
     monkeypatch.setattr(analysator_api, "sammle_antwort", fake)
-    r = client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "Buch.txt", "fortsetzen": True})
+    r = client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "egal.txt", "fortsetzen": True})
     assert r.status_code == 202
     status = client.get("/api/analysator/uebersetzen/status").json()
     assert status["abgeschlossen"] is True and status["fehler"] is None and len(aufrufe) == 2
@@ -358,3 +413,18 @@ def test_zeilenmodus_texte_behalten_ihr_format_beim_fortsetzen_zaehlen(client, m
     client.post("/api/analysator/uebersetzen", json={"text": "Eins.\nZwei.\nDrei.", "dateiname": "z.txt"})
     ergebnis = client.get("/api/analysator/uebersetzen/ergebnis").text.strip().split("\n")
     assert len(ergebnis) == 3 and all(z.startswith("DE: ") for z in ergebnis)
+
+
+def test_backend_neustart_setzt_auch_den_job_eintrag_zurueck_und_der_lauf_ist_fortsetzbar(client, tmp_path):
+    """Ein beim Neustart verwaister Lauf bleibt sonst im Job-Eintrag fuer immer 'laeuft'."""
+    wurzel = _wurzel()
+    einheiten, trenner = uebs.einheiten_bilden(DREI_KAPITEL)
+    status = {**uebs.LEERER_STATUS, "log": [], "laeuft": True, "dateiname": "Buch_de.txt", "ergebnis_woerter": 5,
+              "quell_hash": uebs.quell_hash(einheiten), "trenner": trenner}
+    uebs.status_schreiben(wurzel, status, behalte_stop=False)
+    uebs.ergebnis_pfad(wurzel, "Buch_de.txt").write_text("DE: Chapter One\n", encoding="utf-8")
+    assert client.post("/api/analysator/uebersetzen/fortsetzbar", json={"text": DREI_KAPITEL}).json()["fortsetzbar"] is False  # laeuft ja noch
+
+    assert uebs.verwaiste_laeufe_zuruecksetzen(wurzel.parent) == 1
+    assert uebs.status_lesen(wurzel)["gestoppt"] is True
+    assert client.post("/api/analysator/uebersetzen/fortsetzbar", json={"text": DREI_KAPITEL}).json()["fortsetzbar"] is True
