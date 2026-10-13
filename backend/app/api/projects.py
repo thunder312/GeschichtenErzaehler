@@ -39,6 +39,7 @@ from app.schemas import (
     ProjektZuruecksetzenAntwort,
 )
 from app.services import (
+    epoche_vollstaendig_pruefen,
     neuer_projekt_pfad,
     ordner_nach_umbenennung,
     projekt_epoche_verschieben,
@@ -195,6 +196,7 @@ def projekt_anlegen(anfrage: ProjektAnlegenAnfrage, settings: Settings = Depends
     epoche_ordner = settings.epochen_dir / anfrage.epoche
     if not epoche_ordner.is_dir():
         raise HTTPException(404, f"Epoche '{anfrage.epoche}' nicht gefunden.")
+    epoche_vollstaendig_pruefen(epoche_ordner, anfrage.epoche)
     zweite_epoche_ordner = None
     zweite_epoche_name = anfrage.zweite_epoche.strip() if anfrage.zweite_epoche else None
     if zweite_epoche_name:
@@ -203,6 +205,7 @@ def projekt_anlegen(anfrage: ProjektAnlegenAnfrage, settings: Settings = Depends
         zweite_epoche_ordner = settings.epochen_dir / zweite_epoche_name
         if not zweite_epoche_ordner.is_dir():
             raise HTTPException(404, f"Zweite Epoche '{zweite_epoche_name}' nicht gefunden.")
+        epoche_vollstaendig_pruefen(zweite_epoche_ordner, zweite_epoche_name)
     # Ohne Titel (ergibt sich oft erst aus dem Architekten-Interview) einen
     # Platzhalter-Ordner "neu" anlegen - projektordner_umbenennen() benennt
     # ihn automatisch um, sobald das Interview einen Titel liefert.

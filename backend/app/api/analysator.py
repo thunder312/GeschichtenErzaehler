@@ -39,7 +39,7 @@ from app.schemas import (
     Benutzer,
 )
 from app.services import (
-    neuer_projekt_pfad, ollama_basis_url, projekt_pfad, projekte_wurzel, rollen_modell_override,
+    epoche_vollstaendig_pruefen, neuer_projekt_pfad, ollama_basis_url, projekt_pfad, projekte_wurzel, rollen_modell_override,
 )
 
 router = APIRouter(prefix="/api", tags=["analysator"])
@@ -129,6 +129,7 @@ def analysator_starten(anfrage: AnalysatorStartAnfrage, background_tasks: Backgr
     epoche_ordner = settings.epochen_dir / anfrage.epoche
     if not epoche_ordner.is_dir():
         raise HTTPException(404, f"Epoche '{anfrage.epoche}' nicht gefunden.")
+    epoche_vollstaendig_pruefen(epoche_ordner, anfrage.epoche)
     zweite_epoche_ordner = None
     zweite_epoche_name = anfrage.zweite_epoche.strip() if anfrage.zweite_epoche else None
     if zweite_epoche_name:
@@ -137,6 +138,7 @@ def analysator_starten(anfrage: AnalysatorStartAnfrage, background_tasks: Backgr
         zweite_epoche_ordner = settings.epochen_dir / zweite_epoche_name
         if not zweite_epoche_ordner.is_dir():
             raise HTTPException(404, f"Zweite Epoche '{zweite_epoche_name}' nicht gefunden.")
+        epoche_vollstaendig_pruefen(zweite_epoche_ordner, zweite_epoche_name)
 
     basis_titel = anfrage.titel.strip() or "neu"
     wurzel = projekte_wurzel(settings, benutzer.username)

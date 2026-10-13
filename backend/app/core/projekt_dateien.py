@@ -143,6 +143,14 @@ def persona_lesen(projekt: Path, name: str) -> str:
     return lies(projekt / "personas" / f"{name}.txt")
 
 
+def fehlende_epoche_personas(epoche_ordner: Path) -> list[str]:
+    """Epoche-Persona-Dateien (architekt/autor/pruefer_anachronismus), die in
+    der Bibliothek-Epoche fehlen. Ein Projekt in so einer Epoche waere nicht
+    lauffaehig (Vorfall 2026-10-13: leere Epoche "Unbekannt" -> "Datei fehlt:
+    personas/autor.txt" erst im Automatikmodus)."""
+    return [d for d in EPOCHE_PERSONA_DATEIEN if not (epoche_ordner / d).exists()]
+
+
 def projekt_anlegen(ziel: Path, epoche_ordner: Path, gemeinsame_personas_ordner: Path,
                      epoche_name: str, zweite_epoche_ordner: Path | None = None,
                      zweite_epoche_name: str | None = None) -> None:

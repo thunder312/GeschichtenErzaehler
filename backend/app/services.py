@@ -18,6 +18,7 @@ from app.config import Settings
 from app.core import athene_steuerung as ath
 from app.core import ssh_manager
 from app.core.geruest import ordnername_aus_titel
+from app.core.projekt_dateien import fehlende_epoche_personas
 
 
 def projekte_wurzel_unskopiert(settings: Settings) -> Path:
@@ -180,6 +181,18 @@ def ssh_ziel_aus_db(settings: Settings, ziel_id: str) -> ssh_manager.SSHZiel:
 # ollama_basis_url()-Blocks (oder ohne Ziel) bleibt es bei None, dann gilt
 # schlicht der Default aus app/core/rollen.py.
 _aktuelles_ki_ziel: ContextVar[str | None] = ContextVar("aktuelles_ki_ziel", default=None)
+
+
+def epoche_vollstaendig_pruefen(epoche_ordner: Path, epoche_name: str) -> None:
+    """422, wenn der Epoche Persona-Dateien fehlen - sonst entstuende ein
+    Projekt, das erst beim Schreiben mit "Datei fehlt" scheitert."""
+    fehlend = fehlende_epoche_personas(epoche_ordner)
+    if fehlend:
+        raise HTTPException(
+            422,
+            f"Epoche '{epoche_name}' ist unvollständig (es fehlen: {', '.join(fehlend)}). "
+            f"Bitte die Epoche erst im Epoche-Tab vervollständigen oder eine andere Epoche wählen.",
+        )
 
 
 @contextmanager
