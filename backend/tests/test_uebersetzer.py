@@ -84,8 +84,8 @@ def test_fuelltext_vorschau(client):
     d = r.json()
     assert d["fuelltext_absaetze"] == 3  # Title, Disclaimer, A/N
     assert any(b.startswith("Disclaimer") for b in d["beispiele"])
-    assert d["abschnitte"] == 1
-    assert d["geschaetzte_minuten"] == uebs.MINUTEN_JE_ABSCHNITT
+    assert d["abschnitte"] == 2  # zwei Kapitel -> zwei Schritte (nie ueber eine Kapitelgrenze)
+    assert d["geschaetzte_minuten"] == 2 * uebs.MINUTEN_JE_ABSCHNITT
 
 
 def test_uebersetzen_mit_fuelltext_entfernen_und_ergebnis(client, monkeypatch):
@@ -98,13 +98,13 @@ def test_uebersetzen_mit_fuelltext_entfernen_und_ergebnis(client, monkeypatch):
 
     status = client.get("/api/analysator/uebersetzen/status").json()
     assert status["abgeschlossen"] is True and status["laeuft"] is False and status["fehler"] is None
-    assert status["fuelltext_entfernt"] == 3 and status["gesamt"] == 1
+    assert status["fuelltext_entfernt"] == 3 and status["gesamt"] == 2
 
     ergebnis = client.get("/api/analysator/uebersetzen/ergebnis").text
     assert "DE: He walked home." in ergebnis and "DE: Chapter Two" in ergebnis
     assert "Disclaimer" not in ergebnis and "Please review" not in ergebnis
     assert "\n\n" in ergebnis  # Absatzformat bleibt
-    assert len(aufrufe) == 1
+    assert len(aufrufe) == 2  # ein Schritt je Kapitel
 
 
 def test_uebersetzen_ohne_fuelltext_entfernen_behaelt_alles(client, monkeypatch):
@@ -197,3 +197,164 @@ def test_stop_haelt_nach_dem_aktuellen_abschnitt_an_und_behaelt_ergebnis(client,
 def test_ergebnis_ohne_uebersetzung_ist_404(client):
     assert client.get("/api/analysator/uebersetzen/ergebnis").status_code == 404
     assert client.get("/api/analysator/uebersetzen/pdf").status_code == 404
+
+
+# --- Kapitelweise Zwischenstaende und Fortsetzen ----------------------------------
+
+DREI_KAPITEL = (
+    "Chapter One\n\nEr ging heim.\n\nSie wartete.\n\n"
+    "Chapter Two\n\nEs regnete.\n\nNiemand kam.\n\n"
+    "Chapter Three\n\nDas Ende.\n\nUnd Schluss."
+)
+
+
+def test_kapitel_einteilen_und_plan_ueber_kapitelgrenzen():
+    einheiten, _ = uebs.einheiten_bilden(DREI_KAPITEL)
+    kapitel = uebs.kapitel_einteilen(einheiten)
+    assert [(k.titel, k.start, k.ende) for k in kapitel] == [("Chapter One", 0, 3), ("Chapter Two", 3, 6), ("Chapter Three", 6, 9)]
+    plan = uebs.plan_bauen(einheiten, kapitel)
+    assert [(s.kapitel, len(s.absaetze), s.kapitel_ende) for s in plan] == [(0, 3, True), (1, 3, True), (2, 3, True)]
+    # Fortsetzen nach 4 uebersetzten Absaetzen: Kapitel 2 wird ab Absatz 5 neu geplant
+    rest = uebs.plan_bauen(einheiten, kapitel, bereits_fertig=4)
+    assert [(s.kapitel, len(s.absaetze)) for s in rest] == [(1, 2), (2, 3)]
+    assert uebs.fertige_kapitel(kapitel, 4) == (1, 3)
+    assert uebs.fertige_kapitel(kapitel, 0) == (0, 0)
+
+
+def test_ohne_kapitel_entstehen_bloecke_an_szenentrennern():
+    absatz = "Wort " * 600
+    einheiten = [absatz.strip()] * 4 + ["***"] + [absatz.strip()] * 4
+    kapitel = uebs.kapitel_einteilen(einheiten)
+    assert len(kapitel) >= 2
+    assert kapitel[0].titel == "Teil 1" and kapitel[0].start == 0
+    assert kapitel[-1].ende == len(einheiten)
+    # lueckenlos und ohne Ueberlappung
+    assert all(a.ende == b.start for a, b in zip(kapitel, kapitel[1:]))
+    # Szenentrenner ist Blockende, wenn der Block schon gross genug ist
+    assert kapitel[0].ende == 5 and len(kapitel) == 2
+
+
+def _stop_nach_erstem_aufruf(wurzel, aufrufe):
+    fake, _ = _fake()
+
+    async def f(base_url, rolle, system, user, **kwargs):
+        ergebnis = await fake(base_url, rolle, system, user, **kwargs)
+        aufrufe.append(user)
+        if len(aufrufe) == 1:
+            status = uebs.status_lesen(wurzel)
+            status["stop_angefordert"] = True  # wie ein Klick auf "Stoppen" waehrend des ersten Schritts
+            uebs.status_schreiben(wurzel, status)
+        return ergebnis
+
+    return f
+
+
+def _wurzel():
+    from app.services import projekte_wurzel
+    return projekte_wurzel(app.dependency_overrides[get_settings](), "daniel")
+
+
+def test_zwischenstand_zeigt_nur_fertige_kapitel_und_legt_kapitel_dateien_an(client, monkeypatch):
+    wurzel = _wurzel()
+    aufrufe: list[str] = []
+    monkeypatch.setattr(analysator_api, "sammle_antwort", _stop_nach_erstem_aufruf(wurzel, aufrufe))
+    client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "Buch.md"})
+
+    status = client.get("/api/analysator/uebersetzen/status").json()
+    assert status["gestoppt"] is True and status["abgeschlossen"] is False
+    assert status["kapitel_gesamt"] == 3 and status["kapitel_fertig"] == 1
+    assert status["woerter_fertig"] > 0 and status["woerter_gesamt"] > status["woerter_fertig"]
+
+    zwischen = client.get("/api/analysator/uebersetzen/ergebnis?zwischenstand=true").text
+    assert "DE: Chapter One" in zwischen and "DE: Er ging heim." in zwischen
+    assert "Chapter Two" not in zwischen
+    kapitel_datei = uebs.ordner(wurzel) / "Buch_de_Kapitel" / "Kapitel_01.txt"
+    assert kapitel_datei.is_file() and "DE: Sie wartete." in kapitel_datei.read_text(encoding="utf-8")
+
+    pdf = client.get("/api/analysator/uebersetzen/pdf?zwischenstand=true")
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
+    assert 'filename="Buch_de_Zwischenstand.md"' in pdf.headers["content-disposition"] or "Zwischenstand" in pdf.headers["content-disposition"]
+
+
+def test_zwischenstand_ohne_fertiges_kapitel_ist_404(client):
+    assert client.get("/api/analysator/uebersetzen/ergebnis?zwischenstand=true").status_code == 404
+
+
+def test_fortsetzen_uebersetzt_nur_den_rest(client, monkeypatch):
+    wurzel = _wurzel()
+    aufrufe: list[str] = []
+    monkeypatch.setattr(analysator_api, "sammle_antwort", _stop_nach_erstem_aufruf(wurzel, aufrufe))
+    client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "Buch.txt", "fuelltext_entfernen": False})
+    assert len(aufrufe) == 1
+
+    fake, aufrufe2 = _fake()
+    monkeypatch.setattr(analysator_api, "sammle_antwort", fake)
+    r = client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "Buch.txt", "fortsetzen": True})
+    assert r.status_code == 202
+    status = client.get("/api/analysator/uebersetzen/status").json()
+    assert status["abgeschlossen"] is True and status["fortgesetzt"] is True and status["fehler"] is None
+    assert len(aufrufe2) == 2  # nur Kapitel 2 und 3, Kapitel 1 wird NICHT noch einmal uebersetzt
+    absaetze = client.get("/api/analysator/uebersetzen/ergebnis").text.strip().split("\n\n")
+    assert absaetze == ["DE: " + a for a in DREI_KAPITEL.split("\n\n")]  # lueckenlos, richtige Reihenfolge, nichts doppelt
+    assert status["kapitel_fertig"] == 3
+    assert any("Fortgesetzt ab Absatz 4" in z for z in status["log"])
+
+
+def test_fortsetzen_mit_geaendertem_text_wird_abgelehnt(client, monkeypatch):
+    wurzel = _wurzel()
+    monkeypatch.setattr(analysator_api, "sammle_antwort", _stop_nach_erstem_aufruf(wurzel, []))
+    client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "Buch.txt"})
+    fake, aufrufe = _fake()
+    monkeypatch.setattr(analysator_api, "sammle_antwort", fake)
+    client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL + "\n\nNeuer Absatz.", "dateiname": "Buch.txt", "fortsetzen": True})
+    status = client.get("/api/analysator/uebersetzen/status").json()
+    assert "unterscheidet sich" in status["fehler"] and aufrufe == []
+    assert status["laeuft"] is False
+
+
+def test_fortsetzen_nur_bei_unterbrochener_uebersetzung_desselben_dokuments(client, monkeypatch):
+    fake, _ = _fake()
+    monkeypatch.setattr(analysator_api, "sammle_antwort", fake)
+    r = client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "A.txt", "fortsetzen": True})
+    assert r.status_code == 409  # nichts zum Fortsetzen
+    client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "A.txt"})  # laeuft komplett durch
+    r = client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "A.txt", "fortsetzen": True})
+    assert r.status_code == 409  # bereits abgeschlossen
+    wurzel = _wurzel()
+    status = uebs.status_lesen(wurzel)
+    status["abgeschlossen"] = False
+    uebs.status_schreiben(wurzel, status)
+    r = client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "B.txt", "fortsetzen": True})
+    assert r.status_code == 409  # anderes Dokument
+
+
+def test_fortsetzen_eines_laufs_der_alten_version_ohne_neue_statusfelder(client, monkeypatch):
+    """Stand wie von der ersten Version geschrieben (kein quell_hash, keine Kapitelfelder):
+    die Zahl der schon uebersetzten Absaetze ergibt sich aus der Ergebnisdatei."""
+    wurzel = _wurzel()
+    alt = {k: v for k, v in uebs.LEERER_STATUS.items() if k in (
+        "laeuft", "abgeschlossen", "gestoppt", "stop_angefordert", "aktuell", "gesamt", "log", "fehler",
+        "dateiname", "ergebnis_woerter", "fuelltext_entfernt")}
+    alt.update(dateiname="Buch_de.txt", gestoppt=True, stop_angefordert=True, aktuell=1, gesamt=3, log=["alt"])
+    uebs.status_schreiben(wurzel, alt, behalte_stop=False)
+    uebs.ergebnis_pfad(wurzel, "Buch_de.txt").write_text("DE: Chapter One\n\nDE: Er ging heim.\n\nDE: Sie wartete.\n", encoding="utf-8")
+    fake, aufrufe = _fake()
+    monkeypatch.setattr(analysator_api, "sammle_antwort", fake)
+    r = client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "Buch.txt", "fortsetzen": True})
+    assert r.status_code == 202
+    status = client.get("/api/analysator/uebersetzen/status").json()
+    assert status["abgeschlossen"] is True and status["fehler"] is None and len(aufrufe) == 2
+    assert client.get("/api/analysator/uebersetzen/ergebnis").text.count("DE: Chapter") == 3
+
+
+def test_zeilenmodus_texte_behalten_ihr_format_beim_fortsetzen_zaehlen(client, monkeypatch):
+    """Texte ohne Leerzeilen (ein Absatz pro Zeile): Uebersetzungen enthalten keine Zeilenumbrueche,
+    sonst stimmte die Absatzzahl beim Fortsetzen nicht."""
+    def antwort(absaetze):
+        return "\n\n".join("DE: " + a + "\nzweite Zeile" for a in absaetze)  # Modell liefert Zeilenumbruch im Absatz
+
+    fake, _ = _fake(antwort)
+    monkeypatch.setattr(analysator_api, "sammle_antwort", fake)
+    client.post("/api/analysator/uebersetzen", json={"text": "Eins.\nZwei.\nDrei.", "dateiname": "z.txt"})
+    ergebnis = client.get("/api/analysator/uebersetzen/ergebnis").text.strip().split("\n")
+    assert len(ergebnis) == 3 and all(z.startswith("DE: ") for z in ergebnis)

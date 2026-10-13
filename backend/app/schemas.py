@@ -560,6 +560,8 @@ class UebersetzenStartAnfrage(BaseModel):
     text: str = Field(min_length=1)
     dateiname: str = "Geschichte.txt"  # Name des geoeffneten Dokuments (bestimmt Format und Namen der _de-Datei)
     fuelltext_entfernen: bool = False
+    # True = unterbrochene Uebersetzung desselben Dokuments ab dem letzten Absatz fortsetzen
+    fortsetzen: bool = False
 
 
 class UebersetzenStartAntwort(BaseModel):
@@ -578,6 +580,11 @@ class UebersetzenStatusAntwort(BaseModel):
     dateiname: str | None
     ergebnis_woerter: int
     fuelltext_entfernt: int
+    kapitel_gesamt: int = 0
+    kapitel_fertig: int = 0
+    woerter_gesamt: int = 0
+    woerter_fertig: int = 0
+    fortgesetzt: bool = False
 
 
 class AnalysatorStartAnfrage(BaseModel):

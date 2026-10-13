@@ -12,13 +12,15 @@ so geht nichts verloren und das Format bleibt stabil. Das Ergebnis wird nach
 JEDEM Abschnitt gespeichert, ein Abbruch behaelt die bisherige Uebersetzung."""
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.core.analysator import analysen_ordner
+from app.core.analysator import KAPITEL_STICHWORT_MUSTER, analysen_ordner
 from app.core.textutil import woerter
 
 CHUNK_WOERTER = 900
@@ -101,6 +103,133 @@ def dateiname_de(dateiname: str) -> str:
     return f"{basis}_de{endung}"
 
 
+# --- Planung: Kapitel, Zwischenstaende, Fortsetzen ----------------------------
+
+BLOCK_WOERTER = 3000  # Zwischenstands-Block, wenn der Text keine Kapitel hat
+_TRENNER_ZEILE = re.compile(r"^[\s\*\-_=~#•·.]{3,}$")
+
+
+def einheiten_bilden(text: str) -> tuple[list[str], str]:
+    """(Absaetze, Absatztrenner des Originals). Eine 'Einheit' ist ein Absatz
+    (durch Leerzeile getrennt, sonst eine Zeile); jede Einheit wird zu genau
+    EINER uebersetzten Einheit - darauf beruht das Fortsetzen."""
+    text = text.replace("\r\n", "\n").strip()
+    trenner = trenner_fuer(text)
+    return [a.strip() for a in text.split(trenner) if a.strip()], trenner
+
+
+def quell_hash(einheiten: list[str]) -> str:
+    return hashlib.sha1("\n".join(einheiten).encode("utf-8")).hexdigest()
+
+
+@dataclass
+class Kapitel:
+    titel: str
+    start: int  # Index der ersten Einheit
+    ende: int  # Index NACH der letzten Einheit
+
+
+def kapitel_einteilen(einheiten: list[str]) -> list[Kapitel]:
+    """Kapitel anhand der Ueberschriften ('Chapter 3', 'Kapitel drei', Prolog ...),
+    mindestens zwei. Ohne Kapitel entstehen Bloecke von rund BLOCK_WOERTER Woertern,
+    bevorzugt an einem Szenentrenner ('***', '---'), sonst an einer Absatzgrenze -
+    damit es auch dann sinnvolle Zwischenstaende gibt."""
+    if not einheiten:
+        return []
+    kopf = [i for i, e in enumerate(einheiten) if "\n" not in e and KAPITEL_STICHWORT_MUSTER.fullmatch(e)]
+    if len(kopf) >= 2:
+        grenzen = kopf if kopf[0] == 0 else [0] + kopf
+        return [
+            Kapitel(einheiten[start][:80] if start in kopf else "Vorspann", start,
+                    grenzen[n + 1] if n + 1 < len(grenzen) else len(einheiten))
+            for n, start in enumerate(grenzen)
+        ]
+    bloecke: list[Kapitel] = []
+    start = 0
+    summe = 0
+    for i, e in enumerate(einheiten):
+        summe += woerter(e)
+        if (_TRENNER_ZEILE.match(e) and summe >= 0.7 * BLOCK_WOERTER) or summe >= 1.3 * BLOCK_WOERTER:
+            bloecke.append(Kapitel(f"Teil {len(bloecke) + 1}", start, i + 1))
+            start, summe = i + 1, 0
+    if start < len(einheiten):
+        if bloecke and summe < 0.3 * BLOCK_WOERTER:
+            bloecke[-1].ende = len(einheiten)  # kleiner Rest haengt am letzten Block
+        else:
+            bloecke.append(Kapitel(f"Teil {len(bloecke) + 1}", start, len(einheiten)))
+    return bloecke
+
+
+@dataclass
+class Schritt:
+    kapitel: int  # Index in der Kapitelliste
+    absaetze: list[str]
+    ende: int  # Index NACH der letzten Einheit dieses Schritts
+    kapitel_ende: bool  # letzter Schritt seines Kapitels
+
+
+def plan_bauen(einheiten: list[str], kapitel: list[Kapitel], bereits_fertig: int = 0,
+               max_woerter: int = CHUNK_WOERTER) -> list[Schritt]:
+    """Uebersetzungs-Schritte (je ein KI-Aufruf), die nie ueber eine Kapitelgrenze
+    gehen. bereits_fertig = Zahl der schon uebersetzten Einheiten (Fortsetzen):
+    deren Schritte entfallen, der Rest wird neu in Schritte geteilt."""
+    schritte: list[Schritt] = []
+    for k, kap in enumerate(kapitel):
+        lo = max(kap.start, bereits_fertig)
+        if lo >= kap.ende:
+            continue
+        aktuell: list[str] = []
+        aktuelle_woerter = 0
+        position = lo
+        for i in range(lo, kap.ende):
+            anzahl = woerter(einheiten[i])
+            if aktuell and aktuelle_woerter + anzahl > max_woerter:
+                schritte.append(Schritt(k, aktuell, position, False))
+                aktuell, aktuelle_woerter = [], 0
+            aktuell.append(einheiten[i])
+            aktuelle_woerter += anzahl
+            position = i + 1
+        if aktuell:
+            schritte.append(Schritt(k, aktuell, position, True))
+    return schritte
+
+
+def fertige_kapitel(kapitel: list[Kapitel], einheiten_fertig: int) -> tuple[int, int]:
+    """(Zahl vollstaendig uebersetzter Kapitel, Einheiten am Ende des letzten davon)."""
+    fertig = [k for k in kapitel if k.ende <= einheiten_fertig]
+    return len(fertig), (fertig[-1].ende if fertig else 0)
+
+
+def kapitel_datei_schreiben(projekte_wurzel: Path, ziel_name: str, nummer: int, text: str) -> None:
+    """Legt jedes fertige Kapitel zusaetzlich als eigene Datei ab:
+    Uebersetzungen/<name>_de_Kapitel/Kapitel_01.txt - zum Zwischendurch-Lesen,
+    lokal direkt im Dateisystem."""
+    basis = Path(ziel_name).stem
+    ziel = ordner(projekte_wurzel) / f"{basis}_Kapitel"
+    ziel.mkdir(parents=True, exist_ok=True)
+    (ziel / f"Kapitel_{nummer:02d}.txt").write_text(text + "\n", encoding="utf-8")
+
+
+def ergebnis_text(projekte_wurzel: Path, status: dict[str, Any], nur_fertige_kapitel: bool = False) -> str:
+    """Der bisher uebersetzte Text; mit nur_fertige_kapitel nur bis zum Ende des
+    letzten vollstaendig uebersetzten Kapitels (Zwischenstand zum Lesen)."""
+    name = status.get("dateiname")
+    if not name:
+        raise FileNotFoundError("Es gibt noch keine Übersetzung.")
+    text_datei = name[:-4] + ".txt" if name.endswith(".pdf") else name
+    pfad = ergebnis_pfad(projekte_wurzel, text_datei)
+    if not pfad.is_file():
+        raise FileNotFoundError("Das Ergebnis der Übersetzung wurde nicht gefunden.")
+    text = pfad.read_text(encoding="utf-8")
+    if not nur_fertige_kapitel:
+        return text
+    trenner = status.get("trenner") or trenner_fuer(text)
+    einheiten = [a for a in text.split(trenner) if a.strip()][: int(status.get("zwischenstand_einheiten") or 0)]
+    if not einheiten:
+        raise FileNotFoundError("Es ist noch kein Kapitel vollständig übersetzt.")
+    return trenner.join(einheiten) + "\n"
+
+
 # --- Status/Ergebnis (eine Uebersetzung je Benutzer) -----------------------
 
 def ordner(projekte_wurzel: Path) -> Path:
@@ -117,6 +246,10 @@ LEERER_STATUS: dict[str, Any] = {
     "laeuft": False, "abgeschlossen": False, "gestoppt": False, "stop_angefordert": False,
     "aktuell": 0, "gesamt": 0, "log": [], "fehler": None, "dateiname": None,
     "ergebnis_woerter": 0, "fuelltext_entfernt": 0,
+    # Kapitelweise Zwischenstaende und Fortsetzen
+    "kapitel_gesamt": 0, "kapitel_fertig": 0, "zwischenstand_einheiten": 0,
+    "woerter_gesamt": 0, "woerter_fertig": 0,
+    "fuelltext_entfernen": False, "quell_hash": None, "trenner": "\n\n", "fortgesetzt": False,
 }
 
 

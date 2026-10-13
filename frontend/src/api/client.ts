@@ -154,10 +154,12 @@ export const api = {
       body: JSON.stringify({ text }),
     }),
 
-  uebersetzenStarten: (text: string, dateiname: string, fuelltextEntfernen: boolean, sshZielId?: string | null) =>
+  uebersetzenStarten: (
+    text: string, dateiname: string, fuelltextEntfernen: boolean, sshZielId?: string | null, fortsetzen = false,
+  ) =>
     anfrage<{ dateiname: string }>(`/api/analysator/uebersetzen${sshQuery(sshZielId)}`, {
       method: "POST",
-      body: JSON.stringify({ text, dateiname, fuelltext_entfernen: fuelltextEntfernen }),
+      body: JSON.stringify({ text, dateiname, fuelltext_entfernen: fuelltextEntfernen, fortsetzen }),
     }),
 
   uebersetzenStatus: () => anfrage<UebersetzenStatus>("/api/analysator/uebersetzen/status"),
@@ -165,11 +167,15 @@ export const api = {
   uebersetzenStoppen: () =>
     anfrage<{ stop_angefordert: boolean }>("/api/analysator/uebersetzen/stop", { method: "POST" }),
 
-  uebersetzenErgebnis: () => anfrage<string>("/api/analysator/uebersetzen/ergebnis"),
+  /** zwischenstand: nur die vollständig übersetzten Kapitel (auch während des Laufs). */
+  uebersetzenErgebnis: (zwischenstand = false) =>
+    anfrage<string>(`/api/analysator/uebersetzen/ergebnis${zwischenstand ? "?zwischenstand=true" : ""}`),
 
   /** PDF der Übersetzung als Blob (kein JSON, deshalb ohne anfrage()). */
-  uebersetzenPdf: async (): Promise<Blob> => {
-    const antwort = await fetch("/api/analysator/uebersetzen/pdf", { credentials: "same-origin" });
+  uebersetzenPdf: async (zwischenstand = false): Promise<Blob> => {
+    const antwort = await fetch(`/api/analysator/uebersetzen/pdf${zwischenstand ? "?zwischenstand=true" : ""}`, {
+      credentials: "same-origin",
+    });
     if (!antwort.ok) {
       let meldung = antwort.statusText;
       try {

@@ -163,6 +163,31 @@ ROLLEN: dict[str, dict] = {
             "num_predict": 4096,
         },
     },
+    # Uebersetzer (siehe app/core/uebersetzer.py, Analysator "Ins Deutsche
+    # uebersetzen"): eigene Rolle statt "analysator", damit Modell UND Kontext
+    # fuer diese Aufgabe getrennt abgestimmt werden koennen (Modell je KI-Ziel
+    # ueber die Persona-Modell-Zuordnung). Ein Schritt besteht aus rund 900
+    # Woertern (ca. 1.500 Token Prompt, ca. 1.500-2.500 Token Antwort) - ein
+    # kleiner Kontext haelt Modell UND KV-Cache komplett im VRAM.
+    # Messung 2026-10-13 auf der RTX 5070 Ti (865 Woerter je Schritt): q4_K_M mit
+    # num_ctx 16384 = 97 s (14 Tok/s, 3 GB auf der CPU), IQ4_XS mit 8192 = 26 s
+    # (53 Tok/s, komplett im VRAM), gemma4 = 12 s aber deutlich schlechtere
+    # Uebersetzung. Das Modell je KI-Ziel (PC: IQ4_XS) kommt aus der
+    # Persona-Modell-Zuordnung - dieser Default laeuft auf jedem Ziel.
+    "uebersetzer": {
+        "modell": "mistral-small3.2:latest",
+        "think": False,
+        "optionen": {
+            "temperature": 0.3,
+            "top_p": 0.8,
+            "top_k": 20,
+            "min_p": 0.0,
+            "repeat_penalty": 1.1,
+            "repeat_last_n": 128,
+            "num_ctx": 8192,
+            "num_predict": 4096,
+        },
+    },
     # Gerüst-Dramaturg (siehe app/core/geruest_ki.py, ToDo.md "KI designt
     # Gerüst aus ein paar Randbedingungen"): entwirft aus wenigen Vorgaben des
     # Nutzers (Prämisse, Kapitelanzahl, optional Genre/Verlauf/Figuren/...) in

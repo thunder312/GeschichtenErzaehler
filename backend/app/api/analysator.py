@@ -306,7 +306,8 @@ def fuelltext_vorschau(anfrage: FuelltextVorschauAnfrage, benutzer: Benutzer = D
     Zahl und Beispiele der gefundenen Fuelltext-Absaetze (Disclaimer, A/N, ...) und
     die voraussichtliche Zahl der Uebersetzungs-Abschnitte. Kein KI-Aufruf."""
     bereinigt, entfernt = fuelltexte_entfernen(anfrage.text, an.KAPITEL_STICHWORT_MUSTER)
-    abschnitte = len(uebs.abschnitte_bilden(bereinigt or anfrage.text))
+    einheiten, _trenner = uebs.einheiten_bilden(bereinigt or anfrage.text)
+    abschnitte = len(uebs.plan_bauen(einheiten, uebs.kapitel_einteilen(einheiten)))
     return FuelltextVorschauAntwort(
         sprache=sprache_erkennen(anfrage.text),
         woerter=woerter(anfrage.text),
@@ -318,14 +319,16 @@ def fuelltext_vorschau(anfrage: FuelltextVorschauAnfrage, benutzer: Benutzer = D
 
 
 async def _chunk_uebersetzen(settings: Settings, base_url: str, absaetze: list[str]) -> list[str]:
-    """Uebersetzt EINEN Abschnitt (bis zu 3 Versuche je Aufruf). Stimmt die
-    Absatzzahl der Antwort nicht, wird der Abschnitt absatzweise wiederholt."""
+    """Uebersetzt EINEN Schritt (bis zu 3 Versuche je Aufruf). Stimmt die
+    Absatzzahl der Antwort nicht, wird der Schritt absatzweise wiederholt.
+    Liefert IMMER genau eine Uebersetzung je Original-Absatz (darauf beruht das
+    Fortsetzen), jede ohne Zeilenumbruch."""
     async def aufruf(teile: list[str]) -> str:
         for versuch in range(1, 4):
             try:
                 antwort, _meta = await sammle_antwort(
-                    base_url, "analysator", uebs.SYSTEM, uebs.user_text(teile),
-                    modell_override=rollen_modell_override(settings, "analysator"),
+                    base_url, "uebersetzer", uebs.SYSTEM, uebs.user_text(teile),
+                    modell_override=rollen_modell_override(settings, "uebersetzer"),
                 )
                 return uebs.antwort_bereinigen(antwort)
             except OllamaFehler:
@@ -335,19 +338,21 @@ async def _chunk_uebersetzen(settings: Settings, base_url: str, absaetze: list[s
         return ""
 
     ergebnis = uebs.absaetze_der_antwort(await aufruf(absaetze))
-    if len(ergebnis) == len(absaetze):
-        return ergebnis
-    einzeln: list[str] = []
-    for absatz in absaetze:
-        antwort = await aufruf([absatz])
-        einzeln.append("\n".join(uebs.absaetze_der_antwort(antwort)) or absatz)
-    return einzeln
+    if len(ergebnis) != len(absaetze):
+        ergebnis = []
+        for absatz in absaetze:
+            einzeln = uebs.absaetze_der_antwort(await aufruf([absatz]))
+            ergebnis.append(" ".join(einzeln) or absatz)
+    return [" ".join(e.split("\n")) for e in ergebnis]
 
 
 async def _uebersetzen_lauf(settings: Settings, wurzel, ssh_ziel_id: str | None, text: str,
-                             ziel_name: str, fuelltext_entfernen: bool) -> None:
+                             ziel_name: str, fuelltext_entfernen: bool, fortsetzen: bool = False) -> None:
     text_datei = ziel_name[:-4] + ".txt" if ziel_name.endswith(".pdf") else ziel_name
-    status = {**uebs.LEERER_STATUS, "log": [], "laeuft": True, "dateiname": ziel_name}
+    vorher = uebs.status_lesen(wurzel) if fortsetzen else {}
+    status = {**uebs.LEERER_STATUS, "log": list(vorher.get("log", []))[-50:], "laeuft": True, "dateiname": ziel_name,
+              "fuelltext_entfernen": fuelltext_entfernen, "fortgesetzt": fortsetzen,
+              "fuelltext_entfernt": vorher.get("fuelltext_entfernt", 0)}
 
     def schreiben(**felder) -> None:
         status.update(felder)
@@ -358,28 +363,63 @@ async def _uebersetzen_lauf(settings: Settings, wurzel, ssh_ziel_id: str | None,
         if fuelltext_entfernen:
             text, entfernt = fuelltexte_entfernen(text, an.KAPITEL_STICHWORT_MUSTER)
             status["fuelltext_entfernt"] = len(entfernt)
-            status["log"].append(f"{len(entfernt)} Fülltext-Absatz/Absätze (Disclaimer, A/N, ...) entfernt.")
-        abschnitte = uebs.abschnitte_bilden(text)
-        if not abschnitte:
+            if not fortsetzen:
+                status["log"].append(f"{len(entfernt)} Fülltext-Absatz/Absätze (Disclaimer, A/N, ...) entfernt.")
+        einheiten, trenner = uebs.einheiten_bilden(text)
+        if not einheiten:
             raise ValueError("Es gibt keinen Text zum Übersetzen.")
-        trenner = uebs.trenner_fuer(text)
-        schreiben(gesamt=len(abschnitte))
+        status["trenner"] = trenner
+        status["quell_hash"] = uebs.quell_hash(einheiten)
         ausgabe = uebs.ergebnis_pfad(wurzel, text_datei)
-        ausgabe.write_text("", encoding="utf-8")
 
         uebersetzt: list[str] = []
+        if fortsetzen:
+            if vorher.get("quell_hash") and vorher["quell_hash"] != status["quell_hash"]:
+                raise ValueError(
+                    "Der Text unterscheidet sich vom unterbrochenen Lauf (anderes Dokument oder geänderte "
+                    "Fülltext-Einstellung) - die Übersetzung kann nicht fortgesetzt werden."
+                )
+            if ausgabe.exists():
+                uebersetzt = [a.strip() for a in ausgabe.read_text(encoding="utf-8").split(trenner) if a.strip()]
+            if len(uebersetzt) > len(einheiten):
+                raise ValueError("Die bisherige Übersetzung ist länger als der Originaltext - Fortsetzen nicht möglich.")
+            status["log"].append(f"--- Fortgesetzt ab Absatz {len(uebersetzt) + 1} von {len(einheiten)} ---")
+        else:
+            ausgabe.write_text("", encoding="utf-8")
+
+        kapitel = uebs.kapitel_einteilen(einheiten)
+        plan = uebs.plan_bauen(einheiten, kapitel, bereits_fertig=len(uebersetzt))
+        fertig, bis = uebs.fertige_kapitel(kapitel, len(uebersetzt))
+        schreiben(
+            gesamt=len(plan), aktuell=0, kapitel_gesamt=len(kapitel), kapitel_fertig=fertig, zwischenstand_einheiten=bis,
+            woerter_gesamt=sum(woerter(e) for e in einheiten),
+            woerter_fertig=sum(woerter(e) for e in einheiten[: len(uebersetzt)]),
+            ergebnis_woerter=sum(woerter(u) for u in uebersetzt),
+        )
+
         with ollama_basis_url(settings, ssh_ziel_id) as base_url:
-            for i, abschnitt in enumerate(abschnitte, start=1):
+            for i, schritt in enumerate(plan, start=1):
                 if uebs.status_lesen(wurzel)["stop_angefordert"]:
-                    status["log"].append("Gestoppt - die bisherige Übersetzung bleibt erhalten.")
+                    status["log"].append("Gestoppt - die bisherige Übersetzung bleibt erhalten, Fortsetzen ist möglich.")
                     schreiben(gestoppt=True)
                     break
-                status["log"].append(f"Übersetze Abschnitt {i} von {len(abschnitte)}...")
+                status["log"].append(
+                    f"Kapitel {schritt.kapitel + 1} von {len(kapitel)} ({kapitel[schritt.kapitel].titel[:40]}): "
+                    f"Schritt {i} von {len(plan)}..."
+                )
                 schreiben(aktuell=i)
-                uebersetzt.extend(await _chunk_uebersetzen(settings, base_url, abschnitt))
-                ergebnis = trenner.join(uebersetzt)
-                ausgabe.write_text(ergebnis + "\n", encoding="utf-8")
-                schreiben(ergebnis_woerter=woerter(ergebnis))
+                uebersetzt.extend(await _chunk_uebersetzen(settings, base_url, schritt.absaetze))
+                ausgabe.write_text(trenner.join(uebersetzt) + "\n", encoding="utf-8")
+                status["woerter_fertig"] += sum(woerter(a) for a in schritt.absaetze)
+                if schritt.kapitel_ende:
+                    kap = kapitel[schritt.kapitel]
+                    uebs.kapitel_datei_schreiben(
+                        wurzel, ziel_name, schritt.kapitel + 1, trenner.join(uebersetzt[kap.start:kap.ende]),
+                    )
+                    fertig, bis = uebs.fertige_kapitel(kapitel, len(uebersetzt))
+                    status["log"].append(f"Kapitel {schritt.kapitel + 1} von {len(kapitel)} fertig und gespeichert.")
+                    status["kapitel_fertig"], status["zwischenstand_einheiten"] = fertig, bis
+                schreiben(ergebnis_woerter=sum(woerter(u) for u in uebersetzt))
             else:
                 status["log"].append("Übersetzung abgeschlossen.")
                 schreiben(abgeschlossen=True)
@@ -399,17 +439,32 @@ def uebersetzen_starten(anfrage: UebersetzenStartAnfrage, background_tasks: Back
                          settings: Settings = Depends(get_settings),
                          benutzer: Benutzer = Depends(get_current_user)):
     wurzel = projekte_wurzel(settings, benutzer.username)
-    if uebs.status_lesen(wurzel)["laeuft"]:
+    vorher = uebs.status_lesen(wurzel)
+    if vorher["laeuft"]:
         raise HTTPException(409, "Es läuft bereits eine Übersetzung.")
     ziel_name = uebs.dateiname_de(anfrage.dateiname)
-    # Sofort als "laeuft" markieren (nicht erst im Hintergrund-Task), damit ein
-    # zweiter Start in derselben Sekunde ebenfalls abgewiesen wird.
-    uebs.status_schreiben(
-        wurzel, {**uebs.LEERER_STATUS, "log": ["Startet..."], "laeuft": True, "dateiname": ziel_name},
-        behalte_stop=False,
-    )
+    fuelltext_entfernen = anfrage.fuelltext_entfernen
+    if anfrage.fortsetzen:
+        text_datei = ziel_name[:-4] + ".txt" if ziel_name.endswith(".pdf") else ziel_name
+        if vorher["abgeschlossen"] or vorher["dateiname"] != ziel_name or not uebs.ergebnis_pfad(wurzel, text_datei).is_file():
+            raise HTTPException(409, "Es gibt keine unterbrochene Übersetzung dieses Dokuments zum Fortsetzen.")
+        # Dieselbe Fülltext-Einstellung wie im unterbrochenen Lauf (sonst passen die Absätze nicht)
+        fuelltext_entfernen = vorher.get("fuelltext_entfernen") or vorher.get("fuelltext_entfernt", 0) > 0
+        # Sofort als "laeuft" markieren, Fortschritt und Log bleiben erhalten
+        uebs.status_schreiben(
+            wurzel, {**vorher, "laeuft": True, "stop_angefordert": False, "gestoppt": False, "fehler": None},
+            behalte_stop=False,
+        )
+    else:
+        # Sofort als "laeuft" markieren (nicht erst im Hintergrund-Task), damit ein
+        # zweiter Start in derselben Sekunde ebenfalls abgewiesen wird.
+        uebs.status_schreiben(
+            wurzel, {**uebs.LEERER_STATUS, "log": ["Startet..."], "laeuft": True, "dateiname": ziel_name},
+            behalte_stop=False,
+        )
     background_tasks.add_task(
-        _uebersetzen_lauf, settings, wurzel, ssh_ziel_id, anfrage.text, ziel_name, anfrage.fuelltext_entfernen,
+        _uebersetzen_lauf, settings, wurzel, ssh_ziel_id, anfrage.text, ziel_name, fuelltext_entfernen,
+        anfrage.fortsetzen,
     )
     return UebersetzenStartAntwort(dateiname=ziel_name)
 
@@ -429,26 +484,31 @@ def uebersetzen_stop(settings: Settings = Depends(get_settings), benutzer: Benut
     return {"stop_angefordert": True}
 
 
-def _ergebnis_text(settings: Settings, benutzer: Benutzer) -> tuple[str, str]:
+def _ergebnis_text(settings: Settings, benutzer: Benutzer, zwischenstand: bool) -> tuple[str, str]:
     wurzel = projekte_wurzel(settings, benutzer.username)
-    name = uebs.status_lesen(wurzel)["dateiname"]
-    if not name:
-        raise HTTPException(404, "Es gibt noch keine Übersetzung.")
-    text_datei = name[:-4] + ".txt" if name.endswith(".pdf") else name
-    pfad = uebs.ergebnis_pfad(wurzel, text_datei)
-    if not pfad.is_file():
-        raise HTTPException(404, "Das Ergebnis der Übersetzung wurde nicht gefunden.")
-    return name, pfad.read_text(encoding="utf-8")
+    status = uebs.status_lesen(wurzel)
+    try:
+        text = uebs.ergebnis_text(wurzel, status, nur_fertige_kapitel=zwischenstand)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e)) from e
+    name = status["dateiname"]
+    if zwischenstand:
+        basis, _, endung = name.rpartition(".")
+        name = f"{basis}_Zwischenstand.{endung}"
+    return name, text
 
 
 @router.get("/analysator/uebersetzen/ergebnis", response_class=PlainTextResponse)
-def uebersetzen_ergebnis(settings: Settings = Depends(get_settings), benutzer: Benutzer = Depends(get_current_user)):
-    return _ergebnis_text(settings, benutzer)[1]
+def uebersetzen_ergebnis(zwischenstand: bool = Query(False), settings: Settings = Depends(get_settings),
+                          benutzer: Benutzer = Depends(get_current_user)):
+    """zwischenstand=true: nur die vollstaendig uebersetzten Kapitel (zum Lesen waehrend des Laufs)."""
+    return _ergebnis_text(settings, benutzer, zwischenstand)[1]
 
 
 @router.get("/analysator/uebersetzen/pdf")
-def uebersetzen_pdf(settings: Settings = Depends(get_settings), benutzer: Benutzer = Depends(get_current_user)):
-    name, text = _ergebnis_text(settings, benutzer)
+def uebersetzen_pdf(zwischenstand: bool = Query(False), settings: Settings = Depends(get_settings),
+                     benutzer: Benutzer = Depends(get_current_user)):
+    name, text = _ergebnis_text(settings, benutzer, zwischenstand)
     pdf = uebs.text_pdf_erzeugen(name.rsplit(".", 1)[0].replace("_", " "), text)
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})

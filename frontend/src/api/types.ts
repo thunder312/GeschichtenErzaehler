@@ -279,6 +279,11 @@ export interface UebersetzenStatus {
   dateiname: string | null;
   ergebnis_woerter: number;
   fuelltext_entfernt: number;
+  kapitel_gesamt: number;
+  kapitel_fertig: number;
+  woerter_gesamt: number;
+  woerter_fertig: number;
+  fortgesetzt: boolean;
 }
 
 export interface AnalysatorStatus {
