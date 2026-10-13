@@ -537,6 +537,12 @@ class AnalysatorEpocheVorschlagAnfrage(BaseModel):
     text: str = Field(min_length=1)
 
 
+class AnalysatorPdfTextAntwort(BaseModel):
+    text: str
+    seiten: int
+    woerter: int
+
+
 class AnalysatorStartAnfrage(BaseModel):
     titel: str = ""
     epoche: str

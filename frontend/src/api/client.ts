@@ -146,6 +146,18 @@ export const api = {
       body: JSON.stringify({ titel, epoche, zweite_epoche: zweiteEpoche || null, text }),
     }),
 
+  /** Liest den Text einer PDF-Datei serverseitig (kein Speichern), siehe
+   * backend/app/core/pdf_text.py. Kein JSON-Content-Type: der Browser setzt
+   * bei FormData den multipart-Header selbst. */
+  analysatorPdfText: (datei: File) => {
+    const formular = new FormData();
+    formular.append("datei", datei);
+    return anfrage<{ text: string; seiten: number; woerter: number }>(
+      "/api/analysator/pdf-text",
+      { method: "POST", headers: {}, body: formular },
+    );
+  },
+
   analysatorStatus: (ordner: string) =>
     anfrage<AnalysatorStatus>(`/api/projects/${ordner}/analysator-status`),
 

@@ -4,6 +4,7 @@ import type { AnalyseEintrag, AnalysatorStatus, EpocheKurz } from "../api/types"
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { EpocheFormular, epocheFormularGueltig, type EpocheFormularWerte } from "../components/EpocheFormular";
 import { Button, Card, CardTitle, Input, Label, Select, Textarea } from "../components/ui";
+import { useAktivitaet } from "../context/AktivitaetContext";
 
 interface AnalysatorPageProps {
   epochen: EpocheKurz[];
@@ -37,6 +38,16 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
   const [ordner, setOrdner] = useState<string | null>(null);
   const [status, setStatus] = useState<AnalysatorStatus | null>(null);
   const dateiInputRef = useRef<HTMLInputElement>(null);
+  // Spiegelt den Analyse-Fortschritt in die globale Fusszeile (StatusFooter),
+  // sonst steht dort waehrend der Analyse "Bereit" - wie beim Automatikmodus
+  // (SchreibenPage.tsx) nur bei TEXT-Aenderung neu starten, damit die
+  // Sekunden-Uhr den aktuellen Schritt misst.
+  const { starten: aktivitaetStarten, beenden: aktivitaetBeenden } = useAktivitaet();
+  const aktivitaetTextRef = useRef<string | null>(null);
+  // PDF-Import: der Text wird serverseitig gelesen (backend/app/core/pdf_text.py)
+  // und landet wie eine geladene .txt-Datei im Textfeld.
+  const [pdfWirdGelesen, setPdfWirdGelesen] = useState(false);
+  const [dateiHinweis, setDateiHinweis] = useState<string | null>(null);
 
   // Alternative zur bestehenden Epoche (siehe ToDo.md "erweitere den
   // Analysator"): die KI schlägt aus dem importierten Text ein neues
@@ -105,6 +116,37 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
   }
 
   useEffect(() => {
+    let text: string | null = null;
+    if (status?.laeuft) {
+      const kapitel =
+        status.aktuelles_kapitel != null && status.gesamt_kapitel != null
+          ? ` Kapitel ${status.aktuelles_kapitel}/${status.gesamt_kapitel}`
+          : "";
+      if (status.phase === "kapitel_analyse") text = `Analysator: analysiert${kapitel}...`;
+      else if (status.phase === "synthese") text = "Analysator: fasst das Gesamt-Gerüst zusammen...";
+      else text = "Analysator: bereitet den Text vor...";
+    }
+    if (text !== null) {
+      if (aktivitaetTextRef.current !== text) {
+        aktivitaetTextRef.current = text;
+        aktivitaetStarten(text);
+      }
+    } else if (aktivitaetTextRef.current !== null) {
+      aktivitaetTextRef.current = null;
+      aktivitaetBeenden();
+    }
+  }, [status?.laeuft, status?.phase, status?.aktuelles_kapitel, status?.gesamt_kapitel]);
+
+  // Beim Verlassen des Tabs stoppt das Polling - die Fusszeile darf dann nicht
+  // mit einem veralteten "analysiert Kapitel 3/18" haengen bleiben.
+  useEffect(() => () => {
+    if (aktivitaetTextRef.current !== null) {
+      aktivitaetTextRef.current = null;
+      aktivitaetBeenden();
+    }
+  }, []);
+
+  useEffect(() => {
     if (epoche || epochen.length === 0) return;
     setEpoche(epochen[0].name);
   }, [epochen, epoche]);
@@ -140,7 +182,28 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
     const datei = e.target.files?.[0];
     e.target.value = "";
     if (!datei) return;
-    setText(await datei.text());
+    setDateiHinweis(null);
+    setFehler(null);
+    const istPdf = datei.type === "application/pdf" || datei.name.toLowerCase().endsWith(".pdf");
+    if (!istPdf) {
+      setText(await datei.text());
+      return;
+    }
+    setPdfWirdGelesen(true);
+    try {
+      const antwort = await api.analysatorPdfText(datei);
+      setText(antwort.text);
+      setDateiHinweis(
+        `PDF gelesen: ${antwort.seiten} Seiten, ${antwort.woerter} Wörter. Bitte kurz prüfen – ` +
+          `Fülltext (A/N, Disclaimer) und Kapitelüberschriften erkennt der Analysator selbst.`,
+      );
+      // Titel aus dem Dateinamen vorschlagen, wenn noch keiner eingetragen ist.
+      if (!titel.trim()) setTitel(datei.name.replace(/\.pdf$/i, "").replace(/[_]+/g, " ").trim());
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPdfWirdGelesen(false);
+    }
   }
 
   async function epocheVorschlagen() {
@@ -383,17 +446,18 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
                     onClick={() => dateiInputRef.current?.click()}
                     className="text-xs text-accent-light hover:underline"
                   >
-                    Datei laden (.txt, .md)
+                    {pdfWirdGelesen ? "PDF wird gelesen…" : "Datei laden (.pdf, .txt, .md)"}
                   </button>
                   <input
                     ref={dateiInputRef}
                     type="file"
-                    accept=".txt,.md,text/plain,text/markdown"
+                    accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
                     onChange={dateiGeladen}
                     className="hidden"
                   />
                 </div>
               </div>
+              {dateiHinweis && <p className="mb-1 text-xs text-text-muted">{dateiHinweis}</p>}
               <Textarea
                 rows={16}
                 value={text}
@@ -464,7 +528,7 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
       <Card>
         <CardTitle>So funktioniert's</CardTitle>
         <ol className="list-decimal space-y-2 pl-4 text-sm text-text-muted">
-          <li>Text einfügen oder eine .txt/.md-Datei laden.</li>
+          <li>Text einfügen oder eine .pdf/.txt/.md-Datei laden.</li>
           <li>
             Epoche wählen, die zur importierten Geschichte passt - oder die KI aus dem Text ein neues Setting
             vorschlagen lassen (samt erkanntem Franchise, falls vorhanden) und vor dem Speichern noch anpassen.

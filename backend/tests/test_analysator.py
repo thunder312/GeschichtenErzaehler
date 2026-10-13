@@ -389,3 +389,206 @@ def test_vorbereiten_zeilenmodus_pdf_text_ein_absatz_pro_zeile():
     assert [e.split(":")[0] for e in v.entfernt] == ["A/N", "Disclaimer", "Authors Postscript"]
     assert "Thanks, Harry" in v.abschnitte[0]
     assert v.abschnitte[0].count("\n\n") == 2  # drei Absaetze, mit Leerzeilen getrennt
+
+
+# --- Struktur aus bestehender Geschichte: Titel, Rahmen, lange Kapitel, Merkmale ---
+
+def test_kapitel_titel_aus_ueberschrift():
+    assert an.kapitel_titel_aus_ueberschrift("Chapter Fifteen: The Final Chapter (Part 1 of 3)") == "The Final Chapter (Part 1 of 3)"
+    assert an.kapitel_titel_aus_ueberschrift("Chapter One") == ""
+    assert an.kapitel_titel_aus_ueberschrift("## Kapitel 3 - Der Sturm") == "Der Sturm"
+    assert an.kapitel_titel_aus_ueberschrift("**Chapter IV: Dusk**") == "Dusk"
+    assert an.kapitel_titel_aus_ueberschrift("Prologue") == "Prologue"
+    assert an.kapitel_titel_aus_ueberschrift("# Der stille Hafen") == "Der stille Hafen"
+
+
+def test_vorbereiten_liefert_originaltitel_je_kapitel():
+    text = (
+        "Chapter One\n\nEs begann.\n\n"
+        "Chapter Two: The Storm\n\nDann kam der Sturm.\n\n"
+        "Chapter Three: Home\n\nEnde."
+    )
+    v = an.vorbereiten(text)
+    assert v.titel == ["", "The Storm", "Home"]
+    assert len(v.titel) == len(v.abschnitte)
+
+
+def test_kapitel_block_entfernt_sternchen_aus_dem_titel():
+    """Regression 2026-10-13: '**Kapitel eins: *Titel***' liess sich im Editor nicht in Karten zerlegen."""
+    analyse = an.KapitelAnalyse("*Ron's Vergiftung*", "Krankenzimmer", "Harry", "E", "Exposition", "Begegnung", "Z")
+    block = an.kapitel_block_bauen(1, analyse, 3000)
+    erste_zeile = block.splitlines()[0]
+    assert erste_zeile == "*   **Kapitel eins: Ron's Vergiftung**"
+
+
+def test_kapitel_analyse_parsen_titel_ohne_markdown_und_neue_felder():
+    antwort = (
+        "Titel: *Gefahr im Sturm*\n"
+        "*   Vergangene Zeit: zwei Tage später\n"
+        "*   Ort: Leuchtturm\n"
+        "*   Anwesende Figuren: Eleanor\n"
+        "*   Ereignis: Eleanor zündet das Licht an.\n"
+        "*   Funktion im Spannungsbogen: Exposition\n"
+        "*   Stand der Liebeshandlung: Keine Liebeshandlung\n"
+        "*   Zustand am Kapitelende: Draußen.\n"
+        "*   Explizitheit: keine\n"
+    )
+    a = an.kapitel_analyse_parsen(antwort)
+    assert a.titel == "Gefahr im Sturm"
+    assert a.vergangene_zeit == "zwei Tage später"
+    assert a.explizitheit == "keine"
+
+
+def test_kapitel_block_hat_vergangene_zeit_erst_ab_kapitel_zwei():
+    analyse = an.KapitelAnalyse("T", "O", "F", "E", "S1", "S2", "Z", vergangene_zeit="am nächsten Morgen")
+    eins = an.kapitel_block_bauen(1, analyse, 1000)
+    zwei = an.kapitel_block_bauen(2, analyse, 1000)
+    assert "    *   Vergangene Zeit: \n" in eins
+    assert "    *   Vergangene Zeit: am nächsten Morgen\n" in zwei
+
+
+def test_funktion_und_liebesstufe_werden_normalisiert():
+    assert an.funktion_normalisieren("Wendepunkt - die Handlung erreicht einen kritischen Punkt") == "Höhepunkt/Peripetie"
+    assert an.funktion_normalisieren("exposition und Einleitung") == "Exposition"
+    assert an.funktion_normalisieren("Eskalation der Lage") == "Steigende Handlung"
+    assert an.funktion_normalisieren("etwas ganz anderes") == "etwas ganz anderes"
+    assert an.liebesstufe_normalisieren("annaeherung (erste Vertrautheit)") == "Annäherung (erste Vertrautheit)"
+    assert an.liebesstufe_normalisieren("Kuss (im Regen)") == "Kuss (im Regen)"
+    assert an.liebesstufe_normalisieren("Harry und Hermione stehen sich nah") == "Harry und Hermione stehen sich nah"
+
+
+def test_abschnitt_in_teile_und_zusammenfuehren():
+    absatz = "Wort " * 400
+    text = "\n\n".join([absatz] * 14)  # 5600 Woerter
+    assert an.abschnitt_in_teile(absatz) == [absatz]
+    teile = an.abschnitt_in_teile(text, max_woerter=2000)
+    assert 3 <= len(teile) <= 4
+    assert sum(an.woerter(t) for t in teile) == an.woerter(text)  # nichts geht verloren
+
+    a = an.KapitelAnalyse("Titel", "Haus", "Anna, Ben", "Erstens.", "Exposition", "Begegnung", "Draußen", "kein", "keine")
+    b = an.KapitelAnalyse("Anderer", "Haus, Garten", "Ben, Cora", "Zweitens.", "Höhepunkt/Peripetie", "Kuss", "Im Bett", "x", "explizit")
+    z = an.analysen_zusammenfuehren([a, b])
+    assert z.titel == "Titel"
+    assert z.ort == "Haus, Garten"
+    assert z.anwesende_figuren == "Anna, Ben, Cora"
+    assert z.ereignis == "Erstens. Zweitens."
+    assert z.funktion_im_spannungsbogen == "Höhepunkt/Peripetie"
+    assert z.stand_der_liebeshandlung == "Kuss"
+    assert z.explizitheit == "explizit"
+    assert an.analysen_zusammenfuehren([a]) is a
+
+
+def test_kapitel_analyse_user_nennt_originaltitel_teil_und_satzzahl():
+    u = an.kapitel_analyse_user("Wort " * 3200, "en", index=17, gesamt=18, originaltitel="The Final Chapter", teil=(2, 3))
+    assert "Kapitel 17 von 18" in u and "TEIL 2 von 3" in u
+    assert "ORIGINALTITEL" in u and "The Final Chapter" in u and "übersetzt" in u
+    assert "etwa 4 Sätzen" in u  # 3200 Woerter -> 2 + 3200 // 1500
+    ohne = an.kapitel_analyse_user("Text", "de")
+    assert "keinen Originaltitel" in ohne
+
+
+# Reale Rahmen-Ausgabe der Synthese (Harry-Potter-Epoche): leere Bullets plus EINE Semikolon-Zeile
+REALER_RAHMEN = (
+    "# STORY-GERUEST\n\n## Rahmen\n"
+    "*   **Zeitangabe:** \n*   **Ort:** \n*   **Erzählperspektive:** Dritte Person\n"
+    "*   **Tempus:** Vergangenheitsform\n*   **Tonlage:** \n"
+    "*   **Jugendschutz-Stufe:** Jugendschutz-Stufe: Voll\n"
+    "*   Jahr: unbekannt; Ort: Hogwarts und London; Jahreszeit/Tageszeit: nicht spezifiziert; "
+    "Erzählperspektive: Dritte Person (auktorial); Tempus: Präsens; Tonlage: humorvoll-erotisch.\n"
+    "*   Jugendschutz-Stufe: Voll\n*   Automatische Fortsetzung: Aus\n\n"
+    "## Titel\nEin Titel\n"
+)
+
+
+def test_rahmen_felder_lesen_aus_gemischter_darstellung():
+    block = REALER_RAHMEN.split("## Rahmen\n")[1].split("\n## Titel")[0]
+    felder = an.rahmen_felder_lesen(block)
+    assert felder["ort"] == "Hogwarts und London"
+    assert felder["perspektive"] == "Dritte Person"
+    assert felder["tonlage"].startswith("humorvoll")
+    assert "zeitangabe" not in felder  # "unbekannt" zaehlt als leer
+    assert "jahreszeit" not in felder  # "nicht spezifiziert" zaehlt als leer
+
+
+def test_rahmen_aufbauen_zeitangabe_nur_jahr_und_fakten_gewinnen():
+    fakten = {"jugendschutz": "Voll", "perspektive": "dritte Person", "tempus": "Präteritum"}
+    ergebnis = an.rahmen_aufbauen(REALER_RAHMEN, fakten)
+    rahmen = ergebnis.split("## Rahmen\n")[1].split("\n## Titel")[0]
+    zeilen = rahmen.strip().splitlines()
+    assert zeilen[0] == "*   **Zeitangabe:**"  # leer statt "unbekannt"
+    assert "*   **Ort:** Hogwarts und London" in zeilen
+    assert "*   **Tempus:** Vergangenheitsform" in zeilen  # Zaehlung (Praeteritum) schlaegt KI-"Praesens"
+    assert "*   **Jugendschutz-Stufe:** Jugendschutz-Stufe: Voll" in zeilen
+    assert "*   **Automatische Fortsetzung:** Automatische Fortsetzung: Aus" in zeilen
+    assert rahmen.count("Jugendschutz-Stufe:") == 2  # genau EIN Eintrag, nicht doppelt
+    assert "unbekannt" not in rahmen and "Jahreszeit" not in rahmen
+    assert "## Titel\nEin Titel" in ergebnis  # Rest bleibt unangetastet
+    from app.core import geruest as g
+    assert g.jugendschutz_stufe_erkennen(ergebnis) == "voll"
+
+
+def test_rahmen_aufbauen_uebernimmt_vierstelliges_jahr_und_korrigiert_perspektive():
+    geruest = (
+        "## Rahmen\nJahr: um 1815 herum, Ort: Bath, Jahreszeit: Frühling, Erzählperspektive: Dritte Person, "
+        "Tempus: Präteritum, Tonlage: ironisch, Jugendschutz-Stufe: Voll, Automatische Fortsetzung: Ein\n\n## Titel\nX\n"
+    )
+    fakten = {"jugendschutz": "Jugendfrei", "perspektive": "erste Person", "tempus": None}
+    ergebnis = an.rahmen_aufbauen(geruest, fakten)
+    assert "*   **Zeitangabe:** 1815" in ergebnis
+    assert "*   **Jahreszeit:** Frühling" in ergebnis
+    assert "*   **Erzählperspektive:** Ich-Erzähler (erste Person)" in ergebnis
+    assert "*   **Tempus:** Vergangenheitsform" in ergebnis
+    assert "Jugendschutz-Stufe: Jugendfrei" in ergebnis
+    assert "Automatische Fortsetzung: Ein" in ergebnis
+    from app.core import geruest as g
+    assert g.jahr_erkennen(ergebnis) == "1815"
+
+
+def test_geruest_zusammenbauen_mit_fakten_baut_rahmen_neu():
+    fakten = {"jugendschutz": "Angedeutet", "perspektive": None, "tempus": None}
+    ergebnis = an.geruest_zusammenbauen(REALER_RAHMEN, "*   **Kapitel eins: Test**", fakten)
+    assert "Jugendschutz-Stufe: Angedeutet" in ergebnis
+    assert "## Kapitelplan" in ergebnis
+
+
+def test_fakten_text_fuer_die_synthese():
+    assert an.fakten_text(None) == ""
+    t = an.synthese_user("Analysen", "Auszug", "de", {"jugendschutz": "Voll", "perspektive": "dritte Person", "tempus": "Präteritum"})
+    assert "Feststehende Fakten" in t and "Jugendschutz-Stufe: Voll" in t and "Erzählperspektive: dritte Person" in t
+
+
+# --- app/core/import_merkmale.py ----------------------------------------------
+
+def test_erzaehlperspektive_und_tempus_erkennen():
+    from app.core import import_merkmale as m
+    dritte = ("He walked to the window and she followed him. His hands were cold and her voice was low, "
+              "and they said nothing. He had seen her before, and he knew she was afraid. ") * 8
+    erste = ("I walked to the window and I knew that my hands were cold. She followed me and I said nothing, "
+             "because I had seen her before and I was afraid. ") * 8
+    assert m.erzaehlperspektive_erkennen(dritte) == "dritte Person"
+    assert m.erzaehlperspektive_erkennen(erste) == "erste Person"
+    assert m.erzaehlperspektive_erkennen("zu kurz") is None
+    # Ich-Pronomen in woertlicher Rede zaehlen NICHT zur Erzaehlstimme
+    mit_rede = dritte + ' "I think I know what I want," she said. "I do." ' * 10
+    assert m.erzaehlperspektive_erkennen(mit_rede) == "dritte Person"
+
+    vergangen = "He was tired and she had been angry. He said that they were late. " * 12
+    gegenwart = "He is tired and she has been angry. He says that they are late. " * 12
+    assert m.tempus_erkennen(vergangen) == "Präteritum"
+    assert m.tempus_erkennen(gegenwart) == "Präsens"
+    assert m.tempus_erkennen("kurz") is None
+
+
+def test_explizitheit_bewerten_und_hoechste_stufe():
+    from app.core import import_merkmale as m
+    harmlos = "Sie gingen durch den Garten und redeten über das Wetter und die Ernte. " * 50
+    zaertlich = ("Er küsste sie sanft. " * 7) + harmlos
+    explizit = "He kissed her and his cock was hard. She moaned as he thrust, and she came, an orgasm that " * 3 + "x " * 300
+    assert m.explizitheit_bewerten(harmlos) == "keine"
+    assert m.explizitheit_bewerten(zaertlich) == "angedeutet"
+    assert m.explizitheit_bewerten(explizit) == "explizit"
+    assert m.hoechste_stufe(["keine", "explizit", "angedeutet"]) == "explizit"
+    assert m.hoechste_stufe([]) == "keine"
+    assert m.jugendschutz_aus_stufe("keine") == "Jugendfrei"
+    assert m.jugendschutz_aus_stufe("angedeutet") == "Angedeutet"
+    assert m.jugendschutz_aus_stufe("explizit") == "Voll"

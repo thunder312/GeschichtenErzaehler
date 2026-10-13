@@ -8,21 +8,35 @@ klar mit "AUFGABE: KAPITEL-ANALYSE", "AUFGABE: SYNTHESE" oder "AUFGABE:
 EPOCHE-VORSCHLAG" eingeleitet. Bearbeite NUR die gestellte Aufgabe.
 
 ## AUFGABE: KAPITEL-ANALYSE
-Du bekommst einen Ausschnitt (ein Kapitel oder ein vergleichbarer Abschnitt)
-aus einer längeren Geschichte. Antworte AUSSCHLIESSLICH in genau dieser Form,
-keine Einleitung, keine Erklärung davor oder danach:
+Du bekommst einen Ausschnitt (ein Kapitel, einen Teil eines sehr langen Kapitels
+oder einen vergleichbaren Abschnitt) aus einer längeren Geschichte. Antworte
+AUSSCHLIESSLICH in genau dieser Form, keine Einleitung, keine Erklärung davor
+oder danach, KEINE Sternchen oder Markdown-Auszeichnung im Titel:
 
-Titel: <ein kurzer, sprechender Untertitel für diesen Abschnitt, max. 6 Worte>
+Titel: <Kapiteltitel>
+*   Vergangene Zeit: <wie viel Zeit seit dem Ende des vorigen Kapitels vergangen ist, z.B. "zwei Tage später", "direkt anschließend", "am nächsten Morgen"; im ersten Kapitel leer lassen>
 *   Ort: <Schauplatz dieses Abschnitts>
 *   Anwesende Figuren: <alle namentlich auftretenden Figuren, durch Komma getrennt>
-*   Ereignis: <was in diesem Abschnitt geschieht, 2-4 Sätze>
-*   Funktion im Spannungsbogen: <z.B. Exposition, Wendepunkt, Eskalation, Auflösung - ein kurzer Satz>
-*   Stand der Liebeshandlung: <Stand der romantischen/erotischen Beziehung am Ende dieses Abschnitts, falls vorhanden - sonst "Kein Liebeshandlungs-Element in diesem Abschnitt.">
+*   Ereignis: <was in diesem Abschnitt geschieht>
+*   Funktion im Spannungsbogen: <GENAU EIN Wert aus: Exposition | Erregendes Moment | Steigende Handlung | Höhepunkt/Peripetie | Fallende Handlung | Auflösung/Lösung>
+*   Stand der Liebeshandlung: <GENAU EINE Stufe aus: Begegnung | Annäherung | Widerstand | Ehrliches Geständnis | Kuss | Körperliche Erfüllung - gefolgt von einem kurzen Satz in Klammern; gibt es in diesem Abschnitt keine Liebeshandlung: "Keine Liebeshandlung">
 *   Zustand am Kapitelende: <in welchem Zustand/an welchem Ort die Hauptfiguren diesen Abschnitt verlassen>
+*   Explizitheit: <keine | angedeutet | explizit - wie deutlich sexuelle Handlungen in diesem Abschnitt beschrieben werden: "keine" = nichts davon, "angedeutet" = Küsse/Andeutungen ohne Details, "explizit" = ausdrückliche körperliche Beschreibungen>
 
-Jedes Feld MUSS ausgefüllt werden. Ist ein Feld aus dem Ausschnitt nicht
-sicher zu beantworten, schreibe eine plausible, vorsichtig formulierte
-Kurzangabe statt das Feld leer zu lassen.
+Regeln zu den Feldern:
+- "Titel": Bekommst du einen ORIGINALTITEL genannt, übernimm ihn (bei englischem
+  Text sinngemäß ins Deutsche übersetzt, Eigennamen unverändert) und erfinde
+  keinen neuen. Nur wenn es keinen Originaltitel gibt, erfinde einen kurzen,
+  sprechenden Untertitel (max. 6 Worte).
+- "Ereignis": Formuliere es als Handlungsanweisung für einen Autor, der dieses
+  Kapitel neu schreiben soll - im Präsens, sachlich, mit den tragenden Wendungen,
+  Entscheidungen und Informationen in der richtigen Reihenfolge (z.B. "Harry bringt
+  Ron auf die Krankenstation; Slughorn erkennt das Gift, das Gegenmittel ist
+  selten; die Hexe verlangt als Preis ..."). Keine Wertung, keine wörtlichen
+  Dialoge. Halte dich an die im Auftrag genannte Satzzahl.
+- Jedes Feld MUSS ausgefüllt werden (außer "Vergangene Zeit" im ersten Kapitel).
+  Ist ein Feld aus dem Ausschnitt nicht sicher zu beantworten, schreibe eine
+  plausible, vorsichtig formulierte Kurzangabe statt es leer zu lassen.
 
 ## AUFGABE: SYNTHESE
 Du bekommst die Kapitel-für-Kapitel-Zusammenfassungen einer kompletten
@@ -37,6 +51,9 @@ mitgeschickt). Regeln dabei:
   Voll, Andeutungen/Küsse ohne Details -> Angedeutet, nichts davon ->
   Jugendfrei) - rate NICHT, sondern urteile anhand dessen, was in den
   Zusammenfassungen tatsächlich beschrieben ist.
+  Steht unter "Feststehende Fakten" eine Jugendschutz-Stufe, Erzählperspektive
+  oder ein Tempus, wurde das aus dem Gesamttext ermittelt: übernimm es dann
+  unverändert.
 - "## Figuren": nur Figuren, die in mindestens einer Kapitel-Zusammenfassung
   als "Anwesende Figuren" auftauchen. Leite Aussehen/Ziel/größte Angst/
   Geheimnis/Entwicklungsbogen aus dem Verlauf über alle Kapitel ab, nicht
@@ -66,13 +83,15 @@ mitgeschickt). Regeln dabei:
   Rahmen-Angaben nur als EINE mit Kommas getrennte Aufzählung zeigt (z.B.
   "Jahr (vierstellig), Ort, ..., Jugendschutz-Stufe (Voll/Angedeutet/
   Jugendfrei), Automatische Fortsetzung (Ein/Aus)"), MÜSSEN die
-  Jugendschutz-Stufe und die Automatische Fortsetzung trotzdem als EIGENE,
+  Zeitangabe (nur eine vierstellige Jahreszahl, wenn das Jahr im Text eindeutig
+  genannt oder sicher ableitbar ist, sonst LEER lassen - niemals eine Beschreibung
+  wie "unbekannt" oder "Sommer"), Jugendschutz-Stufe und die Automatische Fortsetzung trotzdem als EIGENE,
   wörtliche Zeilen ausgegeben werden, GENAU in diesem Format (sonst kann ein
   nachgelagertes Skript sie nicht auslesen):
   "Jugendschutz-Stufe: Voll" (oder "Angedeutet" oder "Jugendfrei")
   "Automatische Fortsetzung: Aus" (oder "Ein")
-  Ist aus dem Text kein Jahr ersichtlich, schreibe trotzdem eine Zeile
-  "Jahr: unbekannt" statt das Jahr nur in Prosa zu umschreiben.
+  Ist aus dem Text kein Jahr ersichtlich, bleibt die Zeitangabe leer
+  ("Zeitangabe:" ohne Wert) - schreibe kein "unbekannt" und keine Umschreibung.
 Antworte NUR mit dem ausgefüllten Dokument in der vorgegebenen Struktur
 (ohne "## Kapitelplan" und ohne "## Regeln" - beide werden separat ergänzt),
 ohne Einleitung oder Erklärung davor oder danach.

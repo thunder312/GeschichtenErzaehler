@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import PlainTextResponse
 from pydantic import ValidationError
 
@@ -26,14 +26,19 @@ from app.auth import get_current_user
 from app.config import Settings, get_settings
 from app.core import analysator as an
 from app.core import architekt as arch
+from app.core import pdf_text
 from app.core import projekt_dateien as pd
 from app.core.epoche_vorschlag_schema import EpocheVorschlagAntwortLLM
 from app.core.import_bereinigung import fuelltexte_entfernen, sprache_erkennen
+from app.core.import_merkmale import (
+    erzaehlperspektive_erkennen, explizitheit_bewerten, hoechste_stufe, jugendschutz_aus_stufe, tempus_erkennen,
+)
 from app.core.ollama_client import OllamaFehler, sammle_antwort
 from app.core.textutil import woerter
 from app.schemas import (
     AnalyseEintrag,
     AnalysatorEpocheVorschlagAnfrage,
+    AnalysatorPdfTextAntwort,
     AnalysatorStartAnfrage,
     AnalysatorStartAntwort,
     AnalysatorStatusAntwort,
@@ -97,6 +102,7 @@ async def _analysieren_lauf(settings: Settings, projekt_root, ssh_ziel_id: str |
 
         analysator_persona = pd.lies(settings.shared_personas_dir / "analysator.txt")
         eintraege: list[tuple[an.KapitelAnalyse, int]] = []
+        stufen: list[str] = []
 
         with ollama_basis_url(settings, ssh_ziel_id) as base_url:
             for i, abschnitt in enumerate(abschnitte, start=1):
@@ -104,14 +110,43 @@ async def _analysieren_lauf(settings: Settings, projekt_root, ssh_ziel_id: str |
                     projekt_root, f"Analysiere Kapitel {i} von {gesamt}...",
                     phase="kapitel_analyse", aktuelles_kapitel=i,
                 )
-                antwort, _meta = await sammle_antwort(
-                    base_url, "analysator",
-                    an.kapitel_analyse_system(analysator_persona),
-                    an.kapitel_analyse_user(abschnitt, sprache),
-                    modell_override=rollen_modell_override(settings, "analysator"),
-                )
-                eintraege.append((an.kapitel_analyse_parsen(antwort), woerter(abschnitt)))
+                # Sehr lange Kapitel passen nicht in EINEN Aufruf (Kontextfenster) -
+                # in Teile zerlegen und die Teil-Analysen danach zusammenfuegen.
+                teile = an.abschnitt_in_teile(abschnitt)
+                if len(teile) > 1:
+                    _log_anhaengen(
+                        projekt_root, f"Kapitel {i} ist sehr lang ({woerter(abschnitt)} Wörter) - Analyse in {len(teile)} Teilen.",
+                    )
+                originaltitel = vorb.titel[i - 1] if i - 1 < len(vorb.titel) else ""
+                teil_analysen = []
+                for k, teil in enumerate(teile, start=1):
+                    antwort, _meta = await sammle_antwort(
+                        base_url, "analysator",
+                        an.kapitel_analyse_system(analysator_persona),
+                        an.kapitel_analyse_user(
+                            teil, sprache, index=i, gesamt=gesamt, originaltitel=originaltitel, teil=(k, len(teile)),
+                        ),
+                        modell_override=rollen_modell_override(settings, "analysator"),
+                    )
+                    teil_analysen.append(an.kapitel_analyse_parsen(antwort))
+                analyse = an.analysen_zusammenfuehren(teil_analysen)
+                if "nicht ersichtlich" in analyse.titel:
+                    analyse.titel = originaltitel or f"Abschnitt {i}"
+                # Explizitheit: Woerterlisten-Zaehlung am ganzen Kapiteltext UND Urteil der KI
+                stufen.append(hoechste_stufe([explizitheit_bewerten(abschnitt), analyse.explizitheit]))
+                eintraege.append((analyse, woerter(abschnitt)))
 
+            # Aus dem GANZEN Text gezaehlte Merkmale (nicht aus Zusammenfassungen geschaetzt)
+            fakten = {
+                "jugendschutz": jugendschutz_aus_stufe(hoechste_stufe(stufen)),
+                "perspektive": erzaehlperspektive_erkennen(vorb.bereinigter_text),
+                "tempus": tempus_erkennen(vorb.bereinigter_text),
+            }
+            _log_anhaengen(
+                projekt_root,
+                f"Aus dem Text ermittelt: Jugendschutz-Stufe {fakten['jugendschutz']}, "
+                f"Perspektive {fakten['perspektive'] or 'unklar'}, Tempus {fakten['tempus'] or 'unklar'}.",
+            )
             _log_anhaengen(
                 projekt_root, "Fasse Gesamt-Gerüst zusammen...", phase="synthese", aktuelles_kapitel=None,
             )
@@ -121,11 +156,12 @@ async def _analysieren_lauf(settings: Settings, projekt_root, ssh_ziel_id: str |
                 an.synthese_system(analysator_persona, epoche_architekt_persona),
                 an.synthese_user(
                     an.kapitel_analysen_text_bauen(eintraege), an.textauszug_bauen(vorb.bereinigter_text), sprache,
+                    fakten,
                 ),
                 modell_override=rollen_modell_override(settings, "analysator"),
             )
 
-        geruest_text = an.geruest_zusammenbauen(synth_antwort, an.kapitelplan_block_bauen(eintraege))
+        geruest_text = an.geruest_zusammenbauen(synth_antwort, an.kapitelplan_block_bauen(eintraege), fakten)
         pd.schreib(pd.geruest_datei(projekt_root / "projekt"), geruest_text, force=True)
 
         ausgangslage = arch.ausgangslage_erkennen(geruest_text)
@@ -236,6 +272,23 @@ def analysator_status(ordner: str, settings: Settings = Depends(get_settings),
                        benutzer: Benutzer = Depends(get_current_user)):
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     return AnalysatorStatusAntwort(**an.status_lesen(projekt_root))
+
+
+@router.post("/analysator/pdf-text", response_model=AnalysatorPdfTextAntwort)
+def analysator_pdf_text(datei: UploadFile = File(...), benutzer: Benutzer = Depends(get_current_user)):
+    """Liest den Text einer hochgeladenen PDF-Datei (siehe app/core/pdf_text.py)
+    und liefert ihn ans Frontend zurueck, das ihn wie eine geladene .txt-Datei
+    ins Textfeld des Analysators uebernimmt - der Nutzer sieht und korrigiert
+    den Text vor dem Start. Nichts wird gespeichert. Synchron (def), damit
+    FastAPI die rechenintensive Extraktion in den Threadpool legt."""
+    daten = datei.file.read(pdf_text.MAX_BYTES + 1)
+    try:
+        ergebnis = pdf_text.pdf_text_extrahieren(daten, an.KAPITEL_STICHWORT_MUSTER)
+    except pdf_text.PdfFehler as e:
+        raise HTTPException(422, str(e)) from e
+    return AnalysatorPdfTextAntwort(
+        text=ergebnis.text, seiten=ergebnis.seiten, woerter=woerter(ergebnis.text),
+    )
 
 
 @router.post("/analysator/epoche-vorschlagen", response_model=EpocheVorschlagAntwortLLM)
