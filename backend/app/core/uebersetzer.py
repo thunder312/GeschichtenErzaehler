@@ -434,12 +434,18 @@ def text_pdf_erzeugen(titel: str, text: str) -> bytes:
     doc = SimpleDocTemplate(puffer, pagesize=A4, leftMargin=2.4 * cm, rightMargin=2.4 * cm,
                             topMargin=2.2 * cm, bottomMargin=2.2 * cm, title=titel)
     inhalt: list = []
-    for absatz in absaetze_der_antwort(text.replace("\r\n", "\n")) if "\n\n" in text else [a for a in text.split("\n") if a.strip()]:
+    titel_stil = ParagraphStyle("titel", parent=kopf, fontSize=22, leading=28, spaceBefore=60, spaceAfter=36)
+    for nr, absatz in enumerate(
+        absaetze_der_antwort(text.replace("\r\n", "\n")) if "\n\n" in text else [a for a in text.split("\n") if a.strip()]
+    ):
         ueberschrift = _UEBERSCHRIFT.match(absatz.strip())
+        # Ein kurzer erster Absatz ohne Satzzeichen am Ende ist der Titel des Dokuments
+        ist_titel = (nr == 0 and not ueberschrift and len(absatz.split()) <= 12
+                     and not absatz.rstrip().endswith((".", "!", "?", "“", '"')))
         roh = pdf_export._escape(absatz.strip().lstrip("#").strip() if ueberschrift else absatz.strip())  # noqa: SLF001
         roh = _FETT.sub(r"<b>\1</b>", roh)
         roh = _KURSIV.sub(r"<i>\1</i>", roh).replace("\n", "<br/>")
-        inhalt.append(Paragraph(roh, kopf if ueberschrift else normal))
+        inhalt.append(Paragraph(roh, titel_stil if ist_titel else kopf if ueberschrift else normal))
     if not inhalt:
         inhalt = [Spacer(1, 1)]
     doc.build(inhalt)
