@@ -592,3 +592,30 @@ def test_explizitheit_bewerten_und_hoechste_stufe():
     assert m.jugendschutz_aus_stufe("keine") == "Jugendfrei"
     assert m.jugendschutz_aus_stufe("angedeutet") == "Angedeutet"
     assert m.jugendschutz_aus_stufe("explizit") == "Voll"
+
+
+def test_figuren_bereinigen_entfernt_dopplungen_und_kurzformen():
+    text = "Susan Bones, Harry Potter, Hermione Granger, Harry, Hermione, Luna, Susan, Ron, harry potter"
+    assert an.figuren_bereinigen(text) == "Susan Bones, Harry Potter, Hermione Granger, Luna, Ron"
+    assert an.figuren_bereinigen("[aus Analyse nicht ersichtlich]") == "[aus Analyse nicht ersichtlich]"
+
+
+def test_liebesstufe_ohne_anweisungstext_aus_der_persona():
+    roh = "Körperliche Erfüllung - gefolgt von einem kurzen Satz in Klammern. (Sie lieben sich)"
+    assert an.liebesstufe_normalisieren(roh) == "Körperliche Erfüllung (Sie lieben sich)"
+
+
+def test_titel_ohne_pdf_artefakte():
+    assert an.kapitel_titel_aus_ueberschrift("Chapter Sixteen: The Final Chapter (2 of 3 �?)") == "The Final Chapter (2 of 3)"
+
+
+def test_vergangene_zeit_ohne_platzhalter_im_kapitelplan():
+    fehlt = an.KapitelAnalyse("T", "O", "F", "E", "S1", "S2", "Z", vergangene_zeit="[aus Analyse nicht ersichtlich]")
+    block = an.kapitel_block_bauen(2, fehlt, 1000)
+    assert "Vergangene Zeit: \n" in block
+
+
+def test_rahmen_perspektive_beginnt_gross():
+    geruest = "## Rahmen\nErzählperspektive: dritte Person\n\n## Titel\nX\n"
+    ergebnis = an.rahmen_aufbauen(geruest, {"jugendschutz": "Voll", "perspektive": "dritte Person", "tempus": None})
+    assert "*   **Erzählperspektive:** Dritte Person" in ergebnis

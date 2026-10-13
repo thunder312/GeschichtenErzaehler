@@ -177,6 +177,9 @@ def kapitel_titel_aus_ueberschrift(ueberschrift: str) -> str:
     eine sonstige Markdown-Ueberschrift ('## Der Sturm') bleibt ganz."""
     zeile = ueberschrift.strip().lstrip("#*_ \t").rstrip("*_ \t")
     rest = _UEBERSCHRIFT_PRAEFIX.sub("", zeile, count=1)
+    # PDF-Artefakte: unlesbare Zeichen (U+FFFD) und das uebrig bleibende "?" davor
+    rest = rest.replace("\ufffd", "")
+    rest = re.sub(r"\s+\?+\)", ")", rest)
     return rest.strip(" \t:.-–—*_")
 
 
@@ -477,6 +480,9 @@ def liebesstufe_normalisieren(text: str) -> str:
     """Schreibt eine mit einer Stufe der Leiter beginnende Angabe in die
     kanonische Schreibweise um (z.B. 'annaeherung (..)' -> 'Annäherung (..)');
     alles andere bleibt unveraendert."""
+    # Das Modell uebernimmt manchmal den Satz aus der Anweisung woertlich
+    # ("Körperliche Erfüllung - gefolgt von einem kurzen Satz in Klammern. (...)")
+    text = re.sub(r"\s*[-–]\s*gefolgt von einem kurzen Satz in Klammern\.?", "", text)
     roh = text.strip()
     klein = roh.lower()
     for stufe in (*LIEBESSTUFEN, "Keine Liebeshandlung"):
@@ -484,6 +490,24 @@ def liebesstufe_normalisieren(text: str) -> str:
             if klein.startswith(name):
                 return stufe + roh[len(name):]
     return text
+
+
+def figuren_bereinigen(text: str) -> str:
+    """Entfernt doppelte Figuren und Kurzformen, deren Name schon ausgeschrieben
+    vorkommt ('Harry Potter, ..., Harry' -> 'Harry Potter, ...'), Reihenfolge bleibt."""
+    namen = [n.strip() for n in text.split(",") if n.strip()]
+    ergebnis: list[str] = []
+    for i, name in enumerate(namen):
+        woerter_name = re.findall(r"\w+", name.lower())
+        ist_kurzform = any(
+            j != i and len(woerter_name) < len(re.findall(r"\w+", anderer.lower()))
+            and all(w in re.findall(r"\w+", anderer.lower()) for w in woerter_name)
+            for j, anderer in enumerate(namen)
+        )
+        schon_da = any(name.lower() == e.lower() for e in ergebnis)
+        if not ist_kurzform and not schon_da:
+            ergebnis.append(name)
+    return ", ".join(ergebnis) if ergebnis else text
 
 
 def _explizitheit_normalisieren(text: str) -> str:
@@ -517,12 +541,13 @@ def kapitel_block_bauen(index: int, analyse: KapitelAnalyse, wortzahl_original: 
     # mehr in Karten zerlegen (Vorfall 2026-10-13, "Rons-Vergiftung...").
     titel = re.sub(r"[*_`]+", "", analyse.titel).strip() or "[aus Analyse nicht ersichtlich]"
     # Kapitel 1 hat keinen Vorgaenger -> leer, wie in app/core/geruest_ki.py
-    vergangene = "" if index == 1 else (analyse.vergangene_zeit.strip() or "[aus Analyse nicht ersichtlich]")
+    # Fehlt die Angabe, bleibt das Feld leer (kein Platzhaltertext im Kapitelplan).
+    vergangene = "" if index == 1 or "nicht ersichtlich" in analyse.vergangene_zeit else analyse.vergangene_zeit.strip()
     return (
         f"*   **Kapitel {zahlwort(index)}: {titel}**\n"
         f"    *   Vergangene Zeit: {vergangene}\n"
         f"    *   Ort: {analyse.ort}\n"
-        f"    *   Anwesende Figuren: {analyse.anwesende_figuren}\n"
+        f"    *   Anwesende Figuren: {figuren_bereinigen(analyse.anwesende_figuren)}\n"
         f"    *   Ereignis: {analyse.ereignis}\n"
         f"    *   Zielwortzahl: ca. {ziel} Wörter.\n"
         f"    *   Funktion im Spannungsbogen: {funktion_normalisieren(analyse.funktion_im_spannungsbogen)}\n"
@@ -746,10 +771,12 @@ def _perspektive_fest(ki_wert: str, erkannt: str | None) -> str:
     ki_erste = any(s in klein for s in ("erste", "ich-", "ich ", "first", "1."))
     ki_dritte = any(s in klein for s in ("dritte", "third", "er-", "sie-", "personal", "auktorial", "allwissend", "3."))
     if erkannt == "erste Person":
-        return ki_wert if ki_erste else "Ich-Erzähler (erste Person)"
-    if erkannt == "dritte Person":
-        return ki_wert if ki_dritte else "Dritte Person"
-    return ki_wert or "Dritte Person"
+        wert = ki_wert if ki_erste else "Ich-Erzähler (erste Person)"
+    elif erkannt == "dritte Person":
+        wert = ki_wert if ki_dritte else "Dritte Person"
+    else:
+        wert = ki_wert or "Dritte Person"
+    return wert[:1].upper() + wert[1:]
 
 
 def rahmen_aufbauen(geruest: str, fakten: dict) -> str:

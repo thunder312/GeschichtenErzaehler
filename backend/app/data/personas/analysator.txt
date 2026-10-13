@@ -19,7 +19,7 @@ Titel: <Kapiteltitel>
 *   Anwesende Figuren: <alle namentlich auftretenden Figuren, durch Komma getrennt>
 *   Ereignis: <was in diesem Abschnitt geschieht>
 *   Funktion im Spannungsbogen: <GENAU EIN Wert aus: Exposition | Erregendes Moment | Steigende Handlung | Höhepunkt/Peripetie | Fallende Handlung | Auflösung/Lösung>
-*   Stand der Liebeshandlung: <GENAU EINE Stufe aus: Begegnung | Annäherung | Widerstand | Ehrliches Geständnis | Kuss | Körperliche Erfüllung - gefolgt von einem kurzen Satz in Klammern; gibt es in diesem Abschnitt keine Liebeshandlung: "Keine Liebeshandlung">
+*   Stand der Liebeshandlung: <GENAU EINE Stufe aus: Begegnung | Annäherung | Widerstand | Ehrliches Geständnis | Kuss | Körperliche Erfüllung, danach ein kurzer Satz zur Situation in Klammern, z.B. "Annäherung (gemeinsamer Weg, erste Vertrautheit)"; gibt es keine Liebeshandlung: "Keine Liebeshandlung">
 *   Zustand am Kapitelende: <in welchem Zustand/an welchem Ort die Hauptfiguren diesen Abschnitt verlassen>
 *   Explizitheit: <keine | angedeutet | explizit - wie deutlich sexuelle Handlungen in diesem Abschnitt beschrieben werden: "keine" = nichts davon, "angedeutet" = Küsse/Andeutungen ohne Details, "explizit" = ausdrückliche körperliche Beschreibungen>
 
