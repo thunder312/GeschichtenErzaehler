@@ -440,6 +440,8 @@ export const api = {
     automatischBestaetigen = false,
     nurNeueKapitel = false,
     speicherkontrolleGestoppt: string[] = [],
+    nachFertigSound = false,
+    nachFertigHerunterfahren = false,
   ) =>
     anfrage<{ gestartet: boolean }>(
       `/api/projects/${ordner}/automatik/start${sshQuery(sshZielId)}`,
@@ -451,8 +453,16 @@ export const api = {
           automatisch_bestaetigen: automatischBestaetigen,
           nur_neue_kapitel: nurNeueKapitel,
           speicherkontrolle_gestoppt: speicherkontrolleGestoppt,
+          nach_fertig_sound: nachFertigSound,
+          nach_fertig_herunterfahren: nachFertigHerunterfahren,
         }),
       },
+    ),
+
+  automatikHerunterfahrenAbbrechen: (ordner: string) =>
+    anfrage<{ abgebrochen: boolean }>(
+      `/api/projects/${ordner}/automatik/herunterfahren-abbrechen`,
+      { method: "POST" },
     ),
 
   automatikFortsetzenVorschau: (ordner: string) =>

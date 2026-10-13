@@ -18,6 +18,7 @@ import { Button, Card, CardTitle, Input, Label } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { automatikAktionsText, hatReste, resteZusammenfassen } from "../utils/automatik";
 import { alsDateiHerunterladen } from "../utils/download";
+import { fertigSoundAbspielen, soundFreischalten } from "../utils/fertigSound";
 
 interface SchreibenPageProps {
   ordner: string;
@@ -96,6 +97,27 @@ export function SchreibenPage({
   const [vorschau, setVorschau] = useState<AutomatikFortsetzenVorschau | null>(null);
   const [vorschauLaden, setVorschauLaden] = useState(false);
   const [vorschauFehler, setVorschauFehler] = useState<string | null>(null);
+  // Optionen "Nach Fertigstellung": Sound wird gemerkt, Herunterfahren bewusst
+  // NICHT (muss pro Lauf neu gewaehlt werden).
+  const [fertigSound, setFertigSoundState] = useState(() => {
+    try {
+      return localStorage.getItem("automatikFertigSound") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [fertigHerunterfahren, setFertigHerunterfahren] = useState(false);
+  const [herunterfahrenFehler, setHerunterfahrenFehler] = useState<string | null>(null);
+  const [jetztMs, setJetztMs] = useState(() => Date.now());
+  function setFertigSound(an: boolean) {
+    setFertigSoundState(an);
+    try {
+      localStorage.setItem("automatikFertigSound", an ? "1" : "0");
+    } catch {
+      /* ohne Speicher einfach nicht merken */
+    }
+    if (an) soundFreischalten();
+  }
   const automatikLiefZuvorRef = useRef(false);
   const automatikAktivitaetTextRef = useRef<string | null>(null);
 
@@ -125,7 +147,12 @@ export function SchreibenPage({
           // Verlaufsdatei dazugekommen (siehe app/core/automatik.py:
           // verlauf_eintrag_anhaengen) - genau dann neu laden statt bei
           // jedem 4-Sekunden-Tick.
-          if (automatikLiefZuvorRef.current && !status.laeuft) automatikVerlaufLaden();
+          if (automatikLiefZuvorRef.current && !status.laeuft) {
+            automatikVerlaufLaden();
+            // Signalton nur, wenn der Lauf sauber fertig wurde (alle Kapitel
+            // geschrieben und geprueft) - nicht bei Stopp oder Fehler.
+            if (status.abgeschlossen && status.nach_fertig_sound) fertigSoundAbspielen();
+          }
           automatikLiefZuvorRef.current = status.laeuft;
 
           // Spiegelt den Automatikmodus-Fortschritt in die globale
@@ -195,11 +222,13 @@ export function SchreibenPage({
 
   async function automatikStarten(fortsetzen = false, automatischBestaetigen = false, nurNeueKapitel = false) {
     setAutomatikFehler(null);
+    // Muss synchron im Klick-Handler passieren (Autoplay-Regel der Browser).
+    if (fertigSound) soundFreischalten();
     const gestoppt = await speicherkontrollePruefen();
     try {
       await api.automatikStarten(
         ordner, automatikMaxDurchlaeufe, sshZielId || null, fortsetzen, automatischBestaetigen, nurNeueKapitel,
-        gestoppt,
+        gestoppt, fertigSound, fertigHerunterfahren && (automatikStatus?.herunterfahren_moeglich ?? false),
       );
       setVorschau(null);
       setAutomatikStatus(await api.automatikStatus(ordner));
@@ -218,6 +247,26 @@ export function SchreibenPage({
     } finally {
       setVorschauLaden(false);
     }
+  }
+
+  const herunterfahrenGeplantBis = automatikStatus?.herunterfahren_geplant_bis ?? null;
+  const herunterfahrenRest =
+    herunterfahrenGeplantBis != null ? Math.max(0, Math.ceil(herunterfahrenGeplantBis - jetztMs / 1000)) : 0;
+  useEffect(() => {
+    if (herunterfahrenGeplantBis == null) return;
+    setJetztMs(Date.now());
+    const t = setInterval(() => setJetztMs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [herunterfahrenGeplantBis]);
+
+  async function herunterfahrenAbbrechen() {
+    setHerunterfahrenFehler(null);
+    try {
+      await api.automatikHerunterfahrenAbbrechen(ordner);
+    } catch (e) {
+      setHerunterfahrenFehler(e instanceof Error ? e.message : String(e));
+    }
+    setAutomatikStatus(await api.automatikStatus(ordner));
   }
 
   async function automatikStoppen() {
@@ -687,8 +736,51 @@ export function SchreibenPage({
           </div>
         )}
 
+        {herunterfahrenGeplantBis != null && herunterfahrenRest > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-amber-400/60 bg-amber-400/10 p-3">
+            <p className="text-sm text-text">
+              ⏻ Automatikmodus fertig – der PC fährt in <strong>{herunterfahrenRest} s</strong> herunter.
+            </p>
+            <Button variant="danger" onClick={herunterfahrenAbbrechen}>
+              Herunterfahren abbrechen
+            </Button>
+          </div>
+        )}
+        {herunterfahrenFehler && <p className="mb-3 text-sm text-red-400">{herunterfahrenFehler}</p>}
+
+        {!automatikStatus?.laeuft && (
+          <div className="mb-3 space-y-1">
+            <Label>Nach Fertigstellung (alle Kapitel und Prüfer durch)</Label>
+            <label className="flex items-center gap-2 text-sm text-text">
+              <input type="checkbox" checked={fertigSound} onChange={(e) => setFertigSound(e.target.checked)} />
+              🔔 Signalton abspielen
+            </label>
+            {automatikStatus?.herunterfahren_moeglich && (
+              <label className="flex items-center gap-2 text-sm text-text">
+                <input
+                  type="checkbox"
+                  checked={fertigHerunterfahren}
+                  onChange={(e) => setFertigHerunterfahren(e.target.checked)}
+                />
+                ⏻ Danach PC herunterfahren (60 s Vorlauf, abbrechbar – gilt nur für den nächsten Start)
+              </label>
+            )}
+          </div>
+        )}
+
         {automatikStatus?.laeuft ? (
           <div className="space-y-3">
+            {(automatikStatus.nach_fertig_sound || automatikStatus.nach_fertig_herunterfahren) && (
+              <p className="text-xs text-text-muted">
+                Nach Fertigstellung:{" "}
+                {[
+                  automatikStatus.nach_fertig_sound && "🔔 Signalton",
+                  automatikStatus.nach_fertig_herunterfahren && "⏻ PC herunterfahren",
+                ]
+                  .filter(Boolean)
+                  .join(" + ")}
+              </p>
+            )}
             <p className="text-sm text-text">
               Phase: <strong>{automatikStatus.phase}</strong>
               {automatikStatus.aktuelles_kapitel != null && (

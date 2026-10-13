@@ -346,6 +346,13 @@ export interface AutomatikStatus {
    * Anfang heruntergefahren hat - nach Lauf-Ende bietet das Frontend das
    * Wiederhochfahren an. */
   speicherkontrolle_gestoppt: string[];
+  /** Optionen des Laufs: Signalton bzw. PC herunterfahren nach sauberem Ende. */
+  nach_fertig_sound: boolean;
+  nach_fertig_herunterfahren: boolean;
+  /** Unix-Zeit (Sekunden), zu der der PC herunterfaehrt - null = nichts geplant. */
+  herunterfahren_geplant_bis: number | null;
+  /** Backend laeuft unter Windows - nur dann ist "PC herunterfahren" waehlbar. */
+  herunterfahren_moeglich: boolean;
 }
 
 // Ein Eintrag pro bisherigem Automatik-Lauf dieses Projekts (dauerhaftes

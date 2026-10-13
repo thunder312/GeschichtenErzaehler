@@ -374,6 +374,11 @@ class AutomatikStartAnfrage(BaseModel):
     # Nutzer-Rückfrage schon VOR dem Start heruntergefahren hat - nur zum
     # Vermerken im Status (für das "wieder hochfahren?"-Angebot danach).
     speicherkontrolle_gestoppt: list[str] = []
+    # Sound beim erfolgreichen Lauf-Ende (spielt das Frontend ab) und PC nach
+    # erfolgreichem Lauf-Ende herunterfahren (nur Windows, siehe
+    # app/core/herunterfahren.py).
+    nach_fertig_sound: bool = False
+    nach_fertig_herunterfahren: bool = False
 
 
 class AutomatikStatusAntwort(BaseModel):
@@ -411,6 +416,13 @@ class AutomatikStatusAntwort(BaseModel):
     # heruntergefahren hat. Nach Lauf-Ende bietet das Frontend anhand dieser
     # Liste das Wiederhochfahren an (Entscheidung des Nutzers: "fragen").
     speicherkontrolle_gestoppt: list[str] = []
+    nach_fertig_sound: bool = False
+    nach_fertig_herunterfahren: bool = False
+    # Unix-Zeit, zu der der PC herunterfaehrt (None = nichts geplant).
+    herunterfahren_geplant_bis: float | None = None
+    # Server-seitig berechnet: laeuft das Backend auf Windows? Nur dann zeigt
+    # das Frontend die Option "Danach PC herunterfahren" an.
+    herunterfahren_moeglich: bool = False
 
 
 class AutomatikAnknuepfpunkt(BaseModel):

@@ -896,3 +896,104 @@ def test_lektor_laeuft_pro_abschnitt_und_nachlauf_ohne_inhaltspruefer(client, pr
     asyncio.run(pipeline._pruefe_kapitel(settings, projekt, "http://x", 1, text))
     assert aufrufe.count("lektor") > 1
     assert "anachronismus" in aufrufe and "kontinuitaet" in aufrufe
+
+
+# --- Optionen "Sound bei Fertigstellung" / "Danach PC herunterfahren" -------
+
+def _shutdown_spy(monkeypatch, moeglich=True):
+    aufrufe: list[str] = []
+    monkeypatch.setattr(pipeline.herunterfahren, "moeglich", lambda: moeglich)
+    monkeypatch.setattr(pipeline.herunterfahren, "planen", lambda sekunden=60: aufrufe.append(f"planen {sekunden}"))
+    monkeypatch.setattr(pipeline.herunterfahren, "abbrechen", lambda: aufrufe.append("abbrechen"))
+    return aufrufe
+
+
+def test_automatik_sound_option_landet_im_status(client, projekt_mit_kapitelplan):
+    r = client.post(
+        f"/api/projects/{projekt_mit_kapitelplan}/automatik/start",
+        json={"max_durchlaeufe": 1, "nach_fertig_sound": True},
+    )
+    assert r.status_code == 200
+    status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert status["abgeschlossen"] is True
+    assert status["nach_fertig_sound"] is True
+    assert status["nach_fertig_herunterfahren"] is False
+    assert status["herunterfahren_geplant_bis"] is None
+
+
+def test_automatik_herunterfahren_wird_nach_abgeschlossenem_lauf_geplant(
+    client, projekt_mit_kapitelplan, monkeypatch,
+):
+    aufrufe = _shutdown_spy(monkeypatch)
+    r = client.post(
+        f"/api/projects/{projekt_mit_kapitelplan}/automatik/start",
+        json={"max_durchlaeufe": 1, "nach_fertig_herunterfahren": True},
+    )
+    assert r.status_code == 200
+    status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert aufrufe == ["planen 60"]
+    assert status["herunterfahren_geplant_bis"] is not None
+    assert status["herunterfahren_moeglich"] is True
+    assert any("fährt in 60 Sekunden herunter" in z for z in status["log"])
+
+
+def test_automatik_herunterfahren_abgelehnt_wenn_nicht_moeglich(client, projekt_mit_kapitelplan, monkeypatch):
+    aufrufe = _shutdown_spy(monkeypatch, moeglich=False)
+    r = client.post(
+        f"/api/projects/{projekt_mit_kapitelplan}/automatik/start",
+        json={"max_durchlaeufe": 1, "nach_fertig_herunterfahren": True},
+    )
+    assert r.status_code == 400
+    assert aufrufe == []
+
+
+def test_automatik_herunterfahren_nicht_bei_fehler_oder_stopp(client, projekt_mit_kapitelplan, monkeypatch):
+    aufrufe = _shutdown_spy(monkeypatch)
+
+    async def _kaputt(*args, **kwargs):
+        raise RuntimeError("kaputt")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(pipeline, "chat_stream", _kaputt)
+    monkeypatch.setattr(pipeline, "AUTOMATIK_RETRY_VERSUCHE", 0)
+    r = client.post(
+        f"/api/projects/{projekt_mit_kapitelplan}/automatik/start",
+        json={"max_durchlaeufe": 1, "nach_fertig_herunterfahren": True},
+    )
+    assert r.status_code == 200
+    status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert status["abgeschlossen"] is False
+    assert status["fehler"]
+    assert aufrufe == []
+
+
+def test_automatik_herunterfahren_nicht_wenn_anderes_projekt_laeuft(client, projekt_mit_kapitelplan, monkeypatch):
+    aufrufe = _shutdown_spy(monkeypatch)
+    settings = app.dependency_overrides[get_settings]()
+    fremd = settings.projects_dir / "daniel" / "Fremd" / "projekt"
+    fremd.mkdir(parents=True)
+    (fremd / "automatik_status.json").write_text('{"laeuft": true}', encoding="utf-8")
+
+    client.post(
+        f"/api/projects/{projekt_mit_kapitelplan}/automatik/start",
+        json={"max_durchlaeufe": 1, "nach_fertig_herunterfahren": True},
+    )
+    status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert status["abgeschlossen"] is True
+    assert aufrufe == []
+    assert status["herunterfahren_geplant_bis"] is None
+    assert any("läuft noch ein Automatikmodus" in z for z in status["log"])
+
+
+def test_automatik_herunterfahren_abbrechen(client, projekt_mit_kapitelplan, monkeypatch):
+    aufrufe = _shutdown_spy(monkeypatch)
+    client.post(
+        f"/api/projects/{projekt_mit_kapitelplan}/automatik/start",
+        json={"max_durchlaeufe": 1, "nach_fertig_herunterfahren": True},
+    )
+    r = client.post(f"/api/projects/{projekt_mit_kapitelplan}/automatik/herunterfahren-abbrechen")
+    assert r.status_code == 200
+    assert aufrufe == ["planen 60", "abbrechen"]
+    status = client.get(f"/api/projects/{projekt_mit_kapitelplan}/automatik/status").json()
+    assert status["herunterfahren_geplant_bis"] is None
+    assert status["nach_fertig_herunterfahren"] is False

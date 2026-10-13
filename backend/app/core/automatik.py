@@ -111,6 +111,9 @@ def status_lesen(projekt_root: Path) -> dict[str, Any]:
             "aktueller_text": None,
             "kapitel_letzter_durchlauf": {},
             "speicherkontrolle_gestoppt": [],
+            "nach_fertig_sound": False,
+            "nach_fertig_herunterfahren": False,
+            "herunterfahren_geplant_bis": None,
         }
     status = json.loads(pfad.read_text(encoding="utf-8"))
     status.setdefault("aktueller_durchlauf", None)
@@ -134,6 +137,12 @@ def status_lesen(projekt_root: Path) -> dict[str, Any]:
     # Feature "KI- und Speicherkontrolle": Container, die der Lauf am Anfang
     # heruntergefahren hat (Wiederhochfahren-Angebot nach Lauf-Ende).
     status.setdefault("speicherkontrolle_gestoppt", [])
+    # Optionen "Sound bei Fertigstellung" / "Danach PC herunterfahren" (siehe
+    # app/core/herunterfahren.py); herunterfahren_geplant_bis = Unix-Zeit, zu
+    # der Windows den PC herunterfaehrt (None = nichts geplant/abgebrochen).
+    status.setdefault("nach_fertig_sound", False)
+    status.setdefault("nach_fertig_herunterfahren", False)
+    status.setdefault("herunterfahren_geplant_bis", None)
     return status
 
 
@@ -149,6 +158,20 @@ def fortsetzbar(status: dict[str, Any]) -> bool:
     Fehler oder einem Stop-Wunsch abgebrochen wurde) - siehe
     app/api/pipeline.py:_automatik_lauf fuer die Wiederaufnahme selbst."""
     return bool(status.get("gestartet_am")) and not status.get("laeuft") and not status.get("abgeschlossen")
+
+
+def anderer_lauf_aktiv(projects_root: Path, eigenes_projekt: Path) -> bool:
+    """True, wenn unterhalb von projects_root ein ANDERES Projekt gerade einen
+    Automatik-Lauf hat - dann darf der PC nicht heruntergefahren werden."""
+    for pfad in projects_root.rglob(AUTOMATIK_STATUS_DATEINAME):
+        if pfad.parent.parent == eigenes_projekt:
+            continue
+        try:
+            if json.loads(pfad.read_text(encoding="utf-8")).get("laeuft"):
+                return True
+        except (OSError, ValueError):
+            continue
+    return False
 
 
 def verwaiste_laeufe_zuruecksetzen(projects_root: Path) -> int:

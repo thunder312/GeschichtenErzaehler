@@ -42,6 +42,7 @@ from app.core import befunde_ablehnung
 from app.core import cover_log as cl
 from app.core import fundus as fundus_core
 from app.core import geruest as g
+from app.core import herunterfahren
 from app.core import heuristik as h
 from app.core import languagetool as lt
 from app.core import projekt_dateien as pd
@@ -1349,7 +1350,9 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
                            max_durchlaeufe: int, fortsetzen: bool = False,
                            automatisch_bestaetigen: bool = False,
                            nur_neue_kapitel: bool = False,
-                           speicherkontrolle_gestoppt: list[str] | None = None) -> None:
+                           speicherkontrolle_gestoppt: list[str] | None = None,
+                           nach_fertig_sound: bool = False,
+                           nach_fertig_herunterfahren: bool = False) -> None:
     """Hintergrund-Job (siehe automatik_start(), per FastAPI BackgroundTasks
     gestartet - laeuft unabhaengig von einer offenen Browser-Verbindung
     weiter): schreibt zuerst alle fehlenden Kapitel, wendet dann pro
@@ -1420,6 +1423,11 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
         # (nach Nutzer-Rueckfrage) heruntergefahrene Container - bleibt nach
         # dem Lauf stehen, damit das Frontend "wieder hochfahren?" anbieten kann.
         "speicherkontrolle_gestoppt": list(speicherkontrolle_gestoppt or []),
+        # Optionen "Sound bei Fertigstellung" / "Danach PC herunterfahren" -
+        # wirken nur bei sauber abgeschlossenem Lauf (siehe finally unten).
+        "nach_fertig_sound": nach_fertig_sound,
+        "nach_fertig_herunterfahren": nach_fertig_herunterfahren,
+        "herunterfahren_geplant_bis": None,
     })
     if fortsetzen_ab_kapitel:
         status["log"].append(
@@ -1762,6 +1770,28 @@ async def _automatik_lauf(settings: Settings, projekt_root: Path, ssh_ziel_id: s
             "fehler": status.get("fehler"),
             "fortgesetzt": bool(fortsetzen_ab_kapitel),
         })
+        if status.get("abgeschlossen") and status.get("nach_fertig_herunterfahren"):
+            _automatik_herunterfahren_ausloesen(settings, projekt_root, status)
+
+
+def _automatik_herunterfahren_ausloesen(settings: Settings, projekt_root: Path, status: dict) -> None:
+    """Plant nach einem sauber abgeschlossenen Lauf das Herunterfahren des PCs
+    (Vorlauf herunterfahren.VORLAUF_SEKUNDEN, in der die Oberflaeche Sound
+    spielt und einen Abbrechen-Button zeigt). Nie bei Stopp/Fehler, und nicht,
+    solange in einem ANDEREN Projekt noch ein Automatik-Lauf aktiv ist."""
+    try:
+        if automatik.anderer_lauf_aktiv(settings.projects_dir, projekt_root):
+            status["log"].append("PC wird nicht heruntergefahren: in einem anderen Projekt läuft noch ein Automatikmodus.")
+        else:
+            herunterfahren.planen()
+            status["herunterfahren_geplant_bis"] = time.time() + herunterfahren.VORLAUF_SEKUNDEN
+            status["log"].append(
+                f"PC fährt in {herunterfahren.VORLAUF_SEKUNDEN} Sekunden herunter (Abbrechen im Schreiben-Tab möglich)."
+            )
+    except herunterfahren.HerunterfahrenFehler as e:
+        logger.warning("Automatikmodus: Herunterfahren fehlgeschlagen: %s", e)
+        status["log"].append(f"Herunterfahren fehlgeschlagen: {e}")
+    automatik.status_schreiben(projekt_root, status)
 
 
 @router.post("/{ordner:path}/automatik/start")
@@ -1773,9 +1803,12 @@ async def automatik_start(ordner: str, anfrage: AutomatikStartAnfrage,
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     if automatik.status_lesen(projekt_root)["laeuft"]:
         raise HTTPException(409, "Automatikmodus läuft für dieses Projekt bereits.")
+    if anfrage.nach_fertig_herunterfahren and not herunterfahren.moeglich():
+        raise HTTPException(400, "Herunterfahren ist nur möglich, wenn das Backend unter Windows läuft.")
     background_tasks.add_task(
         _automatik_lauf, settings, projekt_root, ssh_ziel_id, anfrage.max_durchlaeufe, anfrage.fortsetzen,
         anfrage.automatisch_bestaetigen, anfrage.nur_neue_kapitel, anfrage.speicherkontrolle_gestoppt,
+        anfrage.nach_fertig_sound, anfrage.nach_fertig_herunterfahren,
     )
     return {"gestartet": True}
 
@@ -1839,7 +1872,9 @@ def automatik_status(ordner: str, settings: Settings = Depends(get_settings),
                       benutzer: Benutzer = Depends(get_current_user)):
     projekt_root = projekt_pfad(settings, benutzer.username, ordner)
     status = automatik.status_lesen(projekt_root)
-    return AutomatikStatusAntwort(**status, fortsetzbar=automatik.fortsetzbar(status))
+    return AutomatikStatusAntwort(
+        **status, fortsetzbar=automatik.fortsetzbar(status), herunterfahren_moeglich=herunterfahren.moeglich(),
+    )
 
 
 @router.get("/{ordner:path}/automatik/verlauf", response_model=list[AutomatikVerlaufEintrag])
@@ -1861,6 +1896,24 @@ def automatik_stop(ordner: str, settings: Settings = Depends(get_settings),
         status["stop_angefordert"] = True
         automatik.status_schreiben(projekt_root, status)
     return {"stop_angefordert": True}
+
+
+@router.post("/{ordner:path}/automatik/herunterfahren-abbrechen")
+def automatik_herunterfahren_abbrechen(ordner: str, settings: Settings = Depends(get_settings),
+                                        benutzer: Benutzer = Depends(get_current_user)):
+    """Bricht das nach einem fertigen Lauf geplante Herunterfahren ab
+    (`shutdown /a`). Schlaegt fehl, wenn nichts (mehr) geplant ist."""
+    projekt_root = projekt_pfad(settings, benutzer.username, ordner)
+    status = automatik.status_lesen(projekt_root)
+    try:
+        herunterfahren.abbrechen()
+    except herunterfahren.HerunterfahrenFehler as e:
+        raise HTTPException(409, f"Herunterfahren lässt sich nicht mehr abbrechen: {e}") from e
+    status["herunterfahren_geplant_bis"] = None
+    status["nach_fertig_herunterfahren"] = False
+    status["log"].append("Herunterfahren abgebrochen.")
+    automatik.status_schreiben(projekt_root, status)
+    return {"abgebrochen": True}
 
 
 @router.post("/{ordner:path}/automatik/resten-bestaetigen")
