@@ -6,6 +6,7 @@ ist, desto besser die Trefferquote. Beim Schreiben laufend ergänzen.
 ## Aus dem Fragebogen übernommen
 - Magie/Fantasy-Elemente
 - moderne Digitaltechnik wie Smartphones/Internet
+- Festnetz-Telefon existiert
 - ernsthafte Verletzungen oder Sachschäden bei Streichen (Ehrenkodex verbietet das ausdrücklich)
 
 ## HIER ERGÄNZEN
@@ -20,4 +21,6 @@ epochen/Zukunft/verbotsliste.md entstanden sind - nicht dem lokalen Modell
 überlassen.
 
 ## Eigene Ergänzungen
-(hier während des Schreibens eintragen, was beim Lesen aufgefallen ist)
+1. Burg Schreckenstein und Schloss Rosenfels sind örtlich durch einen See getrennt. Man kann von einem Gebäude zum anderen nur über den See oder mit einem Fortbewegungsmittel um den See fahren.
+2. Wampoltsreute ist etwa 2km von der Burg entfernt.
+3. Der Rittersaal der Burg ist duurch eine abschlossene Tür vom Schulbereich abgetrennt. Ztritt haben üblicherweise nur Graf Bodo von Schreckenstein und sein Diener Jean.

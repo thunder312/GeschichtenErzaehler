@@ -76,7 +76,7 @@
   - „Welche Seite ist neuer": Inhalts-Hash + Basis-Hash des letzten gemeinsamen Stands (`.sync.json` je Projekt, Projekt-ID) → lokal_neuer / server_neuer / abweichend; ohne gemeinsamen Stand (von Hand kopiert) Schätzung per Änderungszeit, als „unsicher" markiert. Älteres über Neueres → Warnung mit „Trotzdem überschreiben"; vor jedem Überschreiben Sicherung in `_sync_sicherung/` (letzte 3). Laufende Jobs blockieren die Übertragung.
   - „Prüfung abschließen"-Dialog: Checkbox „Lokale Projektdateien aufräumen" (Default an). Am PC: erst hochladen, dann lokalen Projektordner löschen (PDFs daneben bleiben). Am Server: Kopie auf dem PC wird vorgemerkt, der PC bietet das Entfernen im Abgleich an.
   - Code: `backend/app/core/projekt_sync.py`, `backend/app/api/sync.py`, `backend/tests/test_projekt_sync.py`; Frontend `SyncPanel.tsx`, `SyncPartnerKarte.tsx`.
-  - Offen: Zusammenführen (Merge) zweier abweichender Projekte; `fundus.md`/`orte.md` sind je Benutzer und werden nicht mit abgeglichen; Epochen-Bibliotheken (`app/data/epochen`) unterscheiden sich zwischen Prod und lokal (z. B. „Burg Schreckenstein" vs. „Burg-Schreckenstein-Ritterinternat-am-Kappellsee").
+  - Offen: Zusammenführen (Merge) zweier abweichender Projekte; `fundus.md`/`orte.md` sind je Benutzer und werden nicht mit abgeglichen; Epochen-Bibliotheken (`app/data/epochen`) unterscheiden sich zwischen Prod und lokal (z. B. „Burg Schreckenstein" vs. „Burg Schreckenstein").
 # Bugs
 - [x] eventuell funktioniert das fort schreiben der Tabs nicht richtig, ich hatte 2-mal Kapitel 3, kein Kapitel 4. Muss nochmal verifiziert werden.
 - [x] Die Speicherort-Logik und der Ordnername mus nochmal verifiziert werden.
