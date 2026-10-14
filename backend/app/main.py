@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import analysator, architekt, auth, benutzer, dokumentation, einstellungen, epochen, fundus, geruest_ki, orte, persona_modelle, pipeline, projects, ssh_targets, wissen
+from app.api import analysator, architekt, auth, benutzer, dokumentation, einstellungen, epochen, fundus, geruest_ki, orte, persona_modelle, pipeline, projects, ssh_targets, sync, wissen
 from app.auth import get_current_admin, get_current_user
 from app.config import get_settings
 from app.core import analysator as an
@@ -129,6 +129,7 @@ app.include_router(pipeline.router)
 app.include_router(architekt.router)
 app.include_router(analysator.router)
 app.include_router(geruest_ki.router)
+app.include_router(sync.router)
 app.include_router(ssh_targets.router, dependencies=[Depends(get_current_user)])
 app.include_router(epochen.router, dependencies=[Depends(get_current_user)])
 # einstellungen (Speicherort) und benutzer (Benutzerverwaltung) sind

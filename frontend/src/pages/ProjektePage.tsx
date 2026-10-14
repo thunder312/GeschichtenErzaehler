@@ -3,6 +3,7 @@ import type { FormEvent, MouseEvent } from "react";
 import { api } from "../api/client";
 import type { AutomatikZustand, EpocheKurz, ProjektKurz } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { SyncPanel } from "../components/SyncPanel";
 import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 import { epochenAnhaltspunkteAusArchitektTxt, leeresGeruestSkelett } from "../utils/geruestVorlage";
 
@@ -581,6 +582,7 @@ export function ProjektePage({
 
   return (
     <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 md:grid-cols-[2fr_1fr]">
+      <SyncPanel onProjekteGeaendert={onProjekteGeaendert} onProjektEntfernt={onProjektGeloescht} />
       <Card>
         <CardTitle>📚 Vorhandene Projekte</CardTitle>
         {projekte.length > 0 && (

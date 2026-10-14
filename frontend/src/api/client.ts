@@ -39,6 +39,9 @@ import type {
   ProjektKurz,
   RechtschreibAntwort,
   SSHTestErgebnis,
+  SyncPartner,
+  SyncProjektStatus,
+  SyncZeile,
   SSHZiel,
   SSHZielEingabe,
   WissenEintrag,
@@ -80,7 +83,9 @@ async function anfrage<T>(pfad: string, init?: RequestInit): Promise<T> {
         ? detail
         : (detail && typeof detail === "object" && "text" in detail
             ? String((detail as { text: unknown }).text)
-            : antwort.statusText);
+            : detail && typeof detail === "object" && "nachricht" in detail
+              ? String((detail as { nachricht: unknown }).nachricht)
+              : antwort.statusText);
     throw new ApiError(meldung, antwort.status, detail);
   }
   if (antwort.status === 204) {
@@ -597,6 +602,36 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ modell }),
     }),
+
+  // --- Projekt-Abgleich (siehe backend/app/api/sync.py) ---
+  syncPartner: () => anfrage<SyncPartner>("/api/sync/partner"),
+  syncPartnerSchreiben: (url: string, username: string, password: string | null) =>
+    anfrage<SyncPartner>("/api/sync/partner", { method: "PUT", body: JSON.stringify({ url, username, password }) }),
+  syncPartnerLoeschen: () => anfrage<void>("/api/sync/partner", { method: "DELETE" }),
+  syncPartnerTesten: () => anfrage<{ ok: boolean; projekte: number }>("/api/sync/partner/test", { method: "POST" }),
+  syncVergleich: () => anfrage<{ zeilen: SyncZeile[] }>("/api/sync/vergleich"),
+  syncHochladen: (ordner: string, force: boolean) =>
+    anfrage<{ uebertragen: boolean; nachricht: string }>("/api/sync/hochladen", {
+      method: "POST",
+      body: JSON.stringify({ ordner, force }),
+    }),
+  syncHerunterladen: (ordner: string, force: boolean) =>
+    anfrage<{ uebertragen: boolean; nachricht: string }>("/api/sync/herunterladen", {
+      method: "POST",
+      body: JSON.stringify({ ordner, force }),
+    }),
+  syncLokalAufraeumen: (ordner: string, vorherHochladen: boolean) =>
+    anfrage<{ entfernt: boolean; nachricht: string }>("/api/sync/lokal-aufraeumen", {
+      method: "POST",
+      body: JSON.stringify({ ordner, vorher_hochladen: vorherHochladen }),
+    }),
+  syncAufraeumenVormerken: (ordner: string) =>
+    anfrage<{ vorgemerkt: boolean }>("/api/sync/aufraeumen-vormerken", {
+      method: "POST",
+      body: JSON.stringify({ ordner, vormerken: true }),
+    }),
+  syncProjektStatus: (ordner: string) =>
+    anfrage<SyncProjektStatus>(`/api/sync/projekt-status?ordner=${encodeURIComponent(ordner)}`),
 
   einstellungen: () => anfrage<Einstellungen>("/api/einstellungen"),
 

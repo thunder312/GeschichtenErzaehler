@@ -4,7 +4,7 @@ import type { AutomatikStatus, Befund, BefundeAntwort, ProjektDetail } from "../
 import { BefundEditor, type BefundEditorHandle } from "../components/BefundEditor";
 import { BefundListe } from "../components/BefundListe";
 import { CollapsibleCard } from "../components/CollapsibleCard";
-import { ProjektBereinigenDialog } from "../components/ProjektBereinigenDialog";
+import { ProjektBereinigenDialog, type AbgleichAufraeumen } from "../components/ProjektBereinigenDialog";
 import { Button, Card, CardTitle } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { kapitelTextSchluessel, useKapitelText } from "../context/KapitelTextContext";
@@ -23,6 +23,10 @@ interface PruefenAnwendenPageProps {
   projekt: ProjektDetail | null;
   sshZielId: string;
   onGeaendert: () => void;
+  /** Wird aufgerufen, nachdem die lokalen Projektdateien beim Abschluss
+   * entfernt wurden (Abgleich mit dem Server) - die App muss das Projekt
+   * loslassen. */
+  onLokalEntfernt: (ordner: string) => void;
   /** true, solange dieser Tab sichtbar ist - der Wechsel auf true beim
    * (erneuten) Betreten laedt Kapiteltexte und Befunde frisch nach. */
   aktiv: boolean;
@@ -36,7 +40,7 @@ interface KapitelBlock {
   fehler: string | null;
 }
 
-export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, aktiv }: PruefenAnwendenPageProps) {
+export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, onLokalEntfernt, aktiv }: PruefenAnwendenPageProps) {
   const [bloecke, setBloecke] = useState<Record<number, KapitelBlock>>({});
   const [kombiniert, setKombiniert] = useState("");
   const [spannen, setSpannen] = useState<Record<number, Spanne>>({});
@@ -53,6 +57,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, a
   const [zeigeBereinigenDialog, setZeigeBereinigenDialog] = useState(false);
   const [bereinigenLaeuft, setBereinigenLaeuft] = useState(false);
   const [bereinigenHinweis, setBereinigenHinweis] = useState<string | null>(null);
+  const [abgleichAufraeumen, setAbgleichAufraeumen] = useState<AbgleichAufraeumen>(null);
   // Erhoeht sich bei jedem Klick auf "Neu laden" - steht bewusst in den
   // Dependency-Arrays der beiden Lade-Effekte weiter unten, damit ein Reload
   // AUCH DANN neu laedt, wenn sich weder ordner noch kapitelNummern geaendert
@@ -366,6 +371,14 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, a
       // gerade fertig mit der Pruefung und muss dafuer nicht extra woanders
       // hinklicken (siehe ProjektBereinigenDialog.tsx).
       setBereinigenHinweis(null);
+      // Gibt es einen Abgleich mit einer Gegenstelle? Dann kann die Kopie auf
+      // der anderen Seite gleich mit aufgeraeumt werden (siehe SyncPanel.tsx).
+      try {
+        const sync = await api.syncProjektStatus(ordner);
+        setAbgleichAufraeumen(sync.partner_konfiguriert ? "lokal" : sync.abgeglichen ? "vormerken" : null);
+      } catch {
+        setAbgleichAufraeumen(null);
+      }
       setZeigeBereinigenDialog(true);
     } finally {
       setResteWirdBestaetigt(false);
@@ -387,7 +400,24 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, a
     }
   }
 
-  async function bereinigenAusgefuehrt(fundusAktualisieren: boolean) {
+  // Raeumt die Kopie auf der anderen Seite des Abgleichs auf: am PC sofort
+  // (erst zum Server, dann lokal loeschen), am Server als Vormerkung fuer den
+  // PC. Gibt einen Hinweistext zurueck statt zu werfen.
+  async function abgleichAufraeumenAusfuehren(): Promise<string> {
+    try {
+      if (abgleichAufraeumen === "lokal") {
+        await api.syncLokalAufraeumen(ordner, true);
+        onLokalEntfernt(ordner);
+        return "Lokale Projektdateien entfernt (Stand liegt auf dem Server).";
+      }
+      await api.syncAufraeumenVormerken(ordner);
+      return "Kopie auf dem PC zum Aufräumen vorgemerkt.";
+    } catch (e) {
+      return `Aufräumen der Kopie fehlgeschlagen - ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  async function bereinigenAusgefuehrt(fundusAktualisieren: boolean, kopieAufraeumen: boolean) {
     setBereinigenLaeuft(true);
     starten("Bereinigt Projekt...");
     try {
@@ -402,6 +432,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, a
         hinweise.push(`Bereinigen fehlgeschlagen - ${e instanceof Error ? e.message : String(e)}`);
       }
       if (fundusAktualisieren) hinweise.push(await fundusFuerProjektAktualisieren());
+      if (kopieAufraeumen) hinweise.push(await abgleichAufraeumenAusfuehren());
       setBereinigenHinweis(hinweise.join(" "));
       setZeigeBereinigenDialog(false);
     } finally {
@@ -410,15 +441,18 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, a
     }
   }
 
-  async function bereinigenUebersprungen(fundusAktualisieren: boolean) {
-    if (!fundusAktualisieren) {
+  async function bereinigenUebersprungen(fundusAktualisieren: boolean, kopieAufraeumen: boolean) {
+    if (!fundusAktualisieren && !kopieAufraeumen) {
       setZeigeBereinigenDialog(false);
       return;
     }
     setBereinigenLaeuft(true);
     starten("Aktualisiert Personen-Fundus...");
     try {
-      setBereinigenHinweis(await fundusFuerProjektAktualisieren());
+      const hinweise: string[] = [];
+      if (fundusAktualisieren) hinweise.push(await fundusFuerProjektAktualisieren());
+      if (kopieAufraeumen) hinweise.push(await abgleichAufraeumenAusfuehren());
+      setBereinigenHinweis(hinweise.join(" "));
       setZeigeBereinigenDialog(false);
     } finally {
       setBereinigenLaeuft(false);
@@ -641,6 +675,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, a
       {zeigeBereinigenDialog && (
         <ProjektBereinigenDialog
           wirdAusgefuehrt={bereinigenLaeuft}
+          abgleichAufraeumen={abgleichAufraeumen}
           onBereinigen={bereinigenAusgefuehrt}
           onUeberspringen={bereinigenUebersprungen}
         />

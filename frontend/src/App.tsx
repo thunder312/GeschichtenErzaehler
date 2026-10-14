@@ -335,6 +335,7 @@ function App() {
                 projekt={projektDetail}
                 sshZielId={sshZielId}
                 aktiv={activeTab === "pruefen"}
+                onLokalEntfernt={projektGeloescht}
                 onGeaendert={() => {
                   projektDetailLaden();
                   projekteLaden();

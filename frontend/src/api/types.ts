@@ -599,3 +599,46 @@ export type ArchitektNachricht =
     }
   | { phase: "beendet_ohne_speichern" }
   | { phase: "fehler"; typ: "error"; text: string };
+
+// --- Projekt-Abgleich Prod <-> lokaler PC (siehe backend/app/api/sync.py) ---
+
+export interface SyncPartner {
+  konfiguriert: boolean;
+  url: string;
+  username: string;
+  passwort_gesetzt: boolean;
+}
+
+export interface SyncInfo {
+  projekt_id: string;
+  ordner: string;
+  name: string;
+  titel: string | null;
+  epoche: string | null;
+  anzahl_kapitel: number;
+  hash: string;
+  basis_hash: string | null;
+  letzter_abgleich: string | null;
+  geaendert_ts: number;
+  lokal_aufraeumen: boolean;
+  laufende_jobs: string[];
+}
+
+export type SyncStatus = "nur_lokal" | "nur_server" | "gleich" | "lokal_neuer" | "server_neuer" | "abweichend";
+
+export interface SyncZeile {
+  name: string;
+  titel: string | null;
+  epoche: string | null;
+  lokal: SyncInfo | null;
+  server: SyncInfo | null;
+  status: SyncStatus;
+  unsicher: boolean;
+  nachricht: string;
+  aufraeumen_vorgemerkt: boolean;
+}
+
+export interface SyncProjektStatus {
+  partner_konfiguriert: boolean;
+  abgeglichen: boolean;
+}

@@ -11,6 +11,7 @@ import type {
 } from "../api/types";
 import type { HostStatus, KiStartStatus } from "../api/types";
 import { HostStatusPanel } from "../components/SpeicherkontrolleDialog";
+import { SyncPartnerKarte } from "../components/SyncPartnerKarte";
 import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
 
 const LEERES_FORMULAR: SSHZielEingabe = {
@@ -346,6 +347,8 @@ export function EinstellungenPage({ sshZiele, onSshZieleGeaendert }: Einstellung
               </div>
             )}
           </EinklappbareKarte>
+
+          <SyncPartnerKarte />
         </div>
 
         <div className="space-y-6">

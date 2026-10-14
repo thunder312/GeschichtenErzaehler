@@ -45,6 +45,16 @@ CREATE TABLE IF NOT EXISTS ssh_targets (
     updated_at TEXT NOT NULL
 );
 
+-- Gegenstelle fuer den Projekt-Abgleich (siehe app/api/sync.py): URL der
+-- anderen Instanz (z.B. https://geschichten.daniel-ertl.de) plus Zugangsdaten.
+-- Das Passwort liegt wie die SSH-Geheimnisse verschluesselt vor.
+CREATE TABLE IF NOT EXISTS sync_partner (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    url TEXT NOT NULL,
+    username TEXT NOT NULL,
+    password_encrypted BLOB
+);
+
 CREATE TABLE IF NOT EXISTS einstellungen (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     projects_dir TEXT,
@@ -302,6 +312,37 @@ def ssh_ziel_geheimnis(row: sqlite3.Row, secret_key_path: Path) -> dict:
     if not row["secret_encrypted"]:
         return {}
     return json.loads(entschluesseln(row["secret_encrypted"], secret_key_path))
+
+
+def sync_partner_lesen(db_path: Path, secret_key_path: Path) -> dict | None:
+    with _verbindung(db_path) as conn:
+        zeile = conn.execute("SELECT url, username, password_encrypted FROM sync_partner WHERE id=1").fetchone()
+    if not zeile:
+        return None
+    passwort = entschluesseln(zeile["password_encrypted"], secret_key_path) if zeile["password_encrypted"] else ""
+    return {"url": zeile["url"], "username": zeile["username"], "password": passwort}
+
+
+def sync_partner_schreiben(db_path: Path, secret_key_path: Path, *, url: str, username: str,
+                            password: str | None) -> None:
+    """password=None laesst ein bereits gespeichertes Passwort unveraendert."""
+    with _verbindung(db_path) as conn:
+        alt = conn.execute("SELECT password_encrypted FROM sync_partner WHERE id=1").fetchone()
+        if password is None:
+            verschluesselt = alt["password_encrypted"] if alt else None
+        else:
+            verschluesselt = verschluesseln(password, secret_key_path)
+        conn.execute(
+            "INSERT INTO sync_partner (id, url, username, password_encrypted) VALUES (1, ?, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET url=excluded.url, username=excluded.username, "
+            "password_encrypted=excluded.password_encrypted",
+            (url, username, verschluesselt),
+        )
+
+
+def sync_partner_loeschen(db_path: Path) -> None:
+    with _verbindung(db_path) as conn:
+        conn.execute("DELETE FROM sync_partner WHERE id=1")
 
 
 def einstellung_projects_dir_lesen(db_path: Path) -> str | None:
