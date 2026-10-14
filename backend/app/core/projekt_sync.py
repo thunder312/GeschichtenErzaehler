@@ -30,9 +30,15 @@ from pathlib import Path
 
 SYNC_DATEI = ".sync.json"
 
+# Gross und keine Projektdaten (Hoerbuecher, Titelbild-Verlauf): werden weder
+# uebertragen noch gehasht und beim Spiegeln/Aufraeumen nie angefasst - sie
+# gehoeren der Instanz, auf der sie liegen.
+_NUR_LOKAL = ("*.mp3", "cover_log")
+
 # Nie uebertragen und nie gehasht: instanz-lokale Metadaten, Sicherungen und
 # Dateisystem-Muell (Dropbox/Windows).
-_TRANSFER_AUSSCHLUSS = ("*.bak", SYNC_DATEI, "desktop.ini", "Thumbs.db", ".dropbox*", "*.tmp", "__pycache__")
+_TRANSFER_AUSSCHLUSS = ("*.bak", SYNC_DATEI, "desktop.ini", "Thumbs.db", ".dropbox*", "*.tmp", "__pycache__",
+                        *_NUR_LOKAL)
 # Werden uebertragen (z.B. damit "Fortsetzen" nach dem Umzug klappt), zaehlen
 # aber nicht fuer den Hash: Laufzeit-Status aendert sich staendig (Zeitstempel,
 # Log-Zeilen), ohne dass sich am Projektinhalt etwas geaendert haette.
@@ -111,6 +117,30 @@ def abgleich_vermerken(projekt: Path, *, id_: str, hash_: str, richtung: str, pa
     })
     meta.pop("lokal_aufraeumen", None)
     meta_schreiben(projekt, meta)
+
+
+def projekt_leeren(projekt: Path) -> int:
+    """Entfernt alle Projektdateien ausser den instanz-eigenen (MP3, cover_log).
+    Gibt die Zahl der bewusst behaltenen Dateien zurueck; der Projektordner
+    selbst verschwindet nur, wenn nichts uebrig bleibt."""
+    behalten = 0
+    for pfad in projekt.rglob("*"):
+        if not pfad.is_file():
+            continue
+        if _passt(pfad.relative_to(projekt), _NUR_LOKAL):
+            behalten += 1
+        else:
+            pfad.unlink()
+    for ordner in sorted((p for p in projekt.rglob("*") if p.is_dir()), key=lambda p: -len(p.parts)):
+        try:
+            ordner.rmdir()
+        except OSError:
+            pass
+    try:
+        projekt.rmdir()
+    except OSError:
+        pass
+    return behalten
 
 
 def laufende_jobs(projekt: Path) -> list[str]:

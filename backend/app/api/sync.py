@@ -16,7 +16,6 @@ verschluckt (siehe fallback_router in app/api/projects.py).
 """
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 import httpx
@@ -448,9 +447,10 @@ def lokal_entfernen_wenn_synchron(settings: Settings, benutzer: Benutzer, ordner
             "nachricht": "Lokal entfernt wird nur, wenn der Server alle lokalen Änderungen schon hat. "
                          + vergleich["nachricht"]})
     pfad = projekt_pfad(settings, benutzer.username, ordner)
-    shutil.rmtree(pfad)
+    behalten = ps.projekt_leeren(pfad)
     # Leeren Epoche-Ordner NICHT entfernen: dort liegen die exportierten PDFs.
-    return {"entfernt": True, "nachricht": "Lokale Projektdateien entfernt."}
+    hinweis = f" {behalten} MP3-/Titelbild-Verlaufsdatei(en) bleiben hier liegen." if behalten else ""
+    return {"entfernt": True, "nachricht": "Lokale Projektdateien entfernt." + hinweis}
 
 
 @router.post("/lokal-aufraeumen")

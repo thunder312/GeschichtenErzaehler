@@ -280,3 +280,34 @@ def test_aufraeumen_vorgemerkt_auf_server_wird_lokal_sichtbar(zwei):
     assert zeile["status"] == "server_neuer" and zeile["aufraeumen_vorgemerkt"] is True
     sync.lokal_entfernen_wenn_synchron(lokal, bl, "Regency/S", vorher_hochladen=False)
     assert not (_wurzel(lokal, bl) / "Regency" / "S").exists()
+
+
+def test_mp3_und_cover_log_werden_nicht_uebertragen_und_nie_geloescht(zwei):
+    lokal, bl, server, bs = zwei
+    p = _projekt(_wurzel(lokal, bl), "Regency", "S")
+    (p / "hoerbuch.mp3").write_bytes(b"x" * 1000)
+    (p / "projekt" / "cover_log").mkdir()
+    (p / "projekt" / "cover_log" / "a.png").write_bytes(b"png")
+    hash_vorher = ps.inhalt_hash(p)
+
+    sync.hochladen(sync.UebertragenAnfrage(ordner="Regency/S"), lokal, bl)
+    ziel = _wurzel(server, bs) / "Regency" / "S"
+    assert (ziel / "projekt" / "kapitel_01.md").exists()
+    assert not (ziel / "hoerbuch.mp3").exists() and not (ziel / "projekt" / "cover_log").exists()
+
+    # MP3 hinzufuegen/aendern aendert den Stand nicht
+    (p / "neu.mp3").write_bytes(b"y")
+    assert ps.inhalt_hash(p) == hash_vorher
+    assert sync.vergleichen(lokal, bl)["zeilen"][0]["status"] == "gleich"
+
+    # Server-Seite hat eigene MP3: Spiegeln beim Herunterladen laesst sie liegen
+    (ziel / "server.mp3").write_bytes(b"z")
+    (p / "projekt" / "kapitel_01.md").write_text("lokal neuer", encoding="utf-8")
+    sync.hochladen(sync.UebertragenAnfrage(ordner="Regency/S"), lokal, bl)
+    assert (ziel / "server.mp3").exists()
+
+    # Lokal entfernen loescht Projektdateien, aber nicht MP3/cover_log
+    antwort = sync.lokal_entfernen_wenn_synchron(lokal, bl, "Regency/S", vorher_hochladen=False)
+    assert not (p / "projekt" / "kapitel_01.md").exists()
+    assert (p / "hoerbuch.mp3").exists() and (p / "projekt" / "cover_log" / "a.png").exists()
+    assert "bleiben" in antwort["nachricht"]
