@@ -436,3 +436,8 @@ seine eigenen Projekte. Alle drei Tabs sind nur für Admin-Konten sichtbar.
 Siehe auch: **Hilfe** (Kopfbereich) für den Ablauf einer komplett neuen
 Geschichte Schritt für Schritt sowie den Umgang mit unterbrochenen
 Verbindungen.
+
+Für den Ablauf „auf dem Server beginnen, lokal über Nacht fertig schreiben“:
+[Anwendungsfall-Nachtlauf-lokal.md](Anwendungsfall-Nachtlauf-lokal.md)
+(ausführlich, mit Testszenario) bzw. [Quickstart-Nachtlauf.md](Quickstart-Nachtlauf.md)
+(Kurzfassung).

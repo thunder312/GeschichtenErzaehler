@@ -405,3 +405,8 @@ projects. All three tabs are only visible to admin accounts.
 
 See also: **Hilfe** (Help, in the header) for the step-by-step workflow of
 a completely new story, as well as how to handle interrupted connections.
+
+For the workflow "start on the server, finish writing locally overnight":
+[Anwendungsfall-Nachtlauf-lokal.en.md](Anwendungsfall-Nachtlauf-lokal.en.md)
+(detailed, with test scenario) or [Quickstart-Nachtlauf.en.md](Quickstart-Nachtlauf.en.md)
+(short version).

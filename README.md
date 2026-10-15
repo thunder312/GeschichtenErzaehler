@@ -17,7 +17,8 @@ repository. See [Language scope](#language-scope) below.
 ```
 backend/    FastAPI backend (Python 3.12+) - pipeline logic, Ollama/SSH connectivity
 frontend/   React + TypeScript + Vite + Tailwind - tab-based user interface
-docs/       User guide + interface overview (German originals + English translations, *.en.md)
+docs/       User guide + interface overview (German originals + English translations, *.en.md);
+            overnight workflow server -> PC: docs/Quickstart-Nachtlauf.en.md, docs/Anwendungsfall-Nachtlauf-lokal.en.md
 pre-GUI/    Unmodified backup of the original CLI script (no longer edited)
 ```
 

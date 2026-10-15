@@ -13,7 +13,8 @@ einer SSH-Anbindung an entfernte Ollama-Server/Docker-Container.
 ```
 backend/    FastAPI-Backend (Python 3.12+) - Pipeline-Logik, Ollama-/SSH-Anbindung
 frontend/   React + TypeScript + Vite + Tailwind - Tab-basierte Bedienoberfläche
-docs/       Bedienungsanleitung + Schnittstellen-Übersicht (auch auf Englisch, siehe docs/*.en.md)
+docs/       Bedienungsanleitung + Schnittstellen-Übersicht (auch auf Englisch, siehe docs/*.en.md);
+            Nachtlauf-Ablauf Server -> PC: docs/Quickstart-Nachtlauf.md, docs/Anwendungsfall-Nachtlauf-lokal.md
 pre-GUI/    Unveränderte Sicherung des ursprünglichen CLI-Skripts (nicht mehr bearbeiten)
 ```
 
