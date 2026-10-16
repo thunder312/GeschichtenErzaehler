@@ -134,29 +134,17 @@ export function RechtschreibungPage({ ordner, projekt, sshZielId }: Rechtschreib
     setGespeichertHinweis(null);
   }, [ordner]);
 
+  // Aktualisiert NUR die Wortliste eines Kapitels (gegen den gespeicherten
+  // Serverstand) - der Editortext samt Spannen bleibt unangetastet, damit
+  // ungespeicherte Eingaben nicht verloren gehen.
   async function pruefeKapitel(n: number) {
-    setBloecke((b) => ({
-      ...b,
-      [n]: { kapiteltext: b[n]?.kapiteltext ?? "", woerter: null, hunspellVerfuegbar: true, geladen: b[n]?.geladen ?? false, laedt: true, fehler: null },
-    }));
     try {
-      const [kapiteltext, antwort] = await Promise.all([api.kapitel(ordner, n), api.rechtschreibung(ordner, n, sshZielId || null)]);
-      setBloecke((b) => ({
-        ...b,
-        [n]: {
-          kapiteltext,
-          woerter: antwort.unbekannte_woerter,
-          hunspellVerfuegbar: antwort.hunspell_verfuegbar,
-          geladen: true,
-          laedt: false,
-          fehler: null,
-        },
-      }));
+      const antwort = await api.rechtschreibung(ordner, n, sshZielId || null);
+      setBloecke((b) =>
+        b[n] ? { ...b, [n]: { ...b[n], woerter: antwort.unbekannte_woerter, hunspellVerfuegbar: antwort.hunspell_verfuegbar, fehler: null } } : b,
+      );
     } catch (e) {
-      setBloecke((b) => ({
-        ...b,
-        [n]: { ...b[n], laedt: false, fehler: e instanceof Error ? e.message : String(e) },
-      }));
+      setBloecke((b) => (b[n] ? { ...b, [n]: { ...b[n], fehler: e instanceof Error ? e.message : String(e) } } : b));
     }
   }
 
@@ -258,6 +246,9 @@ export function RechtschreibungPage({ ordner, projekt, sshZielId }: Rechtschreib
     );
     setKombiniert(text);
     setSpannen(neueSpannen);
+    // Im anderen Tab geaenderte Kapitel: Wortliste neu ermitteln.
+    for (const n of uebernahmen.keys()) void pruefeKapitel(n);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kapitelStand, ordner, kapitelNummern, bloecke, kombiniert]);
 
   async function alleErneutPruefen() {
@@ -284,6 +275,7 @@ export function RechtschreibungPage({ ordner, projekt, sshZielId }: Rechtschreib
           return kopie;
         });
         setGespeichertHinweis(`Gespeichert (Kapitel ${geaendert.join(", ")}).`);
+        for (const n of geaendert) void pruefeKapitel(n);
       } else {
         setGespeichertHinweis("Keine Änderungen.");
       }
@@ -342,7 +334,7 @@ export function RechtschreibungPage({ ordner, projekt, sshZielId }: Rechtschreib
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle>📖 Rechtschreibung (hunspell)</CardTitle>
           <Button onClick={alleErneutPruefen} disabled={kapitelNummern.length === 0} variant="secondary">
-            Alle erneut prüfen
+            Wortliste aktualisieren
           </Button>
         </div>
         <p className="text-xs text-text-muted">
