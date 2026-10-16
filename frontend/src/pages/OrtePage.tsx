@@ -46,7 +46,7 @@ export function OrtePage({ epochen }: OrtePageProps) {
 
   return (
     <div className="seite space-y-6 p-4 sm:p-6">
-      <Card>
+      <Card className="!shrink-0">
         <CardTitle>🗺️ Orte-Fundus</CardTitle>
         <p className="text-sm text-text-muted">
           Sammelt wiederverwendbare Schauplätze mit Beschreibung, getrennt nach Epoche - beim Ausfüllen des

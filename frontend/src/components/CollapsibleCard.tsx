@@ -24,7 +24,7 @@ interface CollapsibleCardProps {
 export function CollapsibleCard({ title, children, defaultOffen = true, className = "", aktionen }: CollapsibleCardProps) {
   const [offen, setOffen] = useState(defaultOffen);
   return (
-    <Card className={`p-0 ${className}`}>
+    <Card className={`p-0 ${offen ? "" : "!shrink-0"} ${className}`}>
       {/* Die ganze Kopfzeile ist klickbar; Elemente in `aktionen` (Buttons,
           Hinweise) stoppen das Event, damit sie nicht mit-umschalten. */}
       <div

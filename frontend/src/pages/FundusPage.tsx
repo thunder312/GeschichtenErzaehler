@@ -72,20 +72,17 @@ export function FundusPage({ sshZielId, epochen }: FundusPageProps) {
 
   return (
     <div className="seite space-y-6 p-4 sm:p-6">
-      <Card>
-        <CardTitle>🧬 Personen-Fundus</CardTitle>
+      <Card className="!shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <CardTitle>🧬 Personen-Fundus</CardTitle>
+          <Button variant="secondary" onClick={importieren} disabled={!!aktivitaet}>
+            {aktivitaet ? "Importiert..." : "Aus vorhandenen Geschichten importieren"}
+          </Button>
+        </div>
         <p className="text-sm text-text-muted">
           Sammelt Figuren aus abgeschlossenen Geschichten, getrennt nach Epoche, damit der Architekt sie bei neuen
           Geschichten vorschlagen kann.
         </p>
-        <Button
-          className="mt-4"
-          variant="secondary"
-          onClick={importieren}
-          disabled={!!aktivitaet}
-        >
-          {aktivitaet ? "Importiert..." : "Aus vorhandenen Geschichten importieren"}
-        </Button>
         {importHinweis && <p className="mt-2 text-xs text-text-muted">{importHinweis}</p>}
       </Card>
 

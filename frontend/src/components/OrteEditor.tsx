@@ -150,8 +150,8 @@ export function OrteEditor({ epochen, onGeaendert }: OrteEditorProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_1.4fr]">
-      <Card className="flex flex-col gap-3">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_1.4fr] lg:grid-rows-[minmax(0,1fr)] lg:!flex-1 lg:!overflow-hidden">
+      <Card className="flex min-h-0 flex-col gap-3 lg:overflow-hidden">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-heading text-sm font-semibold tracking-wide text-text">
             {gefiltert.length} von {orte.length} Orten
@@ -175,7 +175,7 @@ export function OrteEditor({ epochen, onGeaendert }: OrteEditorProps) {
           ))}
         </Select>
 
-        <ul className="max-h-[clamp(320px,60vh,700px)] space-y-1 overflow-y-auto">
+        <ul className="max-h-[clamp(320px,60vh,700px)] space-y-1 overflow-y-auto lg:min-h-0 lg:max-h-none lg:flex-1">
           {gefiltert.map((o) => (
             <li key={ortSchluessel(o)}>
               <button
@@ -196,7 +196,7 @@ export function OrteEditor({ epochen, onGeaendert }: OrteEditorProps) {
         </ul>
       </Card>
 
-      <Card>
+      <Card className="min-h-0 lg:overflow-y-auto">
         {!ausgewaehlterOrt ? (
           <p className="text-sm text-text-muted">Links einen Ort auswählen, um ihn zu bearbeiten.</p>
         ) : (

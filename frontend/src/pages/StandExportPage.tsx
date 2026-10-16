@@ -275,6 +275,13 @@ export function StandExportPage({
     }
   }
 
+  // Ein Button fuer beides: ist "von" und/oder "bis" gesetzt, wird der
+  // Zwischenstand dieses Bereichs zusammengefasst, sonst alle Kapitel.
+  function zusammenfassenOderExportieren() {
+    if (von == null && bis == null) exportieren();
+    else zusammenfassen();
+  }
+
   // Wiederholt die zuletzt genutzte der beiden Export-Aktionen (beide lesen
   // die Kapitel-Dateien ohnehin bei jedem Aufruf frisch von der Platte, kein
   // Ollama-Aufruf - "neu laden" ist hier also einfach derselbe Klick nochmal,
@@ -427,16 +434,6 @@ export function StandExportPage({
       <Card>
         <CardTitle>🗂️ Export / Zwischenstand</CardTitle>
         <div className="flex flex-wrap items-end gap-4">
-          <Button onClick={exportieren} variant="secondary" disabled={ladenExport}>
-            Alle Kapitel zusammenfassen
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => window.open(api.exportPdfUrl(ordner), "_blank")}
-          >
-            📖 Als PDF-Buch herunterladen
-          </Button>
           <div>
             <Label>von Kapitel</Label>
             <Input type="number" min={1} className="w-24" value={von ?? ""} onChange={(e) => setVon(e.target.value ? Number(e.target.value) : undefined)} />
@@ -445,8 +442,17 @@ export function StandExportPage({
             <Label>bis Kapitel</Label>
             <Input type="number" min={1} className="w-24" value={bis ?? ""} onChange={(e) => setBis(e.target.value ? Number(e.target.value) : undefined)} />
           </div>
-          <Button onClick={zusammenfassen} variant="secondary" disabled={ladenExport}>
-            Zwischenstand zusammenfassen
+          <Button onClick={zusammenfassenOderExportieren} variant="secondary" disabled={ladenExport}>
+            {von == null && bis == null
+              ? "Alle Kapitel zusammenfassen"
+              : `Kapitel ${von ?? "…"}–${bis ?? "…"} zusammenfassen`}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => window.open(api.exportPdfUrl(ordner), "_blank")}
+          >
+            📖 Als PDF-Buch herunterladen
           </Button>
         </div>
         {gesamtText && (

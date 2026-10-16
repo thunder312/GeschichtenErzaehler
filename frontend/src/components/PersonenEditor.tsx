@@ -221,8 +221,8 @@ export function PersonenEditor({ epochen, onGeaendert }: PersonenEditorProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_1.4fr]">
-      <Card className="flex flex-col gap-3">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_1.4fr] lg:grid-rows-[minmax(0,1fr)] lg:!flex-1 lg:!overflow-hidden">
+      <Card className="flex min-h-0 flex-col gap-3 lg:overflow-hidden">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-heading text-sm font-semibold tracking-wide text-text">
             {gefiltert.length} von {figuren.length} Personen
@@ -250,7 +250,7 @@ export function PersonenEditor({ epochen, onGeaendert }: PersonenEditorProps) {
           <Input placeholder="Rolle enthält..." value={rolleFilter} onChange={(e) => setRolleFilter(e.target.value)} />
         </div>
 
-        <ul className="max-h-[clamp(320px,60vh,700px)] space-y-1 overflow-y-auto">
+        <ul className="max-h-[clamp(320px,60vh,700px)] space-y-1 overflow-y-auto lg:min-h-0 lg:max-h-none lg:flex-1">
           {gefiltert.map((f) => (
             <li key={figurSchluessel(f)}>
               <button
@@ -275,7 +275,7 @@ export function PersonenEditor({ epochen, onGeaendert }: PersonenEditorProps) {
         </ul>
       </Card>
 
-      <Card>
+      <Card className="min-h-0 lg:overflow-y-auto">
         {!ausgewaehlteFigur || !bearbeitung ? (
           <p className="text-sm text-text-muted">Links eine Person auswählen, um sie zu bearbeiten.</p>
         ) : (
