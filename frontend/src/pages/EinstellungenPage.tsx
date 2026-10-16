@@ -134,7 +134,7 @@ export function EinstellungenPage({ sshZiele, onSshZieleGeaendert }: Einstellung
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="seite space-y-6 p-4 sm:p-6">
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="space-y-6">
           <EinklappbareKarte titel="🗂️ Speicherort der Geschichten">

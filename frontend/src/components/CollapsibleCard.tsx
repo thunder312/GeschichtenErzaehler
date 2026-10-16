@@ -25,19 +25,18 @@ export function CollapsibleCard({ title, children, defaultOffen = true, classNam
   const [offen, setOffen] = useState(defaultOffen);
   return (
     <Card className={`p-0 ${className}`}>
+      {/* Die ganze Kopfzeile ist klickbar; Elemente in `aktionen` (Buttons,
+          Hinweise) stoppen das Event, damit sie nicht mit-umschalten. */}
       <div
-        className={`flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 ${offen ? "border-b border-border" : ""}`}
+        onClick={() => setOffen((bisher) => !bisher)}
+        className={`flex cursor-pointer flex-wrap items-center justify-between gap-3 px-4 py-2.5 hover:bg-surface-hover/40 ${offen ? "border-b border-border" : ""}`}
       >
         <h2 className="font-heading text-lg font-semibold tracking-wide text-text">{title}</h2>
         <div className="flex flex-wrap items-center gap-3">
-          {aktionen}
-          <button
-            type="button"
-            onClick={() => setOffen((bisher) => !bisher)}
-            className="text-xs text-accent-light hover:underline"
-          >
-            {offen ? "Einklappen" : "Ausklappen"}
-          </button>
+          <div onClick={(e) => e.stopPropagation()} className="flex flex-wrap items-center gap-3 cursor-default">
+            {aktionen}
+          </div>
+          <span className="text-xs text-accent-light">{offen ? "Einklappen" : "Ausklappen"}</span>
         </div>
       </div>
       {offen && children}

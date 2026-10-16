@@ -113,3 +113,31 @@ body {
 .monaco-editor .finding-konflikt {
   background-color: rgba(248, 113, 113, 0.4);
 }
+
+/*
+ * Desktop-Layout ohne Hauptframe-Scrollbalken: Der Tab-Inhalt fuellt die
+ * verfuegbare Hoehe (siehe App.tsx), jede Seite traegt die Klasse `seite`.
+ * Ihre direkten Kinder (Container bzw. Spalten) scrollen bei Bedarf selbst.
+ * Auf schmalen Bildschirmen bleibt das normale Seiten-Scrollen erhalten.
+ */
+@media (min-width: 1024px) {
+  .seite {
+    height: 100%;
+    overflow: hidden;
+  }
+  .seite.grid {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .seite:not(.grid) {
+    display: flex;
+    flex-direction: column;
+  }
+  .seite > * {
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+  }
+  .seite:not(.grid) > * {
+    flex: 0 1 auto;
+  }
+}

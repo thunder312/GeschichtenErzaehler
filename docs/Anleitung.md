@@ -227,11 +227,6 @@ Nach „Schreiben starten“ läuft automatisch mit:
 - **Stand-Sicherstellung** — fehlt der Stand des vorherigen Kapitels, wird
   er automatisch nachgeholt, bevor das neue Kapitel geschrieben wird
 
-Unterhalb des Kapiteltexts steht außerdem das Feld **„Frage zur
-Geschichte“** — beantwortet Verständnisfragen zum bisherigen Verlauf (z. B.
-„wie hieß die Nebenfigur aus Kapitel 2 nochmal?“) rein informativ, ohne die
-Geschichte fortzuschreiben.
-
 Ein bereits geschriebenes Kapitel wird beim erneuten „Schreiben starten“
 überschrieben — die alte Fassung wird automatisch als `.bak`-Datei
 gesichert, nichts geht verloren.

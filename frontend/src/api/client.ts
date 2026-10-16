@@ -408,12 +408,6 @@ export const api = {
 
   exportPdfUrl: (ordner: string) => `/api/projects/${ordner}/export/pdf`,
 
-  storyFrage: (ordner: string, frage: string, sshZielId?: string | null) =>
-    anfrage<{ antwort: string }>(
-      `/api/projects/${ordner}/frage${sshQuery(sshZielId)}`,
-      { method: "POST", body: JSON.stringify({ frage }) },
-    ),
-
   coverPromptVorschlagen: (ordner: string, sshZielId?: string | null) =>
     anfrage<{ prompt: string }>(
       `/api/projects/${ordner}/cover/prompt-vorschlagen${sshQuery(sshZielId)}`,

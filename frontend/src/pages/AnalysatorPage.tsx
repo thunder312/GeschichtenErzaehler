@@ -308,7 +308,7 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
   const geschaetzteKapitel = Math.max(1, Math.round(woerterAnzahl / 1400));
 
   return (
-    <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[2fr_1fr]">
+    <div className="seite grid grid-cols-1 gap-6 p-4 sm:p-6 items-start lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <Card>
         <CardTitle>🔬 Analysator</CardTitle>
         <p className="mb-4 text-sm text-text-muted">
@@ -465,11 +465,11 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
               </div>
               {dateiHinweis && <p className="mb-1 text-xs text-text-muted">{dateiHinweis}</p>}
               <Textarea
-                rows={16}
+                rows={8}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Text hier einfügen oder eine Datei laden..."
-                className="font-mono text-sm"
+                className="h-[24vh] min-h-32 font-mono text-sm"
               />
               <UebersetzenPanel
                 text={text}
@@ -537,6 +537,7 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
         )}
       </Card>
 
+      <div className="min-w-0 space-y-6">
       <Card>
         <CardTitle>So funktioniert's</CardTitle>
         <ol className="list-decimal space-y-2 pl-4 text-sm text-text-muted">
@@ -602,6 +603,7 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
           )}
         </Card>
       )}
+      </div>
 
       {loeschenAnfrage && (
         <ConfirmDialog

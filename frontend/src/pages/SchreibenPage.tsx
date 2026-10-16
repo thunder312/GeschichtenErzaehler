@@ -65,14 +65,6 @@ export function SchreibenPage({
   const [phase, setPhase] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  // "Frage zur Geschichte" (siehe fragen() unten) - rein informationell,
-  // NICHT zu verwechseln mit "zusatzhinweis" oben, das Wuensche fuer das
-  // naechste geschriebene Kapitel entgegennimmt. Nur session-lokal, keine
-  // Persistenz noetig - eine kurze Nachschlage-Historie fuer diesen Besuch.
-  const [frage, setFrage] = useState("");
-  const [frageVerlauf, setFrageVerlauf] = useState<{ frage: string; antwort: string }[]>([]);
-  const [ladenFrage, setLadenFrage] = useState(false);
-  const [frageFehler, setFrageFehler] = useState<string | null>(null);
   // Feature "KI- und Speicherkontrolle": Rückfrage VOR jedem Start (interaktiv,
   // Automatik, "Bestätige alles") - "Bild-Container herunterfahren?". Rein
   // clientseitig: der Dialog wird per Promise aufgelöst, dann startet der
@@ -467,22 +459,6 @@ export function SchreibenPage({
     };
   }
 
-  async function fragen() {
-    const text = frage.trim();
-    if (!text) return;
-    setLadenFrage(true);
-    setFrageFehler(null);
-    try {
-      const antwort = await api.storyFrage(ordner, text, sshZielId || null);
-      setFrageVerlauf((bisher) => [...bisher, { frage: text, antwort: antwort.antwort }]);
-      setFrage("");
-    } catch (e) {
-      setFrageFehler(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLadenFrage(false);
-    }
-  }
-
   function abbrechen() {
     socketRef.current?.close();
     setLaeuft(false);
@@ -524,7 +500,7 @@ export function SchreibenPage({
     !automatikStatus?.laeuft && geschriebeneKapitel.length > 0 && naechsteLuecke != null;
 
   return (
-    <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_2fr]">
+    <div className="seite grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:grid-rows-[minmax(0,max-content)_auto]! lg:content-start">
       {skDialog && (
         <SpeicherkontrolleDialog
           status={skDialog.status}
@@ -586,44 +562,6 @@ export function SchreibenPage({
           {fehler && <p className="text-sm text-red-400">{fehler}</p>}
         </Card>
 
-        <Card className="h-fit space-y-3">
-          <CardTitle>❓ Frage zur Geschichte</CardTitle>
-          <p className="text-xs text-text-muted">
-            Frag zwischendurch etwas zum bisherigen Verlauf (z.B. Namen, Details) - wird aus Gerüst und
-            aktuellem Stand beantwortet, ohne die Geschichte fortzuschreiben. Für Wünsche ans nächste Kapitel
-            nutze stattdessen den "Zusätzlichen Hinweis" oben.
-          </p>
-          {frageVerlauf.length > 0 && (
-            <div className="max-h-56 space-y-2 overflow-auto rounded-lg bg-bg p-2 text-sm">
-              {frageVerlauf.map((eintrag, i) => (
-                <div key={i} className="space-y-0.5">
-                  <p className="text-text-muted">❓ {eintrag.frage}</p>
-                  <p className="text-text">{eintrag.antwort}</p>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex gap-2">
-            <textarea
-              className="flex-1 resize-none rounded-lg border border-border bg-bg px-3 py-1.5 text-sm text-text outline-none transition-colors focus:border-accent"
-              rows={2}
-              value={frage}
-              onChange={(e) => setFrage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  fragen();
-                }
-              }}
-              placeholder="z.B. Wie hieß die Nebenfigur aus Kapitel 2 nochmal?"
-              disabled={ladenFrage}
-            />
-            <Button onClick={fragen} disabled={ladenFrage || !frage.trim()}>
-              {ladenFrage ? "..." : "Fragen"}
-            </Button>
-          </div>
-          {frageFehler && <p className="text-sm text-red-400">{frageFehler}</p>}
-        </Card>
       </div>
 
       <div className="space-y-4">
@@ -672,8 +610,22 @@ export function SchreibenPage({
         )}
       </div>
 
-      <Card className="lg:col-span-2">
-        <CardTitle>🤖 Automatikmodus</CardTitle>
+      <div className="space-y-3 lg:col-span-2 lg:max-h-[45vh]">
+      {!automatikStatus?.laeuft &&
+        automatikStatus != null &&
+        automatikStatus.protokoll.length > 0 &&
+        hatReste(automatikStatus.protokoll) &&
+        !automatikStatus.abgeschlossen && (
+          <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+            ⏸️ Automatikmodus angehalten: ungelöste Prüfer-Funde seit Laufbeginn vorhanden. Im Tab "Prüfen &amp;
+            Anwenden" durchsehen, bevor du mit "Fortsetzen" weitermachst - sonst häufen sich ungelöste
+            Kontinuitätsprobleme über weitere Kapitel hinweg an.
+          </div>
+        )}
+
+      <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[repeat(3,minmax(0,1fr))]">
+      <CollapsibleCard title="🤖 Automatikmodus" defaultOffen={false}>
+        <div className="p-4">
         <p className="mb-3 text-xs text-text-muted">
           Schreibt alle noch fehlenden Kapitel am Stück und wendet danach für jedes Kapitel automatisch alle
           eindeutigen Prüfer-Korrekturen an. Widersprüchliche Vorschläge und nicht auffindbare Stellen werden
@@ -900,25 +852,20 @@ export function SchreibenPage({
           <p className="mt-2 text-sm text-red-400">Fehler im letzten Lauf: {automatikStatus.fehler}</p>
         )}
 
+        </div>
+      </CollapsibleCard>
+
         {!automatikStatus?.laeuft && automatikStatus != null && automatikStatus.protokoll.length > 0 && (() => {
           const reste = hatReste(automatikStatus.protokoll);
           const zusammenfassung = resteZusammenfassen(automatikStatus.protokoll);
           const uebersprungenGesamt = zusammenfassung.gesamt - zusammenfassung.angewendet;
           return (
             <>
-              {reste && !automatikStatus.abgeschlossen && (
-                <div className="mt-3 rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
-                  ⏸️ Automatikmodus angehalten: ungelöste Prüfer-Funde seit Laufbeginn vorhanden. Im Tab "Prüfen
-                  &amp; Anwenden" durchsehen, bevor du mit "Fortsetzen" weitermachst - sonst häufen sich ungelöste
-                  Kontinuitätsprobleme über weitere Kapitel hinweg an.
-                </div>
-              )}
               <CollapsibleCard
                 title={`Protokoll des letzten Laufs (${zusammenfassung.angewendet}/${zusammenfassung.gesamt} angewendet${
                   uebersprungenGesamt > 0 ? `, ${uebersprungenGesamt} übersprungen` : ""
                 })`}
-                defaultOffen={reste}
-                className="mt-3"
+                defaultOffen={false}
               >
                 <div className="space-y-2 p-4 text-xs text-text-muted">
                   {uebersprungenGesamt > 0 && (
@@ -962,7 +909,7 @@ export function SchreibenPage({
         })()}
 
         {automatikVerlauf.length > 0 && (
-          <CollapsibleCard title={`Lauf-Historie (${automatikVerlauf.length})`} defaultOffen={false} className="mt-3">
+          <CollapsibleCard title={`Lauf-Historie (${automatikVerlauf.length})`} defaultOffen={false}>
             <ul className="max-h-64 space-y-1 overflow-auto p-4 text-xs text-text-muted">
               {[...automatikVerlauf].reverse().map((eintrag, i) => (
                 <li key={i}>
@@ -980,7 +927,8 @@ export function SchreibenPage({
             </ul>
           </CollapsibleCard>
         )}
-      </Card>
+      </div>
+      </div>
     </div>
   );
 }

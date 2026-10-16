@@ -8,7 +8,7 @@ import { KiGeruestOverlay } from "../components/KiGeruestOverlay";
 import { OrdnerUmbenennenDialog } from "../components/OrdnerUmbenennenDialog";
 import { KapitelplanEditor } from "../components/KapitelplanEditor";
 import { RahmenEditor } from "../components/RahmenEditor";
-import { Badge, Button, Card, CardTitle } from "../components/ui";
+import { Badge, Button } from "../components/ui";
 import { ordnernameAusTitel, titelAusGeruest } from "../utils/geruestVorlage";
 import {
   geruestAusKapitelplanZusammenbauen,
@@ -42,11 +42,9 @@ const JUGENDSCHUTZ_ANZEIGE: Record<string, { label: string; tone: "green" | "amb
  * Card-Border. */
 function AbschnittKopf({ titel, offen, onToggle }: { titel: string; offen: boolean; onToggle: () => void }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 pt-4">
+    <div onClick={onToggle} className="flex cursor-pointer items-center justify-between gap-3 px-4 pt-4">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">{titel}</h3>
-      <button type="button" onClick={onToggle} className="text-xs text-accent-light hover:underline">
-        {offen ? "Einklappen" : "Ausklappen"}
-      </button>
+      <span className="text-xs text-accent-light">{offen ? "Einklappen" : "Ausklappen"}</span>
     </div>
   );
 }
@@ -267,7 +265,6 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
   // Kapitel.
   const [rahmenOffen, setRahmenOffen] = useState(true);
   const [kapitelplanOffen, setKapitelplanOffen] = useState(true);
-  const [ausgangslageOffen, setAusgangslageOffen] = useState(true);
 
   // "Rahmen, Titel, Figuren, ..."-Container beim (erneuten) Betreten des Tabs
   // wieder passend setzen: vollstaendig ausgefuellt -> eingeklappt, sonst
@@ -430,7 +427,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
 
   return (
     <>
-    <div className="grid grid-cols-1 items-start gap-6 p-4 sm:p-6 lg:grid-cols-[2fr_1fr]">
+    <div className="seite grid grid-cols-1 items-start gap-6 p-4 sm:p-6 lg:grid-cols-[2fr_1fr]">
       <CollapsibleCard
         title="🗺️ geruest.md"
         aktionen={
@@ -566,7 +563,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
             ))}
         </div>
 
-        <div className="border-b border-border">
+        <div>
           <AbschnittKopf titel="Kapitelplan" offen={kapitelplanOffen} onToggle={() => setKapitelplanOffen((o) => !o)} />
           {kapitelplanOffen && (
             <>
@@ -596,31 +593,22 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
             </>
           )}
         </div>
-
-        <div>
-          <AbschnittKopf
-            titel="Ausgangslage vor Kapitel eins, Offene Punkte, Regeln"
-            offen={ausgangslageOffen}
-            onToggle={() => setAusgangslageOffen((o) => !o)}
-          />
-          {ausgangslageOffen && (
-            <div className="p-4 pt-2">
-              <Editor
-                height="clamp(200px, 32vh, 360px)"
-                defaultLanguage="markdown"
-                value={nach}
-                onChange={(v) => setNach(v ?? "")}
-                theme="vs-dark"
-                options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 14 }}
-              />
-            </div>
-          )}
-        </div>
       </CollapsibleCard>
 
       <div className="space-y-6">
-        <Card>
-          <CardTitle>Erkannte Felder</CardTitle>
+        <CollapsibleCard title="Ausgangslage vor Kapitel eins" defaultOffen={false}>
+          <Editor
+            height="clamp(200px, 32vh, 360px)"
+            defaultLanguage="markdown"
+            value={nach}
+            onChange={(v) => setNach(v ?? "")}
+            theme="vs-dark"
+            options={{ wordWrap: "on", minimap: { enabled: false }, fontSize: 13 }}
+          />
+        </CollapsibleCard>
+
+        <CollapsibleCard title="Erkannte Felder" defaultOffen={false}>
+        <div className="p-4">
           <dl className="space-y-2.5 text-sm">
             <div className="flex items-center justify-between">
               <dt className="text-text-muted">Jahr</dt>
@@ -673,10 +661,12 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
               </ul>
             </>
           )}
-        </Card>
+        </div>
+        </CollapsibleCard>
 
         <CollapsibleCard
           title="🚫 verbotsliste.md"
+          defaultOffen={false}
           aktionen={
             <>
               {verbotslisteHinweis && <span className="text-xs text-accent-light">{verbotslisteHinweis}</span>}

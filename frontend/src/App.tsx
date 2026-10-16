@@ -266,8 +266,8 @@ function App() {
           dafuer, dass Kopfbereich, Tab-Leiste und Fussleiste immer fix
           sichtbar bleiben - nur dieser mittlere Bereich scrollt bei Bedarf,
           statt dass die ganze Seite scrollt. */}
-      <main className="flex-1 overflow-y-auto pb-10">
-        <div className={activeTab === "projekte" ? "" : "hidden"}>
+      <main className="min-h-0 flex-1 overflow-y-auto pb-10 lg:overflow-hidden">
+        <div className={activeTab === "projekte" ? "lg:h-full" : "hidden"}>
           <ProjektePage
             projekte={projekte}
             epochen={epochen}
@@ -286,8 +286,8 @@ function App() {
         </div>
 
         {aktuellesProjekt && (
-          <div key={aktuellesProjekt}>
-            <div className={activeTab === "geruest" ? "" : "hidden"}>
+          <div key={aktuellesProjekt} className="contents">
+            <div className={activeTab === "geruest" ? "lg:h-full" : "hidden"}>
               {interviewErzwungen || !projektDetail?.geruest ? (
                 <ArchitektInterviewPage
                   ordner={aktuellesProjekt}
@@ -316,7 +316,7 @@ function App() {
               )}
             </div>
 
-            <div className={activeTab === "schreiben" ? "" : "hidden"}>
+            <div className={activeTab === "schreiben" ? "lg:h-full" : "hidden"}>
               <SchreibenPage
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
@@ -329,7 +329,7 @@ function App() {
               />
             </div>
 
-            <div className={activeTab === "pruefen" ? "" : "hidden"}>
+            <div className={activeTab === "pruefen" ? "lg:h-full" : "hidden"}>
               <PruefenAnwendenPage
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
@@ -343,7 +343,7 @@ function App() {
               />
             </div>
 
-            <div className={activeTab === "rechtschreibung" ? "" : "hidden"}>
+            <div className={activeTab === "rechtschreibung" ? "lg:h-full" : "hidden"}>
               <RechtschreibungPage
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
@@ -351,7 +351,7 @@ function App() {
               />
             </div>
 
-            <div className={activeTab === "stand" ? "" : "hidden"}>
+            <div className={activeTab === "stand" ? "lg:h-full" : "hidden"}>
               <StandExportPage
                 ordner={aktuellesProjekt}
                 projekt={projektDetail}
@@ -364,13 +364,13 @@ function App() {
               />
             </div>
 
-            <div className={activeTab === "personas" ? "" : "hidden"}>
+            <div className={activeTab === "personas" ? "lg:h-full" : "hidden"}>
               <PersonasPage ordner={aktuellesProjekt} />
             </div>
           </div>
         )}
 
-        <div className={activeTab === "analysator" ? "" : "hidden"}>
+        <div className={activeTab === "analysator" ? "lg:h-full" : "hidden"}>
           <AnalysatorPage
             epochen={epochen}
             sshZielId={sshZielId}
@@ -379,25 +379,25 @@ function App() {
           />
         </div>
 
-        <div className={activeTab === "epoche" ? "" : "hidden"}>
+        <div className={activeTab === "epoche" ? "lg:h-full" : "hidden"}>
           <EpocheErstellenPage epochen={epochen} onEpochenGeaendert={epochenLaden} />
         </div>
 
-        <div className={activeTab === "fundus" ? "" : "hidden"}>
+        <div className={activeTab === "fundus" ? "lg:h-full" : "hidden"}>
           <FundusPage sshZielId={sshZielId} epochen={epochen} />
         </div>
 
-        <div className={activeTab === "orte" ? "" : "hidden"}>
+        <div className={activeTab === "orte" ? "lg:h-full" : "hidden"}>
           <OrtePage epochen={epochen} />
         </div>
 
         {benutzer.ist_admin && (
           <>
-            <div className={activeTab === "einstellungen" ? "" : "hidden"}>
+            <div className={activeTab === "einstellungen" ? "lg:h-full" : "hidden"}>
               <EinstellungenPage sshZiele={sshZiele} onSshZieleGeaendert={sshZieleLaden} />
             </div>
 
-            <div className={activeTab === "benutzer" ? "" : "hidden"}>
+            <div className={activeTab === "benutzer" ? "lg:h-full" : "hidden"}>
               <BenutzerPage />
             </div>
           </>

@@ -45,7 +45,7 @@ export function OrtePage({ epochen }: OrtePageProps) {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="seite space-y-6 p-4 sm:p-6">
       <Card>
         <CardTitle>🗺️ Orte-Fundus</CardTitle>
         <p className="text-sm text-text-muted">

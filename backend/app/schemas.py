@@ -521,14 +521,6 @@ class CoverLogKommentarAnfrage(BaseModel):
     kommentar: str = ""
 
 
-class StoryFrageAnfrage(BaseModel):
-    frage: str = Field(min_length=1)
-
-
-class StoryFrageAntwort(BaseModel):
-    antwort: str
-
-
 class HandlungstextAnfrage(BaseModel):
     handlungstext: str = Field(min_length=1)
 

@@ -535,7 +535,7 @@ export function PruefenAnwendenPage({ ordner, projekt, sshZielId, onGeaendert, o
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="seite space-y-6 p-4 sm:p-6">
       <Card>
         <CardTitle>🔍 Prüfen &amp; Anwenden</CardTitle>
         <p className="text-xs text-text-muted">

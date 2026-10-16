@@ -196,12 +196,6 @@ After "Schreiben starten" (Start writing), the following run automatically:
 - **State assurance** — if the state of the previous chapter is missing,
   it is automatically caught up on before the new chapter is written
 
-Below the chapter text there is also the **"Frage zur Geschichte"**
-(Question about the story) field — it answers comprehension questions
-about the story so far (e.g. "what was the name of the supporting
-character from chapter 2 again?") purely for information, without
-continuing the story.
-
 An already-written chapter is overwritten the next time "Schreiben
 starten" is clicked — the old version is automatically backed up as a
 `.bak` file, nothing is lost.

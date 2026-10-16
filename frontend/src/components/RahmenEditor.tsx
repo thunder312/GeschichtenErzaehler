@@ -210,15 +210,9 @@ function AbschnittBlock({
 
   return (
     <div className="rounded-xl border border-border bg-bg/40 p-4">
-      <div className="flex items-center justify-between gap-3">
+      <div onClick={() => setEingeklappt((e) => !e)} className="flex cursor-pointer items-center justify-between gap-3">
         <h4 className="font-heading text-sm font-semibold text-text">{titel}</h4>
-        <button
-          type="button"
-          onClick={() => setEingeklappt((e) => !e)}
-          className="shrink-0 text-xs text-accent-light hover:underline"
-        >
-          {eingeklappt ? "Ausklappen" : "Einklappen"}
-        </button>
+        <span className="shrink-0 text-xs text-accent-light">{eingeklappt ? "Ausklappen" : "Einklappen"}</span>
       </div>
       {!eingeklappt && <div className="mt-3">{children}</div>}
     </div>

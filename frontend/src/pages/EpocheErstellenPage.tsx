@@ -341,14 +341,14 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
+    <div className="seite grid grid-cols-1 items-start gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <Card>
         <CardTitle>📜 Vorhandene Epochen</CardTitle>
         {loeschenFehler && <p className="mb-3 text-sm text-red-400">{loeschenFehler}</p>}
         {epochen.length === 0 ? (
           <p className="text-sm text-text-muted">Noch keine Epoche angelegt.</p>
         ) : (
-          <ul className="divide-y divide-border">
+          <ul className="max-h-[calc(100vh-15rem)] divide-y divide-border overflow-y-auto pr-1">
             {epochen.map((e) => (
               <li key={e.name}>
                 <div className="flex items-center gap-3 px-1 py-2 text-sm">
@@ -413,7 +413,9 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
           Rohentwurf, den du danach im jeweiligen Projekt weiter verfeinern kannst.
         </p>
 
-        <EpocheFormular werte={formular} onChange={feld} />
+        <div className="max-h-[calc(100vh-22rem)] min-h-48 overflow-y-auto pr-1">
+          <EpocheFormular werte={formular} onChange={feld} />
+        </div>
 
         {fehler && <p className="mt-4 text-sm text-red-400">{fehler}</p>}
 

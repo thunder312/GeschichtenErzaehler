@@ -285,7 +285,7 @@ export function StandExportPage({
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="seite p-4 sm:p-6">
       {bildkiWarnung && (
         <ConfirmDialog
           titel="Bild-KI ist heruntergefahren"
@@ -297,6 +297,8 @@ export function StandExportPage({
           onAbbrechen={() => setBildkiWarnung(null)}
         />
       )}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="min-w-0 space-y-6">
       <Card>
         <CardTitle>📦 Zustand nach Kapitel festhalten (Chronist)</CardTitle>
         <div className="flex flex-wrap items-end gap-4">
@@ -348,7 +350,7 @@ export function StandExportPage({
         {bildZiele.length === 0 ? (
           <p className="text-sm text-text-muted">
             Kein KI-Ziel mit konfigurierter Bildgenerierung vorhanden. Unter "KI-Ziele" bei einem
-            Ziel den Bild-Port hinterlegen, um diese Funktion zu nutzen - oder unten direkt ein
+            Ziel den Bild-Port hinterlegen, um diese Funktion zu nutzen - oder rechts direkt ein
             fertiges Bild hochladen.
           </p>
         ) : (
@@ -420,7 +422,61 @@ export function StandExportPage({
           </>
         )}
 
-        <div className={bildZiele.length === 0 ? "mt-2" : "mt-6 border-t border-border pt-4"}>
+      </Card>
+
+      <Card>
+        <CardTitle>🗂️ Export / Zwischenstand</CardTitle>
+        <div className="flex flex-wrap items-end gap-4">
+          <Button onClick={exportieren} variant="secondary" disabled={ladenExport}>
+            Alle Kapitel zusammenfassen
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => window.open(api.exportPdfUrl(ordner), "_blank")}
+          >
+            📖 Als PDF-Buch herunterladen
+          </Button>
+          <div>
+            <Label>von Kapitel</Label>
+            <Input type="number" min={1} className="w-24" value={von ?? ""} onChange={(e) => setVon(e.target.value ? Number(e.target.value) : undefined)} />
+          </div>
+          <div>
+            <Label>bis Kapitel</Label>
+            <Input type="number" min={1} className="w-24" value={bis ?? ""} onChange={(e) => setBis(e.target.value ? Number(e.target.value) : undefined)} />
+          </div>
+          <Button onClick={zusammenfassen} variant="secondary" disabled={ladenExport}>
+            Zwischenstand zusammenfassen
+          </Button>
+        </div>
+        {gesamtText && (
+          <div className="mt-4">
+            <div className="mb-1 flex justify-end gap-3">
+              <button
+                onClick={exportNeuLaden}
+                disabled={ladenExport}
+                className="text-xs text-accent-light hover:underline disabled:opacity-40"
+              >
+                {ladenExport ? "Lädt..." : "🔄 Neu laden"}
+              </button>
+              <button
+                onClick={() => alsDateiHerunterladen(gesamtDateiname, gesamtText)}
+                className="text-xs text-accent-light hover:underline"
+              >
+                ⬇️ Herunterladen
+              </button>
+            </div>
+            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-text">
+              {gesamtText}
+            </pre>
+          </div>
+        )}
+      </Card>
+      </div>
+
+      <div className="min-w-0 space-y-6">
+      <Card>
+        <div>
           <Label>Oder eigenes Bild hochladen</Label>
           <p className="mb-2 text-xs text-text-muted">
             Z. B. von Hand{" "}
@@ -458,13 +514,13 @@ export function StandExportPage({
         </div>
 
         {coverVorhanden && (
-          <div className="mt-4 max-w-xs">
+          <div className="mt-4">
             <a href={`${api.coverUrl(ordner)}?v=${coverVersion}`} target="_blank" rel="noopener noreferrer">
               <img
                 key={coverVersion}
                 src={`${api.coverUrl(ordner)}?v=${coverVersion}`}
                 alt="Titelbild"
-                className="w-full cursor-zoom-in rounded-lg border border-border transition-opacity hover:opacity-90"
+                className="max-h-[38vh] w-auto max-w-full cursor-zoom-in rounded-lg border border-border transition-opacity hover:opacity-90"
               />
             </a>
           </div>
@@ -482,7 +538,7 @@ export function StandExportPage({
             </button>
 
             {verlaufOffen && (
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {[...coverLog].reverse().map((eintrag) => {
                   const istAktiv = eintrag.id === coverLogAktiveId;
                   const laeuft = verlaufAktionId === eintrag.id;
@@ -548,55 +604,8 @@ export function StandExportPage({
           </div>
         )}
       </Card>
-
-      <Card>
-        <CardTitle>🗂️ Export / Zwischenstand</CardTitle>
-        <div className="flex flex-wrap items-end gap-4">
-          <Button onClick={exportieren} variant="secondary" disabled={ladenExport}>
-            Alle Kapitel zusammenfassen
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => window.open(api.exportPdfUrl(ordner), "_blank")}
-          >
-            📖 Als PDF-Buch herunterladen
-          </Button>
-          <div>
-            <Label>von Kapitel</Label>
-            <Input type="number" min={1} className="w-24" value={von ?? ""} onChange={(e) => setVon(e.target.value ? Number(e.target.value) : undefined)} />
-          </div>
-          <div>
-            <Label>bis Kapitel</Label>
-            <Input type="number" min={1} className="w-24" value={bis ?? ""} onChange={(e) => setBis(e.target.value ? Number(e.target.value) : undefined)} />
-          </div>
-          <Button onClick={zusammenfassen} variant="secondary" disabled={ladenExport}>
-            Zwischenstand zusammenfassen
-          </Button>
-        </div>
-        {gesamtText && (
-          <div className="mt-4">
-            <div className="mb-1 flex justify-end gap-3">
-              <button
-                onClick={exportNeuLaden}
-                disabled={ladenExport}
-                className="text-xs text-accent-light hover:underline disabled:opacity-40"
-              >
-                {ladenExport ? "Lädt..." : "🔄 Neu laden"}
-              </button>
-              <button
-                onClick={() => alsDateiHerunterladen(gesamtDateiname, gesamtText)}
-                className="text-xs text-accent-light hover:underline"
-              >
-                ⬇️ Herunterladen
-              </button>
-            </div>
-            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-text">
-              {gesamtText}
-            </pre>
-          </div>
-        )}
-      </Card>
+      </div>
+      </div>
     </div>
   );
 }

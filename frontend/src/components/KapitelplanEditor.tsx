@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FundusFigur, Ort } from "../api/types";
 import type { KapitelEintrag, KapitelplanFehler } from "../utils/kapitelplan";
 import { FUNKTION_IM_SPANNUNGSBOGEN_OPTIONEN, leeresKapitel } from "../utils/kapitelplan";
@@ -51,15 +51,10 @@ export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, or
   const [zuLoeschenderIndex, setZuLoeschenderIndex] = useState<number | null>(null);
   const fehlerKeys = new Set(fehler.map((f) => `${f.index}:${f.feld}`));
 
-  // Einklappzustand je Kapitel-Karte (siehe ToDo.md: mehr Platz fuer den
-  // Block, an dem gerade gearbeitet wird, bei vielen Kapiteln sonst viel
-  // Scrollen). Enthaelt die Indizes der EINGEKLAPPTEN Karten. Startet leer,
-  // wird aber gleich beim ersten Befuellen des Kapitelplans (Effekt unten)
-  // auf "alle eingeklappt" gesetzt und bei jedem erneuten Betreten des Tabs
-  // wieder zurueckgeklappt. Ein Index mit einem Pflichtfeld-Fehler bleibt
-  // beim Einklappen-Versuch trotzdem sichtbar offen (siehe toggle()), sonst
-  // waere die rote Markierung unsichtbar, ohne dass der Nutzer weiss, wo.
-  const [eingeklappt, setEingeklappt] = useState<Set<number>>(new Set());
+  // Aktuell gewaehltes Kapitel der Tab-Leiste - nur dessen Felder werden
+  // gezeigt (statt aller Kapitel untereinander, das erzwang viel Scrollen).
+  const [auswahl, setAuswahl] = useState(0);
+  const aktuellerIndex = Math.min(auswahl, Math.max(kapitel.length - 1, 0));
 
   // Indizes, die der Nutzer explizit auf "Eigene Angabe" im Funktion-im-
   // Spannungsbogen-Dropdown umgeschaltet hat, OBWOHL das Feld gerade leer ist
@@ -67,7 +62,7 @@ export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, or
   // siehe istEigeneAngabe() unten - ein bereits mit unbekanntem Freitext
   // befuelltes Feld erkennt den Freitext-Modus ohnehin automatisch, dafuer ist
   // dieses Set nicht noetig). Bewusst kein Reindexieren bei Loeschen/
-  // Verschieben wie bei `eingeklappt` - betrifft im schlimmsten Fall kurz das
+  // Verschieben - betrifft im schlimmsten Fall kurz das
   // falsche Kapitel, ohne dass dabei je Text verloren geht.
   const [eigeneAngabeIndizes, setEigeneAngabeIndizes] = useState<Set<number>>(new Set());
 
@@ -77,61 +72,18 @@ export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, or
   }
   const indizesMitFehler = new Set(fehler.map((f) => f.index));
 
-  // Ein neu gemeldeter Pflichtfeld-Fehler klappt seine Karte automatisch
-  // wieder auf - sonst bliebe die rote Markierung in einer eingeklappten
-  // Karte unsichtbar und der Nutzer muesste sie erst suchen gehen.
+  // Ein neu gemeldeter Pflichtfeld-Fehler wechselt zum ersten betroffenen
+  // Kapitel - sonst bliebe die rote Markierung in einem nicht gezeigten
+  // Kapitel unsichtbar.
   useEffect(() => {
     if (fehler.length === 0) return;
-    setEingeklappt((bisher) => {
-      const neu = new Set(bisher);
-      for (const f of fehler) neu.delete(f.index);
-      return neu;
-    });
+    setAuswahl(Math.min(...fehler.map((f) => f.index)));
   }, [fehler]);
 
-  // Indizes, die (unter Aussparung von Karten mit Pflichtfeld-Fehler, deren
-  // rote Markierung sichtbar bleiben muss) einzuklappen sind - dieselbe Regel
-  // wie in alleEinklappen().
-  function alleKapitelIndizesOhneFehler(): Set<number> {
-    return new Set(kapitel.map((_, i) => i).filter((i) => !indizesMitFehler.has(i)));
-  }
-
-  // Beim ersten Befuellen des Kapitelplans alle Karten eingeklappt starten -
-  // bei laengeren Plaenen ist die volle Formularliste sonst sehr lang. Nur
-  // EINMAL; danach entscheidet der Nutzer per Toggle.
-  const initialEingeklappt = useRef(false);
+  // Erneutes Betreten des Tabs "Architekt / Gerüst": wieder bei Kapitel 1 starten.
   useEffect(() => {
-    if (initialEingeklappt.current || kapitel.length === 0) return;
-    initialEingeklappt.current = true;
-    setEingeklappt(alleKapitelIndizesOhneFehler());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kapitel]);
-
-  // Erneutes Betreten des Tabs "Architekt / Gerüst" (aktiv wechselt auf true):
-  // wieder alle Karten einklappen, damit man mit demselben aufgeraeumten
-  // Ueberblick startet.
-  useEffect(() => {
-    if (!aktiv) return;
-    setEingeklappt(alleKapitelIndizesOhneFehler());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (aktiv) setAuswahl(0);
   }, [aktiv]);
-
-  function toggle(index: number) {
-    setEingeklappt((bisher) => {
-      const neu = new Set(bisher);
-      if (neu.has(index)) neu.delete(index);
-      else if (!indizesMitFehler.has(index)) neu.add(index);
-      return neu;
-    });
-  }
-
-  function alleEinklappen() {
-    setEingeklappt(alleKapitelIndizesOhneFehler());
-  }
-
-  function alleAusklappen() {
-    setEingeklappt(new Set());
-  }
 
   function feldAendern<K extends keyof KapitelEintrag>(index: number, feld: K, wert: KapitelEintrag[K]) {
     onChange(kapitel.map((k, i) => (i === index ? { ...k, [feld]: wert } : k)));
@@ -139,24 +91,14 @@ export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, or
 
   function hinzufuegen() {
     onChange([...kapitel, leeresKapitel()]);
+    setAuswahl(kapitel.length);
   }
 
   function entfernenBestaetigt() {
     if (zuLoeschenderIndex === null) return;
     const geloeschterIndex = zuLoeschenderIndex;
     onChange(kapitel.filter((_, i) => i !== geloeschterIndex));
-    // Einklapp-Zustand haengt am Inhalt, nicht an der Array-Position - nach
-    // dem Loeschen ruecken alle nachfolgenden Kapitel eine Nummer auf, ihr
-    // Einklapp-Zustand muss mitwandern, sonst zeigt Index N ploetzlich den
-    // Zustand des FALSCHEN (jetzt an dieser Stelle stehenden) Kapitels.
-    setEingeklappt((bisher) => {
-      const neu = new Set<number>();
-      for (const i of bisher) {
-        if (i < geloeschterIndex) neu.add(i);
-        else if (i > geloeschterIndex) neu.add(i - 1);
-      }
-      return neu;
-    });
+    setAuswahl(Math.max(0, Math.min(aktuellerIndex, kapitel.length - 2)));
     setZuLoeschenderIndex(null);
   }
 
@@ -166,16 +108,7 @@ export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, or
     const kopie = [...kapitel];
     [kopie[index], kopie[ziel]] = [kopie[ziel], kopie[index]];
     onChange(kopie);
-    // Wie oben: Einklapp-Zustand tauscht mit den beiden vertauschten Karten.
-    setEingeklappt((bisher) => {
-      const indexOffen = bisher.has(index);
-      const zielOffen = bisher.has(ziel);
-      if (indexOffen === zielOffen) return bisher;
-      const neu = new Set(bisher);
-      if (zielOffen) neu.add(index); else neu.delete(index);
-      if (indexOffen) neu.add(ziel); else neu.delete(ziel);
-      return neu;
-    });
+    setAuswahl(ziel);
   }
 
   function klasse(index: number, feld: string): string {
@@ -188,35 +121,35 @@ export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, or
         <p className="text-sm text-text-muted">Noch kein Kapitelplan. Mit „+ Kapitel" das erste Kapitel anlegen.</p>
       )}
 
-      {kapitel.length > 1 && (
-        <div className="flex justify-end gap-3 text-xs">
-          <button type="button" onClick={alleEinklappen} className="text-accent-light hover:underline">
-            Alle einklappen
-          </button>
-          <button type="button" onClick={alleAusklappen} className="text-accent-light hover:underline">
-            Alle ausklappen
-          </button>
+      {kapitel.length > 0 && (
+        <div className="flex flex-wrap gap-1 border-b border-border">
+          {kapitel.map((_, index) => {
+            const gewaehlt = index === aktuellerIndex;
+            const hatFehler = indizesMitFehler.has(index);
+            return (
+              <button
+                key={index}
+                type="button"
+                onClick={() => setAuswahl(index)}
+                className={`-mb-px rounded-t-lg border px-3 py-1.5 text-sm ${
+                  gewaehlt
+                    ? "border-border border-b-bg bg-bg/40 font-semibold text-text"
+                    : "border-transparent text-text-muted hover:bg-surface-hover"
+                } ${hatFehler ? "text-red-400" : ""}`}
+              >
+                Kapitel {index + 1}
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {kapitel.map((k, index) => {
-        const offen = !eingeklappt.has(index);
+      {kapitel.slice(aktuellerIndex, aktuellerIndex + 1).map((k) => {
+        const index = aktuellerIndex;
         return (
         <div key={index} className="rounded-xl border border-border bg-bg/40 p-4">
-          <div className={offen ? "mb-3 flex items-center justify-between gap-2" : "flex items-center justify-between gap-2"}>
-            <button
-              type="button"
-              onClick={() => toggle(index)}
-              className="flex min-w-0 flex-1 items-center gap-2 text-left"
-            >
-              <span className="text-xs text-text-muted">{offen ? "▾" : "▸"}</span>
-              <span className="font-heading text-sm font-semibold text-text">Kapitel {index + 1}</span>
-              {!offen && (
-                <span className="truncate text-xs text-text-muted">
-                  {[k.titel, k.ort].filter(Boolean).join(" · ") || "(noch leer)"}
-                </span>
-              )}
-            </button>
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-heading text-sm font-semibold text-text">Kapitel {index + 1}</span>
             <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
@@ -247,7 +180,6 @@ export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, or
             </div>
           </div>
 
-          {offen && (
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <Label>Titel</Label>
@@ -365,7 +297,6 @@ export function KapitelplanEditor({ kapitel, onChange, fehler, fundusFiguren, or
               />
             </div>
           </div>
-          )}
         </div>
         );
       })}

@@ -71,7 +71,7 @@ export function FundusPage({ sshZielId, epochen }: FundusPageProps) {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="seite space-y-6 p-4 sm:p-6">
       <Card>
         <CardTitle>🧬 Personen-Fundus</CardTitle>
         <p className="text-sm text-text-muted">

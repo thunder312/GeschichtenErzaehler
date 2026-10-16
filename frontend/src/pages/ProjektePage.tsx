@@ -581,7 +581,7 @@ export function ProjektePage({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 md:grid-cols-[2fr_1fr]">
+    <div className="seite grid grid-cols-1 gap-6 p-4 sm:p-6 md:grid-cols-[2fr_1fr]">
       <SyncPanel onProjekteGeaendert={onProjekteGeaendert} onProjektEntfernt={onProjektGeloescht} />
       <Card>
         <CardTitle>📚 Vorhandene Projekte</CardTitle>

@@ -61,7 +61,7 @@ export function PersonasPage({ ordner }: PersonasPageProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 items-start gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_3fr]">
+    <div className="seite grid grid-cols-1 items-start gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_3fr]">
       <Card>
         <CardTitle>🎭 Personas</CardTitle>
         <ul className="space-y-1">
