@@ -342,13 +342,13 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
 
   return (
     <div className="seite grid grid-cols-1 items-start gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <Card>
+      <Card className="flex flex-col lg:overflow-hidden">
         <CardTitle>📜 Vorhandene Epochen</CardTitle>
         {loeschenFehler && <p className="mb-3 text-sm text-red-400">{loeschenFehler}</p>}
         {epochen.length === 0 ? (
           <p className="text-sm text-text-muted">Noch keine Epoche angelegt.</p>
         ) : (
-          <ul className="max-h-[calc(100vh-15rem)] divide-y divide-border overflow-y-auto pr-1">
+          <ul className="min-h-0 lg:max-h-none lg:flex-1 divide-y divide-border overflow-y-auto pr-1">
             {epochen.map((e) => (
               <li key={e.name}>
                 <div className="flex items-center gap-3 px-1 py-2 text-sm">
@@ -406,22 +406,23 @@ export function EpocheErstellenPage({ epochen, onEpochenGeaendert }: EpocheErste
         </p>
       </Card>
 
-      <Card>
+      <Card className="flex flex-col lg:overflow-hidden">
         <CardTitle>🏛️ Neue Epoche / neues Setting anlegen</CardTitle>
         <p className="mb-4 text-sm text-text-muted">
           Reines Frageformular, kein KI-Aufruf - kurze, direkte Antworten reichen. Das Ergebnis ist ein
           Rohentwurf, den du danach im jeweiligen Projekt weiter verfeinern kannst.
         </p>
 
-        <div className="max-h-[calc(100vh-22rem)] min-h-48 overflow-y-auto pr-1">
+        <div className="min-h-48 overflow-y-auto pr-1 lg:min-h-0 lg:flex-1">
           <EpocheFormular werte={formular} onChange={feld} />
         </div>
 
-        {fehler && <p className="mt-4 text-sm text-red-400">{fehler}</p>}
-
-        <Button onClick={anlegen} disabled={wirdAngelegt || !formularGueltig} className="mt-4">
-          {wirdAngelegt ? "Legt an..." : "Epoche anlegen"}
-        </Button>
+        <div className="mt-3 shrink-0 border-t border-border pt-3">
+          {fehler && <p className="mb-2 text-sm text-red-400">{fehler}</p>}
+          <Button onClick={anlegen} disabled={wirdAngelegt || !formularGueltig}>
+            {wirdAngelegt ? "Legt an..." : "Epoche anlegen"}
+          </Button>
+        </div>
       </Card>
 
       {loeschenAnfrage && (
