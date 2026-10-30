@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
 import type { BildModell, CoverLogEintrag, ProjektDetail, SSHZiel } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { Badge, Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
+import { Badge, Button, Card, CardTitle, Input, Label, Select, Textarea } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { alsDateiHerunterladen } from "../utils/download";
 import { useLetztesKapitelSync } from "../utils/useLetztesKapitelSync";
@@ -413,11 +413,10 @@ export function StandExportPage({
             </div>
             <div className="mt-4">
               <Label>Bildprompt (Deutsch, editierbar - wird vor der Generierung automatisch übersetzt)</Label>
-              <textarea
+              <Textarea
                 value={coverPrompt}
                 onChange={(e) => setCoverPrompt(e.target.value)}
                 rows={3}
-                className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none transition-colors focus:border-accent"
                 placeholder="Erst 'Prompt vorschlagen' klicken oder direkt selbst einen Bildprompt auf Deutsch eingeben..."
               />
             </div>

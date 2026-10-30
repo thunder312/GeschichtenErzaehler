@@ -11,42 +11,42 @@ def test_zahlwort_faellt_bei_unbekannter_zahl_auf_ziffer_zurueck():
     assert an.zahlwort(999) == "999"
 
 
-def test_text_in_kapitel_teilen_erkennt_ueberschriften():
+def test_vorbereiten_abschnitte_erkennt_ueberschriften():
     text = (
         "Kapitel 1: Der Anfang\n\nEs war einmal ein Held, der auszog. " + "Wort " * 300 + "\n\n"
         "Kapitel 2: Die Wendung\n\nDann geschah etwas Unerwartetes. " + "Wort " * 300
     )
-    abschnitte = an.text_in_kapitel_teilen(text)
+    abschnitte = an.vorbereiten(text).abschnitte
     assert len(abschnitte) == 2
     assert "Held, der auszog" in abschnitte[0]
     assert "Kapitel 1" not in abschnitte[0]  # Ueberschrift selbst wird nicht Teil des Koerpers
     assert "Unerwartetes" in abschnitte[1]
 
 
-def test_text_in_kapitel_teilen_ignoriert_einzelnen_treffer():
+def test_vorbereiten_abschnitte_ignoriert_einzelnen_treffer():
     """Nur EINE erkennbare Ueberschrift ist kein Muster (z.B. nur ein
     Titelblatt) - fällt auf die Absatz-Aufteilung zurueck."""
     text = "Kapitel 1: Der Anfang\n\n" + ("Ein Absatz mit Inhalt. " * 100 + "\n\n") * 3
-    abschnitte = an.text_in_kapitel_teilen(text)
+    abschnitte = an.vorbereiten(text).abschnitte
     assert len(abschnitte) >= 1
     # Die Ueberschrift bleibt als Teil des Fliesstexts erhalten (kein Split).
     assert any("Kapitel 1" in a for a in abschnitte)
 
 
-def test_text_in_kapitel_teilen_ohne_ueberschriften_gruppiert_nach_wortzahl():
+def test_vorbereiten_abschnitte_ohne_ueberschriften_gruppiert_nach_wortzahl():
     absatz = "Dies ist ein Beispielabsatz mit einigen Woertern darin, der sich wiederholt. "
     # 12 Absaetze zu je ca. 220 Woertern = ca. 2640 Woerter, deutlich ueber
     # dem 1400-Woerter-Ziel pro Abschnitt (siehe ZIEL_WOERTER_PRO_ABSCHNITT).
     text = "\n\n".join([absatz * 20] * 12)
-    abschnitte = an.text_in_kapitel_teilen(text)
+    abschnitte = an.vorbereiten(text).abschnitte
     assert len(abschnitte) >= 2
     for abschnitt in abschnitte:
         assert an.woerter(abschnitt) > 0
 
 
-def test_text_in_kapitel_teilen_leerer_text():
-    assert an.text_in_kapitel_teilen("") == []
-    assert an.text_in_kapitel_teilen("   \n\n  ") == []
+def test_vorbereiten_abschnitte_leerer_text():
+    assert an.vorbereiten("").abschnitte == []
+    assert an.vorbereiten("   \n\n  ").abschnitte == []
 
 
 def test_ausdrueckliche_kapitel_werden_nicht_auf_30_gestutzt():
@@ -54,14 +54,14 @@ def test_ausdrueckliche_kapitel_werden_nicht_auf_30_gestutzt():
     deren Anzahl die Kapitelzahl - nur absatzweise gebildete Abschnitte
     werden auf MAX_KAPITEL zusammengefuehrt."""
     teile = [f"Kapitel {i}: Titel {i}\n\nInhalt von Kapitel {i}. " * 5 for i in range(1, 41)]
-    abschnitte = an.text_in_kapitel_teilen("\n\n".join(teile))
+    abschnitte = an.vorbereiten("\n\n".join(teile)).abschnitte
     assert len(abschnitte) == 40
 
 
 def test_absatz_fallback_deckelt_auf_maximum():
     absatz = "Dies ist ein Beispielabsatz mit einigen Woertern darin. " * 30
     text = "\n\n".join([absatz] * 200)
-    assert len(an.text_in_kapitel_teilen(text)) <= an.MAX_KAPITEL
+    assert len(an.vorbereiten(text).abschnitte) <= an.MAX_KAPITEL
 
 
 def test_kapitel_analyse_parsen_vollstaendige_antwort():

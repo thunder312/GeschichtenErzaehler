@@ -16,7 +16,6 @@ Dieses Modul bleibt DB-frei (siehe app/services.py für die Auflösung aus der
 ssh_targets-Tabelle + den Einstellungen)."""
 from __future__ import annotations
 
-import json
 import re
 
 import httpx
@@ -42,16 +41,6 @@ class SteuerFehler(Exception):
 # ---------------------------------------------------------------------------
 # Normalisierte Rückgabe
 # ---------------------------------------------------------------------------
-
-def _leerer_status(container_namen: list[str]) -> dict:
-    return {
-        "verfuegbar": False,
-        "ram": {"total_mb": 0, "available_mb": 0, "used_mb": 0},
-        "swap": {"total_mb": 0, "used_mb": 0},
-        "containers": [{"name": n, "running": False} for n in container_namen],
-        "ollama": [],
-    }
-
 
 def _status_aus_dienst(rohdaten: dict, container_namen: list[str]) -> dict:
     """Antwort des athene-steuerung-Dienstes auf die vom Backend

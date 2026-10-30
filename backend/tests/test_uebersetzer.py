@@ -19,15 +19,8 @@ def test_dateiname_de():
     assert uebs.dateiname_de("Roman.docx") == "Roman_de.txt"  # unbekannte Endung -> txt
 
 
-def test_abschnitte_bilden_teilt_nur_an_absaetzen():
-    absatz = "Wort " * 400
-    abschnitte = uebs.abschnitte_bilden("\n\n".join([absatz] * 5), max_woerter=900)
-    assert [len(a) for a in abschnitte] == [2, 2, 1]
-    assert sum(len(a) for a in abschnitte) == 5
-    # Zeilenweise Texte (kein Leerzeilen-Trenner)
-    assert uebs.abschnitte_bilden("eins\nzwei\ndrei") == [["eins", "zwei", "drei"]]
+def test_trenner_fuer():
     assert uebs.trenner_fuer("a\n\nb") == "\n\n" and uebs.trenner_fuer("a\nb") == "\n"
-    assert uebs.abschnitte_bilden("  \n ") == []
 
 
 def test_antwort_bereinigen():
@@ -374,32 +367,6 @@ def test_fortsetzen_ohne_unterbrochene_uebersetzung_ist_409(client, monkeypatch)
     r = client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "A.txt", "fortsetzen": True})
     assert r.status_code == 409  # bereits abgeschlossen
     assert client.post("/api/analysator/uebersetzen/fortsetzbar", json={"text": DREI_KAPITEL}).json()["fortsetzbar"] is False
-
-
-def test_alter_stand_ohne_fingerabdruck_wird_registriert_und_ist_dann_fortsetzbar(client, monkeypatch):
-    """Stand wie von der ersten Version geschrieben (kein quell_hash, keine Kapitelfelder): nach der
-    Registrierung (einmalig, siehe uebersetzer.alten_job_registrieren) laeuft das Fortsetzen ab dem
-    letzten uebersetzten Absatz - die Zahl ergibt sich aus der Ergebnisdatei."""
-    wurzel = _wurzel()
-    alt = {k: v for k, v in uebs.LEERER_STATUS.items() if k in (
-        "laeuft", "abgeschlossen", "gestoppt", "stop_angefordert", "aktuell", "gesamt", "log", "fehler",
-        "dateiname", "ergebnis_woerter", "fuelltext_entfernt")}
-    alt.update(dateiname="Buch_de.txt", gestoppt=True, stop_angefordert=True, aktuell=1, gesamt=3, log=["alt"],
-               ergebnis_woerter=7)
-    uebs.status_schreiben(wurzel, alt, behalte_stop=False)
-    uebs.ergebnis_pfad(wurzel, "Buch_de.txt").write_text(
-        "DE: Chapter One\n\nDE: Er ging heim.\n\nDE: Sie wartete.\n", encoding="utf-8")
-    assert client.post("/api/analysator/uebersetzen/fortsetzbar", json={"text": DREI_KAPITEL}).json()["fortsetzbar"] is False
-
-    assert uebs.alten_job_registrieren(wurzel, DREI_KAPITEL, fuelltext_entfernen=False) is True
-    assert client.post("/api/analysator/uebersetzen/fortsetzbar", json={"text": DREI_KAPITEL}).json()["fortsetzbar"] is True
-    fake, aufrufe = _fake()
-    monkeypatch.setattr(analysator_api, "sammle_antwort", fake)
-    r = client.post("/api/analysator/uebersetzen", json={"text": DREI_KAPITEL, "dateiname": "egal.txt", "fortsetzen": True})
-    assert r.status_code == 202
-    status = client.get("/api/analysator/uebersetzen/status").json()
-    assert status["abgeschlossen"] is True and status["fehler"] is None and len(aufrufe) == 2
-    assert client.get("/api/analysator/uebersetzen/ergebnis").text.count("DE: Chapter") == 3
 
 
 def test_zeilenmodus_texte_behalten_ihr_format_beim_fortsetzen_zaehlen(client, monkeypatch):

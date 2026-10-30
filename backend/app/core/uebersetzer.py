@@ -50,29 +50,6 @@ SYSTEM = (
 )
 
 
-def abschnitte_bilden(text: str, max_woerter: int = CHUNK_WOERTER) -> list[list[str]]:
-    """Teilt den Text in Abschnitte aus ganzen Absaetzen (Absatz = durch
-    Leerzeile getrennt, sonst eine Zeile). Jeder Abschnitt ist eine Liste von
-    Absaetzen, zusammen rund max_woerter Woerter (ein einzelner laengerer
-    Absatz bildet einen eigenen Abschnitt)."""
-    text = text.replace("\r\n", "\n").strip()
-    trenner = "\n\n" if "\n\n" in text else "\n"
-    absaetze = [a.strip() for a in text.split(trenner) if a.strip()]
-    abschnitte: list[list[str]] = []
-    aktuell: list[str] = []
-    aktuelle_woerter = 0
-    for absatz in absaetze:
-        anzahl = woerter(absatz)
-        if aktuell and aktuelle_woerter + anzahl > max_woerter:
-            abschnitte.append(aktuell)
-            aktuell, aktuelle_woerter = [], 0
-        aktuell.append(absatz)
-        aktuelle_woerter += anzahl
-    if aktuell:
-        abschnitte.append(aktuell)
-    return abschnitte
-
-
 def trenner_fuer(text: str) -> str:
     """Absatztrenner des Originals - damit der Ausgabetext dasselbe Format hat."""
     return "\n\n" if "\n\n" in text.replace("\r\n", "\n") else "\n"
@@ -377,24 +354,6 @@ def fortsetzbaren_job_finden(projekte_wurzel: Path, text: str) -> dict[str, Any]
             if ergebnis_pfad(projekte_wurzel, name[:-4] + ".txt" if name.endswith(".pdf") else name).is_file():
                 return job
     return None
-
-
-def alten_job_registrieren(projekte_wurzel: Path, text: str, fuelltext_entfernen: bool) -> bool:
-    """Einmalige Uebernahme eines Standes der ERSTEN Version (kein quell_hash): ordnet die
-    zuletzt gestartete, nicht fertige Uebersetzung dem uebergebenen Text zu, damit sie sich
-    ueber den Inhalt fortsetzen laesst. Der Aufrufer muss sicher sein, dass der Text zu dieser
-    Uebersetzung gehoert (die Ergebnisdatei wird nur gezaehlt, nicht verglichen)."""
-    status = status_lesen(projekte_wurzel)
-    if status["abgeschlossen"] or status["laeuft"] or status.get("quell_hash") or not status.get("dateiname"):
-        return False
-    pruef = fuelltexte_entfernen(text, KAPITEL_STICHWORT_MUSTER)[0] if fuelltext_entfernen else text
-    einheiten, trenner = einheiten_bilden(pruef)
-    if not einheiten:
-        return False
-    status.update(quell_hash=quell_hash(einheiten), fuelltext_entfernen=fuelltext_entfernen, trenner=trenner,
-                  gestoppt=True, stop_angefordert=False)
-    status_schreiben(projekte_wurzel, status, behalte_stop=False)
-    return True
 
 
 def ergebnis_sichern(projekte_wurzel: Path, text_datei: str) -> str | None:

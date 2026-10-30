@@ -596,7 +596,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
       </CollapsibleCard>
 
       <div className="space-y-6">
-        <CollapsibleCard title="Ausgangslage vor Kapitel eins" defaultOffen={false}>
+        <CollapsibleCard title="🌅 Ausgangslage vor Kapitel eins" defaultOffen={false}>
           <Editor
             height="clamp(200px, 32vh, 360px)"
             defaultLanguage="markdown"
@@ -607,7 +607,7 @@ export function GeruestPage({ ordner, projekt, onGeaendert, onOrdnerUmbenannt, o
           />
         </CollapsibleCard>
 
-        <CollapsibleCard title="Erkannte Felder" defaultOffen={false}>
+        <CollapsibleCard title="🧩 Erkannte Felder" defaultOffen={false}>
         <div className="p-4">
           <dl className="space-y-2.5 text-sm">
             <div className="flex items-center justify-between">

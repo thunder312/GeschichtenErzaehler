@@ -1,4 +1,4 @@
-import { Input, Label } from "./ui";
+import { Input, Label, Textarea } from "./ui";
 
 export interface EpocheFormularWerte {
   name: string;
@@ -44,12 +44,7 @@ export function epocheFormularGueltig(f: EpocheFormularWerte): boolean {
 }
 
 export function EpocheTextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      {...props}
-      className="w-full rounded-lg border border-border bg-bg px-3 py-1.5 text-sm text-text outline-none transition-colors focus:border-accent"
-    />
-  );
+  return <Textarea {...props} />;
 }
 
 interface EpocheFormularProps {

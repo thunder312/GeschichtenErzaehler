@@ -164,30 +164,11 @@ def _projekt_kurz(pfad, wurzel, settings: Settings) -> ProjektKurz:
     )
 
 
-def _ist_projekt_ordner(pfad) -> bool:
-    return pfad.is_dir() and (pfad / "projekt").is_dir()
-
-
 @router.get("", response_model=list[ProjektKurz])
 def projekte_auflisten(settings: Settings = Depends(get_settings),
                         benutzer: Benutzer = Depends(get_current_user)):
     wurzel = projekte_wurzel(settings, benutzer.username)
-    if not wurzel.is_dir():
-        return []
-    ergebnis = []
-    for eintrag in sorted(wurzel.iterdir()):
-        if not eintrag.is_dir():
-            continue
-        if _ist_projekt_ordner(eintrag):
-            ergebnis.append(_projekt_kurz(eintrag, wurzel, settings))
-            continue
-        # Kein direktes Projekt - koennte ein Epoche-Unterordner sein
-        # (siehe "Unterordner je Epoche"-Einstellung), eine Ebene tiefer
-        # nachsehen.
-        for unter_eintrag in sorted(eintrag.iterdir()):
-            if _ist_projekt_ordner(unter_eintrag):
-                ergebnis.append(_projekt_kurz(unter_eintrag, wurzel, settings))
-    return ergebnis
+    return [_projekt_kurz(p, wurzel, settings) for p in pd.projekt_ordner_alle(wurzel)]
 
 
 @router.post("", response_model=ProjektKurz, status_code=201)

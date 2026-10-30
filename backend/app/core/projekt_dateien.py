@@ -20,7 +20,6 @@ from pathlib import Path
 
 from app.core import epoche as _epoche
 from app.core import geruest as _geruest
-from app.core.textutil import woerter
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +150,26 @@ def fehlende_epoche_personas(epoche_ordner: Path) -> list[str]:
     return [d for d in EPOCHE_PERSONA_DATEIEN if not (epoche_ordner / d).exists()]
 
 
+def ist_projekt_ordner(pfad: Path) -> bool:
+    return pfad.is_dir() and (pfad / "projekt").is_dir()
+
+
+def projekt_ordner_alle(wurzel: Path) -> list[Path]:
+    """Alle Projektordner unter `wurzel`: direkte UND eine Ebene tiefer in
+    Epoche-Unterordnern (Einstellung "Unterordner je Epoche")."""
+    if not wurzel.is_dir():
+        return []
+    ergebnis = []
+    for eintrag in sorted(wurzel.iterdir()):
+        if not eintrag.is_dir():
+            continue
+        if ist_projekt_ordner(eintrag):
+            ergebnis.append(eintrag)
+            continue
+        ergebnis.extend(u for u in sorted(eintrag.iterdir()) if ist_projekt_ordner(u))
+    return ergebnis
+
+
 def projekt_anlegen(ziel: Path, epoche_ordner: Path, gemeinsame_personas_ordner: Path,
                      epoche_name: str, zweite_epoche_ordner: Path | None = None,
                      zweite_epoche_name: str | None = None) -> None:
@@ -245,11 +264,6 @@ def zweite_epoche_von_projekt(ziel: Path) -> str | None:
     """Siehe projekt_anlegen() - nur gesetzt bei einem Zeitsprung-Projekt."""
     marker = ziel / ".epoche_zweite"
     return marker.read_text(encoding="utf-8").strip() if marker.exists() else None
-
-
-def woerter_im_kapitel(projekt: Path, n: int) -> int:
-    text = lies(kapitel_datei(projekt, n), pflicht=False, ersatz="")
-    return woerter(text)
 
 
 def _freier_pfad(wurzel: Path, name: str) -> Path:

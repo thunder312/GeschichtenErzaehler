@@ -45,10 +45,6 @@ GERUEST_KI_STATUS_DATEINAME = "geruest_ki_status.json"
 # analyse_speichern, das den importierten Rohtext dauerhaft sichert.
 GERUEST_KI_EINGABE_DATEINAME = "geruest_ki_eingabe.json"
 
-# Obergrenze wie im Formular (siehe app/schemas.py:KiGeruestStartAnfrage und
-# der Spezifikation Kapitel 2: "kapitelanzahl int (1-30)").
-MAX_KAPITELANZAHL = 30
-
 STANDARD_ZIELWORTZAHL = 1500
 
 # Exakt die sechs Werte des Dropdowns im Frontend

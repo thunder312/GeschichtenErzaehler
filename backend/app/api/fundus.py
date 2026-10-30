@@ -196,28 +196,6 @@ def fundus_feld_hinzufuegen(anfrage: FundusFeldHinzufuegenAnfrage, settings: Set
     return FundusFigurAntwort(epoche=figur.epoche, name=figur.name, felder=figur.felder)
 
 
-def _ist_projekt_ordner(pfad) -> bool:
-    return pfad.is_dir() and (pfad / "projekt").is_dir()
-
-
-def _projekt_ordner_alle(wurzel) -> list:
-    """Direkte Projektordner UND eine Ebene Epoche-Unterordner darunter -
-    dieselbe Iterationslogik wie app/api/projects.py:projekte_auflisten()."""
-    ergebnis = []
-    if not wurzel.is_dir():
-        return ergebnis
-    for eintrag in sorted(wurzel.iterdir()):
-        if not eintrag.is_dir():
-            continue
-        if _ist_projekt_ordner(eintrag):
-            ergebnis.append(eintrag)
-            continue
-        for unter_eintrag in sorted(eintrag.iterdir()):
-            if _ist_projekt_ordner(unter_eintrag):
-                ergebnis.append(unter_eintrag)
-    return ergebnis
-
-
 async def _projekt_figuren_importieren(
     base_url: str, settings: Settings, persona: str, fundus_text: str, projekt_ordner,
 ) -> tuple[str, int, bool]:
@@ -279,7 +257,7 @@ async def fundus_importieren(ssh_ziel_id: str | None = Query(None),
         # Sequentiell statt parallel: ein lokales Ollama verarbeitet ohnehin
         # nur einen Chat-Request sinnvoll gleichzeitig (siehe Kommentar bei
         # ROLLEN in app/core/rollen.py zu KEEP_ALIVE).
-        for projekt_ordner in _projekt_ordner_alle(wurzel):
+        for projekt_ordner in pd.projekt_ordner_alle(wurzel):
             fundus_text, anzahl, ueberspringen = await _projekt_figuren_importieren(
                 base_url, settings, persona, fundus_text, projekt_ordner,
             )

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, architektWebSocketUrl } from "../api/client";
 import type { ArchitektNachricht } from "../api/types";
-import { Button, Card } from "../components/ui";
+import { Button, Card, Textarea } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { alsDateiHerunterladen } from "../utils/download";
 
@@ -600,8 +600,8 @@ export function ArchitektInterviewPage({
             </div>
           )}
           <div className="flex gap-2">
-            <textarea
-              className="flex-1 resize-none rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none transition-colors focus:border-accent"
+            <Textarea
+              className="flex-1 resize-none"
               rows={2}
               value={eingabe}
               onChange={(e) => setEingabe(e.target.value)}

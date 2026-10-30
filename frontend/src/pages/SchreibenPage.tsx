@@ -14,7 +14,7 @@ import { BefundListe } from "../components/BefundListe";
 import { CollapsibleCard } from "../components/CollapsibleCard";
 import { FindingsList } from "../components/FindingsList";
 import { SpeicherkontrolleDialog, SpeicherkontrolleWiederhochBanner } from "../components/SpeicherkontrolleDialog";
-import { Button, Card, CardTitle, Input, Label, Select } from "../components/ui";
+import { Button, Card, CardTitle, Input, Label, Select, Textarea } from "../components/ui";
 import { useAktivitaet } from "../context/AktivitaetContext";
 import { automatikAktionsText, hatReste, resteZusammenfassen } from "../utils/automatik";
 import { alsDateiHerunterladen } from "../utils/download";
@@ -541,8 +541,7 @@ export function SchreibenPage({
           </div>
           <div>
             <Label>Zusätzlicher Hinweis (nur für diesen Versuch)</Label>
-            <textarea
-              className="w-full rounded-lg border border-border bg-bg px-3 py-1.5 text-sm text-text outline-none transition-colors focus:border-accent"
+            <Textarea
               rows={4}
               value={zusatzhinweis}
               onChange={(e) => setZusatzhinweis(e.target.value)}
@@ -597,14 +596,14 @@ export function SchreibenPage({
 
         {findings.length > 0 && (
           <Card>
-            <CardTitle>Automatische Sicherheitsnetze</CardTitle>
+            <CardTitle>🛡️ Automatische Sicherheitsnetze</CardTitle>
             <FindingsList findings={findings} />
           </Card>
         )}
 
         {befunde && (
           <Card>
-            <CardTitle>Befunde der Prüfer (Anachronismen, Stimmigkeit &amp; Kontinuität)</CardTitle>
+            <CardTitle>🔍 Befunde der Prüfer (Anachronismen, Stimmigkeit &amp; Kontinuität)</CardTitle>
             <BefundListe befunde={befunde.befunde} />
           </Card>
         )}
@@ -862,7 +861,7 @@ export function SchreibenPage({
           return (
             <>
               <CollapsibleCard
-                title={`Protokoll des letzten Laufs (${zusammenfassung.angewendet}/${zusammenfassung.gesamt} angewendet${
+                title={`📋 Protokoll des letzten Laufs (${zusammenfassung.angewendet}/${zusammenfassung.gesamt} angewendet${
                   uebersprungenGesamt > 0 ? `, ${uebersprungenGesamt} übersprungen` : ""
                 })`}
                 defaultOffen={false}
@@ -909,7 +908,7 @@ export function SchreibenPage({
         })()}
 
         {automatikVerlauf.length > 0 && (
-          <CollapsibleCard title={`Lauf-Historie (${automatikVerlauf.length})`} defaultOffen={false}>
+          <CollapsibleCard title={`🕘 Lauf-Historie (${automatikVerlauf.length})`} defaultOffen={false}>
             <ul className="max-h-64 space-y-1 overflow-auto p-4 text-xs text-text-muted">
               {[...automatikVerlauf].reverse().map((eintrag, i) => (
                 <li key={i}>

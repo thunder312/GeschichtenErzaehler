@@ -539,7 +539,7 @@ export function AnalysatorPage({ epochen, sshZielId, onProjektErzeugt, onEpochen
 
       <div className="min-w-0 space-y-6">
       <Card>
-        <CardTitle>So funktioniert's</CardTitle>
+        <CardTitle>💡 So funktioniert's</CardTitle>
         <ol className="list-decimal space-y-2 pl-4 text-sm text-text-muted">
           <li>Text einfügen oder eine .pdf/.txt/.md-Datei laden.</li>
           <li>

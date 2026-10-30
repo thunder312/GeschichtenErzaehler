@@ -100,28 +100,6 @@ def epoche_loeschen(ordner: str, settings: Settings = Depends(get_settings)):
     shutil.rmtree(ziel)
 
 
-def _projekt_ordner_alle(wurzel: Path) -> list[Path]:
-    """Alle tatsaechlichen Projektordner unter `wurzel`, inklusive der
-    (bei aktiver "Unterordner je Epoche"-Einstellung moeglichen) einen
-    Verschachtelungsebene - dieselbe Struktur wie
-    app/api/projects.py:projekte_auflisten(), hier separat gehalten, weil
-    _epoche_referenzen_aktualisieren() unten ALLE Benutzer durchsucht,
-    nicht nur den gerade angemeldeten."""
-    if not wurzel.is_dir():
-        return []
-    ergebnis = []
-    for eintrag in sorted(wurzel.iterdir()):
-        if not eintrag.is_dir():
-            continue
-        if (eintrag / "projekt").is_dir():
-            ergebnis.append(eintrag)
-            continue
-        for unter_eintrag in sorted(eintrag.iterdir()):
-            if unter_eintrag.is_dir() and (unter_eintrag / "projekt").is_dir():
-                ergebnis.append(unter_eintrag)
-    return ergebnis
-
-
 def _epoche_in_fundus_und_orte_umbenennen(benutzer_wurzel: Path, alt: str, neu: str) -> None:
     """Zieht eine Epoche-Umbenennung auch im Personen-Fundus (fundus.md) und
     Orte-Fundus (orte.md) EINES Benutzers nach - beide liegen direkt unter
@@ -185,7 +163,7 @@ def _epoche_referenzen_aktualisieren(settings: Settings, alt: str, neu: str) -> 
     aktualisiert = 0
     projekte_root = projekte_wurzel_unskopiert(settings)
     for wurzel in sorted(p for p in projekte_root.iterdir() if p.is_dir()):
-        for projekt_pfad in _projekt_ordner_alle(wurzel):
+        for projekt_pfad in pd.projekt_ordner_alle(wurzel):
             geaendert = False
             for marker_name in (".epoche", ".epoche_zweite"):
                 marker = projekt_pfad / marker_name

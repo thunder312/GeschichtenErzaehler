@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { EpocheKurz, FundusFigur } from "../api/types";
 import { normalisierteEpoche } from "../utils/fundusMatch";
-import { Button, Card, Input, Label, Select } from "./ui";
+import { Button, Card, Input, Label, Select, Textarea } from "./ui";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { EpocheSelect } from "./EpocheSelect";
 
@@ -309,11 +309,10 @@ export function PersonenEditor({ epochen, onGeaendert }: PersonenEditorProps) {
               <div key={feld}>
                 <Label>{feld}</Label>
                 {feld === "Eigenschaften" || feld === "Aussehen" ? (
-                  <textarea
+                  <Textarea
                     value={wert}
                     onChange={(e) => setBearbeitung({ ...bearbeitung, [feld]: e.target.value })}
                     rows={2}
-                    className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none transition-colors placeholder:text-text-muted/70 focus:border-accent"
                   />
                 ) : (
                   <Input value={wert} onChange={(e) => setBearbeitung({ ...bearbeitung, [feld]: e.target.value })} />

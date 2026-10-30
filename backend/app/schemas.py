@@ -138,11 +138,6 @@ class GeruestSchreibenAnfrage(BaseModel):
     inhalt: str
 
 
-class SchreibenAnfrage(BaseModel):
-    zusatzhinweis: str = ""
-    ssh_ziel_id: str | None = None
-
-
 class SSHZielAnlegenAnfrage(BaseModel):
     name: str = Field(min_length=1)
     # Fuer auth_method='direct' enthaelt 'host' die komplette Basis-URL

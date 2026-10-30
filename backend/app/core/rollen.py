@@ -376,9 +376,6 @@ ROLLEN: dict[str, dict] = {
     },
 }
 
-GESAMT_NUM_CTX = 24576
-GESAMT_NUM_PREDICT = 6144
-
 # Drei feste Content-Stufen-Direktiven, die dem Autor-Prompt angehaengt
 # werden (Architekten-Frage 2, siehe Bedienungsanleitung Abschnitt 8).
 STUFE_DIREKTIVEN: dict[str, str] = {

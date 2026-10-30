@@ -40,9 +40,7 @@ from pathlib import Path
 
 from app.core import architekt as arch
 from app.core.geruest import ordnername_aus_titel
-from app.core.import_merkmale import (
-    erzaehlperspektive_erkennen, explizitheit_bewerten, hoechste_stufe, jugendschutz_aus_stufe, tempus_erkennen,
-)
+from app.core.import_merkmale import hoechste_stufe
 from app.core.import_bereinigung import (
     abschnitt_saeubern, fuelltexte_entfernen, ist_fuelltext_ueberschrift, sprache_erkennen,
 )
@@ -262,12 +260,6 @@ def vorbereiten(text: str) -> Vorbereitung:
     else:
         abschnitte = _kapitel_zusammenfuehren_bis_maximum(abschnitte, MAX_KAPITEL_EXPLIZIT, titel)
     return Vorbereitung(abschnitte, sprache, entfernt, kapitel_quelle, verworfen, bereinigt, titel)
-
-
-def text_in_kapitel_teilen(text: str) -> list[str]:
-    """Nur die Abschnitte von vorbereiten() - Kurzform fuer Aufrufer/Tests, die
-    keine Sprache und keine Fuelltext-Liste brauchen."""
-    return vorbereiten(text).abschnitte
 
 
 def kapitel_analyse_system(persona_text: str) -> str:
