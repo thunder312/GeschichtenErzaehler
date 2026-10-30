@@ -31,8 +31,8 @@ export function CollapsibleCard({ title, children, defaultOffen = true, classNam
         onClick={() => setOffen((bisher) => !bisher)}
         className={`flex cursor-pointer flex-wrap items-center justify-between gap-3 px-4 py-2.5 hover:bg-surface-hover/40 ${offen ? "border-b border-border" : ""}`}
       >
-        <h2 className="font-heading text-lg font-semibold tracking-wide text-text">{title}</h2>
-        <div className="flex flex-wrap items-center gap-3">
+        <h2 className="font-heading min-w-0 flex-1 text-lg font-semibold tracking-wide text-text">{title}</h2>
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
           <div onClick={(e) => e.stopPropagation()} className="flex flex-wrap items-center gap-3 cursor-default">
             {aktionen}
           </div>

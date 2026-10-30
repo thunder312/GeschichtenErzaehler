@@ -100,7 +100,7 @@ export function BenutzerPage() {
       </Card>
 
       <Card>
-        <h2 className="font-heading mb-3 text-lg font-semibold tracking-wide text-text">Neuer Benutzer</h2>
+        <h2 className="font-heading mb-3 text-lg font-semibold tracking-wide text-text">➕ Neuer Benutzer</h2>
         <div className="space-y-3">
           <div>
             <Label>Benutzername</Label>
