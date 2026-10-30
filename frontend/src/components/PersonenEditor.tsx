@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { EpocheKurz, FundusFigur } from "../api/types";
 import { normalisierteEpoche } from "../utils/fundusMatch";
+import { useEscapeSchliessen } from "../utils/useEscapeSchliessen";
 import { Button, Card, Input, Label, Select, Textarea } from "./ui";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { EpocheSelect } from "./EpocheSelect";
@@ -49,6 +50,9 @@ export function PersonenEditor({ epochen, onGeaendert }: PersonenEditorProps) {
   const [neuesFeldFuerAlle, setNeuesFeldFuerAlle] = useState(false);
 
   const [zeigtKopierenDialog, setZeigtKopierenDialog] = useState(false);
+  useEscapeSchliessen(() => setZeigtNeuDialog(false), zeigtNeuDialog);
+  useEscapeSchliessen(() => setZeigtFeldDialog(false), zeigtFeldDialog);
+  useEscapeSchliessen(() => setZeigtKopierenDialog(false), zeigtKopierenDialog);
   const [kopierZielEpoche, setKopierZielEpoche] = useState("");
   const [kopierNeuerName, setKopierNeuerName] = useState("");
   const [wirdKopiert, setWirdKopiert] = useState(false);

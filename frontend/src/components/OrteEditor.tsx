@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { EpocheKurz, Ort } from "../api/types";
 import { normalisierteEpoche } from "../utils/fundusMatch";
+import { useEscapeSchliessen } from "../utils/useEscapeSchliessen";
 import { Button, Card, Input, Label, Select, Textarea } from "./ui";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { EpocheSelect } from "./EpocheSelect";
@@ -38,6 +39,7 @@ export function OrteEditor({ epochen, onGeaendert }: OrteEditorProps) {
   const [fehler, setFehler] = useState<string | null>(null);
 
   const [zeigtNeuDialog, setZeigtNeuDialog] = useState(false);
+  useEscapeSchliessen(() => setZeigtNeuDialog(false), zeigtNeuDialog);
   const [neueEpoche, setNeueEpoche] = useState("");
   const [neuerOrtName, setNeuerOrtName] = useState("");
 

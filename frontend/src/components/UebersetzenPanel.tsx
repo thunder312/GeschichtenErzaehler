@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { FuelltextVorschau, UebersetzenFortsetzbar, UebersetzenStatus } from "../api/types";
 import { blobHerunterladen } from "../utils/download";
+import { useEscapeSchliessen } from "../utils/useEscapeSchliessen";
 import { Button, Textarea } from "./ui";
 
 interface UebersetzenPanelProps {
@@ -36,6 +37,8 @@ export function UebersetzenPanel({ text, dateiname, sshZielId, onUebernehmen }: 
   const [wirdGestartet, setWirdGestartet] = useState(false);
   const [wirdGespeichert, setWirdGespeichert] = useState(false);
   const [lesetext, setLesetext] = useState<string | null>(null);
+  useEscapeSchliessen(() => setLesetext(null), lesetext !== null);
+  useEscapeSchliessen(() => setVorschau(null), vorschau !== null);
   // Unterbrochene Übersetzung GENAU dieses Textes (Zuordnung über den Inhalt, nicht den Dateinamen)
   const [kandidat, setKandidat] = useState<UebersetzenFortsetzbar | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
