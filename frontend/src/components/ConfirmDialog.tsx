@@ -1,3 +1,4 @@
+import { useEscapeSchliessen } from "../utils/useEscapeSchliessen";
 import { Button } from "./ui";
 
 interface ConfirmDialogProps {
@@ -22,6 +23,7 @@ export function ConfirmDialog({
   onBestaetigen,
   onAbbrechen,
 }: ConfirmDialogProps) {
+  useEscapeSchliessen(onAbbrechen, !wirdAusgefuehrt);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"

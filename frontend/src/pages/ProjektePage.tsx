@@ -426,7 +426,7 @@ export function ProjektePage({
       <li
         key={p.ordner}
         onClick={() => onProjektAuswaehlen(p.ordner)}
-        className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-surface-hover ${
+        className={`flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-surface-hover ${
           aktuellesProjekt === p.ordner ? "bg-accent-soft" : ""
         }`}
       >
@@ -488,7 +488,7 @@ export function ProjektePage({
             📁
           </button>
         )}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[12rem] flex-1">
           <div className="flex items-center gap-2">
             {p.epoche && epocheFarbe.get(p.epoche) && (
               <span
@@ -512,7 +512,7 @@ export function ProjektePage({
             {p.letztes_geplantes_kapitel ? ` von ${p.letztes_geplantes_kapitel} geplant` : ""}
           </div>
         </div>
-        <div className="shrink-0 text-right text-[11px] leading-tight text-text-muted">
+        <div className="ml-auto shrink-0 text-right text-[11px] leading-tight text-text-muted">
           <div title="Anlage-Datum des Projektordners">Erstellt: {formatDatum(p.erstellt_am, false)}</div>
           <div title="Letzte Aenderung am Gerüst">Bearbeitet: {formatDatum(p.zuletzt_bearbeitet_am, true)}</div>
         </div>

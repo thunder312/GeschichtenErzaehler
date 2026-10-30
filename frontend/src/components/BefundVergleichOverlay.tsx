@@ -1,3 +1,4 @@
+import { useEscapeSchliessen } from "../utils/useEscapeSchliessen";
 import type { Befund, BefundKategorie } from "../api/types";
 import { KATEGORIE_LABEL } from "./BefundListe";
 
@@ -13,6 +14,7 @@ interface BefundVergleichOverlayProps {
  * unklar, welcher Text der aktuelle (alte) und welcher der vorgeschlagene
  * (neue) ist. Gleiches Overlay-Muster wie ConfirmDialog.tsx/AboutDialog.tsx. */
 export function BefundVergleichOverlay({ befund, onClose }: BefundVergleichOverlayProps) {
+  useEscapeSchliessen(onClose);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"

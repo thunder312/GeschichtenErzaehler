@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useEscapeSchliessen } from "../utils/useEscapeSchliessen";
 import { Button, Input } from "./ui";
 
 interface OrdnerUmbenennenDialogProps {
@@ -25,6 +26,7 @@ export function OrdnerUmbenennenDialog({
   onUmbenennen,
   onAbbrechen,
 }: OrdnerUmbenennenDialogProps) {
+  useEscapeSchliessen(onAbbrechen, !wirdAusgefuehrt);
   const [name, setName] = useState(aktuellerName);
   const kannUmbenennen = name.trim() !== "" && name.trim() !== aktuellerName && !wirdAusgefuehrt;
 
