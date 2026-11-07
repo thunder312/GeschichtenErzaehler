@@ -1,0 +1,105 @@
+/* Eulenwerk · Teilmenge fuer Projekte mit eigenem CSS-Framework (Tailwind etc.):
+   nur Logo, Badges, Dialog und Ueber-Dialog. Die --ew-*-Tokens werden hier aus den
+   App-eigenen Variablen abgeleitet - bei Bedarf anpassen. */
+:root {
+  --ew-bg: var(--color-bg, #121417);
+  --ew-surface: var(--color-surface, #181b1f);
+  --ew-surface-2: var(--color-surface-hover, #1f2328);
+  --ew-surface-hover: var(--color-surface-active, #242930);
+  --ew-border: var(--color-border, #2a2f36);
+  --ew-border-strong: #3a4049;
+  --ew-text: var(--color-text, #e7e9ec);
+  --ew-text-muted: var(--color-text-muted, #9aa3ad);
+  --ew-text-faint: #6b7480;
+  --ew-text-on-accent: #0f1115;
+  --ew-accent: var(--color-accent, #3ecf8e);
+  --ew-accent-hover: var(--color-accent-hover, #34b87d);
+  --ew-accent-soft: var(--color-accent-soft, #1d3b2c);
+  --ew-accent-light: var(--color-accent-light, #7fe3b4);
+  --ew-ok: #3ecf8e; --ew-warn: #f0b429; --ew-danger: #f26d6d;
+  --ew-font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --ew-radius-sm: 6px; --ew-radius: 10px; --ew-radius-lg: 14px;
+  --ew-space-1: 4px; --ew-space-2: 8px; --ew-space-3: 12px; --ew-space-4: 16px; --ew-space-5: 24px;
+  --ew-shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  --ew-transition: 140ms ease;
+}
+small, .ew-muted {color: var(--ew-text-muted); }
+.ew-header__brand .ew-logo {color: var(--ew-accent); }
+.ew-brand .ew-logo {color: var(--ew-text-muted); width: 18px; height: 18px; }
+.ew-brand:hover {color: var(--ew-text); text-decoration: none; }
+.ew-brand:hover .ew-logo {color: var(--ew-accent); }
+.ew-logo--lg {width: 48px; height: 48px; }
+.ew-icon--sm {width: 16px; height: 16px; }
+.ew-icon--lg {width: 28px; height: 28px; }
+.ew-icon--accent {color: var(--ew-accent); }
+.ew-btn:hover {background: var(--ew-surface-hover); border-color: var(--ew-text-faint); }
+.ew-btn:active {transform: translateY(1px); }
+.ew-btn:disabled, .ew-btn[aria-disabled="true"] {opacity: .45; cursor: not-allowed; transform: none; }
+.ew-btn--primary {background: var(--ew-accent); border-color: var(--ew-accent); color: var(--ew-text-on-accent); font-weight: 600; }
+.ew-btn--primary:hover {background: var(--ew-accent-hover); border-color: var(--ew-accent-hover); }
+.ew-btn--ghost {background: transparent; border-color: transparent; color: var(--ew-text-muted); }
+.ew-btn--ghost:hover {background: var(--ew-surface-hover); color: var(--ew-text); border-color: transparent; }
+.ew-btn--soft {background: var(--ew-accent-soft); border-color: transparent; color: var(--ew-accent-light); }
+.ew-btn--soft:hover {background: color-mix(in srgb, var(--ew-accent-soft) 80%, var(--ew-accent)); border-color: transparent; }
+.ew-btn--danger {background: transparent; border-color: var(--ew-danger); color: var(--ew-danger); }
+.ew-btn--danger:hover {background: color-mix(in srgb, var(--ew-danger) 15%, transparent); }
+.ew-btn--sm {min-height: 30px; padding: 0 var(--ew-space-3); font-size: .875rem; }
+.ew-btn--lg {min-height: 46px; padding: 0 var(--ew-space-5); font-size: 1.05rem; }
+.ew-btn--icon {padding: 0; width: 38px; }
+.ew-btn--icon.ew-btn--sm {width: 30px; }
+.ew-btn--block {width: 100%; }
+.ew-btn-group {display: inline-flex; gap: var(--ew-space-2); flex-wrap: wrap; }
+.ew-input-group > .ew-btn {border-radius: 0 var(--ew-radius-sm) var(--ew-radius-sm) 0; margin-left: -1px; }
+.ew-badge {display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: .75rem; font-weight: 600; letter-spacing: .02em; background: var(--ew-surface-2); color: var(--ew-text-muted); border: 1px solid var(--ew-border); }
+.ew-badge--accent {background: var(--ew-accent-soft); color: var(--ew-accent-light); border-color: transparent; }
+.ew-badge--ok {background: color-mix(in srgb, var(--ew-ok) 18%, transparent);     color: var(--ew-ok);     border-color: transparent; }
+.ew-badge--warn {background: color-mix(in srgb, var(--ew-warn) 18%, transparent);   color: var(--ew-warn);   border-color: transparent; }
+.ew-badge--danger {background: color-mix(in srgb, var(--ew-danger) 18%, transparent); color: var(--ew-danger); border-color: transparent; }
+.ew-dialog::backdrop {background: rgba(0,0,0,.6); backdrop-filter: blur(2px); }
+.ew-dialog__actions {display: flex; justify-content: flex-end; gap: var(--ew-space-2); margin-top: var(--ew-space-5); }
+.ew-about__close {position: absolute; top: 10px; right: 10px; }
+.ew-about__head {display: flex; align-items: center; gap: var(--ew-space-4); padding: var(--ew-space-5) var(--ew-space-5) var(--ew-space-4); border-bottom: 1px solid var(--ew-border); background: linear-gradient(180deg, var(--ew-accent-soft) 0%, transparent 100%); }
+.ew-about__head .ew-logo {width: 56px; height: 56px; color: var(--ew-accent); }
+.ew-about__head h2 {margin: 0 0 2px; font-size: 1.35rem; }
+.ew-about__head p {margin: 0; font-size: .875rem; }
+.ew-about__body {padding: var(--ew-space-4) var(--ew-space-5); }
+.ew-about__body h4 {margin: var(--ew-space-4) 0 var(--ew-space-2); font-size: .78rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ew-text-muted); font-family: var(--ew-font-sans); }
+.ew-about__body h4:first-child {margin-top: 0; }
+.ew-about__desc {margin: 0; color: var(--ew-text-muted); }
+.ew-about__people {display: grid; grid-template-columns: 1fr 1fr; gap: var(--ew-space-3); }
+.ew-about__person {display: flex; gap: var(--ew-space-3); padding: var(--ew-space-3); background: var(--ew-surface-2); border: 1px solid var(--ew-border); border-radius: var(--ew-radius); }
+.ew-about__person strong {display: block; }
+.ew-about__person .ew-muted {font-size: .8rem; margin-bottom: 4px; }
+.ew-about__links {display: flex; flex-direction: column; gap: 2px; font-size: .85rem; }
+.ew-about__links a {display: inline-flex; align-items: center; gap: 6px; }
+.ew-about__links .ew-icon {width: 14px; height: 14px; }
+.ew-avatar {width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: .8rem; font-weight: 700; background: var(--ew-accent); color: var(--ew-text-on-accent); }
+.ew-avatar--ai {background: var(--ew-surface-hover); color: var(--ew-accent-light); border: 1px solid var(--ew-border-strong); }
+.ew-about__stack {display: flex; flex-wrap: wrap; gap: var(--ew-space-2); }
+.ew-about__foot {display: flex; align-items: center; justify-content: space-between; gap: var(--ew-space-3); flex-wrap: wrap; padding: var(--ew-space-3) var(--ew-space-5); border-top: 1px solid var(--ew-border); font-size: .8rem; color: var(--ew-text-faint); }
+.ew-about__foot .ew-brand .ew-logo {color: var(--ew-accent); }
+@media (max-width: 480px) { .ew-about__people { grid-template-columns: 1fr; } }
+/* Basis fuer den Dialog, unabhaengig vom Framework der App */
+.ew-dialog { border: 1px solid var(--ew-border-strong); border-radius: var(--ew-radius-lg); background: var(--ew-surface); color: var(--ew-text); padding: var(--ew-space-5); max-width: min(560px, 92vw); box-shadow: var(--ew-shadow); font-family: var(--ew-font-sans); font-size: 15px; line-height: 1.55; }
+.ew-dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(2px); }
+.ew-dialog a { color: var(--ew-accent-light); text-decoration: none; }
+.ew-dialog a:hover { text-decoration: underline; }
+.ew-dialog h2, .ew-dialog h4, .ew-dialog p { margin: 0; }
+.ew-dialog h2 { font-size: 1.35rem; font-weight: 600; line-height: 1.2; }
+.ew-dialog strong { font-weight: 600; }
+.ew-muted { color: var(--ew-text-muted); }
+.ew-icon { width: 20px; height: 20px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.ew-logo { width: 28px; height: 28px; flex: none; display: block; }
+.ew-about__body h4 { margin: var(--ew-space-4) 0 var(--ew-space-2); }
+.ew-about__body h4:first-child, .ew-about__desc + h4 { margin-top: var(--ew-space-4); }
+.ew-about__desc { margin-bottom: 0; }
+.ew-brand { display: inline-flex; align-items: center; gap: var(--ew-space-2); color: var(--ew-text-muted); font-size: .85rem; }
+.ew-brand .ew-logo { width: 18px; height: 18px; }
+.ew-about__head .ew-logo { width: 56px; height: 56px; color: var(--ew-accent); }
+
+.ew-about__applogo { width: 56px; height: 56px; flex: none; border-radius: 12px; object-fit: contain; display: grid; place-items: center; font-size: 40px; line-height: 1; }
+.ew-dialog { margin: auto; }
+.ew-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--ew-space-2); min-height: 38px; padding: 0 var(--ew-space-4); border-radius: var(--ew-radius-sm); border: 1px solid var(--ew-border-strong); background: var(--ew-surface-2); color: var(--ew-text); font: inherit; font-weight: 500; line-height: 1; cursor: pointer; white-space: nowrap; }
+.ew-btn--ghost { background: transparent; border-color: transparent; color: var(--ew-text-muted); }
+.ew-btn--ghost:hover { background: var(--ew-surface-hover); color: var(--ew-text); }
+.ew-btn--icon { padding: 0; width: 38px; }

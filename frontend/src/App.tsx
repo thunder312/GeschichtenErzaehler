@@ -181,9 +181,7 @@ function App() {
       <header className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
           <h1 className="flex shrink-0 items-center gap-2">
-            <span aria-hidden="true" className="text-2xl">
-              📖
-            </span>
+            <img src="/favicon.svg" alt="" className="h-8 w-8 shrink-0 rounded-lg" />
             <span className="heading-flourish inline-block bg-gradient-to-r from-accent-light to-accent bg-clip-text text-2xl font-bold tracking-tight text-transparent sm:text-3xl">
               Geschichten Erzähler
             </span>

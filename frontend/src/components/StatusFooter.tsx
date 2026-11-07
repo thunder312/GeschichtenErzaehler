@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAktivitaet } from "../context/AktivitaetContext";
+import { EulenwerkLogo } from "./EulenwerkAbout";
 
 /** Feste Fussleiste: zeigt an, welche KI-Anfrage gerade laeuft, inklusive
  * hochzaehlender Sekunden - gibt Sicherheit, dass die Anwendung nicht
@@ -19,7 +20,7 @@ export function StatusFooter() {
   const sekunden = aktivitaet ? Math.max(0, Math.round((jetzt - aktivitaet.seit) / 1000)) : 0;
 
   return (
-    <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-4 py-2 text-sm sm:px-6">
+    <footer className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-4 border-t border-border bg-surface px-4 py-2 text-sm sm:px-6">
       {aktivitaet ? (
         <div className="flex items-center gap-2 text-accent-light">
           <span className="inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden="true" />
@@ -32,6 +33,16 @@ export function StatusFooter() {
           <span>Bereit.</span>
         </div>
       )}
+      <a
+        className="ew-brand hidden sm:inline-flex"
+        href="https://daniel-ertl.de"
+        target="_blank"
+        rel="noopener"
+        title="Eulenwerk – Software aus der Freizeit"
+      >
+        <EulenwerkLogo />
+        Ein Eulenwerk-Projekt
+      </a>
     </footer>
   );
 }
