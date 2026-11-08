@@ -30,7 +30,7 @@ export function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
       <Card className="w-full max-w-sm">
         <div className="mb-4 flex flex-col items-center gap-2 text-center">
-          <img src="/favicon.svg" alt="" className="h-14 w-14 rounded-2xl" />
+          <img src="/favicon.svg?v=2" alt="" className="h-14 w-14 rounded-2xl" />
           <h1 className="heading-flourish bg-gradient-to-r from-accent-light to-accent bg-clip-text text-2xl font-bold tracking-tight text-transparent">
             Geschichten Erzähler
           </h1>

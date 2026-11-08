@@ -11,7 +11,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       app="Geschichten Erzähler"
       version={pkg.version}
-      logo="/favicon.svg"
+      logo="/favicon.svg?v=2"
       description="Eine geführte Fünf-Rollen-Pipeline für KI-geschriebene Geschichten mit lokalen Ollama-Modellen – Architekt, Autor, Prüfer, Lektor und Übersetzer."
       stack={["React 19", "TypeScript", "Vite", "Tailwind 4", "FastAPI", "Ollama", "stable-diffusion.cpp"]}
       github="https://github.com/thunder312/GeschichtenErzaehler"
